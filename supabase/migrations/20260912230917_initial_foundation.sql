@@ -22,10 +22,26 @@ create table public.products (
   size text,
   image_url text,
   bottles_per_crate integer not null check (bottles_per_crate > 0),
-  full_crate_price integer not null check (full_crate_price >= 0),
-  half_crate_price integer check (half_crate_price >= 0),
-  quarter_crate_price integer check (quarter_crate_price >= 0),
-  bottle_price integer check (bottle_price >= 0),
+  full_crate_price integer not null
+  check (full_crate_price >= 0 and full_crate_price % 50 = 0),
+
+half_crate_price integer
+  check (
+    half_crate_price is null
+    or (half_crate_price >= 0 and half_crate_price % 50 = 0)
+  ),
+
+quarter_crate_price integer
+  check (
+    quarter_crate_price is null
+    or (quarter_crate_price >= 0 and quarter_crate_price % 50 = 0)
+  ),
+
+bottle_price integer
+  check (
+    bottle_price is null
+    or (bottle_price >= 0 and bottle_price % 50 = 0)
+  ),
   bottles_returnable boolean not null,
   empty_family text,
   crate_type text not null check (length(btrim(crate_type)) > 0),
