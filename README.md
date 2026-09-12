@@ -1,36 +1,37 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DepotFlow
 
-## Getting Started
+Technical foundation for a single-owner drinks shop. Only the mobile Home shell
+is implemented; its four actions are visibly unavailable.
 
-First, run the development server:
+- `src/components`: reusable UI
+- `src/domain`: pure quantity calculations, tests, and domain models
+- `src/lib/supabase`: browser and request-scoped server clients
+- `src/types`: initial database contract
+- `supabase/migrations`: initial schema and RLS
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Use Node.js 22.18+ (or Node.js 24). `npm run dev` starts Next.js.
+`npm test`, `npm run lint`, `npm run typecheck`, and `npm run build` validate it.
+The existing `.env.local` supplies `NEXT_PUBLIC_SUPABASE_URL` and
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. No privileged key is used.
+The proxy refreshes auth cookies; no login flow is implemented yet.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Database boundary
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Apply the migration to the intended Supabase project through the normal migration
+workflow. It is not applied remotely by this change. An administrator must register
+the existing authenticated owner's UUID in `private.shop_owner` (`user_id`). Its
+singleton constraint permits exactly one configured owner. No owner is guessed or
+seeded. With no configured owner, all application data is inaccessible.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+All exposed tables have RLS and owner-only reads. Anonymous access and direct API
+writes are denied. Before adding sale saving, implement one server-validated atomic
+database operation for totals, stock deduction, debt, deposits and empty returns.
+Do not enable independent writes to those tables. Amounts are integer naira;
+stock and obligations cannot be negative. Sale items snapshot crate size and empty
+types, so subsequent product changes cannot change the meaning of an old sale.
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Money owed and deposits are distinct current balances. Physical empty stock and
+customer obligations are distinct counts. Crate and bottle type identifiers are
+independent; the optional product family is only a display label. Compatibility
+and pricing for arbitrary combinations remain unimplemented pending business rules.
+Quantity utilities reject fractional bottles and unsafe numbers instead of rounding.
