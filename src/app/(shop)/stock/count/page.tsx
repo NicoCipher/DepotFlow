@@ -3,7 +3,7 @@ import { requireOwner } from "@/lib/auth/owner";
 import { ProductImage } from "@/components/product-image";
 import { productSearchFilter } from "@/domain/products";
 
-export default async function ChooseReceivingProductPage({
+export default async function ChooseCountProductPage({
   searchParams,
 }: {
   searchParams: Promise<{ q?: string; page?: string }>;
@@ -26,12 +26,12 @@ export default async function ChooseReceivingProductPage({
   const { data, error, count } = await request;
   if (error) throw new Error("Could not load products.");
   const pageUrl = (value: number) =>
-    `/stock/receive?${new URLSearchParams({ q: query, page: String(value) })}`;
+    `/stock/count?${new URLSearchParams({ q: query, page: String(value) })}`;
   return (
     <>
-      <h1>Receive Stock</h1>
-      <p className="mt-3">Choose the drink that came in.</p>
-      <form action="/stock/receive" className="my-7">
+      <h1>Set Current Stock</h1>
+      <p className="mt-3">Choose the drink you counted in the shop.</p>
+      <form action="/stock/count" className="my-7">
         <label htmlFor="search">Search by name or size</label>
         <div className="flex gap-2">
           <input
@@ -46,7 +46,7 @@ export default async function ChooseReceivingProductPage({
           <button className="secondary">Search</button>
         </div>
         {query && (
-          <Link href="/stock/receive" className="quiet-link inline-block">
+          <Link href="/stock/count" className="quiet-link inline-block">
             Clear search
           </Link>
         )}
@@ -59,7 +59,7 @@ export default async function ChooseReceivingProductPage({
           <p className="mt-2 text-stone-600">
             {query
               ? "Try a different name or size."
-              : "Add a product before receiving stock."}
+              : "Add a product before counting stock."}
           </p>
         </div>
       ) : (
@@ -68,7 +68,7 @@ export default async function ChooseReceivingProductPage({
             <li key={product.id}>
               <Link
                 className="flex min-h-20 items-center justify-between gap-4 rounded-lg border border-stone-200 bg-white p-4"
-                href={`/stock/receive/${product.id}`}
+                href={`/stock/count/${product.id}`}
               >
                 <div className="h-16 w-14 shrink-0 overflow-hidden rounded">
                   <ProductImage src={product.image_url} name={product.name} />

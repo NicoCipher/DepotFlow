@@ -6,9 +6,11 @@ export type ReceivingSnapshot = {
 };
 export type ReceivingState = {
   crates: string;
+  businessDate: string;
   message?: string;
   review?: ReceivingSnapshot & {
     crates: number;
+    businessDate: string;
     stockAfter: number;
     emptiesAfter: number;
   };

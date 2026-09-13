@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { requireOwner } from "@/lib/auth/owner";
+import { formatQuantity } from "@/domain/quantity";
 import { StockCard } from "@/components/stock-card";
 
 export default async function StockPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; received?: string }>;
+  searchParams: Promise<{ page?: string; received?: string; counted?: string }>;
 }) {
   const supabase = await requireOwner();
   const params = await searchParams;
@@ -23,6 +24,15 @@ export default async function StockPage({
     .order("id")
     .range((page - 1) * 30, page * 30 - 1);
   if (error) throw new Error("Could not load stock.");
+  const history = await supabase
+    .from("stock_movements")
+    .select(
+      "id,product_name,movement_type,quantity_change,resulting_stock,business_date,bottles_per_crate",
+    )
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(20);
+  if (history.error) throw new Error("Could not load stock history.");
   return (
     <>
       <h1>Stock</h1>
@@ -32,8 +42,16 @@ export default async function StockPage({
         </p>
       )}
       <Link className="primary mt-5 w-full" href="/stock/receive">
-        Add Stock
+        Receive Stock
       </Link>
+      <Link className="secondary mt-3 w-full" href="/stock/count">
+        Set Current Stock
+      </Link>
+      {params.counted === "1" && (
+        <p role="status" className="mt-3 text-emerald-900">
+          Current stock saved.
+        </p>
+      )}
       <p className="mb-7 mt-3 text-stone-600">Full drinks in the shop.</p>
       {!data?.length ? (
         <div className="border-t border-stone-300 py-6">
@@ -70,6 +88,56 @@ export default async function StockPage({
           </Link>
         )}
       </nav>
+      <section className="mt-10" aria-labelledby="history-title">
+        <h2 id="history-title" className="text-xl font-semibold">
+          Recent stock history
+        </h2>
+        <p className="mt-2 text-sm text-stone-600">
+          Latest 20 saved entries. Dates are the business dates you chose.
+        </p>
+        {!history.data?.length ? (
+          <p className="mt-4">No stock history yet.</p>
+        ) : (
+          <ul className="mt-4 divide-y divide-stone-200">
+            {history.data.map((movement) => (
+              <li key={movement.id} className="space-y-2 py-5">
+                <time
+                  dateTime={movement.business_date}
+                  className="text-sm text-stone-600"
+                >
+                  {new Intl.DateTimeFormat("en-NG", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                    timeZone: "UTC",
+                  }).format(new Date(`${movement.business_date}T00:00:00Z`))}
+                </time>
+                <h3 className="break-words font-semibold">
+                  {movement.product_name}
+                </h3>
+                <p>
+                  {movement.movement_type === "receive"
+                    ? "Stock received"
+                    : "Current stock counted"}
+                </p>
+                <p>
+                  Change:{" "}
+                  {movement.quantity_change === 0
+                    ? "No change"
+                    : `${movement.quantity_change > 0 ? "+" : "−"}${formatQuantity(Math.abs(movement.quantity_change), movement.bottles_per_crate)}`}
+                </p>
+                <p className="font-semibold">
+                  Stock after:{" "}
+                  {formatQuantity(
+                    movement.resulting_stock,
+                    movement.bottles_per_crate,
+                  )}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </>
   );
 }

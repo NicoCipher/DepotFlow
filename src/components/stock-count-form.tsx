@@ -1,13 +1,13 @@
 "use client";
 import { useActionState, useState } from "react";
 import {
-  reviewReceiving,
-  confirmReceiving,
-} from "@/app/(shop)/stock/receive/[id]/actions";
-import type { ReceivingState } from "@/domain/receiving";
+  reviewCount,
+  confirmCount,
+} from "@/app/(shop)/stock/count/[id]/actions";
+import type { StockCountState } from "@/domain/stock-count";
 import { formatQuantity } from "@/domain/quantity";
 
-function ConfirmReceiving({
+function ConfirmCount({
   productId,
   requestId,
   review,
@@ -15,53 +15,42 @@ function ConfirmReceiving({
 }: {
   productId: string;
   requestId: string;
-  review: NonNullable<ReceivingState["review"]>;
+  review: NonNullable<StockCountState["review"]>;
   onBack: () => void;
 }) {
   const [state, action, pending] = useActionState(
-    confirmReceiving.bind(null, productId, requestId, review),
+    confirmCount.bind(null, productId, requestId, review),
     { message: "" },
   );
   return (
     <form action={action} className="mt-6 space-y-5">
-      <h2 className="text-xl font-semibold">Check what came in</h2>
+      <h2 className="text-xl font-semibold">Check the current count</h2>
       <dl className="space-y-4">
         <div>
           <dt>Business date</dt>
           <dd>{review.businessDate}</dd>
         </div>
         <div>
-          <dt>Crates received</dt>
-          <dd className="font-semibold">{review.crates}</dd>
-        </div>
-        <div>
-          <dt>Stock before</dt>
+          <dt>Previously recorded</dt>
           <dd>{formatQuantity(review.stock, review.bottlesPerCrate)}</dd>
         </div>
         <div>
-          <dt>Stock after receiving</dt>
+          <dt>Counted in the shop</dt>
           <dd className="font-semibold">
             {formatQuantity(review.stockAfter, review.bottlesPerCrate)}
           </dd>
         </div>
-        <div>
-          <dt>Empty crate type</dt>
-          <dd className="break-words">{review.crateType}</dd>
-        </div>
-        <div>
-          <dt>Empty crates left</dt>
-          <dd>
-            {review.empties} − {review.crates} = {review.emptiesAfter}
-          </dd>
-        </div>
       </dl>
+      <p>
+        This replaces the recorded drinks stock. Empty crates stay unchanged.
+      </p>
       {state.message && (
         <p role="alert" className="text-red-800">
           {state.message}
         </p>
       )}
       <button className="primary w-full" disabled={pending}>
-        {pending ? "Saving…" : "Save Stock Received"}
+        {pending ? "Saving…" : "Save Current Stock"}
       </button>
       <button
         type="button"
@@ -74,25 +63,27 @@ function ConfirmReceiving({
     </form>
   );
 }
-export function ReceiveStockForm({
+export function StockCountForm({
   productId,
   requestId,
 }: {
   productId: string;
   requestId: string;
 }) {
-  // Keep the receiving ID stable across server-action re-renders and retries.
   const [submissionId] = useState(requestId);
   const [editing, setEditing] = useState(false);
-  const [crates, setCrates] = useState("");
-  const [businessDate, setBusinessDate] = useState("");
+  const [values, setValues] = useState({
+    crates: "",
+    bottles: "0",
+    businessDate: "",
+  });
   const [state, action, pending] = useActionState(
-    reviewReceiving.bind(null, productId),
-    { crates: "", businessDate: "" } as ReceivingState,
+    reviewCount.bind(null, productId),
+    { ...values } as StockCountState,
   );
   if (state.review && !editing && !pending)
     return (
-      <ConfirmReceiving
+      <ConfirmCount
         productId={productId}
         requestId={submissionId}
         review={state.review}
@@ -106,7 +97,7 @@ export function ReceiveStockForm({
       onSubmit={() => setEditing(false)}
     >
       <div>
-        <label htmlFor="crates">Whole crates received</label>
+        <label htmlFor="crates">Whole crates in the shop</label>
         <input
           id="crates"
           name="crates"
@@ -114,9 +105,23 @@ export function ReceiveStockForm({
           pattern="[0-9]+"
           maxLength={10}
           required
-          value={crates}
+          value={values.crates}
           readOnly={pending}
-          onChange={(event) => setCrates(event.target.value)}
+          onChange={(e) => setValues({ ...values, crates: e.target.value })}
+        />
+      </div>
+      <div>
+        <label htmlFor="bottles">Loose bottles</label>
+        <input
+          id="bottles"
+          name="bottles"
+          inputMode="numeric"
+          pattern="[0-9]+"
+          maxLength={10}
+          required
+          value={values.bottles}
+          readOnly={pending}
+          onChange={(e) => setValues({ ...values, bottles: e.target.value })}
         />
       </div>
       <div>
@@ -128,9 +133,11 @@ export function ReceiveStockForm({
           min="0001-01-01"
           max="9999-12-31"
           required
-          value={businessDate}
+          value={values.businessDate}
           readOnly={pending}
-          onChange={(event) => setBusinessDate(event.target.value)}
+          onChange={(e) =>
+            setValues({ ...values, businessDate: e.target.value })
+          }
         />
       </div>
       {state.message && (
@@ -139,7 +146,7 @@ export function ReceiveStockForm({
         </p>
       )}
       <button className="primary w-full" disabled={pending}>
-        {pending ? "Checking…" : "Review stock"}
+        {pending ? "Checking…" : "Review stock count"}
       </button>
     </form>
   );

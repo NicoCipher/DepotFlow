@@ -14,6 +14,52 @@ export type Database = {
   }
   public: {
     Tables: {
+      stock_movements: {
+        Row: {
+          id: string
+          product_id: string
+          movement_type: string
+          quantity_change: number
+          resulting_stock: number
+          business_date: string
+          created_at: string
+          request_id: string
+          crates: number
+          loose_bottles: number
+          bottles_per_crate: number
+          product_name: string
+        }
+        Insert: {
+          id?: string
+          product_id: string
+          movement_type: string
+          quantity_change: number
+          resulting_stock: number
+          business_date: string
+          created_at?: string
+          request_id: string
+          crates: number
+          loose_bottles: number
+          bottles_per_crate: number
+          product_name: string
+        }
+        Update: {
+          id?: string
+          product_id?: string
+          movement_type?: string
+          quantity_change?: number
+          resulting_stock?: number
+          business_date?: string
+          created_at?: string
+          request_id?: string
+          crates?: number
+          loose_bottles?: number
+          bottles_per_crate?: number
+          product_name?: string
+        }
+        Relationships: [{ foreignKeyName: "stock_movements_product_id_fkey"; columns: ["product_id"]; isOneToOne: false; referencedRelation: "products"; referencedColumns: ["id"] }]
+      }
+
       bottle_obligations: {
         Row: {
           bottle_type: string
@@ -340,8 +386,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      set_current_stock: {
+        Args: {
+          p_request_id: string
+          p_product_id: string
+          p_crates: number
+          p_loose_bottles: number
+          p_business_date: string
+          p_expected_stock: number
+          p_expected_bottles_per_crate: number
+        }
+        Returns: Json
+      }
+
       receive_stock: {
-        Args: { p_request_id: string; p_product_id: string; p_crates: number; p_expected_stock: number; p_expected_empties: number; p_expected_bottles_per_crate: number; p_expected_crate_type: string };
+        Args: {
+          p_business_date: string; p_request_id: string; p_product_id: string; p_crates: number; p_expected_stock: number; p_expected_empties: number; p_expected_bottles_per_crate: number; p_expected_crate_type: string };
         Returns: Json;
       }
       is_shop_owner: { Args: Record<PropertyKey, never>; Returns: boolean }

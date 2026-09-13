@@ -1,4 +1,5 @@
 "use server";
+import { validateBusinessDate } from "@/domain/stock-count";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireOwner } from "@/lib/auth/owner";
@@ -12,34 +13,49 @@ export async function reviewReceiving(
 ): Promise<ReceivingState> {
   const supabase = await requireOwner();
   const crates = String(form.get("crates") ?? "");
-  if (!isProductId(productId)) return { crates, message: "Product not found." };
+  const businessDate = String(form.get("businessDate") ?? "");
+  if (!isProductId(productId))
+    return { crates, businessDate, message: "Product not found." };
   const product = await supabase
     .from("products")
     .select("bottles_per_crate,crate_type,stock(total_bottles)")
     .eq("id", productId)
     .maybeSingle();
   if (product.error || !product.data)
-    return { crates, message: "Could not load the product. Try again." };
+    return {
+      crates,
+      businessDate,
+      message: "Could not load the product. Try again.",
+    };
   const empty = await supabase
     .from("empty_crate_stock")
     .select("quantity")
     .eq("crate_type", product.data.crate_type)
     .maybeSingle();
   if (empty.error)
-    return { crates, message: "Could not load empty crates. Try again." };
+    return {
+      crates,
+      businessDate,
+      message: "Could not load empty crates. Try again.",
+    };
   try {
     return {
       crates,
-      review: receivingPreview(crates, {
-        stock: product.data.stock?.total_bottles ?? 0,
-        empties: empty.data?.quantity ?? 0,
-        bottlesPerCrate: product.data.bottles_per_crate,
-        crateType: product.data.crate_type,
-      }),
+      businessDate,
+      review: {
+        businessDate: validateBusinessDate(businessDate),
+        ...receivingPreview(crates, {
+          stock: product.data.stock?.total_bottles ?? 0,
+          empties: empty.data?.quantity ?? 0,
+          bottlesPerCrate: product.data.bottles_per_crate,
+          crateType: product.data.crate_type,
+        }),
+      },
     };
   } catch (error) {
     return {
       crates,
+      businessDate,
       message:
         error instanceof Error ? error.message : "Check the number of crates.",
     };
@@ -53,12 +69,13 @@ export async function confirmReceiving(
 ): Promise<{ message: string }> {
   const supabase = await requireOwner();
   if (!isProductId(productId) || !isProductId(requestId))
-    return { message: "Please reopen Add Stock." };
+    return { message: "Please reopen Receive Stock." };
   try {
     const { error } = await supabase.rpc("receive_stock", {
       p_product_id: productId,
       p_request_id: requestId,
       p_crates: review.crates,
+      p_business_date: validateBusinessDate(review.businessDate),
       p_expected_stock: review.stock,
       p_expected_empties: review.empties,
       p_expected_bottles_per_crate: review.bottlesPerCrate,
