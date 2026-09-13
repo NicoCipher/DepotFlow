@@ -68,18 +68,24 @@ export type Database = {
       }
       customers: {
         Row: {
+          business_name: string | null
+          address: string | null
           created_at: string
           id: string
           name: string
           phone: string
         }
         Insert: {
+          business_name?: string | null
+          address?: string | null
           created_at?: string
           id?: string
           name: string
           phone: string
         }
         Update: {
+          business_name?: string | null
+          address?: string | null
           created_at?: string
           id?: string
           name?: string
@@ -334,7 +340,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_shop_owner: { Args: Record<PropertyKey, never>; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
