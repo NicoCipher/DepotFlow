@@ -14,6 +14,49 @@ export type Database = {
   }
   public: {
     Tables: {
+      empty_crate_movements: {
+        Row: {
+          id: string
+          crate_type: string
+          movement_type: string
+          previous_quantity: number | null
+          quantity_change: number
+          resulting_quantity: number
+          business_date: string
+          created_at: string
+          request_id: string
+        }
+        Insert: {
+          id?: string
+          crate_type: string
+          movement_type: string
+          previous_quantity?: number | null
+          quantity_change: number
+          resulting_quantity: number
+          business_date: string
+          created_at?: string
+          request_id: string
+        }
+        Update: {
+          id?: string
+          crate_type?: string
+          movement_type?: string
+          previous_quantity?: number | null
+          quantity_change?: number
+          resulting_quantity?: number
+          business_date?: string
+          created_at?: string
+          request_id?: string
+        }
+        Relationships: [{
+          foreignKeyName: "empty_crate_movements_crate_type_fkey"
+          columns: ["crate_type"]
+          isOneToOne: false
+          referencedRelation: "empty_crate_stock"
+          referencedColumns: ["crate_type"]
+        }]
+      }
+
       stock_movements: {
         Row: {
           id: string
@@ -383,9 +426,23 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      known_empty_crates: {
+        Row: { crate_type: string | null; quantity: number | null }
+        Relationships: []
+      }
     }
     Functions: {
+      set_empty_crate_count: {
+        Args: {
+          p_request_id: string
+          p_crate_type: string
+          p_quantity: number
+          p_business_date: string
+          p_expected_quantity: number | null
+        }
+        Returns: Json
+      }
+
       set_current_stock: {
         Args: {
           p_request_id: string

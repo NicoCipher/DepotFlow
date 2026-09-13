@@ -52,6 +52,9 @@ export default async function StockPage({
           Current stock saved.
         </p>
       )}
+      <Link className="secondary mt-3 w-full" href="/empty-crates">
+        Empty Crates
+      </Link>
       <p className="mb-7 mt-3 text-stone-600">Full drinks in the shop.</p>
       {!data?.length ? (
         <div className="border-t border-stone-300 py-6">
