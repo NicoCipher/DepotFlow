@@ -340,6 +340,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      receive_stock: {
+        Args: { p_request_id: string; p_product_id: string; p_crates: number; p_expected_stock: number; p_expected_empties: number; p_expected_bottles_per_crate: number; p_expected_crate_type: string };
+        Returns: Json;
+      }
       is_shop_owner: { Args: Record<PropertyKey, never>; Returns: boolean }
     }
     Enums: {

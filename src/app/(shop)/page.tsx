@@ -26,16 +26,12 @@ export default async function Home() {
         >
           Products <span aria-hidden="true">→</span>
         </Link>
-        {["Stock"].map((label) => (
-          <button
-            key={label}
-            disabled
-            className="flex min-h-20 w-full items-center justify-between border-b border-stone-300 text-left"
-          >
-            <span className="text-lg">{label}</span>
-            <span className="text-sm text-stone-500">Coming soon</span>
-          </button>
-        ))}
+        <Link
+          href="/stock"
+          className="flex min-h-20 items-center justify-between border-b border-stone-300 text-xl font-semibold"
+        >
+          Stock <span aria-hidden="true">→</span>
+        </Link>
       </section>
     </>
   );

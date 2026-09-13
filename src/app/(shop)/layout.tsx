@@ -23,6 +23,9 @@ export default async function ShopLayout({
         <Link className="quiet-link" href="/products">
           Products
         </Link>
+        <Link className="quiet-link" href="/stock">
+          Stock
+        </Link>
         <form action={signOut} className="ml-auto">
           <button className="quiet-link">Sign out</button>
         </form>
