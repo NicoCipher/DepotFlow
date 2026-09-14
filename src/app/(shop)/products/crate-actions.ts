@@ -2,16 +2,17 @@
 import { requireOwner } from "@/lib/auth/owner";
 import { revalidatePath } from "next/cache";
 import { isProductId } from "@/domain/products";
-import { validateCrateType, type CrateType } from "@/domain/crate-types";
+import type { CrateType } from "@/domain/crate-types";
+import { newProductCrate } from "@/domain/product-crate";
 export async function createCrateType(
   id: string,
-  values: Parameters<typeof validateCrateType>[0],
+  values: Parameters<typeof newProductCrate>[0],
 ): Promise<{ crate?: CrateType; message?: string }> {
   const supabase = await requireOwner();
   if (!isProductId(id)) return { message: "Reopen the crate form." };
   let checked;
   try {
-    checked = validateCrateType(values);
+    checked = newProductCrate(values);
   } catch (error) {
     return {
       message:
