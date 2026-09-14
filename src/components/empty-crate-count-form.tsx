@@ -8,18 +8,18 @@ import type { EmptyCrateCountState } from "@/domain/empty-crates";
 import { emptyCrateQuantity } from "@/domain/empty-crates";
 
 function ConfirmEmptyCrateCount({
-  crateType,
+  crateTypeId,
   requestId,
   review,
   onBack,
 }: {
-  crateType: string;
+  crateTypeId: string;
   requestId: string;
   review: NonNullable<EmptyCrateCountState["review"]>;
   onBack: () => void;
 }) {
   const [state, action, pending] = useActionState(
-    confirmEmptyCrateCount.bind(null, crateType, requestId, review),
+    confirmEmptyCrateCount.bind(null, crateTypeId, requestId, review),
     { message: "" },
   );
   return (
@@ -62,10 +62,10 @@ function ConfirmEmptyCrateCount({
   );
 }
 export function EmptyCrateCountForm({
-  crateType,
+  crateTypeId,
   requestId,
 }: {
-  crateType: string;
+  crateTypeId: string;
   requestId: string;
 }) {
   const [submissionId] = useState(requestId);
@@ -75,13 +75,13 @@ export function EmptyCrateCountForm({
     businessDate: "",
   });
   const [state, action, pending] = useActionState(
-    reviewEmptyCrateCount.bind(null, crateType),
+    reviewEmptyCrateCount.bind(null, crateTypeId),
     { ...values } as EmptyCrateCountState,
   );
   if (state.review && !editing && !pending)
     return (
       <ConfirmEmptyCrateCount
-        crateType={crateType}
+        crateTypeId={crateTypeId}
         requestId={submissionId}
         review={state.review}
         onBack={() => setEditing(true)}

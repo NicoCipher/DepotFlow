@@ -1,3 +1,4 @@
+import { crateLabel } from "@/domain/crate-types";
 import Link from "next/link";
 import { requireOwner } from "@/lib/auth/owner";
 import { emptyCrateQuantity } from "@/domain/empty-crates";
@@ -16,13 +17,15 @@ export default async function EmptyCratesPage({
   const [stock, history] = await Promise.all([
     supabase
       .from("known_empty_crates")
-      .select("crate_type,quantity", { count: "exact" })
-      .order("crate_type")
+      .select("*", { count: "exact" })
+      .order("empty_family", { nullsFirst: false })
+      .order("name")
+      .order("crate_type_id")
       .range((page - 1) * 30, page * 30 - 1),
     supabase
       .from("empty_crate_movements")
       .select(
-        "id,crate_type,previous_quantity,quantity_change,resulting_quantity,business_date",
+        "id,crate_type_id,crate_types(*),previous_quantity,quantity_change,resulting_quantity,business_date",
       )
       .order("created_at", { ascending: false })
       .order("id", { ascending: false })
@@ -54,19 +57,26 @@ export default async function EmptyCratesPage({
       ) : (
         <ul className="mt-6 divide-y divide-stone-200">
           {stock.data.map(
-            (item) =>
-              item.crate_type !== null && (
-                <li key={item.crate_type} className="py-5">
+            (item, index) =>
+              item.crate_type_id !== null && (
+                <li key={item.crate_type_id} className="py-5">
+                  {(index === 0 ||
+                    stock.data[index - 1].empty_family !==
+                      item.empty_family) && (
+                    <h2 className="mb-4 border-b border-stone-300 pb-3 text-2xl font-semibold">
+                      {item.empty_family ?? "Family not recorded"}
+                    </h2>
+                  )}
                   <h2 className="break-words text-xl font-semibold">
-                    {item.crate_type}
+                    {crateLabel(item)}
                   </h2>
                   <p className="mt-2 text-lg">
                     {emptyCrateQuantity(item.quantity)}
                   </p>
                   <Link
                     className="primary mt-4 w-full"
-                    href={`/empty-crates/count?${new URLSearchParams({ type: item.crate_type })}`}
-                    aria-label={`Set Current Count for ${item.crate_type}`}
+                    href={`/empty-crates/count?${new URLSearchParams({ type: item.crate_type_id })}`}
+                    aria-label={`Set Current Count for ${crateLabel(item)}`}
                   >
                     Set Current Count
                   </Link>
@@ -114,7 +124,9 @@ export default async function EmptyCratesPage({
                     timeZone: "UTC",
                   }).format(new Date(`${item.business_date}T00:00:00Z`))}
                 </time>
-                <h3 className="break-words font-semibold">{item.crate_type}</h3>
+                <h3 className="break-words font-semibold">
+                  {crateLabel(item.crate_types)}
+                </h3>
                 <p>
                   {item.previous_quantity === null
                     ? "Initial count — previously not recorded"

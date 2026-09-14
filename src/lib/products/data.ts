@@ -8,7 +8,7 @@ export async function getProduct(id: string) {
   if (!isProductId(id)) notFound();
   const { data, error } = await supabase
     .from("products")
-    .select("*")
+    .select("*,crate_types(*)")
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error("Could not load product.");

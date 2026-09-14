@@ -89,6 +89,8 @@ async function save(
     };
   }
   revalidatePath("/products");
+  revalidatePath("/empty-crates");
+  revalidatePath("/stock");
   revalidatePath(`/products/${id}`);
   redirect(`/products/${id}?saved=${editing ? "updated" : "added"}`);
 }

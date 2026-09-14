@@ -4,8 +4,7 @@ export const productTextFields = [
   "name",
   "size",
   "image_url",
-  "empty_family",
-  "crate_type",
+  "crate_type_id",
   "bottle_type",
 ] as const;
 export const productPriceFields = [
@@ -37,8 +36,7 @@ export const emptyProduct: ProductValues = {
   quarter_crate_price: "",
   bottle_price: "",
   bottles_returnable: "",
-  empty_family: "",
-  crate_type: "",
+  crate_type_id: "",
   bottle_type: "",
 };
 export const isProductId = (id: string) =>
@@ -104,8 +102,9 @@ export function validateProduct(values: ProductValues) {
   if (image_url && !validImageUrl(image_url))
     errors.image_url =
       "Enter a valid http or https image URL without login details.";
-  const crate_type = text("crate_type", 120, true) ?? "";
-  const empty_family = text("empty_family", 80);
+  const crate_type_id = values.crate_type_id;
+  if (!isProductId(crate_type_id))
+    errors.crate_type_id = "Choose an exact crate type.";
   const bottle_type = text(
     "bottle_type",
     120,
@@ -120,9 +119,8 @@ export function validateProduct(values: ProductValues) {
     name,
     size,
     image_url,
-    crate_type,
+    crate_type_id,
     bottle_type,
-    empty_family,
     bottles_per_crate: integer("bottles_per_crate", true, 1, 1) ?? 0,
     full_crate_price: integer("full_crate_price", true, 0, 50) ?? 0,
     half_crate_price: integer("half_crate_price", false, 0, 50),

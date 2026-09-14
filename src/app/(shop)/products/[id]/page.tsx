@@ -1,3 +1,4 @@
+import { crateLabel } from "@/domain/crate-types";
 import Link from "next/link";
 import { getProduct } from "@/lib/products/data";
 import { formatNaira } from "@/domain/products";
@@ -31,8 +32,7 @@ export default async function ProductPage({
       product.bottle_price === null ? null : formatNaira(product.bottle_price),
     ],
     ["Returnable bottles", product.bottles_returnable ? "Yes" : "No"],
-    ["Empty family", product.empty_family],
-    ["Empty crate type", product.crate_type],
+    ["Physical crate", crateLabel(product.crate_types)],
     ["Empty bottle type", product.bottle_type],
   ];
   return (

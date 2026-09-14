@@ -1,3 +1,4 @@
+import { crateLabel } from "@/domain/crate-types";
 import Link from "next/link";
 import { requireOwner } from "@/lib/auth/owner";
 import { formatQuantity } from "@/domain/quantity";
@@ -27,7 +28,7 @@ export default async function StockPage({
   const history = await supabase
     .from("stock_movements")
     .select(
-      "id,product_name,movement_type,quantity_change,resulting_stock,business_date,bottles_per_crate",
+      "id,crate_types(*),product_name,movement_type,quantity_change,resulting_stock,business_date,bottles_per_crate",
     )
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
@@ -118,6 +119,11 @@ export default async function StockPage({
                 <h3 className="break-words font-semibold">
                   {movement.product_name}
                 </h3>
+                {movement.crate_types && (
+                  <p className="text-sm text-stone-600">
+                    {crateLabel(movement.crate_types)}
+                  </p>
+                )}
                 <p>
                   {movement.movement_type === "receive"
                     ? "Stock received"

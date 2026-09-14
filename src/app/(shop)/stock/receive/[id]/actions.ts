@@ -1,4 +1,5 @@
 "use server";
+import { crateLabel } from "@/domain/crate-types";
 import { validateBusinessDate } from "@/domain/stock-count";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -18,7 +19,9 @@ export async function reviewReceiving(
     return { crates, businessDate, message: "Product not found." };
   const product = await supabase
     .from("products")
-    .select("bottles_per_crate,crate_type,stock(total_bottles)")
+    .select(
+      "bottles_per_crate,crate_type_id,crate_types(*),stock(total_bottles)",
+    )
     .eq("id", productId)
     .maybeSingle();
   if (product.error || !product.data)
@@ -30,7 +33,7 @@ export async function reviewReceiving(
   const empty = await supabase
     .from("empty_crate_stock")
     .select("quantity")
-    .eq("crate_type", product.data.crate_type)
+    .eq("crate_type_id", product.data.crate_type_id)
     .maybeSingle();
   if (empty.error)
     return {
@@ -48,7 +51,8 @@ export async function reviewReceiving(
           stock: product.data.stock?.total_bottles ?? 0,
           empties: empty.data?.quantity ?? 0,
           bottlesPerCrate: product.data.bottles_per_crate,
-          crateType: product.data.crate_type,
+          crateType: crateLabel(product.data.crate_types),
+          crateTypeId: product.data.crate_type_id,
         }),
       },
     };
@@ -79,7 +83,7 @@ export async function confirmReceiving(
       p_expected_stock: review.stock,
       p_expected_empties: review.empties,
       p_expected_bottles_per_crate: review.bottlesPerCrate,
-      p_expected_crate_type: review.crateType,
+      p_expected_crate_type_id: review.crateTypeId,
     });
     if (error)
       return {
@@ -92,5 +96,6 @@ export async function confirmReceiving(
     return { message: "Could not connect. You can safely try again." };
   }
   revalidatePath("/stock");
+  revalidatePath("/empty-crates");
   redirect("/stock?received=1");
 }

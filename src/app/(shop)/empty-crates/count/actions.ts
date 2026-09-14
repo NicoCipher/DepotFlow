@@ -9,7 +9,7 @@ import {
 } from "@/domain/empty-crates";
 
 export async function reviewEmptyCrateCount(
-  crateType: string,
+  crateTypeId: string,
   _previous: EmptyCrateCountState,
   form: FormData,
 ): Promise<EmptyCrateCountState> {
@@ -20,8 +20,8 @@ export async function reviewEmptyCrateCount(
   };
   const { data, error } = await supabase
     .from("known_empty_crates")
-    .select("crate_type,quantity")
-    .eq("crate_type", crateType)
+    .select("crate_type_id,quantity")
+    .eq("crate_type_id", crateTypeId)
     .maybeSingle();
   if (error || !data)
     return { ...values, message: "Could not load this crate type. Try again." };
@@ -42,7 +42,7 @@ export async function reviewEmptyCrateCount(
   }
 }
 export async function confirmEmptyCrateCount(
-  crateType: string,
+  crateTypeId: string,
   requestId: string,
   review: NonNullable<EmptyCrateCountState["review"]>,
 ): Promise<{ message: string }> {
@@ -57,7 +57,7 @@ export async function confirmEmptyCrateCount(
     );
     const { error } = await supabase.rpc("set_empty_crate_count", {
       p_request_id: requestId,
-      p_crate_type: crateType,
+      p_crate_type_id: crateTypeId,
       p_quantity: checked.quantity,
       p_business_date: checked.businessDate,
       p_expected_quantity: checked.previousQuantity,

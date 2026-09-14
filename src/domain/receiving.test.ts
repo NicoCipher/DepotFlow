@@ -6,6 +6,7 @@ const snapshot = {
   empties: 10,
   bottlesPerCrate: 12,
   crateType: "exact-type",
+  crateTypeId: "50000000-0000-4000-8000-000000000001",
 };
 test("receiving adds crates to existing bottles and removes exactly that many empty crates", () => {
   assert.deepEqual(receivingPreview("2", snapshot), {

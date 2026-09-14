@@ -17,14 +17,17 @@ const valid = {
   bottles_per_crate: "12",
   full_crate_price: "12500",
   bottles_returnable: "true",
-  crate_type: " Guinness crate ",
+  crate_type_id: "50000000-0000-4000-8000-000000000001",
   bottle_type: " Guinness bottle ",
 };
 test("normalizes text while keeping optional fields and prices null", () => {
   const result = validateProduct(valid);
   assert.equal(result.valid, true);
   assert.equal(result.data.name, "Guinness Big");
-  assert.equal(result.data.crate_type, "Guinness crate");
+  assert.equal(
+    result.data.crate_type_id,
+    "50000000-0000-4000-8000-000000000001",
+  );
   assert.equal(result.data.size, null);
   assert.equal(result.data.half_crate_price, null);
   assert.equal(result.data.quarter_crate_price, null);
@@ -101,24 +104,22 @@ test("returnability is explicit and returnable bottles require their own type", 
       .bottles_returnable,
   );
   assert.ok(validateProduct({ ...valid, bottle_type: " " }).errors.bottle_type);
-  assert.ok(validateProduct({ ...valid, crate_type: " " }).errors.crate_type);
+  assert.ok(
+    validateProduct({ ...valid, crate_type_id: " " }).errors.crate_type_id,
+  );
   assert.equal(
     validateProduct({ ...valid, bottles_returnable: "false", bottle_type: "" })
       .valid,
     true,
   );
-  assert.equal(
-    validateProduct({ ...valid, empty_family: "NB", bottle_type: "" }).valid,
-    false,
-  );
+  assert.equal(validateProduct({ ...valid, bottle_type: "" }).valid, false);
 });
 test("text limits and image protocols are checked", () => {
   for (const [field, length] of [
     ["name", 120],
     ["size", 80],
-    ["crate_type", 120],
+    ["crate_type_id", 120],
     ["bottle_type", 120],
-    ["empty_family", 80],
     ["image_url", 2048],
   ] as const) {
     assert.ok(
@@ -168,6 +169,8 @@ test("duplicate retry comparison checks every saved detail without assuming uniq
   }
   const values = productValues({
     ...data,
+    crate_type: null,
+    empty_family: null,
     id: "10000000-0000-4000-8000-000000000001",
     created_at: "2026-09-13",
   });

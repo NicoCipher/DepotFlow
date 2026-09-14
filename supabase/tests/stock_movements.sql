@@ -1,13 +1,15 @@
 -- Disposable migrated database only. Every fixture and failure trigger rolls back.
 begin;
+insert into public.crate_types(id,name,empty_family,pocket_count) values
+ ('8a070e73-7dfe-5e54-a456-e954843fc700','exact','same family',12);
 insert into auth.users(id) values ('00000000-0000-4000-8000-000000000041'),('00000000-0000-4000-8000-000000000042');
 insert into private.shop_owner(user_id) values ('00000000-0000-4000-8000-000000000041');
-insert into public.products(id,name,bottles_per_crate,full_crate_price,bottles_returnable,crate_type)
-values ('10000000-0000-4000-8000-000000000041','Count test',12,0,false,'exact');
+insert into public.products(id,name,bottles_per_crate,full_crate_price,bottles_returnable,crate_type_id)
+values ('10000000-0000-4000-8000-000000000041','Count test',12,0,false,'8a070e73-7dfe-5e54-a456-e954843fc700');
 insert into public.stock values ('10000000-0000-4000-8000-000000000041',100);
-insert into public.empty_crate_stock values ('exact',10);
+insert into public.empty_crate_stock(crate_type_id,quantity) values ('8a070e73-7dfe-5e54-a456-e954843fc700',10);
 -- A pre-migration retry record must never be received again or assigned an invented date.
-insert into private.stock_receipts values ('20000000-0000-4000-8000-000000000040','10000000-0000-4000-8000-000000000041',1,100,10,null);
+insert into private.stock_receipts(request_id,product_id,crates,stock_after,empties_after,business_date) values ('20000000-0000-4000-8000-000000000040','10000000-0000-4000-8000-000000000041',1,100,10,null);
 create function pg_temp.check_true(ok boolean, message text) returns void language plpgsql as $$
 begin if ok is distinct from true then raise exception '%',message; end if; end $$;
 set local role authenticated;
@@ -18,8 +20,8 @@ select pg_temp.check_true((select total_bottles=29 from public.stock),'Count did
 select pg_temp.check_true((select quantity=10 from public.empty_crate_stock),'Count changed empties');
 select pg_temp.check_true((select count(*)=1 from public.stock_movements),'Count retry duplicated history');
 select pg_temp.check_true((select quantity_change=-71 and resulting_stock=29 and movement_type='count' and business_date='2024-02-29' and created_at::date <> business_date from public.stock_movements),'Wrong count history or business date');
-select public.receive_stock('20000000-0000-4000-8000-000000000042','10000000-0000-4000-8000-000000000041',2,29,10,12,'exact','2024-03-01');
-select public.receive_stock('20000000-0000-4000-8000-000000000042','10000000-0000-4000-8000-000000000041',2,29,10,12,'exact','2024-03-01');
+select public.receive_stock('20000000-0000-4000-8000-000000000042','10000000-0000-4000-8000-000000000041',2,29,10,12,'8a070e73-7dfe-5e54-a456-e954843fc700','2024-03-01');
+select public.receive_stock('20000000-0000-4000-8000-000000000042','10000000-0000-4000-8000-000000000041',2,29,10,12,'8a070e73-7dfe-5e54-a456-e954843fc700','2024-03-01');
 select pg_temp.check_true((select count(*)=2 from public.stock_movements),'Receipt retry duplicated history');
 select pg_temp.check_true((select quantity_change=24 and resulting_stock=53 and movement_type='receive' and business_date='2024-03-01' from public.stock_movements where request_id='20000000-0000-4000-8000-000000000042'),'Wrong receipt history');
 -- Old count retry after a receipt must not rewind stock.
@@ -42,7 +44,7 @@ do $$ declare n numeric; d date; begin
       raise exception 'Invalid count date accepted';
     exception when invalid_parameter_value then null; end;
     begin
-      perform public.receive_stock(gen_random_uuid(),'10000000-0000-4000-8000-000000000041',1,53,8,12,'exact',d);
+      perform public.receive_stock(gen_random_uuid(),'10000000-0000-4000-8000-000000000041',1,53,8,12,'8a070e73-7dfe-5e54-a456-e954843fc700',d);
       raise exception 'Invalid receive date accepted';
     exception when invalid_parameter_value then null; end;
   end loop;
@@ -67,11 +69,11 @@ do $$ declare n numeric; d date; begin
     raise exception 'Changed date retry accepted';
   exception when invalid_parameter_value then null; end;
   begin
-    perform public.receive_stock('20000000-0000-4000-8000-000000000042','10000000-0000-4000-8000-000000000041',2,53,8,12,'exact','2024-03-02');
+    perform public.receive_stock('20000000-0000-4000-8000-000000000042','10000000-0000-4000-8000-000000000041',2,53,8,12,'8a070e73-7dfe-5e54-a456-e954843fc700','2024-03-02');
     raise exception 'Changed receipt date accepted';
   exception when invalid_parameter_value then null; end;
   begin
-    perform public.receive_stock('20000000-0000-4000-8000-000000000041','10000000-0000-4000-8000-000000000041',2,53,8,12,'exact','2024-03-02');
+    perform public.receive_stock('20000000-0000-4000-8000-000000000041','10000000-0000-4000-8000-000000000041',2,53,8,12,'8a070e73-7dfe-5e54-a456-e954843fc700','2024-03-02');
     raise exception 'Count id reused for receiving';
   exception when invalid_parameter_value then null; end;
   begin
@@ -79,7 +81,7 @@ do $$ declare n numeric; d date; begin
     raise exception 'Receipt id reused for count';
   exception when invalid_parameter_value then null; end;
   begin
-    perform public.receive_stock('20000000-0000-4000-8000-000000000040','10000000-0000-4000-8000-000000000041',1,53,8,12,'exact','2024-03-02');
+    perform public.receive_stock('20000000-0000-4000-8000-000000000040','10000000-0000-4000-8000-000000000041',1,53,8,12,'8a070e73-7dfe-5e54-a456-e954843fc700','2024-03-02');
     raise exception 'Legacy receipt replayed';
   exception when invalid_parameter_value then null; end;
   begin
@@ -106,7 +108,7 @@ do $$ begin
     raise exception 'Expected history failure';
   exception when check_violation then null; end;
   begin
-    perform public.receive_stock('20000000-0000-4000-8000-000000000044','10000000-0000-4000-8000-000000000041',1,53,8,12,'exact','2024-03-02');
+    perform public.receive_stock('20000000-0000-4000-8000-000000000044','10000000-0000-4000-8000-000000000041',1,53,8,12,'8a070e73-7dfe-5e54-a456-e954843fc700','2024-03-02');
     raise exception 'Expected history failure';
   exception when check_violation then null; end;
 end $$;

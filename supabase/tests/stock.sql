@@ -1,11 +1,13 @@
 -- Run in a disposable migrated database. All fixtures roll back.
 begin;
+insert into public.crate_types(id,name,empty_family,pocket_count) values
+ ('abf7e48b-868d-517e-bc34-e2ecd174a09f','test','same family',12);
 insert into auth.users(id) values ('00000000-0000-4000-8000-000000000021'), ('00000000-0000-4000-8000-000000000022');
 insert into private.shop_owner(user_id) values ('00000000-0000-4000-8000-000000000021');
-insert into public.products(id,name,bottles_per_crate,full_crate_price,bottles_returnable,crate_type) values
- ('10000000-0000-4000-8000-000000000021','Recorded',12,0,false,'test'),
- ('10000000-0000-4000-8000-000000000022','Unrecorded',24,0,false,'test'),
- ('10000000-0000-4000-8000-000000000023','Zero',12,0,false,'test');
+insert into public.products(id,name,bottles_per_crate,full_crate_price,bottles_returnable,crate_type_id) values
+ ('10000000-0000-4000-8000-000000000021','Recorded',12,0,false,'abf7e48b-868d-517e-bc34-e2ecd174a09f'),
+ ('10000000-0000-4000-8000-000000000022','Unrecorded',24,0,false,'abf7e48b-868d-517e-bc34-e2ecd174a09f'),
+ ('10000000-0000-4000-8000-000000000023','Zero',12,0,false,'abf7e48b-868d-517e-bc34-e2ecd174a09f');
 insert into public.stock(product_id,total_bottles) values
  ('10000000-0000-4000-8000-000000000021',29),
  ('10000000-0000-4000-8000-000000000023',0);

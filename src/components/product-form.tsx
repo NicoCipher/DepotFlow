@@ -1,4 +1,6 @@
 "use client";
+import { CrateTypeSelector } from "@/components/crate-type-selector";
+import type { CrateType } from "@/domain/crate-types";
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { addProduct, editProduct } from "@/app/(shop)/products/actions";
@@ -12,11 +14,16 @@ export function ProductForm({
   id,
   initialValues,
   editing = false,
+  crateTypes,
+  crateRequestId,
 }: {
   id: string;
   initialValues: ProductValues;
   editing?: boolean;
+  crateTypes: CrateType[];
+  crateRequestId: string;
 }) {
+  const [crateBusy, setCrateBusy] = useState(false);
   const [values, setValues] = useState(initialValues);
   const [clientErrors, setClientErrors] = useState<ProductErrors>({});
   const [state, action, pending] = useActionState(
@@ -69,7 +76,7 @@ export function ProductForm({
       action={action}
       className="mt-7 space-y-8"
       onSubmit={(event) => {
-        if (pending) {
+        if (pending || crateBusy) {
           event.preventDefault();
           return;
         }
@@ -148,7 +155,15 @@ export function ProductForm({
             </p>
           )}
         </div>
-        {field("crate_type", "Empty crate type", 120, true)}
+        <CrateTypeSelector
+          types={crateTypes}
+          selected={values.crate_type_id}
+          onChange={(id) => change("crate_type_id", id)}
+          disabled={pending}
+          error={errors.crate_type_id}
+          requestId={crateRequestId}
+          onBusy={setCrateBusy}
+        />
         {field(
           "bottle_type",
           values.bottles_returnable === "true"
@@ -157,9 +172,8 @@ export function ProductForm({
           120,
           values.bottles_returnable === "true",
         )}
-        {field("empty_family", "Empty family (optional)", 80)}
       </fieldset>
-      <button className="primary w-full" disabled={pending}>
+      <button className="primary w-full" disabled={pending || crateBusy}>
         {pending ? "Saving…" : editing ? "Save changes" : "Save Product"}
       </button>
       <Link

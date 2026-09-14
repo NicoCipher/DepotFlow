@@ -3,6 +3,7 @@ export type ReceivingSnapshot = {
   empties: number;
   bottlesPerCrate: number;
   crateType: string;
+  crateTypeId: string;
 };
 export type ReceivingState = {
   crates: string;
