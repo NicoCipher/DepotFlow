@@ -37,6 +37,9 @@ export default async function ProductsPage({
       <Link className="primary mt-6 w-full" href="/products/new">
         Add Product
       </Link>
+      <Link className="quiet-link mt-3" href="/crate-types">
+        Manage crate types
+      </Link>
       <form action="/products" className="my-7">
         <label htmlFor="search">Search by name or size</label>
         <div className="flex gap-2">

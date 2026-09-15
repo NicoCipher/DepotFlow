@@ -2,7 +2,7 @@
 begin;
 insert into public.crate_types(id,name,empty_family,pocket_count) values
  ('8a070e73-7dfe-5e54-a456-e954843fc700','exact','same family',12),
- ('d8175ef0-8ca7-5a1b-a553-b7cc86023797','other','same family',12);
+ ('d8175ef0-8ca7-5a1b-a553-b7cc86023797','other','same family',24);
 insert into auth.users(id) values ('00000000-0000-4000-8000-000000000031'),('00000000-0000-4000-8000-000000000032');
 insert into private.shop_owner(user_id) values ('00000000-0000-4000-8000-000000000031');
 insert into public.products(id,name,bottles_per_crate,full_crate_price,bottles_returnable,crate_type_id,empty_family) values

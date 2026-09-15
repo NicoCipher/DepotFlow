@@ -1,4 +1,4 @@
-import { crateLabel } from "@/domain/crate-types";
+import { CrateDisplay } from "@/components/crate-display";
 import Link from "next/link";
 import { requireOwner } from "@/lib/auth/owner";
 import { formatQuantity } from "@/domain/quantity";
@@ -121,7 +121,7 @@ export default async function StockPage({
                 </h3>
                 {movement.crate_types && (
                   <p className="text-sm text-stone-600">
-                    {crateLabel(movement.crate_types)}
+                    <CrateDisplay crate={movement.crate_types} />
                   </p>
                 )}
                 <p>

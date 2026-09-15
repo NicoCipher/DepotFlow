@@ -9,21 +9,42 @@ export type CrateAttributes = {
   variant: string | null;
   is_legacy: boolean | null;
 };
-export function crateLabel(crate: CrateAttributes): string {
+export function crateDescription(
+  crate: CrateAttributes,
+  includeFamily = true,
+): string {
+  const name = crate.name?.trim().toLowerCase();
   return [
-    crate.empty_family ?? "Family not recorded",
-    crate.pocket_count === null
-      ? "Pockets not recorded"
-      : `${crate.pocket_count}-pocket`,
-    crate.name,
-    crate.variant,
-    crate.is_legacy ? "Unresolved legacy" : null,
-    (crate.id ?? crate.crate_type_id)
-      ? `Ref ${(crate.id ?? crate.crate_type_id)!.slice(-12)}`
-      : null,
+    includeFamily ? crate.empty_family : null,
+    crate.pocket_count === null ? null : `${crate.pocket_count}-pocket`,
+    crate.variant?.trim().toLowerCase() === name ? null : crate.variant,
   ]
-    .filter(Boolean)
+    .filter(
+      (part, index, parts) =>
+        part &&
+        part.trim().toLowerCase() !== name &&
+        parts.findIndex(
+          (other) => other?.trim().toLowerCase() === part.trim().toLowerCase(),
+        ) === index,
+    )
     .join(" · ");
+}
+export function crateLabel(crate: CrateAttributes): string {
+  const description = crateDescription(crate);
+  return [crate.name, description].filter(Boolean).join(" · ");
+}
+export function crateNeedsSetup(crate: CrateAttributes): boolean {
+  return (
+    crate.is_legacy === true ||
+    crate.pocket_count === null ||
+    !crate.empty_family
+  );
+}
+export function crateFitsProduct(
+  pocketCount: number | null,
+  bottles: number,
+): boolean {
+  return pocketCount === null || pocketCount === bottles;
 }
 export function crateMatches(
   crate: CrateAttributes,

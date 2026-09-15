@@ -514,6 +514,10 @@ export type Database = {
       }
     }
     Functions: {
+      edit_crate_type: {
+        Args: { p_id: string; p_name: string; p_empty_family: string; p_pocket_count: number; p_variant: string | null }
+        Returns: string
+      }
       create_crate_type: {
         Args: { p_id: string; p_name: string; p_empty_family: string; p_pocket_count: number; p_variant: string | null }
         Returns: string

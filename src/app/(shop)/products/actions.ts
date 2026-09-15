@@ -37,6 +37,25 @@ async function save(
       errors: {},
       message: "Please reopen this form and try again.",
     };
+  const crate = await supabase
+    .from("crate_types")
+    .select("pocket_count")
+    .eq("id", checked.data.crate_type_id)
+    .maybeSingle();
+  if (
+    crate.error ||
+    !crate.data ||
+    (crate.data.pocket_count !== null &&
+      crate.data.pocket_count !== checked.data.bottles_per_crate)
+  )
+    return {
+      values,
+      errors: {
+        crate_type_id:
+          "Choose a crate whose pockets match the bottles per crate.",
+      },
+      message: "Check the crate type.",
+    };
   try {
     const result = editing
       ? await supabase
@@ -76,7 +95,9 @@ async function save(
           values,
           errors: {},
           message:
-            "Could not save the product. Your details are still here. Please try again.",
+            result.error?.code === "23514"
+              ? "The crate pockets must match the bottles per crate. Check the crate type and try again."
+              : "Could not save the product. Your details are still here. Please try again.",
         };
       }
     }

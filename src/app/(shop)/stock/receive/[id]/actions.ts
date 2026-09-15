@@ -1,5 +1,5 @@
 "use server";
-import { crateLabel } from "@/domain/crate-types";
+import { crateDescription } from "@/domain/crate-types";
 import { validateBusinessDate } from "@/domain/stock-count";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -51,7 +51,8 @@ export async function reviewReceiving(
           stock: product.data.stock?.total_bottles ?? 0,
           empties: empty.data?.quantity ?? 0,
           bottlesPerCrate: product.data.bottles_per_crate,
-          crateType: crateLabel(product.data.crate_types),
+          crateType: product.data.crate_types.name,
+          crateDescription: crateDescription(product.data.crate_types),
           crateTypeId: product.data.crate_type_id,
         }),
       },

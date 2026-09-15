@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { validateCrateType, crateLabel, crateMatches } from "./crate-types.ts";
+import {
+  validateCrateType,
+  crateLabel,
+  crateMatches,
+  crateDescription,
+  crateFitsProduct,
+  crateNeedsSetup,
+} from "./crate-types.ts";
 import {
   emptyProduct,
   validateProduct,
@@ -72,19 +79,41 @@ test("pockets allow Other positive integers without being limited to presets", (
       }),
     );
 });
-test("legacy unknown attributes are labelled instead of invented", () => {
-  const label = crateLabel({
+test("crate labels show names and attributes without internal references or duplicate forms", () => {
+  const unresolved = {
+    ...attributes,
     name: "NBL",
-    empty_family: "NBL",
     pocket_count: null,
     variant: null,
     is_legacy: true,
-  });
-  assert.match(label, /Unresolved legacy/);
-  assert.match(label, /Pockets not recorded/);
-  assert.match(crateLabel(attributes), /12-pocket/);
-  assert.notEqual(
-    crateLabel({ ...attributes, id: "50000000-0000-4000-8000-000000000001" }),
-    crateLabel({ ...attributes, id: "50000000-0000-4000-8000-000000000002" }),
+  };
+  assert.equal(crateLabel(unresolved), "NBL");
+  assert.equal(crateNeedsSetup(unresolved), true);
+  assert.equal(crateDescription(attributes), "NBL · 12-pocket");
+  assert.equal(
+    crateDescription({
+      ...attributes,
+      name: "33 Export crate",
+      variant: "Regular",
+    }),
+    "NBL · 12-pocket · Regular",
   );
+  assert.equal(
+    crateLabel({ ...attributes, id: "50000000-0000-4000-8000-000000000001" }),
+    "Regular · NBL · 12-pocket",
+  );
+  assert.equal(
+    crateLabel({ ...attributes, id: "50000000-0000-4000-8000-000000000002" }),
+    "Regular · NBL · 12-pocket",
+  );
+  assert.doesNotMatch(
+    crateLabel(unresolved),
+    /legacy|ref|uuid|migration|database/i,
+  );
+  assert.equal(crateNeedsSetup({ ...attributes, is_legacy: true }), true);
+});
+test("resolved pockets match product bottles; unknown pockets remain exempt", () => {
+  assert.equal(crateFitsProduct(12, 12), true);
+  assert.equal(crateFitsProduct(12, 20), false);
+  assert.equal(crateFitsProduct(null, 20), true);
 });

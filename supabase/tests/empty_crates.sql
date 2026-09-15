@@ -2,7 +2,7 @@
 begin;
 insert into public.crate_types(id,name,empty_family,pocket_count) values
  ('4c55883b-dc3c-53ef-9b95-263f09309b09','exact A','same family',12),
- ('58c73e9e-8b2d-5bae-97ef-fe8ae17f4aa8','exact B','same family',12),
+ ('58c73e9e-8b2d-5bae-97ef-fe8ae17f4aa8','exact B','same family',24),
  ('8a992f33-42e3-51b8-912a-c9353a68d1f8','existing / type','same family',12);
 insert into auth.users(id) values ('00000000-0000-4000-8000-000000000051'),('00000000-0000-4000-8000-000000000052');
 insert into private.shop_owner(user_id) values ('00000000-0000-4000-8000-000000000051');

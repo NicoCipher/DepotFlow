@@ -1,6 +1,6 @@
 "use client";
 import { CrateTypeSelector } from "@/components/crate-type-selector";
-import type { CrateType } from "@/domain/crate-types";
+import { crateFitsProduct, type CrateType } from "@/domain/crate-types";
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { addProduct, editProduct } from "@/app/(shop)/products/actions";
@@ -15,15 +15,13 @@ export function ProductForm({
   initialValues,
   editing = false,
   crateTypes,
-  crateRequestId,
 }: {
   id: string;
   initialValues: ProductValues;
   editing?: boolean;
   crateTypes: CrateType[];
-  crateRequestId: string;
 }) {
-  const [crateBusy, setCrateBusy] = useState(false);
+  const [availableCrates, setAvailableCrates] = useState(crateTypes);
   const [values, setValues] = useState(initialValues);
   const [clientErrors, setClientErrors] = useState<ProductErrors>({});
   const [state, action, pending] = useActionState(
@@ -76,11 +74,25 @@ export function ProductForm({
       action={action}
       className="mt-7 space-y-8"
       onSubmit={(event) => {
-        if (pending || crateBusy) {
+        if (pending) {
           event.preventDefault();
           return;
         }
         const checked = validateProduct(values);
+        const selectedCrate = availableCrates.find(
+          (crate) => crate.id === values.crate_type_id,
+        );
+        if (
+          selectedCrate &&
+          !crateFitsProduct(
+            selectedCrate.pocket_count,
+            Number(values.bottles_per_crate),
+          )
+        ) {
+          checked.errors.crate_type_id =
+            "Choose a crate whose pockets match the bottles per crate.";
+          checked.valid = false;
+        }
         setClientErrors(checked.errors);
         if (!checked.valid) {
           event.preventDefault();
@@ -156,13 +168,12 @@ export function ProductForm({
           )}
         </div>
         <CrateTypeSelector
-          types={crateTypes}
+          types={availableCrates}
+          onRefresh={setAvailableCrates}
           selected={values.crate_type_id}
           onChange={(id) => change("crate_type_id", id)}
           disabled={pending}
           error={errors.crate_type_id}
-          requestId={crateRequestId}
-          onBusy={setCrateBusy}
         />
         {field(
           "bottle_type",
@@ -173,7 +184,7 @@ export function ProductForm({
           values.bottles_returnable === "true",
         )}
       </fieldset>
-      <button className="primary w-full" disabled={pending || crateBusy}>
+      <button className="primary w-full" disabled={pending}>
         {pending ? "Saving…" : editing ? "Save changes" : "Save Product"}
       </button>
       <Link

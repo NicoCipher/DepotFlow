@@ -1,4 +1,4 @@
-import { crateLabel } from "@/domain/crate-types";
+import { CrateDisplay } from "@/components/crate-display";
 import { isProductId } from "@/domain/products";
 import { randomUUID } from "node:crypto";
 import Link from "next/link";
@@ -25,7 +25,7 @@ export default async function EmptyCrateCountPage({
     <>
       <h1>Set Current Count</h1>
       <h2 className="mt-5 break-words text-xl font-semibold">
-        {crateLabel(data)}
+        <CrateDisplay crate={data} />
       </h2>
       <p className="mt-2 text-stone-600">
         Count the empty crates physically in the shop now.

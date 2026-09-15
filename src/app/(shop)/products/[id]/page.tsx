@@ -1,4 +1,4 @@
-import { crateLabel } from "@/domain/crate-types";
+import { CrateDisplay } from "@/components/crate-display";
 import Link from "next/link";
 import { getProduct } from "@/lib/products/data";
 import { formatNaira } from "@/domain/products";
@@ -32,7 +32,6 @@ export default async function ProductPage({
       product.bottle_price === null ? null : formatNaira(product.bottle_price),
     ],
     ["Returnable bottles", product.bottles_returnable ? "Yes" : "No"],
-    ["Physical crate", crateLabel(product.crate_types)],
     ["Empty bottle type", product.bottle_type],
   ];
   return (
@@ -57,6 +56,10 @@ export default async function ProductPage({
       >
         Edit product
       </Link>
+      <section className="mt-7 space-y-2">
+        <h2>Physical crate</h2>
+        <CrateDisplay crate={product.crate_types} />
+      </section>
       <dl className="mt-7 border-t border-stone-300">
         {details
           .filter(([, value]) => value !== null && value !== "")

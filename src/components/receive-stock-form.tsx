@@ -46,7 +46,14 @@ function ConfirmReceiving({
         </div>
         <div>
           <dt>Empty crate type</dt>
-          <dd className="break-words">{review.crateType}</dd>
+          <dd className="break-words">
+            <span className="block font-semibold">{review.crateType}</span>
+            {review.crateDescription && (
+              <span className="block text-sm text-stone-600">
+                {review.crateDescription}
+              </span>
+            )}
+          </dd>
         </div>
         <div>
           <dt>Empty crates left</dt>

@@ -11,7 +11,6 @@ export default async function NewProductPage() {
       <h1>Add Product</h1>
       <ProductForm
         crateTypes={crateTypes}
-        crateRequestId={randomUUID()}
         id={randomUUID()}
         initialValues={emptyProduct}
       />
