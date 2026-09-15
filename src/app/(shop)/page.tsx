@@ -7,13 +7,13 @@ export default async function Home() {
     <>
       <h1>Home</h1>
       <section aria-label="Shop actions" className="mt-7">
-        <button
-          disabled
+        <Link
+          href="/record-sale"
           className="mb-5 flex min-h-24 w-full items-center justify-between rounded-lg bg-emerald-900 px-5 text-left text-white"
         >
           <span className="text-xl font-semibold">Record Sale</span>
-          <span className="text-sm">Coming soon</span>
-        </button>
+          <span aria-hidden="true">→</span>
+        </Link>
         <Link
           href="/customers"
           className="flex min-h-20 items-center justify-between border-b border-stone-300 text-xl font-semibold"
