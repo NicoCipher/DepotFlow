@@ -6,7 +6,7 @@ export type SaleProduct = {
   size: string | null;
   image_url: string | null;
   bottles_per_crate: number;
-  full_crate_price: number;
+  full_crate_price: number | null;
   half_crate_price: number | null;
   quarter_crate_price: number | null;
   bottle_price: number | null;
@@ -22,7 +22,12 @@ export type SaleQuantity = {
   fraction: 0 | 1 | 2 | 3;
   bottles: number;
 };
-export type DraftLine = { productId: string; quantity: SaleQuantity };
+export type DraftLine = {
+  productId: string;
+  quantity: SaleQuantity;
+  priceSnapshot?: string;
+  crateSizeSnapshot?: number;
+};
 export function priceQuantity(product: SaleProduct, quantity: SaleQuantity) {
   const { crates, fraction, bottles } = quantity;
   if (
@@ -67,6 +72,11 @@ export function putSaleLine(
 ): DraftLine[] {
   if (line.productId !== product.id) throw new Error("Choose a drink.");
   priceQuantity(product, line.quantity);
+  line = {
+    ...line,
+    priceSnapshot: salePriceSnapshot(product, line.quantity),
+    crateSizeSnapshot: product.bottles_per_crate,
+  };
   const index = lines.findIndex((item) => item.productId === line.productId);
   return index < 0
     ? [...lines, line]
@@ -167,4 +177,63 @@ export function readSaleDraft(raw: string | null): SaleDraft {
   } catch {
     return emptySaleDraft;
   }
+}
+
+/** Only configured prices used by this quantity are compared; totals are never restored. */
+export function salePriceSnapshot(product: SaleProduct, q: SaleQuantity) {
+  return JSON.stringify([
+    q.crates ? product.full_crate_price : null,
+    q.fraction >= 2 ? product.half_crate_price : null,
+    q.fraction % 2 ? product.quarter_crate_price : null,
+    q.bottles ? product.bottle_price : null,
+  ]);
+}
+export function quantityPriceSet(product: SaleProduct, q: SaleQuantity) {
+  return (
+    (!q.crates || product.full_crate_price !== null) &&
+    (!(q.fraction >= 2) || product.half_crate_price !== null) &&
+    (!(q.fraction % 2) || product.quarter_crate_price !== null) &&
+    (!q.bottles || product.bottle_price !== null)
+  );
+}
+export function revalidateSaleDraft(draft: SaleDraft, catalog: SaleCatalog) {
+  const warnings: string[] = [];
+  if (
+    draft.customerId &&
+    !catalog.customers.some((c) => c.id === draft.customerId)
+  )
+    warnings.push("Customer no longer available. Choose another customer.");
+  for (const line of draft.lines) {
+    const p = catalog.products.find((p) => p.id === line.productId);
+    if (!p) {
+      warnings.push(
+        "A drink is no longer available. Remove it from this sale.",
+      );
+      continue;
+    }
+    if (
+      line.priceSnapshot !== undefined &&
+      line.priceSnapshot !== salePriceSnapshot(p, line.quantity)
+    )
+      warnings.push(`${p.name}: Price changed. Current prices are shown.`);
+    if (
+      line.crateSizeSnapshot !== undefined &&
+      line.crateSizeSnapshot !== p.bottles_per_crate
+    )
+      warnings.push(
+        `${p.name}: Bottles per crate changed. Check the quantity.`,
+      );
+    try {
+      priceQuantity(p, line.quantity);
+    } catch (error) {
+      warnings.push(`${p.name}: ${(error as Error).message}`);
+    }
+  }
+  let total: number | undefined;
+  try {
+    total = saleTotal(draft.lines, catalog.products);
+  } catch {
+    /* Invalid lines must be corrected before a grand total is shown. */
+  }
+  return { warnings, total };
 }
