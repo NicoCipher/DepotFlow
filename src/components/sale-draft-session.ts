@@ -9,6 +9,7 @@ import {
   emptySaleDrafts,
   readSaleDrafts,
   updateActiveSale,
+  selectSaleCustomer,
   parkActiveSale,
   resumeSale,
   cancelSale,
@@ -84,6 +85,15 @@ export function useSaleDrafts(ownerId: string) {
     update: (patch: Partial<SaleDraft>) =>
       mutate((current) =>
         updateActiveSale(current, activeId, patch, crypto.randomUUID()),
+      ),
+    selectCustomer: (expectedId: string | null, customerId: string) =>
+      mutate((current) =>
+        selectSaleCustomer(
+          current,
+          expectedId,
+          customerId,
+          crypto.randomUUID(),
+        ),
       ),
     park: () =>
       mutate((current) =>

@@ -120,3 +120,18 @@ export function cancelSale(state: SaleDrafts, id: string): SaleDrafts {
     paused: state.paused.filter((entry) => entry.id !== id),
   };
 }
+
+/** Returning from customer creation changes only the customer and sale step. */
+export function selectSaleCustomer(
+  state: SaleDrafts,
+  expectedId: string | null,
+  customerId: string,
+  newId: string,
+) {
+  return updateActiveSale(
+    state,
+    expectedId,
+    { customerId, step: "drinks" },
+    newId,
+  );
+}

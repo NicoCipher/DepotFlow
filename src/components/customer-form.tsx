@@ -2,27 +2,61 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
-import { addCustomer, editCustomer } from "@/app/(shop)/customers/actions";
+import {
+  addCustomer,
+  addCustomerForSale,
+  editCustomer,
+} from "@/app/(shop)/customers/actions";
 import {
   validateCustomer,
   type CustomerValues,
   type CustomerErrors,
+  type CustomerFormState,
 } from "@/domain/customers";
 
 export function CustomerForm({
   id,
   initialValues,
   editing = false,
+  onCreated,
+  onCancel,
 }: {
   id: string;
   initialValues: CustomerValues;
   editing?: boolean;
+  onCreated?: (id: string) => Promise<void>;
+  onCancel?: () => void;
 }) {
   const [values, setValues] = useState(initialValues);
   const [clientErrors, setClientErrors] = useState<CustomerErrors>({});
   const [state, action, pending] = useActionState(
-    (editing ? editCustomer : addCustomer).bind(null, id),
-    { values: initialValues, errors: {} },
+    async (
+      previous: CustomerFormState,
+      formData: FormData,
+    ): Promise<CustomerFormState> => {
+      const result = previous.createdId
+        ? previous
+        : await (
+            editing
+              ? editCustomer
+              : onCreated
+                ? addCustomerForSale
+                : addCustomer
+          )(id, previous, formData);
+      if (result.createdId && onCreated) {
+        try {
+          await onCreated(result.createdId);
+        } catch {
+          return {
+            ...result,
+            message:
+              "Customer saved. Could not return to the sale. Try Continue to sale again.",
+          };
+        }
+      }
+      return result;
+    },
+    { values: initialValues, errors: {} } as CustomerFormState,
   );
   const errors = { ...state.errors, ...clientErrors };
   return (
@@ -68,7 +102,7 @@ export function CustomerForm({
               maxLength={maxLength}
               autoComplete={autoComplete}
               value={values[field]}
-              readOnly={pending}
+              readOnly={pending || Boolean(state.createdId)}
               aria-invalid={Boolean(errors[field])}
               aria-describedby={errors[field] ? `${field}-error` : undefined}
               onChange={(e) =>
@@ -84,7 +118,7 @@ export function CustomerForm({
               required={required}
               maxLength={maxLength}
               value={values[field]}
-              readOnly={pending}
+              readOnly={pending || Boolean(state.createdId)}
               aria-invalid={Boolean(errors[field])}
               aria-describedby={errors[field] ? `${field}-error` : undefined}
               onChange={(e) => {
@@ -105,14 +139,33 @@ export function CustomerForm({
         </div>
       ))}
       <button className="primary w-full" disabled={pending}>
-        {pending ? "Saving…" : editing ? "Save changes" : "Save Customer"}
+        {pending
+          ? "Saving…"
+          : state.createdId
+            ? "Continue to sale"
+            : editing
+              ? "Save changes"
+              : "Save Customer"}
       </button>
-      <Link
-        className="quiet-link block text-center"
-        href={editing ? `/customers/${id}` : "/customers"}
-      >
-        Cancel
-      </Link>
+      {onCancel ? (
+        !state.createdId && (
+          <button
+            type="button"
+            className="quiet-link block w-full text-center"
+            disabled={pending}
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+        )
+      ) : (
+        <Link
+          className="quiet-link block text-center"
+          href={editing ? `/customers/${id}` : "/customers"}
+        >
+          Cancel
+        </Link>
+      )}
     </form>
   );
 }

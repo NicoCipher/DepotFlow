@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState, useTransition } from "react";
 import { loadSaleCatalog } from "@/app/(shop)/record-sale/actions";
+import { CustomerForm } from "./customer-form";
+import { emptyCustomer } from "@/domain/customers";
 import { ProductImage } from "@/components/product-image";
 import { useSaleDrafts } from "./sale-draft-session";
 import { PausedSalesLink } from "./paused-sales-link";
@@ -29,6 +31,10 @@ export function SaleBuilder({
 }) {
   const sales = useSaleDrafts(ownerId);
   const { draft } = sales;
+  const [newCustomer, setNewCustomer] = useState<{
+    id: string;
+    draftId: string | null;
+  } | null>(null);
   const [customerQuery, setCustomerQuery] = useState("");
   const [catalog, setCatalog] = useState(initialCatalog);
   const [message, setMessage] = useState("");
@@ -127,6 +133,33 @@ export function SaleBuilder({
         : `Available: ${formatQuantity(p.available, p.bottles_per_crate)}`;
   }
   const step = customer ? draft.step : "customer";
+  if (newCustomer)
+    return (
+      <>
+        <h1>New Customer</h1>
+        <CustomerForm
+          id={newCustomer.id}
+          initialValues={emptyCustomer}
+          onCancel={() => setNewCustomer(null)}
+          onCreated={async (id) => {
+            const fresh = await loadSaleCatalog();
+            if (!fresh.customers.some((customer) => customer.id === id))
+              throw new Error("Customer could not be loaded.");
+            if (!(await sales.selectCustomer(newCustomer.draftId, id)))
+              throw new Error("Could not select customer.");
+            setCatalog(fresh);
+            setCustomerQuery("");
+            setNewCustomer(null);
+          }}
+        />
+        {sales.error && (
+          <p role="alert" className="text-red-800">
+            {sales.error}
+          </p>
+        )}
+      </>
+    );
+
   return (
     <>
       {!ready && (
@@ -225,6 +258,17 @@ export function SaleBuilder({
         )}
         {step === "customer" && (
           <>
+            <button
+              className="secondary w-full"
+              onClick={() =>
+                setNewCustomer({
+                  id: crypto.randomUUID(),
+                  draftId: sales.state.active?.id ?? null,
+                })
+              }
+            >
+              New Customer
+            </button>
             <label htmlFor="sale-customer-search">
               Search by name or phone
             </label>
@@ -236,10 +280,7 @@ export function SaleBuilder({
               onChange={(e) => setCustomerQuery(e.target.value)}
             />
             {!catalog.customers.length && (
-              <p>
-                No customers yet. Add a customer in Customers before starting a
-                sale.
-              </p>
+              <p>No customers yet. Add a new customer to start this sale.</p>
             )}
             <ul className="divide-y divide-stone-200">
               {catalog.customers

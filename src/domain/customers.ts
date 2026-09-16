@@ -9,6 +9,7 @@ export type CustomerFormState = {
   values: CustomerValues;
   errors: CustomerErrors;
   message?: string;
+  createdId?: string;
 };
 export const emptyCustomer: CustomerValues = {
   name: "",

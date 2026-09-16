@@ -15,6 +15,7 @@ async function save(
   id: string,
   editing: boolean,
   formData: FormData,
+  returnToSale = false,
 ): Promise<CustomerFormState> {
   const supabase = await requireOwner();
   const values: CustomerValues = {
@@ -89,6 +90,7 @@ async function save(
   }
   revalidatePath("/customers");
   revalidatePath(`/customers/${id}`);
+  if (returnToSale && !editing) return { values, errors: {}, createdId: id };
   redirect(`/customers/${id}?saved=${editing ? "updated" : "added"}`);
 }
 
@@ -105,4 +107,12 @@ export async function editCustomer(
   formData: FormData,
 ) {
   return save(id, true, formData);
+}
+
+export async function addCustomerForSale(
+  id: string,
+  _previous: CustomerFormState,
+  formData: FormData,
+) {
+  return save(id, false, formData, true);
 }
