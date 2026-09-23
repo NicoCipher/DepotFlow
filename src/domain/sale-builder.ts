@@ -96,6 +96,28 @@ export function reviewedTotal(lines: DraftLine[]) {
   if (!Number.isSafeInteger(total)) throw new Error("That total is too large.");
   return total;
 }
+export function effectivePartialPrice(
+  product: SaleProduct,
+  part: "half" | "quarter",
+) {
+  const override =
+    part === "half" ? product.half_crate_price : product.quarter_crate_price;
+  const divisor = part === "half" ? 2 : 4;
+  const label = part === "half" ? "Half-crate" : "Quarter-crate";
+  const value =
+    override ??
+    (product.full_crate_price === null
+      ? null
+      : product.full_crate_price / divisor);
+  if (value === null) throw new Error(`${label} price is not set.`);
+  if (!Number.isSafeInteger(value) || value < 0)
+    throw new Error(
+      override === null
+        ? `Set a ${label.toLowerCase()} price override because the full-crate price does not divide into whole naira.`
+        : "Check this drink’s prices.",
+    );
+  return value;
+}
 export function priceQuantity(product: SaleProduct, quantity: SaleQuantity) {
   const { crates, fraction, bottles } = quantity;
   if (
@@ -126,8 +148,8 @@ export function priceQuantity(product: SaleProduct, quantity: SaleQuantity) {
   }
   const lineTotal =
     price(product.full_crate_price, "Full-crate", crates) +
-    price(product.half_crate_price, "Half-crate", fraction >= 2 ? 1 : 0) +
-    price(product.quarter_crate_price, "Quarter-crate", fraction % 2) +
+    (fraction >= 2 ? effectivePartialPrice(product, "half") : 0) +
+    (fraction % 2 ? effectivePartialPrice(product, "quarter") : 0) +
     price(product.bottle_price, "Bottle", bottles);
   if (!Number.isSafeInteger(lineTotal))
     throw new Error("That total is too large.");
@@ -335,20 +357,24 @@ export function readSaleDraft(raw: string | null): SaleDraft {
   }
 }
 
-/** Only configured prices used by this quantity are compared; totals are never restored. */
+/** Authoritative inputs used by this quantity are compared; totals are never restored. */
 export function salePriceSnapshot(product: SaleProduct, q: SaleQuantity) {
   return JSON.stringify([
-    q.crates ? product.full_crate_price : null,
-    q.fraction >= 2 ? product.half_crate_price : null,
-    q.fraction % 2 ? product.quarter_crate_price : null,
+    q.crates || q.fraction ? product.full_crate_price : null,
+    q.fraction ? product.half_crate_price : null,
+    q.fraction ? product.quarter_crate_price : null,
     q.bottles ? product.bottle_price : null,
   ]);
 }
 export function quantityPriceSet(product: SaleProduct, q: SaleQuantity) {
   return (
     (!q.crates || product.full_crate_price !== null) &&
-    (!(q.fraction >= 2) || product.half_crate_price !== null) &&
-    (!(q.fraction % 2) || product.quarter_crate_price !== null) &&
+    (!(q.fraction >= 2) ||
+      product.half_crate_price !== null ||
+      product.full_crate_price !== null) &&
+    (!(q.fraction % 2) ||
+      product.quarter_crate_price !== null ||
+      product.full_crate_price !== null) &&
     (!q.bottles || product.bottle_price !== null)
   );
 }

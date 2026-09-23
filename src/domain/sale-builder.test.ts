@@ -8,6 +8,7 @@ import {
   readSaleDraft,
   removeSaleLine,
   saleQuantityLabel,
+  salePriceSnapshot,
   saleTotal,
   emptiesFor,
   returnedEmpties,
@@ -131,15 +132,50 @@ test("exact bottles retain the explicit bottle price even when they make a crate
   });
   assert.equal(saleQuantityLabel(q(1, 3, 2)), "1¾ crates + 2 bottles");
 });
-test("missing prices never fall back to division or another unit; explicit zero prices remain valid", () => {
-  assert.throws(
-    () => priceQuantity({ ...product, half_crate_price: null }, q(0, 2)),
-    /Half-crate price is not set/,
+test("partial crates derive from full price while explicit overrides win", () => {
+  const derived = {
+    ...product,
+    full_crate_price: 14500,
+    half_crate_price: null,
+    quarter_crate_price: null,
+  };
+  assert.equal(priceQuantity(derived, q(0, 2)).lineTotal, 7250);
+  assert.equal(priceQuantity(derived, q(0, 1)).lineTotal, 3625);
+  assert.equal(priceQuantity(derived, q(0, 3)).lineTotal, 10875);
+  assert.equal(
+    priceQuantity({ ...derived, half_crate_price: 8000 }, q(0, 2)).lineTotal,
+    8000,
   );
-  assert.throws(
-    () => priceQuantity({ ...product, quarter_crate_price: null }, q(0, 3)),
-    /Quarter-crate price is not set/,
+  assert.equal(
+    priceQuantity({ ...derived, quarter_crate_price: 4000 }, q(0, 1))
+      .lineTotal,
+    4000,
   );
+  assert.equal(
+    priceQuantity({ ...derived, half_crate_price: 8000 }, q(0, 3))
+      .lineTotal,
+    11625,
+  );
+  assert.equal(
+    priceQuantity({ ...derived, quarter_crate_price: 4000 }, q(0, 3))
+      .lineTotal,
+    11250,
+  );
+  const snapshot = salePriceSnapshot(derived, q(0, 2));
+  assert.notEqual(
+    snapshot,
+    salePriceSnapshot({ ...derived, full_crate_price: 15000 }, q(0, 2)),
+  );
+  assert.notEqual(
+    snapshot,
+    salePriceSnapshot({ ...derived, half_crate_price: 8000 }, q(0, 2)),
+  );
+  assert.notEqual(
+    snapshot,
+    salePriceSnapshot({ ...derived, quarter_crate_price: 4000 }, q(0, 2)),
+  );
+});
+test("loose bottles never derive from crate price and full crates are unchanged", () => {
   assert.throws(
     () => priceQuantity({ ...product, bottle_price: null }, q(0, 0, 1)),
     /Bottle price is not set/,

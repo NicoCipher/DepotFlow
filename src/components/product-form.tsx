@@ -115,19 +115,21 @@ export function ProductForm({
       <fieldset className="space-y-5 border-t border-stone-300 pt-5">
         <legend className="text-lg font-semibold">Prices</legend>
         <p className="text-sm text-stone-600">
-          Enter whole naira in ₦50 steps. Leave prices you do not use blank.
+          Enter prices in ₦50 steps. Half and quarter prices are optional
+          overrides; leave them blank to calculate them from the full crate
+          price. Bottle price is separate.
         </p>
         {field("full_crate_price", "Full crate price (₦)", 10, true, true)}
         {field(
           "half_crate_price",
-          "Half-crate price (₦, optional)",
+          "Half-crate override (₦, optional)",
           10,
           false,
           true,
         )}
         {field(
           "quarter_crate_price",
-          "Quarter-crate price (₦, optional)",
+          "Quarter-crate override (₦, optional)",
           10,
           false,
           true,

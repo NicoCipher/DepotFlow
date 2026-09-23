@@ -18,6 +18,7 @@ import {
   saleQuantityLabel,
   saleTotal,
   emptiesFor,
+  effectivePartialPrice,
   returnedEmpties,
   reviewedLine,
   reviewedLineTotal,
@@ -530,14 +531,25 @@ export function SaleBuilder({
                 </div>
                 <p className="mt-2 text-sm text-stone-600">
                   ¼:{" "}
-                  {product.quarter_crate_price === null
-                    ? "Price not set"
-                    : formatNaira(product.quarter_crate_price)}{" "}
+                  {(() => {
+                    try {
+                      return formatNaira(
+                        effectivePartialPrice(product, "quarter"),
+                      );
+                    } catch {
+                      return "Price not set";
+                    }
+                  })()} {" "}
                   · ½:{" "}
-                  {product.half_crate_price === null
-                    ? "Price not set"
-                    : formatNaira(product.half_crate_price)}
-                  . ¾ uses half + quarter.
+                  {(() => {
+                    try {
+                      return formatNaira(effectivePartialPrice(product, "half"));
+                    } catch {
+                      return "Price not set";
+                    }
+                  })()}
+                  . Optional overrides replace the calculated full-price share.
+                  ¾ uses half + quarter.
                 </p>
               </fieldset>
               <div>

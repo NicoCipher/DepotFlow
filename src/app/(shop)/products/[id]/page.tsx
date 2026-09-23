@@ -16,13 +16,13 @@ export default async function ProductPage({
     ["Bottles per crate", String(product.bottles_per_crate)],
     ["Full crate price", formatNaira(product.full_crate_price)],
     [
-      "Half-crate price",
+      "Half-crate override",
       product.half_crate_price === null
         ? null
         : formatNaira(product.half_crate_price),
     ],
     [
-      "Quarter-crate price",
+      "Quarter-crate override",
       product.quarter_crate_price === null
         ? null
         : formatNaira(product.quarter_crate_price),

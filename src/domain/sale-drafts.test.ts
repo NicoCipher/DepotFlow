@@ -147,14 +147,17 @@ test("resume/review totals use current prices and flag price, stock, product and
   assert.equal(unpriced.total, undefined);
   assert.match(unpriced.warnings.join(), /price is not set/);
 });
-test("quantity price choices are disabled only when a required explicit price is absent", () => {
+test("quantity price choices allow derived partials but require independent bottle prices", () => {
   for (const [field, q] of [
     ["full_crate_price", { crates: 1, fraction: 0, bottles: 0 }],
     ["half_crate_price", { crates: 0, fraction: 2, bottles: 0 }],
     ["quarter_crate_price", { crates: 0, fraction: 1, bottles: 0 }],
     ["bottle_price", { crates: 0, fraction: 0, bottles: 1 }],
   ] as const) {
-    assert.equal(quantityPriceSet({ ...product, [field]: null }, q), false);
+    assert.equal(
+      quantityPriceSet({ ...product, [field]: null }, q),
+      field === "half_crate_price" || field === "quarter_crate_price",
+    );
     assert.equal(quantityPriceSet({ ...product, [field]: 0 }, q), true);
   }
   assert.equal(
@@ -162,14 +165,14 @@ test("quantity price choices are disabled only when a required explicit price is
       { ...product, half_crate_price: null },
       { crates: 0, fraction: 3, bottles: 0 },
     ),
-    false,
+    true,
   );
   assert.equal(
     quantityPriceSet(
       { ...product, quarter_crate_price: null },
       { crates: 0, fraction: 3, bottles: 0 },
     ),
-    false,
+    true,
   );
   assert.equal(
     quantityPriceSet(
