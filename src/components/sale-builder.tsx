@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useTransition } from "react";
-import { loadSaleCatalog } from "@/app/(shop)/record-sale/actions";
+import { loadSaleCatalog, saveSale } from "@/app/(shop)/record-sale/actions";
 import { CustomerForm } from "./customer-form";
 import { emptyCustomer } from "@/domain/customers";
 import { ProductImage } from "@/components/product-image";
@@ -17,6 +17,11 @@ import {
   removeSaleLine,
   saleQuantityLabel,
   saleTotal,
+  emptiesFor,
+  returnedEmpties,
+  reviewedLine,
+  reviewedLineTotal,
+  reviewedTotal,
   type SaleCatalog,
   type SaleDraft,
   type SaleProduct,
@@ -38,6 +43,14 @@ export function SaleBuilder({
   const [customerQuery, setCustomerQuery] = useState("");
   const [catalog, setCatalog] = useState(initialCatalog);
   const [message, setMessage] = useState("");
+  const [saved, setSaved] = useState<{
+    id: string;
+    total: number;
+    paid: number;
+    owing: number;
+    customer: string;
+    name: string;
+  } | null>(null);
   const [pending, startTransition] = useTransition();
   const activeId = sales.state.active
     ? `${sales.state.active.id}:${sales.state.active.resumedAt ?? ""}`
@@ -111,12 +124,18 @@ export function SaleBuilder({
   } catch {
     /* Each affected line is explained below. */
   }
+  let reviewTotal: number | undefined;
+  try {
+    reviewTotal = reviewedTotal(draft.lines);
+  } catch {
+    /* Review requires a fresh snapshot. */
+  }
   function quickCheck() {
     startTransition(async () => {
       try {
         const fresh = await loadSaleCatalog();
         setCatalog(fresh);
-        await sales.update({ step: "check" });
+        await sales.update({ step: "empties" });
         setMessage("");
       } catch {
         setMessage(
@@ -133,6 +152,26 @@ export function SaleBuilder({
         : `Available: ${formatQuantity(p.available, p.bottles_per_crate)}`;
   }
   const step = customer ? draft.step : "customer";
+  if (saved)
+    return (
+      <div className="space-y-5">
+        <h1>Sale Saved</h1>
+        <p>{saved.name}</p>
+        <p>Total: {formatNaira(saved.total)}</p>
+        <p>Paid: {formatNaira(saved.paid)}</p>
+        <p>Still owing: {formatNaira(saved.owing)}</p>
+        <p>Sale reference: {saved.id}</p>
+        <button className="primary w-full" onClick={() => setSaved(null)}>
+          Record Another Sale
+        </button>
+        <a
+          className="secondary block text-center"
+          href={`/customers/${saved.customer}`}
+        >
+          View Customer
+        </a>
+      </div>
+    );
   if (newCustomer)
     return (
       <>
@@ -187,7 +226,13 @@ export function SaleBuilder({
               ? "Add Drinks"
               : step === "quantity"
                 ? "Quantity"
-                : "Quick Check"}
+                : step === "check"
+                  ? "Quick Check"
+                  : step === "empties"
+                    ? "Empties"
+                    : step === "payment"
+                      ? "Payment"
+                      : "Review"}
         </h1>
         <p className="text-sm text-stone-600">Record Sale · Draft only</p>
         <PausedSalesLink ownerId={ownerId} />
@@ -639,6 +684,378 @@ export function SaleBuilder({
             <p className="text-sm text-stone-600">
               This is a draft. Nothing has been saved and stock has not changed.
             </p>
+            <button
+              className="primary w-full"
+              disabled={
+                !customer ||
+                !draft.lines.length ||
+                total === undefined ||
+                revalidateSaleDraft(draft, catalog).warnings.length > 0
+              }
+              onClick={() => update({ step: "empties" })}
+            >
+              Continue to Empties
+            </button>
+          </>
+        )}
+        {step === "empties" && (
+          <>
+            <h2>Did they bring all the empties?</h2>
+            <div className="flex gap-3">
+              <button
+                className={draft.allEmpties ? "primary" : "secondary"}
+                onClick={() => update({ allEmpties: true })}
+              >
+                Yes, all
+              </button>
+              <button
+                className={!draft.allEmpties ? "primary" : "secondary"}
+                onClick={() => update({ allEmpties: false })}
+              >
+                No / Some missing
+              </button>
+            </div>
+            {!draft.allEmpties &&
+              draft.lines.map((line) => {
+                const p = catalog.products.find((p) => p.id === line.productId);
+                if (!p) return null;
+                try {
+                  const due = emptiesFor(line, p);
+                  const entry = draft.returns[p.id] ?? {
+                    crates: "0",
+                    bottles: "0",
+                  };
+                  return (
+                    <div key={p.id} className="space-y-2 border-t py-3">
+                      <h2 className="font-semibold">
+                        {p.name} {p.size}
+                      </h2>
+                      {due.crates > 0 && (
+                        <label>
+                          Exact {p.crate_type?.name ?? "crate"} crates returned
+                          (of {due.crates})
+                          <input
+                            inputMode="numeric"
+                            pattern="[0-9]+"
+                            value={entry.crates}
+                            onChange={(e) =>
+                              update({
+                                returns: {
+                                  ...draft.returns,
+                                  [p.id]: { ...entry, crates: e.target.value },
+                                },
+                              })
+                            }
+                          />
+                        </label>
+                      )}
+                      {due.bottles > 0 && (
+                        <label>
+                          {p.bottle_type} bottles returned (of {due.bottles})
+                          <input
+                            inputMode="numeric"
+                            pattern="[0-9]+"
+                            value={entry.bottles}
+                            onChange={(e) =>
+                              update({
+                                returns: {
+                                  ...draft.returns,
+                                  [p.id]: { ...entry, bottles: e.target.value },
+                                },
+                              })
+                            }
+                          />
+                        </label>
+                      )}
+                    </div>
+                  );
+                } catch (e) {
+                  return (
+                    <p role="alert" key={p.id}>
+                      {(e as Error).message}
+                    </p>
+                  );
+                }
+              })}
+            <button
+              className="primary w-full"
+              onClick={() => {
+                try {
+                  draft.lines.forEach((line) => {
+                    const p = catalog.products.find(
+                      (p) => p.id === line.productId,
+                    );
+                    if (!p) throw new Error("Drink unavailable.");
+                    if (!draft.allEmpties)
+                      returnedEmpties(
+                        {
+                          ...draft,
+                          returns: {
+                            ...draft.returns,
+                            [p.id]: draft.returns[p.id] ?? {
+                              crates: "0",
+                              bottles: "0",
+                            },
+                          },
+                        },
+                        line,
+                        p,
+                      );
+                    else emptiesFor(line, p);
+                  });
+                  update({ step: "payment" });
+                } catch (e) {
+                  setMessage((e as Error).message);
+                }
+              }}
+            >
+              Continue to Payment
+            </button>
+            <button
+              className="secondary w-full"
+              onClick={() => update({ step: "check" })}
+            >
+              Back
+            </button>
+          </>
+        )}
+        {step === "payment" && (
+          <>
+            <p className="text-xl">
+              Total: {total === undefined ? "Check drinks" : formatNaira(total)}
+            </p>
+            <label htmlFor="sale-paid">Amount paid</label>
+            <input
+              id="sale-paid"
+              inputMode="numeric"
+              pattern="[0-9]+"
+              value={draft.paid}
+              onChange={(e) => update({ paid: e.target.value })}
+            />
+            <p>
+              Still owing:{" "}
+              {total !== undefined &&
+              /^\d+$/.test(draft.paid) &&
+              Number(draft.paid) <= total
+                ? formatNaira(total - Number(draft.paid))
+                : "Check amount paid"}
+            </p>
+            <button
+              className="primary w-full"
+              disabled={
+                total === undefined ||
+                !/^\d+$/.test(draft.paid) ||
+                !Number.isSafeInteger(Number(draft.paid)) ||
+                Number(draft.paid) > total
+              }
+              onClick={() => {
+                try {
+                  const lines = draft.lines.map((line) => {
+                    const p = catalog.products.find(
+                      (p) => p.id === line.productId,
+                    );
+                    if (!p) throw new Error("Drink unavailable.");
+                    priceQuantity(p, line.quantity);
+                    emptiesFor(line, p);
+                    return reviewedLine(line, p);
+                  });
+                  update({
+                    lines,
+                    businessDate:
+                      draft.businessDate ||
+                      new Date().toLocaleDateString("sv-SE"),
+                    step: "review",
+                  });
+                } catch (e) {
+                  setMessage((e as Error).message);
+                }
+              }}
+            >
+              Review Sale
+            </button>
+            <button
+              className="secondary w-full"
+              onClick={() => update({ step: "empties" })}
+            >
+              Back
+            </button>
+          </>
+        )}
+        {step === "review" && (
+          <>
+            <p className="font-semibold">Customer: {customer?.name}</p>
+            <label htmlFor="sale-date">Business date</label>
+            <input
+              id="sale-date"
+              type="date"
+              value={draft.businessDate}
+              onChange={(e) => update({ businessDate: e.target.value })}
+            />
+            {draft.lines.map((line) => {
+              const p = catalog.products.find((p) => p.id === line.productId);
+              const e = line.reviewExpected;
+              try {
+                if (!e)
+                  throw new Error(
+                    "Review current prices and stock before saving.",
+                  );
+                const due = {
+                  crates: line.quantity.crates,
+                  bottles: e.returnable
+                    ? line.quantity.crates * e.size +
+                      (line.quantity.fraction * e.size) / 4 +
+                      line.quantity.bottles
+                    : 0,
+                };
+                const entry = draft.returns[line.productId] ?? {
+                  crates: "0",
+                  bottles: "0",
+                };
+                const returned = {
+                  crates: draft.allEmpties ? due.crates : Number(entry.crates),
+                  bottles: draft.allEmpties
+                    ? due.bottles
+                    : Number(entry.bottles),
+                };
+                return (
+                  <div key={line.productId} className="border-t py-3">
+                    <p>
+                      {p ? `${p.name} ${p.size ?? ""}` : "Drink unavailable"} ·{" "}
+                      {saleQuantityLabel(line.quantity)} ·{" "}
+                      {formatNaira(reviewedLineTotal(line))}
+                    </p>
+                    <p>
+                      Crates returned {returned.crates} / owed{" "}
+                      {due.crates - returned.crates}
+                    </p>
+                    <p>
+                      Bottles returned {returned.bottles} / owed{" "}
+                      {due.bottles - returned.bottles}
+                    </p>
+                  </div>
+                );
+              } catch (e) {
+                return (
+                  <p role="alert" key={line.productId}>
+                    {(e as Error).message}
+                  </p>
+                );
+              }
+            })}
+            <p>
+              Grand total:{" "}
+              {reviewTotal === undefined
+                ? "Check drinks"
+                : formatNaira(reviewTotal)}
+            </p>
+            <p>Amount paid: {formatNaira(Number(draft.paid))}</p>
+            <p>
+              Still owing:{" "}
+              {reviewTotal === undefined
+                ? "Check drinks"
+                : formatNaira(reviewTotal - Number(draft.paid))}
+            </p>
+            <button
+              className="primary w-full"
+              disabled={
+                pending ||
+                !draft.businessDate ||
+                reviewTotal === undefined ||
+                Number(draft.paid) > reviewTotal
+              }
+              onClick={() =>
+                startTransition(async () => {
+                  const id = sales.state.active?.id;
+                  if (!id) return;
+                  const prepared = {
+                    ...draft,
+                    returns: Object.fromEntries(
+                      draft.lines.map((line) => [
+                        line.productId,
+                        draft.returns[line.productId] ?? {
+                          crates: "0",
+                          bottles: "0",
+                        },
+                      ]),
+                    ),
+                  };
+                  const response = await saveSale(
+                    id.startsWith("imported-") ? ownerId : id,
+                    prepared,
+                  );
+                  if (response.error) {
+                    setMessage(response.error);
+                    return;
+                  }
+                  if (response.result) {
+                    if (await sales.complete(id))
+                      setSaved({
+                        ...response.result,
+                        name: customer?.name ?? "Customer",
+                      });
+                  }
+                })
+              }
+            >
+              {pending ? "Saving…" : "Save Sale"}
+            </button>
+            <button
+              className="secondary w-full"
+              disabled={pending}
+              onClick={() =>
+                startTransition(async () => {
+                  try {
+                    const fresh = await loadSaleCatalog();
+                    setCatalog(fresh);
+                    const lines = draft.lines.map((line) => {
+                      const p = fresh.products.find(
+                        (p) => p.id === line.productId,
+                      );
+                      if (!p)
+                        throw new Error(
+                          "A drink no longer exists. Edit the sale.",
+                        );
+                      priceQuantity(p, line.quantity);
+                      emptiesFor(line, p);
+                      return reviewedLine(
+                        {
+                          ...line,
+                          priceSnapshot: undefined,
+                          crateSizeSnapshot: undefined,
+                        },
+                        p,
+                      );
+                    });
+                    await sales.update({ lines });
+                    setMessage(
+                      "Prices and stock refreshed. Check the review before saving.",
+                    );
+                  } catch (e) {
+                    setMessage((e as Error).message);
+                  }
+                })
+              }
+            >
+              Refresh prices &amp; stock
+            </button>
+            <button
+              className="secondary w-full"
+              onClick={() => update({ step: "payment" })}
+            >
+              Back to Payment
+            </button>
+            <button
+              className="quiet-link"
+              onClick={() => update({ step: "empties" })}
+            >
+              Edit empties
+            </button>
+            <button
+              className="quiet-link"
+              onClick={() => update({ step: "check" })}
+            >
+              Edit drinks
+            </button>
           </>
         )}
       </fieldset>

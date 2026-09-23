@@ -96,6 +96,7 @@ export type Database = {
 
       stock_movements: {
         Row: {
+          sale_id: string | null
           crate_type_id: string | null
           id: string
           product_id: string
@@ -111,6 +112,7 @@ export type Database = {
           product_name: string
         }
         Insert: {
+          sale_id?: string | null
           crate_type_id?: string | null
           id?: string
           product_id: string
@@ -126,6 +128,7 @@ export type Database = {
           product_name: string
         }
         Update: {
+          sale_id?: string | null
           crate_type_id?: string | null
           id?: string
           product_id?: string
@@ -384,6 +387,9 @@ export type Database = {
       }
       sale_items: {
         Row: {
+          whole_crates: number
+          crates_returned: number
+          bottles_returned: number
           crate_type_id: string
           bottle_type: string | null
           bottles_per_crate: number
@@ -399,6 +405,9 @@ export type Database = {
           total_bottles: number
         }
         Insert: {
+          whole_crates?: number
+          crates_returned?: number
+          bottles_returned?: number
           crate_type_id: string
           bottle_type?: string | null
           bottles_per_crate: number
@@ -414,6 +423,9 @@ export type Database = {
           total_bottles: number
         }
         Update: {
+          whole_crates?: number
+          crates_returned?: number
+          bottles_returned?: number
           crate_type_id?: string
           bottle_type?: string | null
           bottles_per_crate?: number
@@ -453,6 +465,9 @@ export type Database = {
       }
       sales: {
         Row: {
+          business_date: string | null
+          request_id: string | null
+          request_payload: Json | null
           created_at: string
           customer_id: string
           id: string
@@ -460,6 +475,9 @@ export type Database = {
           total_amount: number
         }
         Insert: {
+          business_date?: string | null
+          request_id?: string | null
+          request_payload?: Json | null
           created_at?: string
           customer_id: string
           id?: string
@@ -514,6 +532,7 @@ export type Database = {
       }
     }
     Functions: {
+      save_sale: { Args: { p_request_id: string; p_customer_id: string; p_business_date: string; p_paid: number; p_lines: Json }; Returns: Json }
       edit_crate_type: {
         Args: { p_id: string; p_name: string; p_empty_family: string; p_pocket_count: number; p_variant: string | null }
         Returns: string

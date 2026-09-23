@@ -13,6 +13,7 @@ import {
   parkActiveSale,
   resumeSale,
   cancelSale,
+  completeSale,
   type SaleDrafts,
 } from "@/domain/sale-drafts";
 const eventName = "depotflow-sale-drafts";
@@ -38,7 +39,7 @@ export function useSaleDrafts(ownerId: string) {
         ? JSON.stringify({
             version: 2,
             active: {
-              id: `imported-${ownerId}`,
+              id: ownerId,
               draft: previous,
               pausedAt: null,
             },
@@ -102,5 +103,6 @@ export function useSaleDrafts(ownerId: string) {
     resume: (id: string) =>
       mutate((current) => resumeSale(current, id, new Date().toISOString())),
     cancel: (id: string) => mutate((current) => cancelSale(current, id)),
+    complete: (id: string) => mutate((current) => completeSale(current, id)),
   };
 }

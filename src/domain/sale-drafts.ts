@@ -120,6 +120,11 @@ export function cancelSale(state: SaleDrafts, id: string): SaleDrafts {
     paused: state.paused.filter((entry) => entry.id !== id),
   };
 }
+export function completeSale(state: SaleDrafts, id: string): SaleDrafts {
+  if (state.active?.id !== id)
+    throw new Error("The active sale changed. Open it again.");
+  return { ...state, active: null };
+}
 
 /** Returning from customer creation changes only the customer and sale step. */
 export function selectSaleCustomer(

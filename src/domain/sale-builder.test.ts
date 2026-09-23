@@ -9,6 +9,10 @@ import {
   removeSaleLine,
   saleQuantityLabel,
   saleTotal,
+  emptiesFor,
+  returnedEmpties,
+  reviewedLine,
+  reviewedTotal,
   type SaleProduct,
 } from "./sale-builder.ts";
 const product: SaleProduct = {
@@ -22,11 +26,69 @@ const product: SaleProduct = {
   quarter_crate_price: 3500,
   bottle_price: 1500,
   available: 240,
+  crate_type_id: "crate",
+  crate_type: { name: "Exact crate", is_legacy: false, pocket_count: 12 },
+  bottles_returnable: true,
+  bottle_type: "glass",
 };
 const q = (crates = 0, fraction: 0 | 1 | 2 | 3 = 0, bottles = 0) => ({
   crates,
   fraction,
   bottles,
+});
+test("whole crates and loose bottles retain distinct exact obligations", () => {
+  const line = { productId: product.id, quantity: q(2, 1, 5) };
+  assert.deepEqual(emptiesFor(line, product), { crates: 2, bottles: 32 });
+  const draft = {
+    ...emptySaleDraft,
+    allEmpties: false,
+    returns: { one: { crates: "1", bottles: "7" } },
+  };
+  assert.deepEqual(returnedEmpties(draft, line, product), {
+    crates: 1,
+    bottles: 7,
+  });
+  assert.deepEqual(
+    returnedEmpties({ ...draft, allEmpties: true }, line, product),
+    { crates: 2, bottles: 32 },
+  );
+  assert.deepEqual(emptiesFor({ ...line, quantity: q(0, 1, 9) }, product), {
+    crates: 0,
+    bottles: 12,
+  });
+  assert.deepEqual(
+    emptiesFor(line, { ...product, bottles_returnable: false }),
+    { crates: 2, bottles: 0 },
+  );
+  assert.throws(
+    () =>
+      emptiesFor(line, {
+        ...product,
+        crate_type: { name: "Unknown", is_legacy: true, pocket_count: 12 },
+      }),
+    /exact crate/,
+  );
+  assert.throws(
+    () =>
+      returnedEmpties(
+        { ...draft, returns: { one: { crates: "3", bottles: "7" } } },
+        line,
+        product,
+      ),
+    /cannot exceed/,
+  );
+});
+test("review keeps the original payable total for an idempotent retry after stock changes", () => {
+  const line = reviewedLine(
+    { productId: product.id, quantity: q(1, 0, 0) },
+    product,
+  );
+  assert.equal(reviewedTotal([line]), 12000);
+  assert.throws(
+    () => priceQuantity({ ...product, available: 0 }, line.quantity),
+    /stock/i,
+  );
+  assert.equal(reviewedTotal([line]), 12000);
 });
 test("quarter, half and three-quarter use whole bottles and configured component prices", () => {
   assert.deepEqual(priceQuantity(product, q(0, 1)), {

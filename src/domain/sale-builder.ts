@@ -11,6 +11,14 @@ export type SaleProduct = {
   quarter_crate_price: number | null;
   bottle_price: number | null;
   available: number | null;
+  crate_type_id: string;
+  crate_type: {
+    name: string;
+    is_legacy: boolean;
+    pocket_count: number | null;
+  } | null;
+  bottles_returnable: boolean;
+  bottle_type: string | null;
 };
 export type SaleCustomer = { id: string; name: string; phone: string };
 export type SaleCatalog = {
@@ -27,7 +35,67 @@ export type DraftLine = {
   quantity: SaleQuantity;
   priceSnapshot?: string;
   crateSizeSnapshot?: number;
+  reviewExpected?: {
+    full: number | null;
+    half: number | null;
+    quarter: number | null;
+    bottle: number | null;
+    size: number;
+    crate: string;
+    returnable: boolean;
+    bottleType: string | null;
+    stock: number | null;
+  };
 };
+export function reviewedLine(line: DraftLine, p: SaleProduct): DraftLine {
+  return {
+    ...line,
+    reviewExpected: {
+      full: p.full_crate_price,
+      half: p.half_crate_price,
+      quarter: p.quarter_crate_price,
+      bottle: p.bottle_price,
+      size: p.bottles_per_crate,
+      crate: p.crate_type_id,
+      returnable: p.bottles_returnable,
+      bottleType: p.bottle_type,
+      stock: p.available,
+    },
+  };
+}
+export function reviewedLineTotal(line: DraftLine) {
+  const e = line.reviewExpected;
+  if (!e) throw new Error("Review current prices and stock before saving.");
+  return priceQuantity(
+    {
+      id: line.productId,
+      name: "Drink",
+      size: null,
+      image_url: null,
+      bottles_per_crate: e.size,
+      full_crate_price: e.full,
+      half_crate_price: e.half,
+      quarter_crate_price: e.quarter,
+      bottle_price: e.bottle,
+      available: Number.MAX_SAFE_INTEGER,
+      crate_type_id: e.crate,
+      crate_type: null,
+      bottles_returnable: e.returnable,
+      bottle_type: e.bottleType,
+    },
+    line.quantity,
+  ).lineTotal;
+}
+export function reviewedTotal(lines: DraftLine[]) {
+  if (
+    !lines.length ||
+    new Set(lines.map((line) => line.productId)).size !== lines.length
+  )
+    throw new Error("Review the drinks in this sale.");
+  const total = lines.reduce((sum, line) => sum + reviewedLineTotal(line), 0);
+  if (!Number.isSafeInteger(total)) throw new Error("That total is too large.");
+  return total;
+}
 export function priceQuantity(product: SaleProduct, quantity: SaleQuantity) {
   const { crates, fraction, bottles } = quantity;
   if (
@@ -99,6 +167,48 @@ export function saleTotal(lines: DraftLine[], products: SaleProduct[]) {
   if (!Number.isSafeInteger(total)) throw new Error("That total is too large.");
   return total;
 }
+export function emptiesFor(line: DraftLine, product: SaleProduct) {
+  const fractional =
+    (line.quantity.fraction * product.bottles_per_crate) / 4 +
+    line.quantity.bottles;
+  if (!Number.isSafeInteger(fractional))
+    throw new Error("Check the bottle quantity.");
+  if (
+    line.quantity.crates &&
+    (product.crate_type?.is_legacy ||
+      product.crate_type?.pocket_count !== product.bottles_per_crate)
+  )
+    throw new Error(
+      `${product.name}: Choose an exact crate type before saving.`,
+    );
+  return {
+    crates: line.quantity.crates,
+    bottles: product.bottles_returnable
+      ? line.quantity.crates * product.bottles_per_crate + fractional
+      : 0,
+  };
+}
+export function returnedEmpties(
+  draft: SaleDraft,
+  line: DraftLine,
+  product: SaleProduct,
+) {
+  const due = emptiesFor(line, product);
+  const entry = draft.returns[line.productId];
+  function count(raw: string | undefined, max: number) {
+    if (draft.allEmpties) return max;
+    if (raw === undefined || !/^\d+$/.test(raw))
+      throw new Error("Enter whole numbers of returned empties.");
+    const value = Number(raw);
+    if (!Number.isSafeInteger(value) || value > max)
+      throw new Error("Returned empties cannot exceed those in this sale.");
+    return value;
+  }
+  return {
+    crates: count(entry?.crates, due.crates),
+    bottles: count(entry?.bottles, due.bottles),
+  };
+}
 export function saleQuantityLabel(q: SaleQuantity) {
   const fraction = ["", "¼", "½", "¾"][q.fraction];
   const parts = [];
@@ -120,7 +230,18 @@ export function matchesSaleCustomer(customer: SaleCustomer, query: string) {
 export type SaleDraft = {
   customerId: string;
   lines: DraftLine[];
-  step: "customer" | "drinks" | "quantity" | "check";
+  step:
+    | "customer"
+    | "drinks"
+    | "quantity"
+    | "check"
+    | "empties"
+    | "payment"
+    | "review";
+  businessDate: string;
+  paid: string;
+  allEmpties: boolean;
+  returns: Record<string, { crates: string; bottles: string }>;
   editingId: string;
   crates: string;
   fraction: 0 | 1 | 2 | 3;
@@ -132,6 +253,10 @@ export const emptySaleDraft: SaleDraft = {
   customerId: "",
   lines: [],
   step: "customer",
+  businessDate: "",
+  paid: "0",
+  allEmpties: true,
+  returns: {},
   editingId: "",
   crates: "0",
   fraction: 0,
@@ -144,7 +269,15 @@ export function readSaleDraft(raw: string | null): SaleDraft {
     const d = JSON.parse(raw ?? "null");
     if (
       !d ||
-      !["customer", "drinks", "quantity", "check"].includes(d.step) ||
+      ![
+        "customer",
+        "drinks",
+        "quantity",
+        "check",
+        "empties",
+        "payment",
+        "review",
+      ].includes(d.step) ||
       ![0, 1, 2, 3].includes(d.fraction) ||
       ![
         "customerId",
@@ -173,7 +306,30 @@ export function readSaleDraft(raw: string | null): SaleDraft {
       d.lines.length
     )
       return emptySaleDraft;
-    return d as SaleDraft;
+    const returns: SaleDraft["returns"] = {};
+    if (
+      d.returns &&
+      typeof d.returns === "object" &&
+      !Array.isArray(d.returns)
+    ) {
+      for (const [id, entry] of Object.entries(d.returns)) {
+        if (
+          entry &&
+          typeof entry === "object" &&
+          typeof (entry as { crates?: unknown }).crates === "string" &&
+          typeof (entry as { bottles?: unknown }).bottles === "string"
+        )
+          returns[id] = entry as { crates: string; bottles: string };
+      }
+    }
+    return {
+      ...emptySaleDraft,
+      ...d,
+      businessDate: typeof d.businessDate === "string" ? d.businessDate : "",
+      paid: typeof d.paid === "string" ? d.paid : "0",
+      allEmpties: typeof d.allEmpties === "boolean" ? d.allEmpties : true,
+      returns,
+    } as SaleDraft;
   } catch {
     return emptySaleDraft;
   }

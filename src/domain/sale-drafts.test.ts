@@ -13,6 +13,7 @@ import {
   parkActiveSale,
   resumeSale,
   cancelSale,
+  completeSale,
   readSaleDrafts,
 } from "./sale-drafts.ts";
 const product: SaleProduct = {
@@ -26,11 +27,30 @@ const product: SaleProduct = {
   quarter_crate_price: 3500,
   bottle_price: 1500,
   available: 100,
+  crate_type_id: "crate",
+  crate_type: { name: "Exact crate", is_legacy: false, pocket_count: 12 },
+  bottles_returnable: true,
+  bottle_type: "glass",
 };
 const line = {
   productId: "p",
   quantity: { crates: 1, fraction: 0 as const, bottles: 0 },
 };
+test("saving clears only the matching active sale and leaves paused drafts", () => {
+  const active = {
+    id: "active",
+    pausedAt: null,
+    draft: { ...emptySaleDraft, customerId: "a" },
+  };
+  const paused = {
+    id: "paused",
+    pausedAt: new Date().toISOString(),
+    draft: { ...emptySaleDraft, customerId: "b" },
+  };
+  const state = { ...emptySaleDrafts, active, paused: [paused] };
+  assert.deepEqual(completeSale(state, "active"), { ...state, active: null });
+  assert.throws(() => completeSale(state, "paused"), /active sale changed/);
+});
 const draft = {
   ...emptySaleDraft,
   customerId: "c",
