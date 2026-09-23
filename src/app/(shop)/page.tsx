@@ -26,6 +26,12 @@ export default async function Home() {
           Customers <span aria-hidden="true">→</span>
         </Link>
         <Link
+          href="/sales"
+          className="flex min-h-20 items-center justify-between border-b border-stone-300 text-xl font-semibold"
+        >
+          Sales <span aria-hidden="true">→</span>
+        </Link>
+        <Link
           href="/products"
           className="flex min-h-20 items-center justify-between border-b border-stone-300 text-xl font-semibold"
         >

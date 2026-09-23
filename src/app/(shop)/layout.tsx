@@ -20,6 +20,9 @@ export default async function ShopLayout({
         <Link className="quiet-link" href="/customers">
           Customers
         </Link>
+        <Link className="quiet-link" href="/sales">
+          Sales
+        </Link>
         <Link className="quiet-link" href="/products">
           Products
         </Link>

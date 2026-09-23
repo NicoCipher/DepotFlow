@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { getCustomer } from "@/lib/customers/data";
+import { getRecentCustomerSales } from "@/lib/sales/data";
+import { SalesList } from "@/components/sales-list";
 
 export default async function CustomerPage({
   params,
@@ -10,7 +12,7 @@ export default async function CustomerPage({
 }) {
   const { id } = await params;
   const { customer, supabase } = await getCustomer(id);
-  const [money, crates, bottles, deposits] = await Promise.all([
+  const [money, crates, bottles, deposits, sales] = await Promise.all([
     supabase
       .from("money_owed")
       .select("amount")
@@ -26,6 +28,7 @@ export default async function CustomerPage({
       .select("amount")
       .eq("customer_id", id)
       .maybeSingle(),
+    getRecentCustomerSales(supabase, id),
   ]);
   if ([money, crates, bottles, deposits].some((result) => result.error))
     throw new Error("Could not load customer totals.");
@@ -88,6 +91,21 @@ export default async function CustomerPage({
           </div>
         ))}
       </dl>
+      <section className="mt-10" aria-labelledby="customer-sales-heading">
+        <h2
+          id="customer-sales-heading"
+          className="mb-4 text-2xl font-semibold"
+        >
+          Sales
+        </h2>
+        <SalesList
+          sales={sales}
+          showCustomer={false}
+          showItemCount={false}
+          emptyTitle="No sales for this customer"
+          emptyMessage="Their saved sales will appear here."
+        />
+      </section>
     </>
   );
 }
