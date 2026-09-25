@@ -1,0 +1,64 @@
+# Temporary, manually-triggered verification workflow. Runs the SQL test
+# suite and real-concurrency checks against a disposable Postgres 16
+# instance — never against production Supabase, which this workflow never
+# connects to or has credentials for.
+name: Verify database (disposable Postgres 16)
+
+on:
+  workflow_dispatch: {}
+  pull_request:
+    paths:
+      - "supabase/**"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      PGUSER: postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PostgreSQL 16
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y postgresql-16
+
+      - name: Configure disposable cluster (port 55439, /tmp socket, local trust)
+        run: |
+          set -euo pipefail
+          PGCONF=/etc/postgresql/16/main
+          sudo sed -i "s/^port = 5432.*/port = 55439/" "$PGCONF/postgresql.conf"
+          sudo sed -i "s#^unix_socket_directories = .*#unix_socket_directories = '/tmp,/var/run/postgresql'#" "$PGCONF/postgresql.conf"
+          sudo sed -i "s/^local   all             postgres.*peer/local   all             postgres                                trust/" "$PGCONF/pg_hba.conf"
+          sudo sed -i "s/^local   all             all.*peer/local   all             all                                     trust/" "$PGCONF/pg_hba.conf"
+          sudo service postgresql restart
+          sleep 2
+          psql -h /tmp -p 55439 -d postgres -X -At -c "select version();"
+
+      - name: Bootstrap the minimal Supabase-platform surface
+        run: psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 -f supabase/tests/bootstrap.sql
+
+      - name: Apply migrations in order
+        run: |
+          set -euo pipefail
+          for f in supabase/migrations/*.sql; do
+            echo "Applying $f"
+            psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 -f "$f"
+          done
+
+      - name: Run SQL test suite (each file is self-contained and rolls back)
+        run: |
+          set -euo pipefail
+          for f in supabase/tests/*.sql; do
+            echo "Running $f"
+            psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 -f "$f"
+          done
+
+      - name: Run real-concurrency checks
+        run: |
+          set -euo pipefail
+          for f in supabase/tests/concurrency/*.py; do
+            echo "Running $f"
+            python3 "$f"
+          done
