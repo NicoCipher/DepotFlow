@@ -26,22 +26,27 @@ export default async function Home() {
           Customers <span aria-hidden="true">→</span>
         </Link>
         <Link
-          href="/sales"
-          className="flex min-h-20 items-center justify-between border-b border-stone-300 text-xl font-semibold"
-        >
-          Sales <span aria-hidden="true">→</span>
-        </Link>
-        <Link
-          href="/products"
-          className="flex min-h-20 items-center justify-between border-b border-stone-300 text-xl font-semibold"
-        >
-          Products <span aria-hidden="true">→</span>
-        </Link>
-        <Link
           href="/stock"
           className="flex min-h-20 items-center justify-between border-b border-stone-300 text-xl font-semibold"
         >
           Stock <span aria-hidden="true">→</span>
+        </Link>
+        <Link
+          href="/empty-crates"
+          className="flex min-h-20 items-center justify-between border-b border-stone-300 text-xl font-semibold"
+        >
+          Empty Crates <span aria-hidden="true">→</span>
+        </Link>
+      </section>
+      <section aria-label="Manage" className="mt-6">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-stone-500">
+          Manage
+        </h2>
+        <Link href="/sales" className="quiet-link block">
+          Sales History
+        </Link>
+        <Link href="/products" className="quiet-link block">
+          Products
         </Link>
       </section>
     </>

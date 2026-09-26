@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCustomer } from "@/lib/customers/data";
 import { getRecentCustomerSales } from "@/lib/sales/data";
 import { getRecentCustomerPayments } from "@/lib/payments/data";
+import { formatEmptiesOwed } from "@/domain/customers";
 import { SalesList } from "@/components/sales-list";
 import { PaymentsList } from "@/components/payments-list";
 
@@ -68,45 +69,40 @@ export default async function CustomerPage({
           {customer.address}
         </p>
       )}
-      <Link
-        href={`/customers/${id}/edit`}
-        className="secondary mt-6 self-start"
-      >
-        Edit details
-      </Link>
-      <Link href={`/customers/${id}/pay`} className="primary mt-3 self-start">
+      <dl className="mt-8 border-t border-stone-300">
+        <div className="flex items-center justify-between gap-3 border-b border-stone-300 py-5">
+          <dt className="text-lg">Money owed</dt>
+          <dd className="text-2xl font-bold">
+            {naira(money.data?.amount ?? 0)}
+          </dd>
+        </div>
+        <div className="flex items-center justify-between gap-3 border-b border-stone-300 py-5">
+          <dt className="text-lg">Empties owed</dt>
+          <dd className="text-2xl font-bold">
+            {formatEmptiesOwed(
+              crates.data?.reduce((sum, row) => sum + row.quantity, 0) ?? 0,
+              bottles.data?.reduce((sum, row) => sum + row.quantity, 0) ?? 0,
+            )}
+          </dd>
+        </div>
+      </dl>
+      <p className="mt-3 flex items-center justify-between text-stone-600">
+        <span>Deposit held</span>
+        <span>{naira(deposits.data?.amount ?? 0)}</span>
+      </p>
+      <Link href={`/customers/${id}/pay`} className="primary mt-6 self-start">
         Record Payment
       </Link>
-      <dl className="mt-8 border-t border-stone-300">
-        {[
-          ["Money owed", naira(money.data?.amount ?? 0)],
-          [
-            "Crates owed",
-            String(
-              crates.data?.reduce((sum, row) => sum + row.quantity, 0) ?? 0,
-            ),
-          ],
-          [
-            "Bottles owed",
-            String(
-              bottles.data?.reduce((sum, row) => sum + row.quantity, 0) ?? 0,
-            ),
-          ],
-          ["Deposit held", naira(deposits.data?.amount ?? 0)],
-        ].map(([label, value]) => (
-          <div
-            key={label}
-            className="flex items-center justify-between gap-3 border-b border-stone-300 py-5"
-          >
-            <dt>{label}</dt>
-            <dd className="text-xl font-semibold">{value}</dd>
-          </div>
-        ))}
-      </dl>
+      <Link
+        href={`/customers/${id}/edit`}
+        className="quiet-link mt-2 self-start"
+      >
+        Manage customer
+      </Link>
       <section className="mt-10" aria-labelledby="customer-sales-heading">
         <h2
           id="customer-sales-heading"
-          className="mb-4 text-2xl font-semibold"
+          className="mb-4 text-sm font-semibold uppercase tracking-wide text-stone-500"
         >
           Sales
         </h2>
@@ -121,7 +117,7 @@ export default async function CustomerPage({
       <section className="mt-10" aria-labelledby="customer-payments-heading">
         <h2
           id="customer-payments-heading"
-          className="mb-4 text-2xl font-semibold"
+          className="mb-4 text-sm font-semibold uppercase tracking-wide text-stone-500"
         >
           Payment History
         </h2>

@@ -42,21 +42,22 @@ export default async function StockPage({
           Stock received.
         </p>
       )}
-      <Link className="primary mt-5 w-full" href="/stock/receive">
-        Receive Stock
-      </Link>
-      <Link className="secondary mt-3 w-full" href="/stock/count">
-        Set Current Stock
-      </Link>
       {params.counted === "1" && (
         <p role="status" className="mt-3 text-emerald-900">
           Current stock saved.
         </p>
       )}
-      <Link className="secondary mt-3 w-full" href="/empty-crates">
-        Empty Crates
-      </Link>
-      <p className="mb-7 mt-3 text-stone-600">Full drinks in the shop.</p>
+      <div className="mt-5 mb-7 flex flex-wrap gap-x-5 gap-y-1">
+        <Link className="quiet-link" href="/stock/receive">
+          Receive Stock
+        </Link>
+        <Link className="quiet-link" href="/stock/count">
+          Set Current Stock
+        </Link>
+        <Link className="quiet-link" href="/empty-crates">
+          Empty Crates
+        </Link>
+      </div>
       {!data?.length ? (
         <div className="border-t border-stone-300 py-6">
           <h2 className="text-xl font-semibold">
@@ -93,16 +94,16 @@ export default async function StockPage({
         )}
       </nav>
       <section className="mt-10" aria-labelledby="history-title">
-        <h2 id="history-title" className="text-xl font-semibold">
+        <h2
+          id="history-title"
+          className="text-sm font-semibold uppercase tracking-wide text-stone-500"
+        >
           Recent stock history
         </h2>
-        <p className="mt-2 text-sm text-stone-600">
-          Latest 20 saved entries. Dates are the business dates you chose.
-        </p>
         {!history.data?.length ? (
-          <p className="mt-4">No stock history yet.</p>
+          <p className="mt-4 text-stone-600">No stock history yet.</p>
         ) : (
-          <ul className="mt-4 divide-y divide-stone-200">
+          <ul className="mt-4 divide-y divide-stone-200 text-stone-700">
             {history.data.map((movement) => (
               <li key={movement.id} className="space-y-2 py-5">
                 <time
@@ -135,7 +136,7 @@ export default async function StockPage({
                     ? "No change"
                     : `${movement.quantity_change > 0 ? "+" : "−"}${formatQuantity(Math.abs(movement.quantity_change), movement.bottles_per_crate)}`}
                 </p>
-                <p className="font-semibold">
+                <p>
                   Stock after:{" "}
                   {formatQuantity(
                     movement.resulting_stock,

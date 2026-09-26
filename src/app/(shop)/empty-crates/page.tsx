@@ -73,18 +73,11 @@ export default async function EmptyCratesPage({
   return (
     <>
       <h1>Empty Crates</h1>
-      <p className="mt-3 text-stone-600">
-        Empty crates physically in the shop. Choose a type to set its current
-        count.
-      </p>
       {params.saved === "1" && (
         <p role="status" className="mt-3 text-emerald-900">
           Empty-crate count saved.
         </p>
       )}
-      <Link className="quiet-link mt-4" href="/crate-types">
-        Manage crate types
-      </Link>
       {!visible.length && <p className="mt-6">No crate counts to show.</p>}
       {Array.from(groups)
         .sort(([a], [b]) =>
@@ -103,8 +96,10 @@ export default async function EmptyCratesPage({
                   item.crate_type_id && (
                     <li key={item.crate_type_id} className="py-5">
                       <CrateDisplay crate={item} includeFamily={false} />
-                      <p className="mt-2 text-lg">
-                        {emptyCrateQuantity(item.quantity)}
+                      <p className="mt-2 text-lg font-semibold">
+                        {item.quantity === null
+                          ? "Not recorded"
+                          : `Current: ${emptyCrateQuantity(item.quantity)}`}
                       </p>
                       <Link
                         className="primary mt-4 w-full"
@@ -134,17 +129,20 @@ export default async function EmptyCratesPage({
           </Link>
         )}
       </nav>
-      <section className="mt-10" aria-labelledby="empty-history">
-        <h2 id="empty-history" className="text-xl font-semibold">
+      <Link className="quiet-link mt-8 inline-block" href="/crate-types">
+        Manage crate types
+      </Link>
+      <section className="mt-6" aria-labelledby="empty-history">
+        <h2
+          id="empty-history"
+          className="text-sm font-semibold uppercase tracking-wide text-stone-500"
+        >
           Recent counts
         </h2>
-        <p className="mt-2 text-sm text-stone-600">
-          Latest 20 saved counts, with the business dates you chose.
-        </p>
         {!history.data?.length ? (
-          <p className="mt-4">No counts saved yet.</p>
+          <p className="mt-4 text-stone-600">No counts saved yet.</p>
         ) : (
-          <ul className="mt-4 divide-y divide-stone-200">
+          <ul className="mt-4 divide-y divide-stone-200 text-stone-700">
             {history.data.map((item) => (
               <li key={item.id} className="space-y-2 py-5">
                 <time
@@ -174,7 +172,7 @@ export default async function EmptyCratesPage({
                       : `${item.quantity_change > 0 ? "+" : "−"}${emptyCrateQuantity(Math.abs(item.quantity_change))}`}
                   </p>
                 )}
-                <p className="font-semibold">
+                <p>
                   Count saved: {emptyCrateQuantity(item.resulting_quantity)}
                 </p>
               </li>

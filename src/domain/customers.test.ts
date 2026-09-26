@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   customerSearchFilter,
   emptyCustomer,
+  formatEmptiesOwed,
   isCustomerId,
   normalizePhone,
   sameCustomerDetails,
@@ -98,4 +99,12 @@ test("retry recognition requires all details to match and validates form IDs", (
   assert.equal(sameCustomerDetails(data, { ...data, name: "Other" }), false);
   assert.equal(isCustomerId("not-an-id"), false);
   assert.equal(isCustomerId("10000000-0000-4000-8000-000000000001"), true);
+});
+test("empties owed combines independent crate and bottle counts for scanning", () => {
+  assert.equal(formatEmptiesOwed(0, 0), "None");
+  assert.equal(formatEmptiesOwed(1, 0), "1 crate");
+  assert.equal(formatEmptiesOwed(3, 0), "3 crates");
+  assert.equal(formatEmptiesOwed(0, 1), "1 bottle");
+  assert.equal(formatEmptiesOwed(0, 12), "12 bottles");
+  assert.equal(formatEmptiesOwed(2, 5), "2 crates + 5 bottles");
 });

@@ -59,6 +59,14 @@ export function customerSearchFilter(query: string): string {
   return `name.ilike.${searchPattern(term)},phone.ilike.${searchPattern(phone)}`;
 }
 
+/** Crate and bottle obligations are independent counts, not a single quantity to split. */
+export function formatEmptiesOwed(crates: number, bottles: number): string {
+  const parts: string[] = [];
+  if (crates) parts.push(`${crates} ${crates === 1 ? "crate" : "crates"}`);
+  if (bottles) parts.push(`${bottles} ${bottles === 1 ? "bottle" : "bottles"}`);
+  return parts.length ? parts.join(" + ") : "None";
+}
+
 export function sameCustomerDetails(
   a: ReturnType<typeof validateCustomer>["data"],
   b: ReturnType<typeof validateCustomer>["data"],
