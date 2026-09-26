@@ -160,7 +160,7 @@ export function SaleBuilder({
         <p>{saved.name}</p>
         <p>Total: {formatNaira(saved.total)}</p>
         <p>Paid: {formatNaira(saved.paid)}</p>
-        <p>Still owing: {formatNaira(saved.owing)}</p>
+        <p>Owing from this sale: {formatNaira(saved.owing)}</p>
         <p>Sale reference: {saved.id}</p>
         <button className="primary w-full" onClick={() => setSaved(null)}>
           Record Another Sale

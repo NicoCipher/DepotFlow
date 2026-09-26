@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { getCustomer } from "@/lib/customers/data";
 import { getRecentCustomerSales } from "@/lib/sales/data";
+import { getRecentCustomerPayments } from "@/lib/payments/data";
 import { SalesList } from "@/components/sales-list";
+import { PaymentsList } from "@/components/payments-list";
 
 export default async function CustomerPage({
   params,
@@ -12,36 +14,43 @@ export default async function CustomerPage({
 }) {
   const { id } = await params;
   const { customer, supabase } = await getCustomer(id);
-  const [money, crates, bottles, deposits, sales] = await Promise.all([
-    supabase
-      .from("money_owed")
-      .select("amount")
-      .eq("customer_id", id)
-      .maybeSingle(),
-    supabase.from("crate_obligations").select("quantity").eq("customer_id", id),
-    supabase
-      .from("bottle_obligations")
-      .select("quantity")
-      .eq("customer_id", id),
-    supabase
-      .from("deposits")
-      .select("amount")
-      .eq("customer_id", id)
-      .maybeSingle(),
-    getRecentCustomerSales(supabase, id),
-  ]);
+  const [money, crates, bottles, deposits, sales, payments] =
+    await Promise.all([
+      supabase
+        .from("money_owed")
+        .select("amount")
+        .eq("customer_id", id)
+        .maybeSingle(),
+      supabase
+        .from("crate_obligations")
+        .select("quantity")
+        .eq("customer_id", id),
+      supabase
+        .from("bottle_obligations")
+        .select("quantity")
+        .eq("customer_id", id),
+      supabase
+        .from("deposits")
+        .select("amount")
+        .eq("customer_id", id)
+        .maybeSingle(),
+      getRecentCustomerSales(supabase, id),
+      getRecentCustomerPayments(supabase, id),
+    ]);
   if ([money, crates, bottles, deposits].some((result) => result.error))
     throw new Error("Could not load customer totals.");
   const { saved } = await searchParams;
   const naira = (value: number) => `₦${value.toLocaleString("en-NG")}`;
   return (
     <>
-      {(saved === "added" || saved === "updated") && (
+      {(saved === "added" || saved === "updated" || saved === "payment") && (
         <p
           role="status"
           className="mb-5 border-l-4 border-emerald-800 pl-3 text-emerald-900"
         >
-          Customer {saved === "added" ? "added" : "updated"}.
+          {saved === "payment"
+            ? "Payment recorded."
+            : `Customer ${saved === "added" ? "added" : "updated"}.`}
         </p>
       )}
       <h1 className="break-words">{customer.name}</h1>
@@ -64,6 +73,9 @@ export default async function CustomerPage({
         className="secondary mt-6 self-start"
       >
         Edit details
+      </Link>
+      <Link href={`/customers/${id}/pay`} className="primary mt-3 self-start">
+        Record Payment
       </Link>
       <dl className="mt-8 border-t border-stone-300">
         {[
@@ -105,6 +117,15 @@ export default async function CustomerPage({
           emptyTitle="No sales for this customer"
           emptyMessage="Their saved sales will appear here."
         />
+      </section>
+      <section className="mt-10" aria-labelledby="customer-payments-heading">
+        <h2
+          id="customer-payments-heading"
+          className="mb-4 text-2xl font-semibold"
+        >
+          Payment History
+        </h2>
+        <PaymentsList payments={payments} />
       </section>
     </>
   );

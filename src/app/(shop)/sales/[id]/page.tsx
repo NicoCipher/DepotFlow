@@ -29,7 +29,7 @@ export default async function SalePage({
         {[
           ["Grand total", formatNaira(sale.total)],
           ["Amount paid", formatNaira(sale.paid)],
-          ["Still owing", formatNaira(sale.owing)],
+          ["Owing from this sale", formatNaira(sale.owing)],
         ].map(([label, value]) => (
           <div
             key={label}
@@ -37,7 +37,7 @@ export default async function SalePage({
           >
             <dt>{label}</dt>
             <dd
-              className={`text-xl font-semibold ${label === "Still owing" && sale.owing > 0 ? "text-red-800" : ""}`}
+              className={`text-xl font-semibold ${label === "Owing from this sale" && sale.owing > 0 ? "text-red-800" : ""}`}
             >
               {value}
             </dd>

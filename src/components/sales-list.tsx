@@ -65,7 +65,7 @@ export function SalesList({
             <span
               className={`mt-1 block font-semibold ${sale.owing > 0 ? "text-red-800" : "text-emerald-800"}`}
             >
-              Still owing {formatNaira(sale.owing)}
+              Owing from this sale {formatNaira(sale.owing)}
             </span>
           </Link>
         </li>
