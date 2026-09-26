@@ -14,144 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      crate_types: {
-        Row: {
-          id: string
-          name: string
-          empty_family: string | null
-          pocket_count: number | null
-          variant: string | null
-          is_legacy: boolean
-          legacy_key: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          name: string
-          empty_family?: string | null
-          pocket_count?: number | null
-          variant?: string | null
-          is_legacy?: boolean
-          legacy_key?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          name?: string
-          empty_family?: string | null
-          pocket_count?: number | null
-          variant?: string | null
-          is_legacy?: boolean
-          legacy_key?: string | null
-          created_at?: string
-        }
-        Relationships: []
-      }
-
-      empty_crate_movements: {
-        Row: {
-          crate_type_id: string
-          id: string
-          crate_type: string | null
-          movement_type: string
-          previous_quantity: number | null
-          quantity_change: number
-          resulting_quantity: number
-          business_date: string
-          created_at: string
-          request_id: string
-        }
-        Insert: {
-          crate_type_id: string
-          id?: string
-          crate_type?: string | null
-          movement_type: string
-          previous_quantity?: number | null
-          quantity_change: number
-          resulting_quantity: number
-          business_date: string
-          created_at?: string
-          request_id: string
-        }
-        Update: {
-          crate_type_id?: string
-          id?: string
-          crate_type?: string | null
-          movement_type?: string
-          previous_quantity?: number | null
-          quantity_change?: number
-          resulting_quantity?: number
-          business_date?: string
-          created_at?: string
-          request_id?: string
-        }
-        Relationships: [{
-          foreignKeyName: "empty_crate_movements_crate_type_id_fkey"
-          columns: ["crate_type_id"]
-          isOneToOne: false
-          referencedRelation: "crate_types"
-          referencedColumns: ["id"]
-        }]
-      }
-
-      stock_movements: {
-        Row: {
-          sale_id: string | null
-          crate_type_id: string | null
-          id: string
-          product_id: string
-          movement_type: string
-          quantity_change: number
-          resulting_stock: number
-          business_date: string
-          created_at: string
-          request_id: string
-          crates: number
-          loose_bottles: number
-          bottles_per_crate: number
-          product_name: string
-        }
-        Insert: {
-          sale_id?: string | null
-          crate_type_id?: string | null
-          id?: string
-          product_id: string
-          movement_type: string
-          quantity_change: number
-          resulting_stock: number
-          business_date: string
-          created_at?: string
-          request_id: string
-          crates: number
-          loose_bottles: number
-          bottles_per_crate: number
-          product_name: string
-        }
-        Update: {
-          sale_id?: string | null
-          crate_type_id?: string | null
-          id?: string
-          product_id?: string
-          movement_type?: string
-          quantity_change?: number
-          resulting_stock?: number
-          business_date?: string
-          created_at?: string
-          request_id?: string
-          crates?: number
-          loose_bottles?: number
-          bottles_per_crate?: number
-          product_name?: string
-        }
-        Relationships: [{
-          foreignKeyName: "stock_movements_crate_type_id_fkey"
-          columns: ["crate_type_id"]
-          isOneToOne: false
-          referencedRelation: "crate_types"
-          referencedColumns: ["id"]
-        },{ foreignKeyName: "stock_movements_product_id_fkey"; columns: ["product_id"]; isOneToOne: false; referencedRelation: "products"; referencedColumns: ["id"] }]
-      }
-
       bottle_obligations: {
         Row: {
           bottle_type: string
@@ -180,30 +42,38 @@ export type Database = {
       }
       crate_obligations: {
         Row: {
-          crate_type_id: string
           crate_type: string | null
+          crate_type_id: string
           customer_id: string
           quantity: number
         }
         Insert: {
-          crate_type_id: string
           crate_type?: string | null
+          crate_type_id: string
           customer_id: string
           quantity?: number
         }
         Update: {
-          crate_type_id?: string
           crate_type?: string | null
+          crate_type_id?: string
           customer_id?: string
           quantity?: number
         }
-        Relationships: [{
-          foreignKeyName: "crate_obligations_crate_type_id_fkey"
-          columns: ["crate_type_id"]
-          isOneToOne: false
-          referencedRelation: "crate_types"
-          referencedColumns: ["id"]
-        },
+        Relationships: [
+          {
+            foreignKeyName: "crate_obligations_crate_type_id_fkey"
+            columns: ["crate_type_id"]
+            isOneToOne: false
+            referencedRelation: "crate_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crate_obligations_crate_type_id_fkey"
+            columns: ["crate_type_id"]
+            isOneToOne: false
+            referencedRelation: "known_empty_crates"
+            referencedColumns: ["crate_type_id"]
+          },
           {
             foreignKeyName: "crate_obligations_customer_id_fkey"
             columns: ["customer_id"]
@@ -213,26 +83,97 @@ export type Database = {
           },
         ]
       }
+      crate_types: {
+        Row: {
+          created_at: string
+          empty_family: string | null
+          id: string
+          is_legacy: boolean
+          legacy_key: string | null
+          name: string
+          pocket_count: number | null
+          variant: string | null
+        }
+        Insert: {
+          created_at?: string
+          empty_family?: string | null
+          id?: string
+          is_legacy?: boolean
+          legacy_key?: string | null
+          name: string
+          pocket_count?: number | null
+          variant?: string | null
+        }
+        Update: {
+          created_at?: string
+          empty_family?: string | null
+          id?: string
+          is_legacy?: boolean
+          legacy_key?: string | null
+          name?: string
+          pocket_count?: number | null
+          variant?: string | null
+        }
+        Relationships: []
+      }
+      customer_payments: {
+        Row: {
+          amount: number
+          business_date: string
+          created_at: string
+          customer_id: string
+          id: string
+          owed_after: number
+          request_id: string
+        }
+        Insert: {
+          amount: number
+          business_date: string
+          created_at?: string
+          customer_id: string
+          id?: string
+          owed_after: number
+          request_id: string
+        }
+        Update: {
+          amount?: number
+          business_date?: string
+          created_at?: string
+          customer_id?: string
+          id?: string
+          owed_after?: number
+          request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_payments_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
-          business_name: string | null
           address: string | null
+          business_name: string | null
           created_at: string
           id: string
           name: string
           phone: string
         }
         Insert: {
-          business_name?: string | null
           address?: string | null
+          business_name?: string | null
           created_at?: string
           id?: string
           name: string
           phone: string
         }
         Update: {
-          business_name?: string | null
           address?: string | null
+          business_name?: string | null
           created_at?: string
           id?: string
           name?: string
@@ -278,29 +219,92 @@ export type Database = {
         }
         Relationships: []
       }
+      empty_crate_movements: {
+        Row: {
+          business_date: string
+          crate_type: string | null
+          crate_type_id: string
+          created_at: string
+          id: string
+          movement_type: string
+          previous_quantity: number | null
+          quantity_change: number
+          request_id: string
+          resulting_quantity: number
+        }
+        Insert: {
+          business_date: string
+          crate_type?: string | null
+          crate_type_id: string
+          created_at?: string
+          id?: string
+          movement_type: string
+          previous_quantity?: number | null
+          quantity_change: number
+          request_id: string
+          resulting_quantity: number
+        }
+        Update: {
+          business_date?: string
+          crate_type?: string | null
+          crate_type_id?: string
+          created_at?: string
+          id?: string
+          movement_type?: string
+          previous_quantity?: number | null
+          quantity_change?: number
+          request_id?: string
+          resulting_quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "empty_crate_movements_crate_type_id_fkey"
+            columns: ["crate_type_id"]
+            isOneToOne: false
+            referencedRelation: "crate_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "empty_crate_movements_crate_type_id_fkey"
+            columns: ["crate_type_id"]
+            isOneToOne: false
+            referencedRelation: "known_empty_crates"
+            referencedColumns: ["crate_type_id"]
+          },
+        ]
+      }
       empty_crate_stock: {
         Row: {
-          crate_type_id: string
           crate_type: string | null
+          crate_type_id: string
           quantity: number
         }
         Insert: {
-          crate_type_id: string
           crate_type?: string | null
+          crate_type_id: string
           quantity?: number
         }
         Update: {
-          crate_type_id?: string
           crate_type?: string | null
+          crate_type_id?: string
           quantity?: number
         }
-        Relationships: [{
-          foreignKeyName: "empty_crate_stock_crate_type_id_fkey"
-          columns: ["crate_type_id"]
-          isOneToOne: true
-          referencedRelation: "crate_types"
-          referencedColumns: ["id"]
-        }]
+        Relationships: [
+          {
+            foreignKeyName: "empty_crate_stock_crate_type_id_fkey"
+            columns: ["crate_type_id"]
+            isOneToOne: true
+            referencedRelation: "crate_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "empty_crate_stock_crate_type_id_fkey"
+            columns: ["crate_type_id"]
+            isOneToOne: true
+            referencedRelation: "known_empty_crates"
+            referencedColumns: ["crate_type_id"]
+          },
+        ]
       }
       money_owed: {
         Row: {
@@ -327,12 +331,12 @@ export type Database = {
       }
       products: {
         Row: {
-          crate_type_id: string
           bottle_price: number | null
           bottle_type: string | null
           bottles_per_crate: number
           bottles_returnable: boolean
           crate_type: string | null
+          crate_type_id: string
           created_at: string
           empty_family: string | null
           full_crate_price: number
@@ -344,12 +348,12 @@ export type Database = {
           size: string | null
         }
         Insert: {
-          crate_type_id: string
           bottle_price?: number | null
           bottle_type?: string | null
           bottles_per_crate: number
           bottles_returnable: boolean
           crate_type?: string | null
+          crate_type_id: string
           created_at?: string
           empty_family?: string | null
           full_crate_price: number
@@ -361,12 +365,12 @@ export type Database = {
           size?: string | null
         }
         Update: {
-          crate_type_id?: string
           bottle_price?: number | null
           bottle_type?: string | null
           bottles_per_crate?: number
           bottles_returnable?: boolean
           crate_type?: string | null
+          crate_type_id?: string
           created_at?: string
           empty_family?: string | null
           full_crate_price?: number
@@ -377,25 +381,33 @@ export type Database = {
           quarter_crate_price?: number | null
           size?: string | null
         }
-        Relationships: [{
-          foreignKeyName: "products_crate_type_id_fkey"
-          columns: ["crate_type_id"]
-          isOneToOne: false
-          referencedRelation: "crate_types"
-          referencedColumns: ["id"]
-        }]
+        Relationships: [
+          {
+            foreignKeyName: "products_crate_type_id_fkey"
+            columns: ["crate_type_id"]
+            isOneToOne: false
+            referencedRelation: "crate_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_crate_type_id_fkey"
+            columns: ["crate_type_id"]
+            isOneToOne: false
+            referencedRelation: "known_empty_crates"
+            referencedColumns: ["crate_type_id"]
+          },
+        ]
       }
       sale_items: {
         Row: {
-          whole_crates: number
-          crates_returned: number
-          bottles_returned: number
-          crate_type_id: string
           bottle_type: string | null
           bottles_per_crate: number
           bottles_returnable: boolean
+          bottles_returned: number
           crate_type: string | null
+          crate_type_id: string
           crates_out: number | null
+          crates_returned: number
           id: string
           line_total: number
           product_id: string
@@ -403,17 +415,17 @@ export type Database = {
           returnable_bottles_out: number | null
           sale_id: string
           total_bottles: number
+          whole_crates: number
         }
         Insert: {
-          whole_crates?: number
-          crates_returned?: number
-          bottles_returned?: number
-          crate_type_id: string
           bottle_type?: string | null
           bottles_per_crate: number
           bottles_returnable: boolean
+          bottles_returned?: number
           crate_type?: string | null
+          crate_type_id: string
           crates_out?: number | null
+          crates_returned?: number
           id?: string
           line_total: number
           product_id: string
@@ -421,17 +433,17 @@ export type Database = {
           returnable_bottles_out?: number | null
           sale_id: string
           total_bottles: number
+          whole_crates?: number
         }
         Update: {
-          whole_crates?: number
-          crates_returned?: number
-          bottles_returned?: number
-          crate_type_id?: string
           bottle_type?: string | null
           bottles_per_crate?: number
           bottles_returnable?: boolean
+          bottles_returned?: number
           crate_type?: string | null
+          crate_type_id?: string
           crates_out?: number | null
+          crates_returned?: number
           id?: string
           line_total?: number
           product_id?: string
@@ -439,14 +451,23 @@ export type Database = {
           returnable_bottles_out?: number | null
           sale_id?: string
           total_bottles?: number
+          whole_crates?: number
         }
-        Relationships: [{
-          foreignKeyName: "sale_items_crate_type_id_fkey"
-          columns: ["crate_type_id"]
-          isOneToOne: false
-          referencedRelation: "crate_types"
-          referencedColumns: ["id"]
-        },
+        Relationships: [
+          {
+            foreignKeyName: "sale_items_crate_type_id_fkey"
+            columns: ["crate_type_id"]
+            isOneToOne: false
+            referencedRelation: "crate_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_items_crate_type_id_fkey"
+            columns: ["crate_type_id"]
+            isOneToOne: false
+            referencedRelation: "known_empty_crates"
+            referencedColumns: ["crate_type_id"]
+          },
           {
             foreignKeyName: "sale_items_product_id_fkey"
             columns: ["product_id"]
@@ -466,29 +487,32 @@ export type Database = {
       sales: {
         Row: {
           business_date: string | null
-          request_id: string | null
-          request_payload: Json | null
           created_at: string
           customer_id: string
           id: string
           paid_amount: number
+          request_id: string | null
+          request_payload: Json | null
           total_amount: number
         }
         Insert: {
           business_date?: string | null
-          request_id?: string | null
-          request_payload?: Json | null
           created_at?: string
           customer_id: string
           id?: string
           paid_amount: number
+          request_id?: string | null
+          request_payload?: Json | null
           total_amount: number
         }
         Update: {
+          business_date?: string | null
           created_at?: string
           customer_id?: string
           id?: string
           paid_amount?: number
+          request_id?: string | null
+          request_payload?: Json | null
           total_amount?: number
         }
         Relationships: [
@@ -524,54 +548,177 @@ export type Database = {
           },
         ]
       }
+      stock_movements: {
+        Row: {
+          bottles_per_crate: number
+          business_date: string
+          crate_type_id: string | null
+          crates: number
+          created_at: string
+          id: string
+          loose_bottles: number
+          movement_type: string
+          product_id: string
+          product_name: string
+          quantity_change: number
+          request_id: string
+          resulting_stock: number
+          sale_id: string | null
+        }
+        Insert: {
+          bottles_per_crate: number
+          business_date: string
+          crate_type_id?: string | null
+          crates: number
+          created_at?: string
+          id?: string
+          loose_bottles: number
+          movement_type: string
+          product_id: string
+          product_name: string
+          quantity_change: number
+          request_id: string
+          resulting_stock: number
+          sale_id?: string | null
+        }
+        Update: {
+          bottles_per_crate?: number
+          business_date?: string
+          crate_type_id?: string | null
+          crates?: number
+          created_at?: string
+          id?: string
+          loose_bottles?: number
+          movement_type?: string
+          product_id?: string
+          product_name?: string
+          quantity_change?: number
+          request_id?: string
+          resulting_stock?: number
+          sale_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_movements_crate_type_id_fkey"
+            columns: ["crate_type_id"]
+            isOneToOne: false
+            referencedRelation: "crate_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_crate_type_id_fkey"
+            columns: ["crate_type_id"]
+            isOneToOne: false
+            referencedRelation: "known_empty_crates"
+            referencedColumns: ["crate_type_id"]
+          },
+          {
+            foreignKeyName: "stock_movements_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       known_empty_crates: {
-        Row: { crate_type_id: string | null; name: string | null; empty_family: string | null; pocket_count: number | null; variant: string | null; is_legacy: boolean | null; quantity: number | null }
+        Row: {
+          crate_type_id: string | null
+          empty_family: string | null
+          is_legacy: boolean | null
+          name: string | null
+          pocket_count: number | null
+          quantity: number | null
+          variant: string | null
+        }
         Relationships: []
       }
     }
     Functions: {
-      save_sale: { Args: { p_request_id: string; p_customer_id: string; p_business_date: string; p_paid: number; p_lines: Json }; Returns: Json }
-      edit_crate_type: {
-        Args: { p_id: string; p_name: string; p_empty_family: string; p_pocket_count: number; p_variant: string | null }
-        Returns: string
-      }
       create_crate_type: {
-        Args: { p_id: string; p_name: string; p_empty_family: string; p_pocket_count: number; p_variant: string | null }
+        Args: {
+          p_empty_family: string
+          p_id: string
+          p_name: string
+          p_pocket_count: number
+          p_variant: string
+        }
         Returns: string
       }
-
-      set_empty_crate_count: {
+      edit_crate_type: {
         Args: {
-          p_request_id: string
-          p_crate_type_id: string
-          p_quantity: number
-          p_business_date: string
-          p_expected_quantity: number | null
+          p_empty_family: string
+          p_id: string
+          p_name: string
+          p_pocket_count: number
+          p_variant: string
         }
-        Returns: Json
+        Returns: string
       }
-
-      set_current_stock: {
-        Args: {
-          p_request_id: string
-          p_product_id: string
-          p_crates: number
-          p_loose_bottles: number
-          p_business_date: string
-          p_expected_stock: number
-          p_expected_bottles_per_crate: number
-        }
-        Returns: Json
-      }
-
+      is_shop_owner: { Args: never; Returns: boolean }
       receive_stock: {
         Args: {
-          p_business_date: string; p_request_id: string; p_product_id: string; p_crates: number; p_expected_stock: number; p_expected_empties: number; p_expected_bottles_per_crate: number; p_expected_crate_type_id: string };
-        Returns: Json;
+          p_business_date: string
+          p_crates: number
+          p_expected_bottles_per_crate: number
+          p_expected_crate_type_id: string
+          p_expected_empties: number
+          p_expected_stock: number
+          p_product_id: string
+          p_request_id: string
+        }
+        Returns: Json
       }
-      is_shop_owner: { Args: Record<PropertyKey, never>; Returns: boolean }
+      record_payment: {
+        Args: {
+          p_amount: number
+          p_business_date: string
+          p_customer_id: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      save_sale: {
+        Args: {
+          p_business_date: string
+          p_customer_id: string
+          p_lines: Json
+          p_paid: number
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      set_current_stock: {
+        Args: {
+          p_business_date: string
+          p_crates: number
+          p_expected_bottles_per_crate: number
+          p_expected_stock: number
+          p_loose_bottles: number
+          p_product_id: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      set_empty_crate_count: {
+        Args: {
+          p_business_date: string
+          p_crate_type_id: string
+          p_expected_quantity: number
+          p_quantity: number
+          p_request_id: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
