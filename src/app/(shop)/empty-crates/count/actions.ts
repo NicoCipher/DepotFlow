@@ -60,7 +60,11 @@ export async function confirmEmptyCrateCount(
       p_crate_type_id: crateTypeId,
       p_quantity: checked.quantity,
       p_business_date: checked.businessDate,
-      p_expected_quantity: checked.previousQuantity,
+      // Generated type says `number`, but the SQL function's p_expected_quantity
+      // is nullable and NULL means "not recorded" (part of the concurrency
+      // rule). Supabase's type generation can't express that here; cast to
+      // keep the real null/number value at runtime.
+      p_expected_quantity: checked.previousQuantity as number,
     });
     if (error)
       return {

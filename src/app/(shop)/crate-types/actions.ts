@@ -28,7 +28,9 @@ export async function saveCrateType(
         p_name: checked.name,
         p_empty_family: checked.empty_family,
         p_pocket_count: checked.pocket_count,
-        p_variant: checked.variant,
+        // The SQL function does nullif(btrim(p_variant), ''), so an empty
+        // string here becomes NULL in the database, same as passing null.
+        p_variant: checked.variant ?? "",
       },
     );
     if (error)
