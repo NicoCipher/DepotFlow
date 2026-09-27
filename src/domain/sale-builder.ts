@@ -380,19 +380,30 @@ export function readSaleDraft(raw: string | null): SaleDraft {
         if (typeof value === "string") result[key] = value;
       return result;
     }
-    const rawEmpties =
-      d.emptiesV2 && typeof d.emptiesV2 === "object" && !Array.isArray(d.emptiesV2)
-        ? d.emptiesV2
-        : {};
+    const hasV2Empties =
+      d.emptiesV2 &&
+      typeof d.emptiesV2 === "object" &&
+      !Array.isArray(d.emptiesV2);
+    const rawEmpties = hasV2Empties ? d.emptiesV2 : {};
+    const legacyNeedsReentry = !hasV2Empties && d.allEmpties === false;
     return {
       ...emptySaleDraft,
       ...d,
+      step:
+        legacyNeedsReentry && (d.step === "payment" || d.step === "review")
+          ? "empties"
+          : d.step,
       businessDate: typeof d.businessDate === "string" ? d.businessDate : "",
       paid: typeof d.paid === "string" ? d.paid : "0",
       allEmpties: typeof d.allEmpties === "boolean" ? d.allEmpties : true,
       returns,
       emptiesV2: {
-        mode: rawEmpties.mode === "actual" ? "actual" : "exact",
+        mode:
+          hasV2Empties && rawEmpties.mode === "actual"
+            ? "actual"
+            : legacyNeedsReentry
+              ? "actual"
+              : "exact",
         cratesTaken: stringMap(rawEmpties.cratesTaken),
         returnedCrates: stringMap(rawEmpties.returnedCrates),
         returnedBottles: stringMap(rawEmpties.returnedBottles),
