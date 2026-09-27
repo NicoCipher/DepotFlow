@@ -5,6 +5,7 @@ import type {
   SaleProduct,
 } from "./sale-builder.ts";
 import { saleProductSetupIssue } from "./sale-builder.ts";
+import { parseWholeNumberInput } from "./sale-input.ts";
 
 export type EmptiesV2State = {
   mode: "exact" | "actual";
@@ -47,12 +48,10 @@ export type EmptiesMatchResult = {
 };
 
 function whole(raw: string | undefined, fallback = 0) {
-  if (raw === undefined || raw === "") return fallback;
-  if (!/^\d+$/.test(raw)) throw new Error("Enter whole numbers of empties.");
-  const value = Number(raw);
-  if (!Number.isSafeInteger(value) || value < 0)
-    throw new Error("Enter whole numbers of empties.");
-  return value;
+  if (raw === undefined) return fallback;
+  const parsed = parseWholeNumberInput(raw);
+  if (!parsed.ok) throw new Error("Check the highlighted empties fields.");
+  return parsed.value;
 }
 
 function add(map: Map<string, number>, key: string, amount: number) {
