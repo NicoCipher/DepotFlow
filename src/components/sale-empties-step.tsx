@@ -3,6 +3,7 @@
 import {
   crateReturnIssues,
   matchSaleEmpties,
+  missingEmptiesMessage,
   type EmptiesMatchResult,
 } from "@/domain/sale-empties";
 import type { SaleCatalog, SaleDraft } from "@/domain/sale-builder";
@@ -350,17 +351,10 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
             <div className="mt-3 space-y-2">
               {shortages.map((line) => (
                 <p key={line.productId}>
-                  <strong>{productName.get(line.productId) ?? "Drink"}:</strong>{" "}
-                  {[
-                    line.cratesOwed
-                      ? `${line.cratesOwed} ${line.cratesOwed === 1 ? "crate" : "crates"} owed`
-                      : "",
-                    line.bottlesOwed
-                      ? `${line.bottlesOwed} ${line.bottlesOwed === 1 ? "bottle" : "bottles"} owed`
-                      : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
+                  {missingEmptiesMessage(
+                    line,
+                    productName.get(line.productId) ?? "Drink",
+                  )}
                 </p>
               ))}
             </div>
