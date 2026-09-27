@@ -41,6 +41,7 @@ function product(
       name: crateTypeId,
       is_legacy: false,
       pocket_count: pocket,
+      empty_family: "Test",
     },
     bottles_returnable: true,
     bottle_type: bottleType,
