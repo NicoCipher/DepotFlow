@@ -1,5 +1,6 @@
 import { formatQuantity, toBottles, validateStock } from "./quantity.ts";
 import { normalizePhone } from "./customers.ts";
+import { formatNaira } from "./products.ts";
 export type SaleProduct = {
   id: string;
   name: string;
@@ -450,6 +451,87 @@ export function salePriceSnapshot(product: SaleProduct, q: SaleQuantity) {
     q.bottles ? product.bottle_price : null,
   ]);
 }
+
+function storedPriceTotal(line: DraftLine): number | null {
+  if (!line.priceSnapshot) return null;
+  try {
+    const parsed = JSON.parse(line.priceSnapshot);
+    if (!Array.isArray(parsed) || parsed.length !== 4) return null;
+    const [full, half, quarter, bottle] = parsed as unknown[];
+    for (const value of [full, half, quarter, bottle])
+      if (
+        value !== null &&
+        (!Number.isSafeInteger(value) || (value as number) < 0)
+      )
+        return null;
+
+    function required(value: unknown) {
+      return typeof value === "number" ? value : null;
+    }
+    function partial(override: unknown, divisor: 2 | 4) {
+      const set = required(override);
+      if (set !== null) return set;
+      const fullPrice = required(full);
+      if (fullPrice === null) return null;
+      const value = fullPrice / divisor;
+      return Number.isSafeInteger(value) ? value : null;
+    }
+
+    let total = 0;
+    if (line.quantity.crates) {
+      const fullPrice = required(full);
+      if (fullPrice === null) return null;
+      total += fullPrice * line.quantity.crates;
+    }
+    if (line.quantity.fraction >= 2) {
+      const halfPrice = partial(half, 2);
+      if (halfPrice === null) return null;
+      total += halfPrice;
+    }
+    if (line.quantity.fraction % 2) {
+      const quarterPrice = partial(quarter, 4);
+      if (quarterPrice === null) return null;
+      total += quarterPrice;
+    }
+    if (line.quantity.bottles) {
+      const bottlePrice = required(bottle);
+      if (bottlePrice === null) return null;
+      total += bottlePrice * line.quantity.bottles;
+    }
+    return Number.isSafeInteger(total) ? total : null;
+  } catch {
+    return null;
+  }
+}
+
+export function salePriceChangeMessage(
+  line: DraftLine,
+  product: SaleProduct,
+): string | null {
+  if (
+    line.priceSnapshot === undefined ||
+    line.priceSnapshot === salePriceSnapshot(product, line.quantity)
+  )
+    return null;
+
+  const oldTotal = storedPriceTotal(line);
+  let newTotal: number | null = null;
+  try {
+    newTotal = priceQuantity(
+      { ...product, available: Number.MAX_SAFE_INTEGER },
+      line.quantity,
+    ).lineTotal;
+  } catch {
+    /* A missing or invalid new price is explained by the regular line check. */
+  }
+
+  if (oldTotal !== null && newTotal !== null)
+    return `${product.name}: Price for this quantity changed from ${formatNaira(
+      oldTotal,
+    )} to ${formatNaira(newTotal)}.`;
+
+  return `${product.name}: Price changed. Current prices are shown.`;
+}
 export function quantityPriceSet(product: SaleProduct, q: SaleQuantity) {
   return (
     (!q.crates || product.full_crate_price !== null) &&
@@ -482,11 +564,8 @@ export function revalidateSaleDraft(draft: SaleDraft, catalog: SaleCatalog) {
       warnings.push(`${p.name}: ${setupIssue}`);
       continue;
     }
-    if (
-      line.priceSnapshot !== undefined &&
-      line.priceSnapshot !== salePriceSnapshot(p, line.quantity)
-    )
-      warnings.push(`${p.name}: Price changed. Current prices are shown.`);
+    const priceChange = salePriceChangeMessage(line, p);
+    if (priceChange) warnings.push(priceChange);
     if (
       line.crateSizeSnapshot !== undefined &&
       line.crateSizeSnapshot !== p.bottles_per_crate
