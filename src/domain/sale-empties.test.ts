@@ -87,6 +87,9 @@ function sale(productId: string, crates = 1): SaleDraft {
     emptiesV2: {
       ...emptyEmptiesV2,
       mode: "actual",
+      cratesTaken: {},
+      returnedCrates: {},
+      returnedBottles: {},
     },
   };
 }
