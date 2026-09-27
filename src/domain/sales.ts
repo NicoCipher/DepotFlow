@@ -20,6 +20,7 @@ export type StoredSaleItem = {
   crate_type: string | null;
   bottle_type: string | null;
   whole_crates: number;
+  crates_out: number;
   crates_returned: number;
   returnable_bottles_out: number | null;
   bottles_returned: number;
@@ -85,7 +86,7 @@ export function storedSaleItemHistory(item: StoredSaleItem): SaleItemHistory {
     lineTotal: item.line_total,
     crateType: item.crate_type,
     cratesReturned: item.crates_returned,
-    cratesOwed: item.whole_crates - item.crates_returned,
+    cratesOwed: item.crates_out - item.crates_returned,
     bottlesReturnable: item.bottles_returnable,
     bottleType: item.bottle_type,
     bottlesReturned: item.bottles_returned,
