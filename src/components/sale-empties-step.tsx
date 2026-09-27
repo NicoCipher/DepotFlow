@@ -5,6 +5,7 @@ import {
   type EmptiesMatchResult,
 } from "@/domain/sale-empties";
 import type { SaleCatalog, SaleDraft } from "@/domain/sale-builder";
+import { wholeNumberInputMessage } from "@/domain/sale-input";
 
 type Props = {
   draft: SaleDraft;
@@ -36,10 +37,56 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
     ),
   ).sort((a, b) => a.localeCompare(b));
 
+  const cratesTakenErrors: Record<string, string> = {};
+  for (const line of draft.lines.filter((item) => item.quantity.crates > 0)) {
+    const raw = state.cratesTaken[line.productId];
+    if (raw === undefined) continue;
+    const name = productName.get(line.productId) ?? "Drink";
+    const message = wholeNumberInputMessage(
+      raw,
+      `${name} physical crates taken`,
+      {
+        max: line.quantity.crates,
+        maxMessage:
+          line.quantity.crates === 1
+            ? `This sale has only 1 whole crate of ${name}.`
+            : `This sale has only ${line.quantity.crates} whole crates of ${name}.`,
+      },
+    );
+    if (message) cratesTakenErrors[line.productId] = message;
+  }
+
+  const returnedCrateErrors: Record<string, string> = {};
+  const returnedBottleErrors: Record<string, string> = {};
+  if (state.mode === "actual") {
+    for (const crate of catalog.crateTypes) {
+      const raw = state.returnedCrates[crate.id];
+      if (raw === undefined) continue;
+      const message = wholeNumberInputMessage(
+        raw,
+        `${crate.name} crates returned`,
+      );
+      if (message) returnedCrateErrors[crate.id] = message;
+    }
+    for (const bottleType of bottleTypes) {
+      const raw = state.returnedBottles[bottleType];
+      if (raw === undefined) continue;
+      const message = wholeNumberInputMessage(
+        raw,
+        `${bottleType} bottles returned`,
+      );
+      if (message) returnedBottleErrors[bottleType] = message;
+    }
+  }
+  const hasFieldErrors =
+    Object.keys(cratesTakenErrors).length > 0 ||
+    Object.keys(returnedCrateErrors).length > 0 ||
+    Object.keys(returnedBottleErrors).length > 0;
+
   let result: EmptiesMatchResult | null = null;
   let error = "";
   try {
-    result = matchSaleEmpties(draft, catalog);
+    if (!hasFieldErrors) result = matchSaleEmpties(draft, catalog);
   } catch (cause) {
     error = cause instanceof Error ? cause.message : "Check the returned empties.";
   }
@@ -95,15 +142,24 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
             {draft.lines
               .filter((line) => line.quantity.crates > 0)
               .map((line) => (
-                <label key={line.productId} className="block">
-                  {productName.get(line.productId) ?? "Drink"} · physical crates taken
+                <div key={line.productId}>
+                  <label htmlFor={`crates-taken-${line.productId}`}>
+                    {productName.get(line.productId) ?? "Drink"} · physical crates taken
+                  </label>
                   <input
+                    id={`crates-taken-${line.productId}`}
                     className="mt-2"
                     inputMode="numeric"
                     pattern="[0-9]+"
                     value={
                       state.cratesTaken[line.productId] ??
                       String(line.quantity.crates)
+                    }
+                    aria-invalid={Boolean(cratesTakenErrors[line.productId])}
+                    aria-describedby={
+                      cratesTakenErrors[line.productId]
+                        ? `crates-taken-${line.productId}-error`
+                        : undefined
                     }
                     onChange={(event) =>
                       update({
@@ -117,11 +173,20 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                       })
                     }
                   />
+                  {cratesTakenErrors[line.productId] && (
+                    <p
+                      id={`crates-taken-${line.productId}-error`}
+                      role="alert"
+                      className="mt-2 text-sm text-red-800"
+                    >
+                      {cratesTakenErrors[line.productId]}
+                    </p>
+                  )}
                   <span className="mt-1 block text-sm text-stone-600">
                     Whole crates sold: {line.quantity.crates}. Enter 0 when the
                     bottles leave without a crate.
                   </span>
-                </label>
+                </div>
               ))}
           </div>
         </details>
@@ -160,14 +225,23 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
             </p>
             <div className="mt-4 space-y-4">
               {catalog.crateTypes.map((crate) => (
-                <label key={crate.id} className="block">
-                  {crate.name}
-                  {crate.pocket_count ? ` · ${crate.pocket_count} pockets` : ""}
+                <div key={crate.id}>
+                  <label htmlFor={`returned-crate-${crate.id}`}>
+                    {crate.name}
+                    {crate.pocket_count ? ` · ${crate.pocket_count} pockets` : ""}
+                  </label>
                   <input
+                    id={`returned-crate-${crate.id}`}
                     className="mt-2"
                     inputMode="numeric"
                     pattern="[0-9]+"
                     value={state.returnedCrates[crate.id] ?? "0"}
+                    aria-invalid={Boolean(returnedCrateErrors[crate.id])}
+                    aria-describedby={
+                      returnedCrateErrors[crate.id]
+                        ? `returned-crate-${crate.id}-error`
+                        : undefined
+                    }
                     onChange={(event) =>
                       update({
                         emptiesV2: {
@@ -180,7 +254,16 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                       })
                     }
                   />
-                </label>
+                  {returnedCrateErrors[crate.id] && (
+                    <p
+                      id={`returned-crate-${crate.id}-error`}
+                      role="alert"
+                      className="mt-2 text-sm text-red-800"
+                    >
+                      {returnedCrateErrors[crate.id]}
+                    </p>
+                  )}
+                </div>
               ))}
             </div>
           </section>
@@ -191,14 +274,23 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
               Count bottles by the type that physically came back, including bottles in sacks.
             </p>
             <div className="mt-4 space-y-4">
-              {bottleTypes.map((bottleType) => (
-                <label key={bottleType} className="block">
-                  {bottleType}
+              {bottleTypes.map((bottleType, index) => (
+                <div key={bottleType}>
+                  <label htmlFor={`returned-bottle-${index}`}>
+                    {bottleType}
+                  </label>
                   <input
+                    id={`returned-bottle-${index}`}
                     className="mt-2"
                     inputMode="numeric"
                     pattern="[0-9]+"
                     value={state.returnedBottles[bottleType] ?? "0"}
+                    aria-invalid={Boolean(returnedBottleErrors[bottleType])}
+                    aria-describedby={
+                      returnedBottleErrors[bottleType]
+                        ? `returned-bottle-${index}-error`
+                        : undefined
+                    }
                     onChange={(event) =>
                       update({
                         emptiesV2: {
@@ -211,14 +303,28 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                       })
                     }
                   />
-                </label>
+                  {returnedBottleErrors[bottleType] && (
+                    <p
+                      id={`returned-bottle-${index}-error`}
+                      role="alert"
+                      className="mt-2 text-sm text-red-800"
+                    >
+                      {returnedBottleErrors[bottleType]}
+                    </p>
+                  )}
+                </div>
               ))}
             </div>
           </section>
         </div>
       )}
 
-      {error && (
+      {hasFieldErrors && (
+        <p role="alert" className="text-red-800">
+          Check the highlighted fields. Everything you entered is still here.
+        </p>
+      )}
+      {error && !hasFieldErrors && (
         <p role="alert" className="text-red-800">
           {error}
         </p>
@@ -292,7 +398,9 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
 
       <button
         className="primary w-full"
-        disabled={!result || Boolean(error) || depositBlocked}
+        disabled={
+          hasFieldErrors || !result || Boolean(error) || depositBlocked
+        }
         onClick={() => update({ step: "payment" })}
       >
         Continue to Payment
