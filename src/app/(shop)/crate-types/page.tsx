@@ -9,23 +9,28 @@ export default async function CrateTypesPage({
   searchParams: Promise<{ saved?: string }>;
 }) {
   const supabase = await requireOwner();
-  const types = await getCrateTypes();
-  const products: {
-    id: string;
-    name: string;
-    size: string | null;
-    crate_type_id: string;
-  }[] = [];
-  for (let offset = 0; ; offset += 1000) {
-    const { data, error } = await supabase
-      .from("products")
-      .select("id,name,size,crate_type_id")
-      .order("id")
-      .range(offset, offset + 999);
-    if (error) throw new Error("Could not load products.");
-    products.push(...data);
-    if (data.length < 1000) break;
-  }
+  const productsPromise = (async () => {
+    const products: {
+      id: string;
+      name: string;
+      size: string | null;
+      crate_type_id: string;
+    }[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id,name,size,crate_type_id")
+        .order("id")
+        .range(offset, offset + 999);
+      if (error) throw new Error("Could not load products.");
+      products.push(...data);
+      if (data.length < 1000) return products;
+    }
+  })();
+  const [types, products] = await Promise.all([
+    getCrateTypes(),
+    productsPromise,
+  ]);
   const groups = Map.groupBy(types, (crate) =>
     crateNeedsSetup(crate) ? "Needs setup" : crate.empty_family!,
   );
