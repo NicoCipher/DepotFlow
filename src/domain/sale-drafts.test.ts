@@ -28,7 +28,7 @@ const product: SaleProduct = {
   bottle_price: 1500,
   available: 100,
   crate_type_id: "crate",
-  crate_type: { name: "Exact crate", is_legacy: false, pocket_count: 12 },
+  crate_type: { name: "Exact crate", is_legacy: false, pocket_count: 12, empty_family: "Test" },
   bottles_returnable: true,
   bottle_type: "glass",
 };
