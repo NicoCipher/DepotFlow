@@ -1,16 +1,13 @@
 import { PausedSalesLink } from "@/components/paused-sales-link";
 import Link from "next/link";
-import { requireOwner } from "@/lib/auth/owner";
+import { requireOwnerSession } from "@/lib/auth/owner";
 
 export default async function Home() {
-  const supabase = await requireOwner();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await requireOwnerSession();
   return (
     <>
       <h1>Home</h1>
-      {user && <PausedSalesLink ownerId={user.id} />}
+      <PausedSalesLink ownerId={user.id} />
       <section aria-label="Shop actions" className="mt-7">
         <Link
           href="/record-sale"
