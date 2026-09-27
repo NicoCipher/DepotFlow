@@ -4,6 +4,7 @@ import {
   crateReturnIssues,
   emptyEmptiesV2,
   matchSaleEmpties,
+  missingEmptiesMessage,
 } from "./sale-empties.ts";
 import {
   emptySaleDraft,
@@ -169,6 +170,21 @@ test("exact crate with wrong bottles settles only the facts that match", () => {
   assert.equal(result.lines[0].cratesOwed, 0);
   assert.equal(result.lines[0].bottlesOwed, 2);
   assert.equal(result.unmatchedBottles["Goldberg bottle"], 2);
+});
+
+test("missing empties message says exactly what is still missing", () => {
+  assert.equal(
+    missingEmptiesMessage({ cratesOwed: 0, bottlesOwed: 2 }, "Trophy"),
+    "Trophy: 2 bottles still missing.",
+  );
+  assert.equal(
+    missingEmptiesMessage({ cratesOwed: 1, bottlesOwed: 2 }, "Goldberg"),
+    "Goldberg: 1 crate · 2 bottles still missing.",
+  );
+  assert.equal(
+    missingEmptiesMessage({ cratesOwed: 0, bottlesOwed: 0 }, "Trophy"),
+    "Trophy: Empties are complete.",
+  );
 });
 
 test("incompatible returned crate is explained against the one crate still owed", () => {
