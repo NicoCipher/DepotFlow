@@ -1,0 +1,305 @@
+"use client";
+
+import {
+  matchSaleEmpties,
+  type EmptiesMatchResult,
+} from "@/domain/sale-empties";
+import type { SaleCatalog, SaleDraft } from "@/domain/sale-builder";
+
+type Props = {
+  draft: SaleDraft;
+  catalog: SaleCatalog;
+  update: (patch: Partial<SaleDraft>) => void;
+  onBack: () => void;
+};
+
+function add(map: Record<string, string>, key: string, amount: number) {
+  if (!amount) return;
+  map[key] = String(Number(map[key] ?? "0") + amount);
+}
+
+export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
+  const state = draft.emptiesV2;
+  const customer = catalog.customers.find((item) => item.id === draft.customerId);
+  const crateName = new Map(catalog.crateTypes.map((crate) => [crate.id, crate.name]));
+  const productName = new Map(
+    catalog.products.map((product) => [
+      product.id,
+      [product.name, product.size].filter(Boolean).join(" "),
+    ]),
+  );
+  const bottleTypes = Array.from(
+    new Set(
+      catalog.products
+        .filter((product) => product.bottles_returnable && product.bottle_type)
+        .map((product) => product.bottle_type as string),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
+
+  let result: EmptiesMatchResult | null = null;
+  let error = "";
+  try {
+    result = matchSaleEmpties(draft, catalog);
+  } catch (cause) {
+    error = cause instanceof Error ? cause.message : "Check the returned empties.";
+  }
+
+  function useActualReturns() {
+    try {
+      const exactDraft: SaleDraft = {
+        ...draft,
+        emptiesV2: { ...state, mode: "exact" },
+      };
+      const exact = matchSaleEmpties(exactDraft, catalog);
+      const returnedCrates: Record<string, string> = {};
+      const returnedBottles: Record<string, string> = {};
+      for (const line of exact.lines) {
+        add(returnedCrates, line.crateTypeId, line.cratesOut);
+        if (line.bottleType) add(returnedBottles, line.bottleType, line.bottlesOut);
+      }
+      update({
+        emptiesV2: {
+          ...state,
+          mode: "actual",
+          returnedCrates,
+          returnedBottles,
+        },
+      });
+    } catch {
+      update({ emptiesV2: { ...state, mode: "actual" } });
+    }
+  }
+
+  const shortages =
+    result?.lines.filter((line) => line.cratesOwed || line.bottlesOwed) ?? [];
+  const depositBlocked =
+    Boolean(customer?.empties_deposit_required) && shortages.length > 0;
+
+  return (
+    <>
+      <h2 className="text-xl font-semibold">What empties came back?</h2>
+      <p className="text-stone-600">
+        Record what physically happened. DepotFlow works out the obligations.
+      </p>
+
+      {draft.lines.some((line) => line.quantity.crates > 0) && (
+        <details className="border-t border-stone-300 pt-4">
+          <summary className="quiet-link cursor-pointer">
+            Bottles leaving without some crates
+          </summary>
+          <p className="mt-2 text-sm text-stone-600">
+            Normal sales use the same number of physical crates as whole crates sold.
+            Change only the exceptions, such as bottles carried in a sack.
+          </p>
+          <div className="mt-4 space-y-4">
+            {draft.lines
+              .filter((line) => line.quantity.crates > 0)
+              .map((line) => (
+                <label key={line.productId} className="block">
+                  {productName.get(line.productId) ?? "Drink"} · physical crates taken
+                  <input
+                    className="mt-2"
+                    inputMode="numeric"
+                    pattern="[0-9]+"
+                    value={
+                      state.cratesTaken[line.productId] ??
+                      String(line.quantity.crates)
+                    }
+                    onChange={(event) =>
+                      update({
+                        emptiesV2: {
+                          ...state,
+                          cratesTaken: {
+                            ...state.cratesTaken,
+                            [line.productId]: event.target.value,
+                          },
+                        },
+                      })
+                    }
+                  />
+                  <span className="mt-1 block text-sm text-stone-600">
+                    Whole crates sold: {line.quantity.crates}. Enter 0 when the
+                    bottles leave without a crate.
+                  </span>
+                </label>
+              ))}
+          </div>
+        </details>
+      )}
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <button
+          className={state.mode === "exact" ? "primary" : "secondary"}
+          onClick={() =>
+            update({
+              emptiesV2: {
+                ...state,
+                mode: "exact",
+                returnedCrates: {},
+                returnedBottles: {},
+              },
+            })
+          }
+        >
+          All expected empties
+        </button>
+        <button
+          className={state.mode === "actual" ? "primary" : "secondary"}
+          onClick={useActualReturns}
+        >
+          Some missing / different
+        </button>
+      </div>
+
+      {state.mode === "actual" && (
+        <div className="space-y-7">
+          <section className="border-t border-stone-300 pt-5">
+            <h3 className="font-semibold">Crates actually returned</h3>
+            <p className="mt-1 text-sm text-stone-600">
+              Record the real crate type, even when it is different from the drink bought.
+            </p>
+            <div className="mt-4 space-y-4">
+              {catalog.crateTypes.map((crate) => (
+                <label key={crate.id} className="block">
+                  {crate.name}
+                  {crate.pocket_count ? ` · ${crate.pocket_count} pockets` : ""}
+                  <input
+                    className="mt-2"
+                    inputMode="numeric"
+                    pattern="[0-9]+"
+                    value={state.returnedCrates[crate.id] ?? "0"}
+                    onChange={(event) =>
+                      update({
+                        emptiesV2: {
+                          ...state,
+                          returnedCrates: {
+                            ...state.returnedCrates,
+                            [crate.id]: event.target.value,
+                          },
+                        },
+                      })
+                    }
+                  />
+                </label>
+              ))}
+            </div>
+          </section>
+
+          <section className="border-t border-stone-300 pt-5">
+            <h3 className="font-semibold">Bottles actually returned</h3>
+            <p className="mt-1 text-sm text-stone-600">
+              Count bottles by the type that physically came back, including bottles in sacks.
+            </p>
+            <div className="mt-4 space-y-4">
+              {bottleTypes.map((bottleType) => (
+                <label key={bottleType} className="block">
+                  {bottleType}
+                  <input
+                    className="mt-2"
+                    inputMode="numeric"
+                    pattern="[0-9]+"
+                    value={state.returnedBottles[bottleType] ?? "0"}
+                    onChange={(event) =>
+                      update({
+                        emptiesV2: {
+                          ...state,
+                          returnedBottles: {
+                            ...state.returnedBottles,
+                            [bottleType]: event.target.value,
+                          },
+                        },
+                      })
+                    }
+                  />
+                </label>
+              ))}
+            </div>
+          </section>
+        </div>
+      )}
+
+      {error && (
+        <p role="alert" className="text-red-800">
+          {error}
+        </p>
+      )}
+
+      {result && (
+        <section className="border-t border-stone-300 pt-5">
+          <h3 className="font-semibold">DepotFlow result</h3>
+
+          {result.swaps.map((swap) => (
+            <p key={`${swap.owedCrateTypeId}:${swap.returnedCrateTypeId}`}>
+              {swap.quantity} {crateName.get(swap.returnedCrateTypeId) ?? "returned crate"}{" "}
+              {swap.quantity === 1 ? "crate" : "crates"} accepted for{" "}
+              {crateName.get(swap.owedCrateTypeId) ?? "the expected crate"}.
+            </p>
+          ))}
+
+          {!shortages.length ? (
+            <p className="mt-2 text-emerald-900">Empties are settled.</p>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {shortages.map((line) => (
+                <p key={line.productId}>
+                  <strong>{productName.get(line.productId) ?? "Drink"}:</strong>{" "}
+                  {[
+                    line.cratesOwed
+                      ? `${line.cratesOwed} ${line.cratesOwed === 1 ? "crate" : "crates"} owed`
+                      : "",
+                    line.bottlesOwed
+                      ? `${line.bottlesOwed} ${line.bottlesOwed === 1 ? "bottle" : "bottles"} owed`
+                      : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              ))}
+            </div>
+          )}
+
+          {Object.keys(result.unmatchedCrates).length > 0 && (
+            <div className="mt-4">
+              <p className="font-medium">Other crates that came back</p>
+              {Object.entries(result.unmatchedCrates).map(([id, quantity]) => (
+                <p key={id}>
+                  {crateName.get(id) ?? "Crate"} · {quantity}
+                </p>
+              ))}
+            </div>
+          )}
+
+          {Object.keys(result.unmatchedBottles).length > 0 && (
+            <div className="mt-4">
+              <p className="font-medium">Other bottles that came back</p>
+              {Object.entries(result.unmatchedBottles).map(([type, quantity]) => (
+                <p key={type}>
+                  {type} · {quantity}
+                </p>
+              ))}
+            </div>
+          )}
+
+          {depositBlocked && (
+            <p role="alert" className="mt-4 text-amber-900">
+              This customer requires a deposit for missing empties. We can record
+              the facts, but shortage deposits are not enabled yet, so this sale
+              cannot be saved with missing empties.
+            </p>
+          )}
+        </section>
+      )}
+
+      <button
+        className="primary w-full"
+        disabled={!result || Boolean(error) || depositBlocked}
+        onClick={() => update({ step: "payment" })}
+      >
+        Continue to Payment
+      </button>
+      <button className="secondary w-full" onClick={onBack}>
+        Back
+      </button>
+    </>
+  );
+}
