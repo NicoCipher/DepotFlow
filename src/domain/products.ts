@@ -104,7 +104,7 @@ export function validateProduct(values: ProductValues) {
       "Enter a valid http or https image URL without login details.";
   const crate_type_id = values.crate_type_id;
   if (!isProductId(crate_type_id))
-    errors.crate_type_id = "Choose an exact crate type.";
+    errors.crate_type_id = "Choose the physical crate this drink uses.";
   const bottle_type = text(
     "bottle_type",
     120,
