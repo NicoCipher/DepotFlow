@@ -14,20 +14,20 @@ export type Database = {
   }
   public: {
     Tables: {
-      bottle_deposit_prices: {
+      bottle_deposit_price: {
         Row: {
           amount: number
-          bottle_type: string
+          id: number
           updated_at: string
         }
         Insert: {
           amount: number
-          bottle_type: string
+          id?: number
           updated_at?: string
         }
         Update: {
           amount?: number
-          bottle_type?: string
+          id?: number
           updated_at?: string
         }
         Relationships: []
@@ -60,36 +60,24 @@ export type Database = {
       }
       crate_deposit_prices: {
         Row: {
-          amount: number
-          crate_type_id: string
+          complete_crate_amount: number
+          crate_only_amount: number | null
+          pocket_count: number
           updated_at: string
         }
         Insert: {
-          amount: number
-          crate_type_id: string
+          complete_crate_amount: number
+          crate_only_amount?: number | null
+          pocket_count: number
           updated_at?: string
         }
         Update: {
-          amount?: number
-          crate_type_id?: string
+          complete_crate_amount?: number
+          crate_only_amount?: number | null
+          pocket_count?: number
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "crate_deposit_prices_crate_type_id_fkey"
-            columns: ["crate_type_id"]
-            isOneToOne: true
-            referencedRelation: "crate_types"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "crate_deposit_prices_crate_type_id_fkey"
-            columns: ["crate_type_id"]
-            isOneToOne: true
-            referencedRelation: "known_empty_crates"
-            referencedColumns: ["crate_type_id"]
-          },
-        ]
+        Relationships: []
       }
       crate_obligations: {
         Row: {
@@ -510,7 +498,7 @@ export type Database = {
           bottles_returned: number
           crate_type: string | null
           crate_type_id: string
-          crates_out: number | null
+          crates_out: number
           crates_returned: number
           id: string
           line_total: number
@@ -528,7 +516,7 @@ export type Database = {
           bottles_returned?: number
           crate_type?: string | null
           crate_type_id: string
-          crates_out?: number | null
+          crates_out?: number
           crates_returned?: number
           id?: string
           line_total: number
@@ -546,7 +534,7 @@ export type Database = {
           bottles_returned?: number
           crate_type?: string | null
           crate_type_id?: string
-          crates_out?: number | null
+          crates_out?: number
           crates_returned?: number
           id?: string
           line_total?: number
@@ -802,11 +790,15 @@ export type Database = {
         Returns: Json
       }
       set_bottle_deposit_price: {
-        Args: { p_amount: number; p_bottle_type: string }
+        Args: { p_amount: number }
         Returns: undefined
       }
       set_crate_deposit_price: {
-        Args: { p_amount: number; p_crate_type_id: string }
+        Args: {
+          p_complete_amount: number
+          p_crate_only_amount?: number
+          p_pocket_count: number
+        }
         Returns: undefined
       }
       set_crate_swap_rules: {
