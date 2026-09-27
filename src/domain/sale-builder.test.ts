@@ -28,7 +28,7 @@ const product: SaleProduct = {
   bottle_price: 1500,
   available: 240,
   crate_type_id: "crate",
-  crate_type: { name: "Exact crate", is_legacy: false, pocket_count: 12 },
+  crate_type: { name: "Exact crate", is_legacy: false, pocket_count: 12, empty_family: "Test" },
   bottles_returnable: true,
   bottle_type: "glass",
 };
@@ -65,7 +65,7 @@ test("whole crates and loose bottles retain distinct exact obligations", () => {
     () =>
       emptiesFor(line, {
         ...product,
-        crate_type: { name: "Unknown", is_legacy: true, pocket_count: 12 },
+        crate_type: { name: "Unknown", is_legacy: true, pocket_count: 12, empty_family: "Test" },
       }),
     /exact crate/,
   );
