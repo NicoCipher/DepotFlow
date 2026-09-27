@@ -52,7 +52,7 @@ export default async function ProductPage({
       <h1 className="break-words">{product.name}</h1>
       {crateNeedsAttention && (
         <div className="mt-4 border-l-4 border-amber-700 pl-3">
-          <p className="font-semibold text-amber-900">Finish this drink's crate setup</p>
+          <p className="font-semibold text-amber-900">Finish this drink’s crate setup</p>
           <p className="mt-1 text-sm text-stone-700">
             Sales need the real physical crate and its bottle spaces so DepotFlow can handle empties correctly.
           </p>
