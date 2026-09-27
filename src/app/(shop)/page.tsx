@@ -48,6 +48,9 @@ export default async function Home() {
         <Link href="/products" className="quiet-link block">
           Products
         </Link>
+        <Link href="/empties-rules" className="quiet-link block">
+          Empties Rules
+        </Link>
       </section>
     </>
   );

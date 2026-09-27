@@ -140,3 +140,29 @@ export async function archiveCustomer(id: string) {
 export async function restoreCustomer(id: string) {
   return setArchived(id, false);
 }
+
+
+async function setCustomerEmptiesTerms(id: string, depositRequired: boolean) {
+  const supabase = await requireOwner();
+  if (!isCustomerId(id)) redirect("/customers");
+  const { data, error } = await supabase
+    .from("customers")
+    .update({ empties_deposit_required: depositRequired })
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+  if (error || !data)
+    redirect(`/customers/${id}/edit?saved=empties-terms-failed`);
+  revalidatePath("/customers");
+  revalidatePath(`/customers/${id}`);
+  revalidatePath(`/customers/${id}/edit`);
+  redirect(`/customers/${id}/edit?saved=empties-terms`);
+}
+
+export async function allowCustomerToOweEmpties(id: string) {
+  return setCustomerEmptiesTerms(id, false);
+}
+
+export async function requireCustomerEmptiesDeposit(id: string) {
+  return setCustomerEmptiesTerms(id, true);
+}

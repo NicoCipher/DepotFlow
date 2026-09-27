@@ -4,6 +4,7 @@ import { getCrateTypes } from "@/lib/crate-types/data";
 import { validateCrateType } from "@/domain/crate-types";
 import { isProductId } from "@/domain/products";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 export async function refreshCrateTypes() {
   return getCrateTypes();
 }
@@ -50,4 +51,24 @@ export async function saveCrateType(
         "Could not connect. Your details are still here. Please try again.",
     };
   }
+}
+
+
+export async function saveCrateSwapRules(id: string, formData: FormData) {
+  const supabase = await requireOwner();
+  if (!isProductId(id)) redirect("/crate-types");
+  const returned = formData
+    .getAll("returned_crate_type_id")
+    .map(String);
+  if (returned.some((value) => !isProductId(value) || value === id))
+    redirect(`/crate-types/${id}/edit?rules=failed`);
+  const { error } = await supabase.rpc("set_crate_swap_rules", {
+    p_owed_crate_type_id: id,
+    p_returned_crate_type_ids: returned,
+  });
+  if (error) redirect(`/crate-types/${id}/edit?rules=failed`);
+  revalidatePath("/crate-types");
+  revalidatePath("/empties-rules");
+  revalidatePath(`/crate-types/${id}/edit`);
+  redirect(`/crate-types/${id}/edit?rules=saved`);
 }
