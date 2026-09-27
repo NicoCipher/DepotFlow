@@ -47,6 +47,23 @@ export type EmptiesMatchResult = {
   hasShortage: boolean;
 };
 
+export function missingEmptiesMessage(
+  line: Pick<EmptiesLineResult, "cratesOwed" | "bottlesOwed">,
+  drinkName: string,
+): string {
+  const parts = [
+    line.cratesOwed
+      ? `${line.cratesOwed} ${line.cratesOwed === 1 ? "crate" : "crates"}`
+      : "",
+    line.bottlesOwed
+      ? `${line.bottlesOwed} ${line.bottlesOwed === 1 ? "bottle" : "bottles"}`
+      : "",
+  ].filter(Boolean);
+  return parts.length
+    ? `${drinkName}: ${parts.join(" · ")} still missing.`
+    : `${drinkName}: Empties are complete.`;
+}
+
 export type CrateReturnIssue = {
   returnedCrateTypeId: string;
   quantity: number;

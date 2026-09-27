@@ -8,7 +8,10 @@ import { ProductImage } from "@/components/product-image";
 import { useSaleDrafts } from "./sale-draft-session";
 import { PausedSalesLink } from "./paused-sales-link";
 import { SaleEmptiesStep } from "./sale-empties-step";
-import { matchSaleEmpties } from "@/domain/sale-empties";
+import {
+  matchSaleEmpties,
+  missingEmptiesMessage,
+} from "@/domain/sale-empties";
 import { wholeNumberInputMessage } from "@/domain/sale-input";
 import { formatNaira } from "@/domain/products";
 import { formatQuantity } from "@/domain/quantity";
@@ -920,17 +923,10 @@ export function SaleBuilder({
                     {packaging &&
                       (packaging.cratesOwed > 0 || packaging.bottlesOwed > 0) && (
                         <p className="mt-1 text-amber-900">
-                          Owed:{" "}
-                          {[
-                            packaging.cratesOwed
-                              ? `${packaging.cratesOwed} ${packaging.cratesOwed === 1 ? "crate" : "crates"}`
-                              : "",
-                            packaging.bottlesOwed
-                              ? `${packaging.bottlesOwed} ${packaging.bottlesOwed === 1 ? "bottle" : "bottles"}`
-                              : "",
-                          ]
-                            .filter(Boolean)
-                            .join(" · ")}
+                          {missingEmptiesMessage(
+                            packaging,
+                            p?.name ?? "Drink",
+                          )}
                         </p>
                       )}
                   </div>
