@@ -132,6 +132,43 @@ export function cratesTakenFor(
   return value;
 }
 
+export function actualSaleEmpties(
+  draft: SaleDraft,
+  catalog: SaleCatalog,
+) {
+  const match = matchSaleEmpties(draft, catalog);
+  const state = draft.emptiesV2 ?? emptyEmptiesV2;
+  const crates = new Map<string, number>();
+  const bottles = new Map<string, number>();
+
+  if (state.mode === "exact") {
+    for (const row of match.lines) {
+      add(crates, row.crateTypeId, row.cratesOut);
+      if (row.bottleType) add(bottles, row.bottleType, row.bottlesOut);
+    }
+  } else {
+    for (const [id, raw] of Object.entries(state.returnedCrates)) {
+      const quantity = whole(raw);
+      if (quantity) crates.set(id, quantity);
+    }
+    for (const [id, raw] of Object.entries(state.returnedBottles)) {
+      const quantity = whole(raw);
+      if (quantity) bottles.set(id, quantity);
+    }
+  }
+
+  return {
+    crates: [...crates].map(([crateTypeId, quantity]) => ({
+      crateTypeId,
+      quantity,
+    })),
+    bottles: [...bottles].map(([bottleType, quantity]) => ({
+      bottleType,
+      quantity,
+    })),
+  };
+}
+
 export function matchSaleEmpties(
   draft: SaleDraft,
   catalog: SaleCatalog,
