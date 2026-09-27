@@ -44,14 +44,27 @@ export default async function CustomerPage({
   const naira = (value: number) => `₦${value.toLocaleString("en-NG")}`;
   return (
     <>
-      {(saved === "added" || saved === "updated" || saved === "payment") && (
+      {(saved === "added" ||
+        saved === "updated" ||
+        saved === "payment" ||
+        saved === "archived" ||
+        saved === "restored") && (
         <p
           role="status"
           className="mb-5 border-l-4 border-emerald-800 pl-3 text-emerald-900"
         >
           {saved === "payment"
             ? "Payment recorded."
-            : `Customer ${saved === "added" ? "added" : "updated"}.`}
+            : saved === "archived"
+              ? "Customer archived."
+              : saved === "restored"
+                ? "Customer restored."
+                : `Customer ${saved === "added" ? "added" : "updated"}.`}
+        </p>
+      )}
+      {customer.archived_at && (
+        <p className="mb-3 inline-block self-start border border-stone-400 px-2 py-1 text-sm font-semibold uppercase tracking-wide text-stone-600">
+          Archived
         </p>
       )}
       <h1 className="break-words">{customer.name}</h1>

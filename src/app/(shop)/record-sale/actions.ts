@@ -35,6 +35,7 @@ export async function loadSaleCatalog(): Promise<SaleCatalog> {
       const { data, error } = await supabase
         .from("customers")
         .select("id,name,phone")
+        .is("archived_at", null)
         .order("name")
         .order("id")
         .range(offset, offset + 999);

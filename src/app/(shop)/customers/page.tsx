@@ -18,6 +18,7 @@ export default async function CustomersPage({
   let request = supabase
     .from("customers")
     .select("id,name,phone,business_name", { count: "exact" })
+    .is("archived_at", null)
     .order("name")
     .order("id")
     .range((page - 1) * 30, page * 30 - 1);
@@ -31,6 +32,12 @@ export default async function CustomersPage({
       <h1>Customers</h1>
       <Link className="primary mt-6 w-full" href="/customers/new">
         Add Customer
+      </Link>
+      <Link
+        className="quiet-link mt-3 self-start"
+        href="/customers/archived"
+      >
+        Archived customers
       </Link>
       <form action="/customers" className="my-7">
         <label htmlFor="search">Search by name or phone</label>

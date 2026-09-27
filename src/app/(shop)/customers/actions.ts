@@ -116,3 +116,27 @@ export async function addCustomerForSale(
 ) {
   return save(id, false, formData, true);
 }
+
+async function setArchived(id: string, archived: boolean) {
+  const supabase = await requireOwner();
+  if (!isCustomerId(id)) redirect("/customers");
+  const { error } = await supabase
+    .from("customers")
+    .update({ archived_at: archived ? new Date().toISOString() : null })
+    .eq("id", id);
+  if (error)
+    redirect(`/customers/${id}/edit?saved=${archived ? "archive" : "restore"}-failed`);
+  revalidatePath("/customers");
+  revalidatePath("/customers/archived");
+  revalidatePath(`/customers/${id}`);
+  revalidatePath(`/customers/${id}/edit`);
+  redirect(`/customers/${id}?saved=${archived ? "archived" : "restored"}`);
+}
+
+export async function archiveCustomer(id: string) {
+  return setArchived(id, true);
+}
+
+export async function restoreCustomer(id: string) {
+  return setArchived(id, false);
+}
