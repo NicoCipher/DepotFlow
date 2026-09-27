@@ -39,6 +39,9 @@ export default async function ShopLayout({
             <Link className="quiet-link" href="/products">
               Products
             </Link>
+            <Link className="quiet-link" href="/empties-rules">
+              Empties Rules
+            </Link>
           </div>
         </details>
       </nav>
