@@ -147,7 +147,10 @@ test("resume/review totals use current prices and flag price, stock, product and
     products: [{ ...product, available: 5 }],
   });
   assert.equal(shortage.total, undefined);
-  assert.match(shortage.warnings.join(), /all that is in stock/);
+  assert.match(
+    shortage.warnings.join(),
+    /Only 5 bottles available now\. Change the quantity\./,
+  );
   const absent = revalidateSaleDraft(draft, {
     products: [],
     customers: [],
