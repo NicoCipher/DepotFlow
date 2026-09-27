@@ -19,7 +19,6 @@ import {
   removeSaleLine,
   saleQuantityLabel,
   saleTotal,
-  emptiesFor,
   effectivePartialPrice,
   reviewedLine,
   reviewedLineTotal,
