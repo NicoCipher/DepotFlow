@@ -196,7 +196,7 @@ test("stock checks reject zero, negative, fractional input, missing stock and ex
   assert.throws(() => priceQuantity(product, q(0, 0, 1.2)), /whole numbers/);
   assert.throws(
     () => priceQuantity({ ...product, available: null }, q(1)),
-    /not recorded/,
+    /Stock has not been counted for this drink yet\./,
   );
   assert.throws(
     () => priceQuantity({ ...product, available: 0 }, q(1)),
@@ -254,7 +254,7 @@ test("multiple drinks, edit replacement, remove and total use each product's own
   );
   assert.throws(
     () => saleTotal(two, [{ ...product, available: 1 }, second]),
-    /all that is in stock/,
+    /Only 1 bottle available now\. Change the quantity\./,
   );
   assert.throws(() => saleTotal([first[0], first[0]], [product]), /duplicate/);
   assert.throws(() => saleTotal(first, []), /no longer/);
