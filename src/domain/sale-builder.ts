@@ -20,10 +20,27 @@ export type SaleProduct = {
   bottles_returnable: boolean;
   bottle_type: string | null;
 };
-export type SaleCustomer = { id: string; name: string; phone: string };
+export type SaleCustomer = {
+  id: string;
+  name: string;
+  phone: string;
+  empties_deposit_required: boolean;
+};
+export type SaleCrateType = {
+  id: string;
+  name: string;
+  is_legacy: boolean;
+  pocket_count: number | null;
+};
+export type SaleSwapRule = {
+  owed_crate_type_id: string;
+  returned_crate_type_id: string;
+};
 export type SaleCatalog = {
   products: SaleProduct[];
   customers: SaleCustomer[];
+  crateTypes: SaleCrateType[];
+  swapRules: SaleSwapRule[];
 };
 export type SaleQuantity = {
   crates: number;
@@ -264,6 +281,12 @@ export type SaleDraft = {
   paid: string;
   allEmpties: boolean;
   returns: Record<string, { crates: string; bottles: string }>;
+  emptiesV2: {
+    mode: "exact" | "actual";
+    cratesTaken: Record<string, string>;
+    returnedCrates: Record<string, string>;
+    returnedBottles: Record<string, string>;
+  };
   editingId: string;
   crates: string;
   fraction: 0 | 1 | 2 | 3;
@@ -279,6 +302,12 @@ export const emptySaleDraft: SaleDraft = {
   paid: "0",
   allEmpties: true,
   returns: {},
+  emptiesV2: {
+    mode: "exact",
+    cratesTaken: {},
+    returnedCrates: {},
+    returnedBottles: {},
+  },
   editingId: "",
   crates: "0",
   fraction: 0,
@@ -344,6 +373,17 @@ export function readSaleDraft(raw: string | null): SaleDraft {
           returns[id] = entry as { crates: string; bottles: string };
       }
     }
+    function stringMap(raw: unknown) {
+      const result: Record<string, string> = {};
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) return result;
+      for (const [key, value] of Object.entries(raw))
+        if (typeof value === "string") result[key] = value;
+      return result;
+    }
+    const rawEmpties =
+      d.emptiesV2 && typeof d.emptiesV2 === "object" && !Array.isArray(d.emptiesV2)
+        ? d.emptiesV2
+        : {};
     return {
       ...emptySaleDraft,
       ...d,
@@ -351,6 +391,12 @@ export function readSaleDraft(raw: string | null): SaleDraft {
       paid: typeof d.paid === "string" ? d.paid : "0",
       allEmpties: typeof d.allEmpties === "boolean" ? d.allEmpties : true,
       returns,
+      emptiesV2: {
+        mode: rawEmpties.mode === "actual" ? "actual" : "exact",
+        cratesTaken: stringMap(rawEmpties.cratesTaken),
+        returnedCrates: stringMap(rawEmpties.returnedCrates),
+        returnedBottles: stringMap(rawEmpties.returnedBottles),
+      },
     } as SaleDraft;
   } catch {
     return emptySaleDraft;
