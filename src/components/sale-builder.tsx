@@ -167,7 +167,10 @@ export function SaleBuilder({
         const fresh = await loadSaleCatalog();
         setCatalog(fresh);
         const checked = revalidateSaleDraft(draft, fresh);
-        if (checked.warnings.length) throw new Error(checked.warnings[0]);
+        if (checked.warnings.length) {
+          setMessage(checked.warnings[0]);
+          return;
+        }
         await sales.update({ step: "empties" });
         setMessage("");
       } catch {
