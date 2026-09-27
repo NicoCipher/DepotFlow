@@ -98,7 +98,7 @@ async function save(
           errors: {},
           message:
             result.error?.code === "23514"
-              ? "The crate pockets must match the bottles per crate. Check the crate type and try again."
+              ? "The physical crate must have the same number of bottle spaces as the drink has bottles per crate."
               : "Could not save the product. Your details are still here. Please try again.",
         };
       }
