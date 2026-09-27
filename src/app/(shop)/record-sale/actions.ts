@@ -1,13 +1,20 @@
 "use server";
+
 import { requireOwner } from "@/lib/auth/owner";
 import type {
   SaleCatalog,
   SaleCustomer,
   SaleProduct,
+  SaleDraft,
 } from "@/domain/sale-builder";
-import { type SaleDraft } from "@/domain/sale-builder";
-export async function loadSaleCatalog(): Promise<SaleCatalog> {
-  const supabase = await requireOwner();
+import {
+  actualSaleEmpties,
+  matchSaleEmpties,
+} from "@/domain/sale-empties";
+
+type OwnerClient = Awaited<ReturnType<typeof requireOwner>>;
+
+async function loadCatalog(supabase: OwnerClient): Promise<SaleCatalog> {
   async function products() {
     const rows: SaleProduct[] = [];
     for (let offset = 0; ; offset += 1000) {
@@ -29,6 +36,7 @@ export async function loadSaleCatalog(): Promise<SaleCatalog> {
       if (data.length < 1000) return rows;
     }
   }
+
   async function customers() {
     const rows: SaleCustomer[] = [];
     for (let offset = 0; ; offset += 1000) {
@@ -44,6 +52,7 @@ export async function loadSaleCatalog(): Promise<SaleCatalog> {
       if (data.length < 1000) return rows;
     }
   }
+
   const [productRows, customerRows, crateTypes, swapRules] =
     await Promise.all([
       products(),
@@ -62,12 +71,17 @@ export async function loadSaleCatalog(): Promise<SaleCatalog> {
     ]);
   if (crateTypes.error || swapRules.error)
     throw new Error("Could not load empties rules.");
+
   return {
     products: productRows,
     customers: customerRows,
     crateTypes: crateTypes.data,
     swapRules: swapRules.data,
   };
+}
+
+export async function loadSaleCatalog(): Promise<SaleCatalog> {
+  return loadCatalog(await requireOwner());
 }
 
 export async function saveSale(requestId: string, draft: SaleDraft) {
@@ -81,46 +95,51 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
     !Number.isSafeInteger(Number(draft.paid))
   )
     return { error: "Check the sale date and amount paid." };
+
   try {
+    const fresh = await loadCatalog(supabase);
+    const customer = fresh.customers.find(
+      (item) => item.id === draft.customerId,
+    );
+    if (!customer)
+      throw new Error("Customer no longer available. Choose them again.");
+
+    const empties = matchSaleEmpties(draft, fresh);
+    if (customer.empties_deposit_required && empties.hasShortage)
+      throw new Error(
+        "This customer requires a deposit for missing empties. Deposit handling for shortages is not enabled yet.",
+      );
+
+    const actual = actualSaleEmpties(draft, fresh);
+    const resolutions = new Map(
+      empties.lines.map((line) => [line.productId, line]),
+    );
+
     const lines = draft.lines.map((line) => {
       if (!line.reviewExpected)
         throw new Error("Review current prices and stock before saving.");
-      const dueCrates = line.quantity.crates;
-      const dueBottles = line.reviewExpected.returnable
-        ? dueCrates * line.reviewExpected.size +
-          (line.quantity.fraction * line.reviewExpected.size) / 4 +
-          line.quantity.bottles
-        : 0;
-      const entry = draft.returns[line.productId];
-      const returnedCrates = draft.allEmpties
-        ? dueCrates
-        : Number(entry?.crates);
-      const returnedBottles = draft.allEmpties
-        ? dueBottles
-        : Number(entry?.bottles);
-      if (
-        ![returnedCrates, returnedBottles].every(Number.isSafeInteger) ||
-        returnedCrates < 0 ||
-        returnedCrates > dueCrates ||
-        returnedBottles < 0 ||
-        returnedBottles > dueBottles
-      )
-        throw new Error("Check the returned empties.");
+      const resolved = resolutions.get(line.productId);
+      if (!resolved) throw new Error("Check the returned empties.");
       return {
         productId: line.productId,
         quantity: line.quantity,
-        returnedCrates,
-        returnedBottles,
+        cratesTaken: resolved.cratesOut,
+        returnedCrates: resolved.cratesSettled,
+        returnedBottles: resolved.bottlesSettled,
         expected: line.reviewExpected,
       };
     });
-    const { data, error } = await supabase.rpc("save_sale", {
+
+    const { data, error } = await supabase.rpc("save_sale_v2", {
       p_request_id: requestId,
       p_customer_id: draft.customerId,
       p_business_date: draft.businessDate,
       p_paid: Number(draft.paid),
       p_lines: lines,
+      p_returned_crates: actual.crates,
+      p_returned_bottles: actual.bottles,
     });
+
     if (error)
       return {
         error:
@@ -128,6 +147,7 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
             ? error.message
             : "Could not save sale. Review and try again.",
       };
+
     return {
       result: data as {
         id: string;
