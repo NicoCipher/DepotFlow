@@ -35,7 +35,10 @@ export function CrateTypeSelector({
   }, [onRefresh]);
   return (
     <div className="space-y-3">
-      <label htmlFor="crate_type_id">Crate type</label>
+      <label htmlFor="crate_type_id">Physical crate used for this drink</label>
+      <p className="text-sm text-stone-600">
+        Choose the actual plastic crate that leaves the depot with this drink. The number of bottle spaces must match the bottles per crate.
+      </p>
       <select
         id="crate_type_id"
         name="crate_type_id"
@@ -54,7 +57,7 @@ export function CrateTypeSelector({
         }}
         onChange={(event) => onChange(event.target.value)}
       >
-        <option value="">Choose crate type</option>
+        <option value="">Choose physical crate</option>
         {types
           .filter((crate) => !crateNeedsSetup(crate) || crate.id === selected)
           .map((crate) => (
@@ -77,7 +80,7 @@ export function CrateTypeSelector({
           rel="noopener"
           title="Opens in a new tab"
         >
-          Add new crate type
+          Add a physical crate
         </Link>
         <Link
           className="quiet-link"
@@ -86,7 +89,7 @@ export function CrateTypeSelector({
           rel="noopener"
           title="Opens in a new tab"
         >
-          Manage crate types
+          Manage physical crates
         </Link>
       </div>
     </div>
