@@ -1,12 +1,12 @@
 "use server";
 
 import { requireOwner } from "@/lib/auth/owner";
-import type {
-  SaleCatalog,
-  SaleCustomer,
-  SaleProduct,
-  SaleDraft,
+import {
   inactiveSaleCustomerMessage,
+  type SaleCatalog,
+  type SaleCustomer,
+  type SaleProduct,
+  type SaleDraft,
 } from "@/domain/sale-builder";
 import {
   actualSaleEmpties,
