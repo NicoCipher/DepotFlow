@@ -1,21 +1,40 @@
 import "server-only";
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ownerAuthorized } from "@/domain/authorization";
 
-export async function ownerSession() {
+async function loadOwnerSession() {
   const supabase = await createClient();
   const {
     data: { user },
     error: userError,
   } = await supabase.auth.getUser();
-  if (userError || !user) return { supabase, allowed: false };
+
+  if (userError || !user) return { supabase, user: null, allowed: false };
+
   const { data, error } = await supabase.rpc("is_shop_owner");
-  return { supabase, allowed: ownerAuthorized(user.id, data, error) };
+  return {
+    supabase,
+    user,
+    allowed: ownerAuthorized(user.id, data, error),
+  };
+}
+
+// React cache deduplicates the auth + owner check within one server render.
+// This avoids repeating the same network round trips in the shop layout,
+// page, and nested data loaders while keeping every request freshly checked.
+export const ownerSession = cache(loadOwnerSession);
+
+export async function requireOwnerSession() {
+  const session = await ownerSession();
+  if (!session.allowed || !session.user) redirect("/sign-in");
+  return {
+    supabase: session.supabase,
+    user: session.user,
+  };
 }
 
 export async function requireOwner() {
-  const session = await ownerSession();
-  if (!session.allowed) redirect("/sign-in");
-  return session.supabase;
+  return (await requireOwnerSession()).supabase;
 }
