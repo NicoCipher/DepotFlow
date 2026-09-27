@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import {
   crateReturnIssues,
+  depositSetupIssues,
   matchSaleEmpties,
   missingEmptiesMessage,
   type EmptiesMatchResult,
@@ -124,6 +126,8 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
   const crateIssues = result ? crateReturnIssues(result, catalog) : [];
   const depositBlocked =
     Boolean(customer?.empties_deposit_required) && shortages.length > 0;
+  const missingDepositSetup =
+    depositBlocked && result ? depositSetupIssues(result, catalog) : [];
 
   return (
     <>
@@ -420,11 +424,30 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
             </div>
           )}
 
-          {depositBlocked && (
+          {depositBlocked && missingDepositSetup.length > 0 && (
+            <div
+              role="alert"
+              className="mt-4 border-l-4 border-amber-700 pl-3 text-amber-950"
+            >
+              <p className="font-semibold">Deposit setup is incomplete.</p>
+              {missingDepositSetup.map((issue) => (
+                <p className="mt-1" key={issue.key}>
+                  {issue.message}
+                </p>
+              ))}
+              <Link
+                href="/empties-rules"
+                className="quiet-link mt-2 inline-block"
+              >
+                Set deposit prices
+              </Link>
+            </div>
+          )}
+          {depositBlocked && missingDepositSetup.length === 0 && (
             <p role="alert" className="mt-4 text-amber-900">
-              This customer requires a deposit for missing empties. We can record
-              the facts, but shortage deposits are not enabled yet, so this sale
-              cannot be saved with missing empties.
+              This customer requires a deposit for the missing empties. The
+              prices are configured, but collecting the refundable deposit in
+              this sale is not enabled yet.
             </p>
           )}
         </section>
