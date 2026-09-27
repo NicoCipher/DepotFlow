@@ -15,24 +15,28 @@ export default async function StockPage({
     1,
     Math.min(10000, Number.parseInt(params.page ?? "1", 10) || 1),
   );
-  // Left embedding keeps products with no stock row visible. RLS applies to both tables.
-  const { data, error, count } = await supabase
-    .from("products")
-    .select("id,name,size,image_url,bottles_per_crate,stock(total_bottles)", {
-      count: "exact",
-    })
-    .order("name")
-    .order("id")
-    .range((page - 1) * 30, page * 30 - 1);
+  // These reads are independent, so start them together instead of waiting
+  // for the stock list before requesting recent history.
+  const [stockResult, history] = await Promise.all([
+    supabase
+      .from("products")
+      .select("id,name,size,image_url,bottles_per_crate,stock(total_bottles)", {
+        count: "exact",
+      })
+      .order("name")
+      .order("id")
+      .range((page - 1) * 30, page * 30 - 1),
+    supabase
+      .from("stock_movements")
+      .select(
+        "id,crate_types(*),product_name,movement_type,quantity_change,resulting_stock,business_date,bottles_per_crate",
+      )
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(20),
+  ]);
+  const { data, error, count } = stockResult;
   if (error) throw new Error("Could not load stock.");
-  const history = await supabase
-    .from("stock_movements")
-    .select(
-      "id,crate_types(*),product_name,movement_type,quantity_change,resulting_stock,business_date,bottles_per_crate",
-    )
-    .order("created_at", { ascending: false })
-    .order("id", { ascending: false })
-    .limit(20);
   if (history.error) throw new Error("Could not load stock history.");
   return (
     <>
