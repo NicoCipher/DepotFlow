@@ -1,4 +1,4 @@
-import { toBottles, validateStock } from "./quantity.ts";
+import { formatQuantity, toBottles, validateStock } from "./quantity.ts";
 import { normalizePhone } from "./customers.ts";
 export type SaleProduct = {
   id: string;
@@ -169,9 +169,20 @@ export function priceQuantity(product: SaleProduct, quantity: SaleQuantity) {
     throw new Error("That fraction does not make a whole number of bottles.");
   }
   if (product.available === null)
-    throw new Error("Stock not recorded for this drink.");
+    throw new Error("Stock has not been counted for this drink yet.");
   const stock = validateStock(totalBottles, product.available);
-  if (!stock.valid) throw new Error(stock.message);
+  if (!stock.valid) {
+    if (product.available === 0)
+      throw new Error("Out of stock. Change the quantity.");
+    if (totalBottles > product.available)
+      throw new Error(
+        `Only ${formatQuantity(
+          product.available,
+          product.bottles_per_crate,
+        )} available now. Change the quantity.`,
+      );
+    throw new Error(stock.message);
+  }
   function price(value: number | null, label: string, units: number) {
     if (!units) return 0;
     if (value === null) throw new Error(`${label} price is not set.`);
