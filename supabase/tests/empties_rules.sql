@@ -36,9 +36,12 @@ insert into public.customers(id,name,phone) values
   ('20000000-0000-4000-8000-000000000601','Terms Test','+2348030000601'),
   ('20000000-0000-4000-8000-000000000602','Sack Test','+2348030000602');
 
+reset role;
 insert into public.stock(product_id,total_bottles) values
   ('10000000-0000-4000-8000-000000000601',120),
   ('10000000-0000-4000-8000-000000000602',200);
+set local role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000601',true);
 
 create function pg_temp.check_true(ok boolean,message text) returns void
 language plpgsql as $$
