@@ -993,6 +993,16 @@ export function SaleBuilder({
                     draft,
                   );
                   if (response.error) {
+                    if (response.code === "customer_unavailable") {
+                      try {
+                        const fresh = await loadSaleCatalog();
+                        setCatalog(fresh);
+                        await sales.update({ step: "customer" });
+                      } catch {
+                        // The draft stays intact. The customer screen will
+                        // refresh again when the sale is reopened.
+                      }
+                    }
                     setMessage(response.error);
                     return;
                   }
