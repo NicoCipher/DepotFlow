@@ -39,22 +39,24 @@ async function save(
     };
   const crate = await supabase
     .from("crate_types")
-    .select("pocket_count")
+    .select("pocket_count,is_legacy,empty_family")
     .eq("id", checked.data.crate_type_id)
     .maybeSingle();
   if (
     crate.error ||
     !crate.data ||
-    (crate.data.pocket_count !== null &&
-      crate.data.pocket_count !== checked.data.bottles_per_crate)
+    crate.data.is_legacy ||
+    crate.data.pocket_count === null ||
+    !crate.data.empty_family ||
+    crate.data.pocket_count !== checked.data.bottles_per_crate
   )
     return {
       values,
       errors: {
         crate_type_id:
-          "Choose a crate whose pockets match the bottles per crate.",
+          "Choose the complete physical crate this drink uses. Its bottle spaces must match the bottles per crate.",
       },
-      message: "Check the crate type.",
+      message: "Finish the physical crate details.",
     };
   try {
     const result = editing
