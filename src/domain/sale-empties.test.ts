@@ -105,6 +105,24 @@ test("exact complete return settles crate and bottles", () => {
   assert.equal(result.lines[0].bottlesOwed, 0);
 });
 
+test("cleared visible empties count stays invalid instead of silently becoming zero", () => {
+  const draft = sale("trophy");
+  draft.emptiesV2.returnedCrates["trophy-crate"] = "";
+  assert.throws(
+    () => matchSaleEmpties(draft, catalog),
+    /highlighted empties fields/,
+  );
+});
+
+test("cleared physical-crate count does not silently fall back to crates sold", () => {
+  const draft = sale("trophy");
+  draft.emptiesV2.cratesTaken.trophy = "";
+  assert.throws(
+    () => matchSaleEmpties(draft, catalog),
+    /highlighted empties fields/,
+  );
+});
+
 test("one crate worth sold in a sack has no crate obligation", () => {
   const draft = sale("trophy");
   draft.emptiesV2.cratesTaken.trophy = "0";
