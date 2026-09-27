@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  crateReturnIssues,
   emptyEmptiesV2,
   matchSaleEmpties,
 } from "./sale-empties.ts";
@@ -168,6 +169,38 @@ test("exact crate with wrong bottles settles only the facts that match", () => {
   assert.equal(result.lines[0].cratesOwed, 0);
   assert.equal(result.lines[0].bottlesOwed, 2);
   assert.equal(result.unmatchedBottles["Goldberg bottle"], 2);
+});
+
+test("incompatible returned crate is explained against the one crate still owed", () => {
+  const draft = sale("trophy");
+  draft.emptiesV2.returnedCrates["goldberg-crate"] = "1";
+  draft.emptiesV2.returnedBottles["Goldberg bottle"] = "12";
+  const result = matchSaleEmpties(draft, catalog);
+  assert.deepEqual(crateReturnIssues(result, catalog), [
+    {
+      returnedCrateTypeId: "goldberg-crate",
+      quantity: 1,
+      owedCrateTypeId: "trophy-crate",
+      reason: "not_allowed",
+    },
+  ]);
+});
+
+test("allowed swap that is not complete is explained instead of called incompatible", () => {
+  const draft = sale("goldberg");
+  draft.emptiesV2.returnedCrates["trophy-crate"] = "1";
+  draft.emptiesV2.returnedBottles["Trophy bottle"] = "10";
+  const result = matchSaleEmpties(draft, catalog);
+  assert.deepEqual(crateReturnIssues(result, catalog), [
+    {
+      returnedCrateTypeId: "trophy-crate",
+      quantity: 1,
+      owedCrateTypeId: "goldberg-crate",
+      reason: "incomplete_allowed_swap",
+      matchingBottlesReturned: 10,
+      matchingBottlesNeeded: 12,
+    },
+  ]);
 });
 
 test("different pocket counts are not silently swapped", () => {
