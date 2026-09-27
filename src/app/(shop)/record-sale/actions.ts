@@ -54,23 +54,43 @@ async function loadCatalog(supabase: OwnerClient): Promise<SaleCatalog> {
     }
   }
 
-  const [productRows, customerRows, crateTypes, swapRules] =
-    await Promise.all([
-      products(),
-      customers(),
-      supabase
-        .from("crate_types")
-        .select("id,name,is_legacy,pocket_count")
-        .eq("is_legacy", false)
-        .order("name")
-        .order("id"),
-      supabase
-        .from("crate_swap_rules")
-        .select("owed_crate_type_id,returned_crate_type_id")
-        .order("owed_crate_type_id")
-        .order("returned_crate_type_id"),
-    ]);
-  if (crateTypes.error || swapRules.error)
+  const [
+    productRows,
+    customerRows,
+    crateTypes,
+    swapRules,
+    bottleDeposit,
+    crateDeposits,
+  ] = await Promise.all([
+    products(),
+    customers(),
+    supabase
+      .from("crate_types")
+      .select("id,name,is_legacy,pocket_count")
+      .eq("is_legacy", false)
+      .order("name")
+      .order("id"),
+    supabase
+      .from("crate_swap_rules")
+      .select("owed_crate_type_id,returned_crate_type_id")
+      .order("owed_crate_type_id")
+      .order("returned_crate_type_id"),
+    supabase
+      .from("bottle_deposit_price")
+      .select("amount")
+      .eq("id", 1)
+      .maybeSingle(),
+    supabase
+      .from("crate_deposit_prices")
+      .select("pocket_count,complete_crate_amount,crate_only_amount")
+      .order("pocket_count"),
+  ]);
+  if (
+    crateTypes.error ||
+    swapRules.error ||
+    bottleDeposit.error ||
+    crateDeposits.error
+  )
     throw new Error("Could not load empties rules.");
 
   return {
@@ -78,6 +98,8 @@ async function loadCatalog(supabase: OwnerClient): Promise<SaleCatalog> {
     customers: customerRows,
     crateTypes: crateTypes.data,
     swapRules: swapRules.data,
+    bottleDepositPrice: bottleDeposit.data?.amount ?? null,
+    crateDepositPrices: crateDeposits.data,
   };
 }
 

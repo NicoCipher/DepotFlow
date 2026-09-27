@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   crateReturnIssues,
+  depositSetupIssues,
   emptyEmptiesV2,
   matchSaleEmpties,
   missingEmptiesMessage,
@@ -170,6 +171,58 @@ test("exact crate with wrong bottles settles only the facts that match", () => {
   assert.equal(result.lines[0].cratesOwed, 0);
   assert.equal(result.lines[0].bottlesOwed, 2);
   assert.equal(result.unmatchedBottles["Goldberg bottle"], 2);
+});
+
+test("missing complete crate deposit price is identified without guessing", () => {
+  const draft = sale("trophy");
+  const result = matchSaleEmpties(draft, catalog);
+  assert.deepEqual(depositSetupIssues(result, catalog), [
+    {
+      key: "complete:12",
+      message:
+        "Deposit price for a complete 12-pocket crate has not been set.",
+    },
+  ]);
+});
+
+test("missing bottle and crate-only deposit prices are identified separately", () => {
+  const bottlesMissing = sale("trophy");
+  bottlesMissing.emptiesV2.returnedCrates["trophy-crate"] = "1";
+  const bottlesResult = matchSaleEmpties(bottlesMissing, catalog);
+  assert.deepEqual(depositSetupIssues(bottlesResult, catalog), [
+    {
+      key: "bottle",
+      message: "Deposit price per bottle has not been set.",
+    },
+  ]);
+
+  const crateMissing = sale("trophy");
+  crateMissing.emptiesV2.returnedBottles["Trophy bottle"] = "12";
+  const crateResult = matchSaleEmpties(crateMissing, catalog);
+  assert.deepEqual(depositSetupIssues(crateResult, catalog), [
+    {
+      key: "crate-only:12",
+      message:
+        "Deposit price for an empty 12-pocket crate has not been set.",
+    },
+  ]);
+});
+
+test("configured deposit prices produce no setup error", () => {
+  const configured: SaleCatalog = {
+    ...catalog,
+    bottleDepositPrice: 200,
+    crateDepositPrices: [
+      {
+        pocket_count: 12,
+        complete_crate_amount: 3000,
+        crate_only_amount: 600,
+      },
+    ],
+  };
+  const draft = sale("trophy");
+  const result = matchSaleEmpties(draft, configured);
+  assert.deepEqual(depositSetupIssues(result, configured), []);
 });
 
 test("missing empties message says exactly what is still missing", () => {

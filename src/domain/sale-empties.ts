@@ -64,6 +64,67 @@ export function missingEmptiesMessage(
     : `${drinkName}: Empties are complete.`;
 }
 
+export type DepositSetupIssue = {
+  key: string;
+  message: string;
+};
+
+export function depositSetupIssues(
+  result: EmptiesMatchResult,
+  catalog: SaleCatalog,
+): DepositSetupIssue[] {
+  const issues = new Map<string, string>();
+  const crateRates = new Map(
+    (catalog.crateDepositPrices ?? []).map((rate) => [rate.pocket_count, rate]),
+  );
+  let bottleRateNeeded = false;
+
+  for (const line of result.lines) {
+    if (!line.cratesOwed && !line.bottlesOwed) continue;
+    const pocket = cratePocket(catalog, line.crateTypeId);
+
+    if (!line.cratesOwed || !pocket) {
+      if (line.bottlesOwed > 0) bottleRateNeeded = true;
+      continue;
+    }
+
+    const completeMissing = Math.min(
+      line.cratesOwed,
+      Math.floor(line.bottlesOwed / pocket),
+    );
+    const crateOnlyMissing = line.cratesOwed - completeMissing;
+    const looseBottleMissing =
+      line.bottlesOwed - completeMissing * pocket;
+    const rate = crateRates.get(pocket);
+
+    if (completeMissing > 0 && !rate) {
+      const key = `complete:${pocket}`;
+      issues.set(
+        key,
+        `Deposit price for a complete ${pocket}-pocket crate has not been set.`,
+      );
+    }
+
+    if (crateOnlyMissing > 0 && !rate?.crate_only_amount) {
+      const key = `crate-only:${pocket}`;
+      issues.set(
+        key,
+        `Deposit price for an empty ${pocket}-pocket crate has not been set.`,
+      );
+    }
+
+    if (looseBottleMissing > 0) bottleRateNeeded = true;
+  }
+
+  if (bottleRateNeeded && catalog.bottleDepositPrice == null)
+    issues.set(
+      "bottle",
+      "Deposit price per bottle has not been set.",
+    );
+
+  return [...issues].map(([key, message]) => ({ key, message }));
+}
+
 export type CrateReturnIssue = {
   returnedCrateTypeId: string;
   quantity: number;
