@@ -37,6 +37,9 @@ export function saleProductSetupIssue(product: SaleProduct): string | null {
   return null;
 }
 
+export const inactiveSaleCustomerMessage =
+  "This customer is no longer active. Choose another customer.";
+
 export type SaleCustomer = {
   id: string;
   name: string;
@@ -550,7 +553,7 @@ export function revalidateSaleDraft(draft: SaleDraft, catalog: SaleCatalog) {
     draft.customerId &&
     !catalog.customers.some((c) => c.id === draft.customerId)
   )
-    warnings.push("Customer no longer available. Choose another customer.");
+    warnings.push(inactiveSaleCustomerMessage);
   for (const line of draft.lines) {
     const p = catalog.products.find((p) => p.id === line.productId);
     if (!p) {

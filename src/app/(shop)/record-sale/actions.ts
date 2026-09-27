@@ -1,11 +1,12 @@
 "use server";
 
 import { requireOwner } from "@/lib/auth/owner";
-import type {
-  SaleCatalog,
-  SaleCustomer,
-  SaleProduct,
-  SaleDraft,
+import {
+  inactiveSaleCustomerMessage,
+  type SaleCatalog,
+  type SaleCustomer,
+  type SaleProduct,
+  type SaleDraft,
 } from "@/domain/sale-builder";
 import {
   actualSaleEmpties,
@@ -102,7 +103,10 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
       (item) => item.id === draft.customerId,
     );
     if (!customer)
-      throw new Error("Customer no longer available. Choose them again.");
+      return {
+        error: inactiveSaleCustomerMessage,
+        code: "customer_unavailable" as const,
+      };
 
     const empties = matchSaleEmpties(draft, fresh);
     if (customer.empties_deposit_required && empties.hasShortage)
@@ -140,13 +144,22 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
       p_returned_bottles: actual.bottles,
     });
 
-    if (error)
+    if (error) {
+      if (
+        error.code === "22023" &&
+        /customer is archived|customer not found/i.test(error.message)
+      )
+        return {
+          error: inactiveSaleCustomerMessage,
+          code: "customer_unavailable" as const,
+        };
       return {
         error:
           error.code === "22023"
             ? error.message
             : "Could not save sale. Review and try again.",
       };
+    }
 
     return {
       result: data as {
