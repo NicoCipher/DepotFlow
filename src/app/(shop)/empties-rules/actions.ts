@@ -3,12 +3,11 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireOwner } from "@/lib/auth/owner";
-import { isProductId } from "@/domain/products";
 
-function depositAmount(formData: FormData) {
-  const raw = String(formData.get("amount") ?? "").trim();
-  if (!/^\d+$/.test(raw)) throw new Error("invalid");
-  const amount = Number(raw);
+function requiredAmount(raw: FormDataEntryValue | null) {
+  const value = String(raw ?? "").trim();
+  if (!/^\d+$/.test(value)) throw new Error("invalid");
+  const amount = Number(value);
   if (
     !Number.isSafeInteger(amount) ||
     amount < 50 ||
@@ -19,31 +18,55 @@ function depositAmount(formData: FormData) {
   return amount;
 }
 
-export async function saveDepositPrice(formData: FormData) {
+function optionalAmount(raw: FormDataEntryValue | null) {
+  const value = String(raw ?? "").trim();
+  if (!value) return undefined;
+  return requiredAmount(value);
+}
+
+export async function saveBottleDepositPrice(formData: FormData) {
   const supabase = await requireOwner();
-  const kind = String(formData.get("kind") ?? "");
-  const key = String(formData.get("key") ?? "");
   let amount: number;
   try {
-    amount = depositAmount(formData);
+    amount = requiredAmount(formData.get("amount"));
   } catch {
     redirect("/empties-rules?error=price");
   }
 
-  const result =
-    kind === "crate" && isProductId(key)
-      ? await supabase.rpc("set_crate_deposit_price", {
-          p_crate_type_id: key,
-          p_amount: amount,
-        })
-      : kind === "bottle" && key.trim().length > 0 && key.length <= 120
-        ? await supabase.rpc("set_bottle_deposit_price", {
-            p_bottle_type: key,
-            p_amount: amount,
-          })
-        : null;
-
-  if (!result || result.error) redirect("/empties-rules?error=price");
+  const { error } = await supabase.rpc("set_bottle_deposit_price", {
+    p_amount: amount,
+  });
+  if (error) redirect("/empties-rules?error=price");
   revalidatePath("/empties-rules");
-  redirect("/empties-rules?saved=price");
+  redirect("/empties-rules?saved=bottle");
+}
+
+export async function saveCrateDepositPrice(formData: FormData) {
+  const supabase = await requireOwner();
+  const pocketRaw = String(formData.get("pocket_count") ?? "").trim();
+  let pocketCount: number;
+  let completeAmount: number;
+  let crateOnlyAmount: number | undefined;
+
+  try {
+    if (!/^\d+$/.test(pocketRaw)) throw new Error("invalid");
+    pocketCount = Number(pocketRaw);
+    if (!Number.isSafeInteger(pocketCount) || pocketCount < 1)
+      throw new Error("invalid");
+    completeAmount = requiredAmount(formData.get("complete_amount"));
+    crateOnlyAmount = optionalAmount(formData.get("crate_only_amount"));
+  } catch {
+    redirect("/empties-rules?error=price");
+  }
+
+  const { error } = await supabase.rpc("set_crate_deposit_price", {
+    p_pocket_count: pocketCount,
+    p_complete_amount: completeAmount,
+    ...(crateOnlyAmount === undefined
+      ? {}
+      : { p_crate_only_amount: crateOnlyAmount }),
+  });
+  if (error) redirect("/empties-rules?error=price");
+  revalidatePath("/empties-rules");
+  redirect("/empties-rules?saved=crate");
 }
