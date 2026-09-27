@@ -34,7 +34,7 @@ export async function loadSaleCatalog(): Promise<SaleCatalog> {
     for (let offset = 0; ; offset += 1000) {
       const { data, error } = await supabase
         .from("customers")
-        .select("id,name,phone")
+        .select("id,name,phone,empties_deposit_required")
         .is("archived_at", null)
         .order("name")
         .order("id")
@@ -44,11 +44,30 @@ export async function loadSaleCatalog(): Promise<SaleCatalog> {
       if (data.length < 1000) return rows;
     }
   }
-  const [productRows, customerRows] = await Promise.all([
-    products(),
-    customers(),
-  ]);
-  return { products: productRows, customers: customerRows };
+  const [productRows, customerRows, crateTypes, swapRules] =
+    await Promise.all([
+      products(),
+      customers(),
+      supabase
+        .from("crate_types")
+        .select("id,name,is_legacy,pocket_count")
+        .eq("is_legacy", false)
+        .order("name")
+        .order("id"),
+      supabase
+        .from("crate_swap_rules")
+        .select("owed_crate_type_id,returned_crate_type_id")
+        .order("owed_crate_type_id")
+        .order("returned_crate_type_id"),
+    ]);
+  if (crateTypes.error || swapRules.error)
+    throw new Error("Could not load empties rules.");
+  return {
+    products: productRows,
+    customers: customerRows,
+    crateTypes: crateTypes.data,
+    swapRules: swapRules.data,
+  };
 }
 
 export async function saveSale(requestId: string, draft: SaleDraft) {
