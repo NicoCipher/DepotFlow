@@ -6,6 +6,7 @@ import { emptyCustomer } from "@/domain/customers";
 import { ProductImage } from "@/components/product-image";
 import { useSaleDrafts } from "./sale-draft-session";
 import { PausedSalesLink } from "./paused-sales-link";
+import { SaleEmptiesStep } from "./sale-empties-step";
 import { formatNaira } from "@/domain/products";
 import { formatQuantity } from "@/domain/quantity";
 import {
@@ -711,125 +712,12 @@ export function SaleBuilder({
           </>
         )}
         {step === "empties" && (
-          <>
-            <h2>Did they bring all the empties?</h2>
-            <div className="flex gap-3">
-              <button
-                className={draft.allEmpties ? "primary" : "secondary"}
-                onClick={() => update({ allEmpties: true })}
-              >
-                Yes, all
-              </button>
-              <button
-                className={!draft.allEmpties ? "primary" : "secondary"}
-                onClick={() => update({ allEmpties: false })}
-              >
-                No / Some missing
-              </button>
-            </div>
-            {!draft.allEmpties &&
-              draft.lines.map((line) => {
-                const p = catalog.products.find((p) => p.id === line.productId);
-                if (!p) return null;
-                try {
-                  const due = emptiesFor(line, p);
-                  const entry = draft.returns[p.id] ?? {
-                    crates: "0",
-                    bottles: "0",
-                  };
-                  return (
-                    <div key={p.id} className="space-y-2 border-t py-3">
-                      <h2 className="font-semibold">
-                        {p.name} {p.size}
-                      </h2>
-                      {due.crates > 0 && (
-                        <label>
-                          Exact {p.crate_type?.name ?? "crate"} crates returned
-                          (of {due.crates})
-                          <input
-                            inputMode="numeric"
-                            pattern="[0-9]+"
-                            value={entry.crates}
-                            onChange={(e) =>
-                              update({
-                                returns: {
-                                  ...draft.returns,
-                                  [p.id]: { ...entry, crates: e.target.value },
-                                },
-                              })
-                            }
-                          />
-                        </label>
-                      )}
-                      {due.bottles > 0 && (
-                        <label>
-                          {p.bottle_type} bottles returned (of {due.bottles})
-                          <input
-                            inputMode="numeric"
-                            pattern="[0-9]+"
-                            value={entry.bottles}
-                            onChange={(e) =>
-                              update({
-                                returns: {
-                                  ...draft.returns,
-                                  [p.id]: { ...entry, bottles: e.target.value },
-                                },
-                              })
-                            }
-                          />
-                        </label>
-                      )}
-                    </div>
-                  );
-                } catch (e) {
-                  return (
-                    <p role="alert" key={p.id}>
-                      {(e as Error).message}
-                    </p>
-                  );
-                }
-              })}
-            <button
-              className="primary w-full"
-              onClick={() => {
-                try {
-                  draft.lines.forEach((line) => {
-                    const p = catalog.products.find(
-                      (p) => p.id === line.productId,
-                    );
-                    if (!p) throw new Error("Drink unavailable.");
-                    if (!draft.allEmpties)
-                      returnedEmpties(
-                        {
-                          ...draft,
-                          returns: {
-                            ...draft.returns,
-                            [p.id]: draft.returns[p.id] ?? {
-                              crates: "0",
-                              bottles: "0",
-                            },
-                          },
-                        },
-                        line,
-                        p,
-                      );
-                    else emptiesFor(line, p);
-                  });
-                  update({ step: "payment" });
-                } catch (e) {
-                  setMessage((e as Error).message);
-                }
-              }}
-            >
-              Continue to Payment
-            </button>
-            <button
-              className="secondary w-full"
-              onClick={() => update({ step: "check" })}
-            >
-              Back
-            </button>
-          </>
+          <SaleEmptiesStep
+            draft={draft}
+            catalog={catalog}
+            update={update}
+            onBack={() => update({ step: "drinks" })}
+          />
         )}
         {step === "payment" && (
           <>
