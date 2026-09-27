@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  crateReturnIssues,
   matchSaleEmpties,
   type EmptiesMatchResult,
 } from "@/domain/sale-empties";
@@ -119,6 +120,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
 
   const shortages =
     result?.lines.filter((line) => line.cratesOwed || line.bottlesOwed) ?? [];
+  const crateIssues = result ? crateReturnIssues(result, catalog) : [];
   const depositBlocked =
     Boolean(customer?.empties_deposit_required) && shortages.length > 0;
 
@@ -364,14 +366,52 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
             </div>
           )}
 
-          {Object.keys(result.unmatchedCrates).length > 0 && (
-            <div className="mt-4">
-              <p className="font-medium">Other crates that came back</p>
-              {Object.entries(result.unmatchedCrates).map(([id, quantity]) => (
-                <p key={id}>
-                  {crateName.get(id) ?? "Crate"} · {quantity}
-                </p>
-              ))}
+          {crateIssues.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <p className="font-medium">Crates that did not settle automatically</p>
+              {crateIssues.map((issue) => {
+                const returnedName =
+                  crateName.get(issue.returnedCrateTypeId) ?? "Returned crate";
+                const owedName = issue.owedCrateTypeId
+                  ? crateName.get(issue.owedCrateTypeId) ?? "the expected crate"
+                  : null;
+                if (issue.reason === "not_allowed" && owedName)
+                  return (
+                    <p
+                      role="alert"
+                      className="text-amber-900"
+                      key={issue.returnedCrateTypeId}
+                    >
+                      {returnedName} cannot replace {owedName}. It was still
+                      recorded as what came back.
+                    </p>
+                  );
+                if (issue.reason === "incomplete_allowed_swap" && owedName)
+                  return (
+                    <p
+                      role="alert"
+                      className="text-amber-900"
+                      key={issue.returnedCrateTypeId}
+                    >
+                      {returnedName} can replace {owedName} only when complete.{" "}
+                      {issue.matchingBottlesReturned ?? 0} of{" "}
+                      {issue.matchingBottlesNeeded ?? 0} matching bottles came
+                      back.
+                    </p>
+                  );
+                return (
+                  <p
+                    className="text-stone-700"
+                    key={issue.returnedCrateTypeId}
+                  >
+                    {issue.quantity}{" "}
+                    {issue.quantity === 1 ? "crate" : "crates"} of{" "}
+                    {returnedName} came back, but{" "}
+                    {issue.quantity === 1 ? "it did" : "they did"} not settle a
+                    crate in this sale.
+                  </p>
+                );
+              })}
             </div>
           )}
 

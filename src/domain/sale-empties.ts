@@ -47,6 +47,15 @@ export type EmptiesMatchResult = {
   hasShortage: boolean;
 };
 
+export type CrateReturnIssue = {
+  returnedCrateTypeId: string;
+  quantity: number;
+  owedCrateTypeId: string | null;
+  reason: "not_allowed" | "incomplete_allowed_swap" | "unmatched";
+  matchingBottlesReturned?: number;
+  matchingBottlesNeeded?: number;
+};
+
 function whole(raw: string | undefined, fallback = 0) {
   if (raw === undefined) return fallback;
   const parsed = parseWholeNumberInput(raw);
@@ -167,6 +176,92 @@ export function actualSaleEmpties(
       quantity,
     })),
   };
+}
+
+export function crateReturnIssues(
+  result: EmptiesMatchResult,
+  catalog: SaleCatalog,
+): CrateReturnIssue[] {
+  const issues: CrateReturnIssue[] = [];
+  const owedRows = result.lines.filter((line) => line.cratesOwed > 0);
+
+  for (const [returnedCrateTypeId, quantity] of Object.entries(
+    result.unmatchedCrates,
+  )) {
+    if (!quantity) continue;
+    if (!owedRows.length) {
+      issues.push({
+        returnedCrateTypeId,
+        quantity,
+        owedCrateTypeId: null,
+        reason: "unmatched",
+      });
+      continue;
+    }
+
+    const allowedRows = owedRows.filter((row) =>
+      catalog.swapRules.some(
+        (rule) =>
+          rule.owed_crate_type_id === row.crateTypeId &&
+          rule.returned_crate_type_id === returnedCrateTypeId,
+      ),
+    );
+
+    if (allowedRows.length === 1) {
+      const returnedPocket = cratePocket(catalog, returnedCrateTypeId);
+      const returnedBottleType = canonicalBottleType(
+        catalog,
+        returnedCrateTypeId,
+      );
+      if (returnedPocket && returnedBottleType) {
+        const matchingBottlesReturned =
+          result.unmatchedBottles[returnedBottleType] ?? 0;
+        const matchingBottlesNeeded = returnedPocket;
+        if (matchingBottlesReturned < matchingBottlesNeeded) {
+          issues.push({
+            returnedCrateTypeId,
+            quantity,
+            owedCrateTypeId: allowedRows[0].crateTypeId,
+            reason: "incomplete_allowed_swap",
+            matchingBottlesReturned,
+            matchingBottlesNeeded,
+          });
+          continue;
+        }
+      }
+    }
+
+    if (allowedRows.length === 0) {
+      const returnedPocket = cratePocket(catalog, returnedCrateTypeId);
+      const samePocketRows = owedRows.filter(
+        (row) => cratePocket(catalog, row.crateTypeId) === returnedPocket,
+      );
+      const target =
+        samePocketRows.length === 1
+          ? samePocketRows[0]
+          : owedRows.length === 1
+            ? owedRows[0]
+            : null;
+      if (target) {
+        issues.push({
+          returnedCrateTypeId,
+          quantity,
+          owedCrateTypeId: target.crateTypeId,
+          reason: "not_allowed",
+        });
+        continue;
+      }
+    }
+
+    issues.push({
+      returnedCrateTypeId,
+      quantity,
+      owedCrateTypeId: null,
+      reason: "unmatched",
+    });
+  }
+
+  return issues;
 }
 
 export function matchSaleEmpties(
