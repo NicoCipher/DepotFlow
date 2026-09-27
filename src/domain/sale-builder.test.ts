@@ -9,6 +9,7 @@ import {
   removeSaleLine,
   saleQuantityLabel,
   salePriceSnapshot,
+  salePriceChangeMessage,
   saleTotal,
   emptiesFor,
   returnedEmpties,
@@ -132,6 +133,37 @@ test("exact bottles retain the explicit bottle price even when they make a crate
   });
   assert.equal(saleQuantityLabel(q(1, 3, 2)), "1¾ crates + 2 bottles");
 });
+test("price change message shows the previous and current payable amount", () => {
+  const line = putSaleLine(
+    [],
+    { productId: product.id, quantity: q(1) },
+    product,
+  )[0];
+  assert.equal(
+    salePriceChangeMessage(line, { ...product, full_crate_price: 13000 }),
+    "Drink: Price for this quantity changed from ₦12,000 to ₦13,000.",
+  );
+  assert.equal(salePriceChangeMessage(line, product), null);
+});
+
+test("price change message handles multi-crate and partial quantities", () => {
+  const line = putSaleLine(
+    [],
+    { productId: product.id, quantity: q(2, 1, 0) },
+    product,
+  )[0];
+  const changed = {
+    ...product,
+    full_crate_price: 14000,
+    half_crate_price: 7000,
+    quarter_crate_price: 4000,
+  };
+  assert.equal(
+    salePriceChangeMessage(line, changed),
+    "Drink: Price for this quantity changed from ₦27,500 to ₦32,000.",
+  );
+});
+
 test("partial crates derive from full price while explicit overrides win", () => {
   const derived = {
     ...product,
