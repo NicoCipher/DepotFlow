@@ -1,6 +1,10 @@
 "use client";
 import { CrateTypeSelector } from "@/components/crate-type-selector";
-import { crateFitsProduct, type CrateType } from "@/domain/crate-types";
+import {
+  crateFitsProduct,
+  crateNeedsSetup,
+  type CrateType,
+} from "@/domain/crate-types";
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { addProduct, editProduct } from "@/app/(shop)/products/actions";
@@ -82,7 +86,11 @@ export function ProductForm({
         const selectedCrate = availableCrates.find(
           (crate) => crate.id === values.crate_type_id,
         );
-        if (
+        if (selectedCrate && crateNeedsSetup(selectedCrate)) {
+          checked.errors.crate_type_id =
+            "This crate record is incomplete. Choose or add the physical crate this drink really uses.";
+          checked.valid = false;
+        } else if (
           selectedCrate &&
           !crateFitsProduct(
             selectedCrate.pocket_count,
@@ -90,7 +98,7 @@ export function ProductForm({
           )
         ) {
           checked.errors.crate_type_id =
-            "Choose a crate whose pockets match the bottles per crate.";
+            "The crate bottle spaces must match the bottles per crate for this drink.";
           checked.valid = false;
         }
         setClientErrors(checked.errors);
@@ -100,6 +108,22 @@ export function ProductForm({
         }
       }}
     >
+      <section className="rounded-lg border border-stone-300 bg-white p-4">
+        <h2 className="text-lg font-semibold">Information needed for every drink</h2>
+        <p className="mt-2 text-sm text-stone-600">
+          Fill these once so sales, stock and empties can work automatically.
+        </p>
+        <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
+          <li>Drink name and bottles per crate</li>
+          <li>Full crate price</li>
+          <li>The physical crate the drink uses</li>
+          <li>Whether its bottles are returnable</li>
+          <li>The empty bottle type when bottles are returnable</li>
+        </ul>
+        <p className="mt-3 text-sm text-stone-600">
+          Size, image, loose-bottle price and special half/quarter prices are optional.
+        </p>
+      </section>
       {state.message && (
         <p role="alert" className="text-red-800">
           {state.message}
@@ -137,7 +161,10 @@ export function ProductForm({
         {field("bottle_price", "Bottle price (₦, optional)", 10, false, true)}
       </fieldset>
       <fieldset className="space-y-5 border-t border-stone-300 pt-5">
-        <legend className="text-lg font-semibold">Empty containers</legend>
+        <legend className="text-lg font-semibold">Packaging and empties</legend>
+        <p className="text-sm text-stone-600">
+          Tell DepotFlow what physically holds this drink. This is used to track returned crates, bottles and shortages during sales.
+        </p>
         <div>
           <label htmlFor="bottles_returnable">
             Are the bottles returnable?
@@ -180,8 +207,8 @@ export function ProductForm({
         {field(
           "bottle_type",
           values.bottles_returnable === "true"
-            ? "Empty bottle type"
-            : "Empty bottle type (optional)",
+            ? "Which empty bottle belongs to this drink?"
+            : "Empty bottle name (optional)",
           120,
           values.bottles_returnable === "true",
         )}

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getProduct } from "@/lib/products/data";
 import { formatNaira } from "@/domain/products";
 import { ProductImage } from "@/components/product-image";
+import { crateFitsProduct, crateNeedsSetup } from "@/domain/crate-types";
 export default async function ProductPage({
   params,
   searchParams,
@@ -12,6 +13,13 @@ export default async function ProductPage({
 }) {
   const product = await getProduct((await params).id);
   const { saved } = await searchParams;
+  const crateNeedsAttention =
+    !product.crate_types ||
+    crateNeedsSetup(product.crate_types) ||
+    !crateFitsProduct(
+      product.crate_types.pocket_count,
+      product.bottles_per_crate,
+    );
   const details: [string, string | null][] = [
     ["Bottles per crate", String(product.bottles_per_crate)],
     ["Full crate price", formatNaira(product.full_crate_price)],
@@ -42,6 +50,17 @@ export default async function ProductPage({
         </p>
       )}
       <h1 className="break-words">{product.name}</h1>
+      {crateNeedsAttention && (
+        <div className="mt-4 border-l-4 border-amber-700 pl-3">
+          <p className="font-semibold text-amber-900">Finish this drink’s crate setup</p>
+          <p className="mt-1 text-sm text-stone-700">
+            Sales need the real physical crate and its bottle spaces so DepotFlow can handle empties correctly.
+          </p>
+          <Link href={`/products/${product.id}/edit`} className="quiet-link mt-2 inline-block">
+            Fix drink setup
+          </Link>
+        </div>
+      )}
       {product.size && (
         <p className="mt-2 break-words text-xl text-stone-600">
           {product.size}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireOwner } from "@/lib/auth/owner";
 import { productSearchFilter } from "@/domain/products";
+import { crateFitsProduct, crateNeedsSetup } from "@/domain/crate-types";
 
 import { ProductCard } from "@/components/product-card";
 
@@ -20,7 +21,7 @@ export default async function ProductsPage({
   let request = supabase
     .from("products")
     .select(
-      "id,name,size,image_url,bottles_per_crate,full_crate_price,bottle_price",
+      "id,name,size,image_url,bottles_per_crate,full_crate_price,bottle_price,crate_types(is_legacy,pocket_count,empty_family)",
       { count: "exact" },
     )
     .order("name")
@@ -73,11 +74,29 @@ export default async function ProductsPage({
         </div>
       ) : (
         <ul className="space-y-3">
-          {data.map((product) => (
-            <li key={product.id}>
-              <ProductCard product={product} />
-            </li>
-          ))}
+          {data.map((product) => {
+            const crate = product.crate_types;
+            const needsSetup =
+              !crate ||
+              crateNeedsSetup({
+                ...crate,
+                id: null,
+                crate_type_id: null,
+                name: null,
+                variant: null,
+              }) ||
+              !crateFitsProduct(crate.pocket_count, product.bottles_per_crate);
+            return (
+              <li key={product.id}>
+                <ProductCard product={product} />
+                {needsSetup && (
+                  <p className="mt-2 border-l-4 border-amber-700 pl-3 text-sm text-amber-900">
+                    Setup needed: finish the physical crate details before using this drink in a sale.
+                  </p>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
       <nav aria-label="Product pages" className="mt-4 flex justify-between">

@@ -16,10 +16,26 @@ export type SaleProduct = {
     name: string;
     is_legacy: boolean;
     pocket_count: number | null;
+    empty_family: string | null;
   } | null;
   bottles_returnable: boolean;
   bottle_type: string | null;
 };
+export function saleProductSetupIssue(product: SaleProduct): string | null {
+  if (
+    !product.crate_type ||
+    product.crate_type.is_legacy ||
+    product.crate_type.pocket_count === null ||
+    !product.crate_type.empty_family
+  )
+    return "Crate details are not finished. Open this drink and choose the physical crate it uses.";
+  if (product.crate_type.pocket_count !== product.bottles_per_crate)
+    return "The physical crate does not match the bottles per crate. Fix the drink setup before selling it.";
+  if (product.bottles_returnable && !product.bottle_type)
+    return "The empty bottle name is missing. Fix the drink setup before selling it.";
+  return null;
+}
+
 export type SaleCustomer = {
   id: string;
   name: string;
@@ -448,6 +464,11 @@ export function revalidateSaleDraft(draft: SaleDraft, catalog: SaleCatalog) {
       warnings.push(
         "A drink is no longer available. Remove it from this sale.",
       );
+      continue;
+    }
+    const setupIssue = saleProductSetupIssue(p);
+    if (setupIssue) {
+      warnings.push(`${p.name}: ${setupIssue}`);
       continue;
     }
     if (

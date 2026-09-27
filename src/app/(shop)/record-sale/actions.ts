@@ -21,7 +21,7 @@ async function loadCatalog(supabase: OwnerClient): Promise<SaleCatalog> {
       const { data, error } = await supabase
         .from("products")
         .select(
-          "id,name,size,image_url,bottles_per_crate,full_crate_price,half_crate_price,quarter_crate_price,bottle_price,bottles_returnable,bottle_type,crate_type_id,crate_type:crate_types(name,is_legacy,pocket_count),stock(total_bottles)",
+          "id,name,size,image_url,bottles_per_crate,full_crate_price,half_crate_price,quarter_crate_price,bottle_price,bottles_returnable,bottle_type,crate_type_id,crate_type:crate_types(name,is_legacy,pocket_count,empty_family),stock(total_bottles)",
         )
         .order("name")
         .order("id")

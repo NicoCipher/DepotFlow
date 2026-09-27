@@ -72,11 +72,26 @@ export function CrateTypeForm({
         });
       }}
     >
+      <section className="rounded-lg border border-stone-300 bg-white p-4">
+        <h2 className="font-semibold">What to record for a physical crate</h2>
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-stone-700">
+          <li>A name people in the depot recognize</li>
+          <li>Its crate family or group</li>
+          <li>How many bottle spaces it has</li>
+          <li>Its shape/version only when needed to tell similar crates apart</li>
+        </ul>
+        <p className="mt-2 text-sm text-stone-600">
+          Being in the same family does not automatically mean two crates can replace each other.
+        </p>
+      </section>
       <fieldset disabled={pending} className="space-y-5">
         {field("name", "Crate name", 120)}
-        {field("empty_family", "Family", 80)}
+        {field("empty_family", "Crate family / group", 80)}
         <div>
-          <label htmlFor="pockets">Pocket count</label>
+          <label htmlFor="pockets">Bottle spaces in the crate</label>
+          <p className="mb-2 text-sm text-stone-600">
+            Example: 12 means the crate holds 12 bottles.
+          </p>
           <select
             id="pockets"
             required
@@ -91,7 +106,7 @@ export function CrateTypeForm({
               });
             }}
           >
-            <option value="">Choose pocket count</option>
+            <option value="">Choose bottle spaces</option>
             {[12, 20, 24].map((n) => (
               <option key={n} value={n}>
                 {n}
@@ -102,7 +117,7 @@ export function CrateTypeForm({
         </div>
         {pocket === "other" && (
           <div>
-            <label htmlFor="other-pockets">Other pocket count</label>
+            <label htmlFor="other-pockets">Other number of bottle spaces</label>
             <input
               id="other-pockets"
               inputMode="numeric"
@@ -116,7 +131,7 @@ export function CrateTypeForm({
             />
           </div>
         )}
-        {field("variant", "Variant / form (optional)", 120)}
+        {field("variant", "Shape / version (optional)", 120)}
       </fieldset>
       {message && (
         <p role="alert" className="text-red-800">
@@ -124,7 +139,7 @@ export function CrateTypeForm({
         </p>
       )}
       <button className="primary w-full" disabled={pending}>
-        {pending ? "Saving…" : editing ? "Save changes" : "Add crate type"}
+        {pending ? "Saving…" : editing ? "Save changes" : "Add physical crate"}
       </button>
       <Link className="quiet-link block text-center" href="/crate-types">
         Cancel

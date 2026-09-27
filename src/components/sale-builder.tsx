@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { loadSaleCatalog, saveSale } from "@/app/(shop)/record-sale/actions";
 import { CustomerForm } from "./customer-form";
@@ -14,6 +15,7 @@ import {
   matchesSaleCustomer,
   quantityPriceSet,
   revalidateSaleDraft,
+  saleProductSetupIssue,
   priceQuantity,
   putSaleLine,
   removeSaleLine,
@@ -89,6 +91,11 @@ export function SaleBuilder({
     setMessage("");
   }
   function edit(p: SaleProduct) {
+    const setupIssue = saleProductSetupIssue(p);
+    if (setupIssue) {
+      setMessage(`${p.name}: ${setupIssue}`);
+      return;
+    }
     if (draft.editingId === p.id) {
       update({ step: "quantity" });
       return;
@@ -142,6 +149,8 @@ export function SaleBuilder({
       try {
         const fresh = await loadSaleCatalog();
         setCatalog(fresh);
+        const checked = revalidateSaleDraft(draft, fresh);
+        if (checked.warnings.length) throw new Error(checked.warnings[0]);
         await sales.update({ step: "empties" });
         setMessage("");
       } catch {
@@ -380,11 +389,12 @@ export function SaleBuilder({
                   const line = draft.lines.find(
                     (line) => line.productId === p.id,
                   );
+                  const setupIssue = saleProductSetupIssue(p);
                   return (
                     <li key={p.id} className="py-4">
                       <button
                         className="flex min-h-24 w-full items-center gap-4 text-left"
-                        disabled={!p.available}
+                        disabled={!p.available || Boolean(setupIssue)}
                         onClick={() => edit(p)}
                       >
                         <span className="h-20 w-20 shrink-0 overflow-hidden">
@@ -400,7 +410,12 @@ export function SaleBuilder({
                               ? "Price not set"
                               : `${formatNaira(p.full_crate_price)} / crate`}
                           </span>
-                          {line && (
+                          {setupIssue && (
+                            <span className="block font-semibold text-amber-900">
+                              Setup needed before sale
+                            </span>
+                          )}
+                          {line && !setupIssue && (
                             <span className="block font-semibold">
                               In sale: {saleQuantityLabel(line.quantity)} ·
                               Change
@@ -408,6 +423,14 @@ export function SaleBuilder({
                           )}
                         </span>
                       </button>
+                      {setupIssue && (
+                        <Link
+                          className="quiet-link ml-24 mt-1 inline-block"
+                          href={`/products/${p.id}/edit`}
+                        >
+                          Finish drink setup
+                        </Link>
+                      )}
                     </li>
                   );
                 })}
@@ -427,7 +450,11 @@ export function SaleBuilder({
               </p>
               <button
                 className="primary w-full"
-                disabled={!draft.lines.length || pending}
+                disabled={
+                  !draft.lines.length ||
+                  pending ||
+                  revalidateSaleDraft(draft, catalog).warnings.length > 0
+                }
                 onClick={quickCheck}
               >
                 {pending

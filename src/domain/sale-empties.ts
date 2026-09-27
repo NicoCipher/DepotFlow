@@ -4,6 +4,7 @@ import type {
   SaleDraft,
   SaleProduct,
 } from "./sale-builder.ts";
+import { saleProductSetupIssue } from "./sale-builder.ts";
 
 export type EmptiesV2State = {
   mode: "exact" | "actual";
@@ -179,14 +180,8 @@ export function matchSaleEmpties(
   const results: EmptiesLineResult[] = draft.lines.map((line) => {
     const product = productFor(line, catalog);
     const cratesOut = cratesTakenFor(draft, line);
-    if (
-      cratesOut > 0 &&
-      (product.crate_type?.is_legacy ||
-        product.crate_type?.pocket_count !== product.bottles_per_crate)
-    )
-      throw new Error(
-        `${product.name}: Choose an exact crate type before saving.`,
-      );
+    const setupIssue = saleProductSetupIssue(product);
+    if (setupIssue) throw new Error(`${product.name}: ${setupIssue}`);
     const bottlesOut = totalReturnableBottles(line, product);
     return {
       productId: line.productId,
