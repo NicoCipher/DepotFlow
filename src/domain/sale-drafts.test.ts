@@ -169,6 +169,34 @@ test("resume/review totals use current prices and flag price, stock, product and
   assert.equal(unpriced.total, undefined);
   assert.match(unpriced.warnings.join(), /price is not set/);
 });
+test("inactive customer warning is plain and changing customer keeps the sale work", () => {
+  const unavailable = revalidateSaleDraft(draft, {
+    ...catalog,
+    customers: [],
+  });
+  assert.ok(
+    unavailable.warnings.includes(
+      "This customer is no longer active. Choose another customer.",
+    ),
+  );
+
+  const state = updateActiveSale(
+    emptySaleDrafts,
+    null,
+    draft,
+    "sale-1",
+  );
+  const moved = updateActiveSale(
+    state,
+    "sale-1",
+    { step: "customer" },
+    "sale-1",
+  );
+  assert.equal(moved.active?.draft.step, "customer");
+  assert.deepEqual(moved.active?.draft.lines, draft.lines);
+  assert.equal(moved.active?.draft.paid, draft.paid);
+});
+
 test("quantity price choices allow derived partials but require independent bottle prices", () => {
   for (const [field, q] of [
     ["full_crate_price", { crates: 1, fraction: 0, bottles: 0 }],
