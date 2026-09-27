@@ -141,7 +141,10 @@ test("resume/review totals use current prices and flag price, stock, product and
     products: [{ ...product, full_crate_price: 13000 }],
   });
   assert.equal(check.total, 13000);
-  assert.match(check.warnings.join(), /Price changed/);
+  assert.match(
+    check.warnings.join(),
+    /Price for this quantity changed from ₦12,000 to ₦13,000\./,
+  );
   const shortage = revalidateSaleDraft(draft, {
     ...catalog,
     products: [{ ...product, available: 5 }],
