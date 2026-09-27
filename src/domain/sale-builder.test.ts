@@ -278,7 +278,7 @@ test("session draft restores all steps and unfinished quantity text without trus
   );
 });
 test("customer search matches names and Nigerian phone formatting", () => {
-  const c = { id: "c", name: "Mama Ada", phone: "+2348012345678" };
+  const c = { id: "c", name: "Mama Ada", phone: "+2348012345678", empties_deposit_required: false };
   assert.equal(matchesSaleCustomer(c, "ada"), true);
   assert.equal(matchesSaleCustomer(c, "0801"), true);
   assert.equal(matchesSaleCustomer(c, "0801 234 5678"), true);
