@@ -147,7 +147,7 @@ export default async function EmptiesRulesPage({
           </p>
         )}
         <div className="mt-4 space-y-6">
-          {bottleTypes.map((bottleType) => {
+          {bottleTypes.map((bottleType, index) => {
             const amount = bottlePrice.get(bottleType);
             return (
               <form
@@ -160,14 +160,14 @@ export default async function EmptiesRulesPage({
                 <p className="font-semibold">{bottleType}</p>
                 <label
                   className="mt-3 block"
-                  htmlFor={`bottle-deposit-${bottleType}`}
+                  htmlFor={`bottle-deposit-${index}`}
                 >
                   Deposit per bottle
                 </label>
                 <div className="mt-2 flex items-end gap-3">
                   <div className="min-w-0 flex-1">
                     <input
-                      id={`bottle-deposit-${bottleType}`}
+                      id={`bottle-deposit-${index}`}
                       name="amount"
                       type="number"
                       inputMode="numeric"
