@@ -208,9 +208,20 @@ test("stock checks reject zero, negative, fractional input, missing stock and ex
   );
   assert.throws(
     () => priceQuantity({ ...product, available: 8 }, q(0, 3)),
-    /all that is in stock/,
+    /Only 8 bottles available now\. Change the quantity\./,
   );
 });
+test("stock shortage says exactly what is available in crates and bottles", () => {
+  assert.throws(
+    () => priceQuantity({ ...product, available: 18 }, q(2)),
+    /Only 1 crate \+ 6 bottles available now\. Change the quantity\./,
+  );
+  assert.throws(
+    () => priceQuantity({ ...product, available: 0 }, q(1)),
+    /Out of stock\. Change the quantity\./,
+  );
+});
+
 test("multiple drinks, edit replacement, remove and total use each product's own prices and capacity", () => {
   const second = {
     ...product,
