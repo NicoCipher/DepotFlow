@@ -490,6 +490,75 @@ export type Database = {
           },
         ]
       }
+      sale_empty_bottle_returns: {
+        Row: {
+          bottle_type: string
+          quantity: number
+          sale_id: string
+        }
+        Insert: {
+          bottle_type: string
+          quantity: number
+          sale_id: string
+        }
+        Update: {
+          bottle_type?: string
+          quantity?: number
+          sale_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_empty_bottle_returns_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sale_empty_crate_returns: {
+        Row: {
+          crate_type: string
+          crate_type_id: string
+          quantity: number
+          sale_id: string
+        }
+        Insert: {
+          crate_type: string
+          crate_type_id: string
+          quantity: number
+          sale_id: string
+        }
+        Update: {
+          crate_type?: string
+          crate_type_id?: string
+          quantity?: number
+          sale_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_empty_crate_returns_crate_type_id_fkey"
+            columns: ["crate_type_id"]
+            isOneToOne: false
+            referencedRelation: "crate_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_empty_crate_returns_crate_type_id_fkey"
+            columns: ["crate_type_id"]
+            isOneToOne: false
+            referencedRelation: "known_empty_crates"
+            referencedColumns: ["crate_type_id"]
+          },
+          {
+            foreignKeyName: "sale_empty_crate_returns_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sale_items: {
         Row: {
           bottle_type: string | null
@@ -786,6 +855,18 @@ export type Database = {
           p_lines: Json
           p_paid: number
           p_request_id: string
+        }
+        Returns: Json
+      }
+      save_sale_v2: {
+        Args: {
+          p_business_date: string
+          p_customer_id: string
+          p_lines: Json
+          p_paid: number
+          p_request_id: string
+          p_returned_bottles: Json
+          p_returned_crates: Json
         }
         Returns: Json
       }
