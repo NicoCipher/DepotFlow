@@ -60,7 +60,7 @@ export async function getSale(id: string) {
   const { data, error } = await supabase
     .from("sales")
     .select(
-      "id,customer_id,business_date,created_at,total_amount,paid_amount,customer:customers(name),sale_items(id,product_name,total_bottles,bottles_per_crate,line_total,bottles_returnable,crate_type,bottle_type,whole_crates,crates_returned,returnable_bottles_out,bottles_returned)",
+      "id,customer_id,business_date,created_at,total_amount,paid_amount,customer:customers(name),sale_items(id,product_name,total_bottles,bottles_per_crate,line_total,bottles_returnable,crate_type,bottle_type,whole_crates,crates_out,crates_returned,returnable_bottles_out,bottles_returned)",
     )
     .eq("id", id)
     .maybeSingle();
