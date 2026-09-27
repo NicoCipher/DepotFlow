@@ -7,6 +7,7 @@ import { revalidateSaleDraft, type SaleCatalog } from "@/domain/sale-builder";
 import { hasSaleWork } from "@/domain/sale-drafts";
 import { formatNaira } from "@/domain/products";
 import { loadSaleCatalog } from "@/app/(shop)/record-sale/actions";
+import { saleNetworkMessage } from "@/domain/sale-errors";
 export function PausedSales({
   ownerId,
   initialCatalog,
@@ -84,9 +85,7 @@ export function PausedSales({
                         router.refresh();
                       }
                     } catch {
-                      setMessage(
-                        "Could not check current prices and stock. Your paused sale is still here. Try again.",
-                      );
+                      setMessage(saleNetworkMessage);
                     }
                   })
                 }
