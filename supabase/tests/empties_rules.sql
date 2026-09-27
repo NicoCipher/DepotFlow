@@ -136,7 +136,7 @@ do $$
 declare
   line jsonb;
   result jsonb;
-  sale_id uuid;
+  v_sale_id uuid;
 begin
   line:=jsonb_build_object(
     'productId','10000000-0000-4000-8000-000000000601',
@@ -157,11 +157,11 @@ begin
     12000,
     jsonb_build_array(line)
   );
-  sale_id:=(result->>'id')::uuid;
+  v_sale_id:=(result->>'id')::uuid;
 
   if not exists(
     select 1 from public.sale_items
-    where sale_items.sale_id=sale_id
+    where sale_items.sale_id=v_sale_id
       and whole_crates=1
       and crates_out=0
       and total_bottles=12
@@ -187,7 +187,7 @@ do $$
 declare
   line jsonb;
   result jsonb;
-  sale_id uuid;
+  v_sale_id uuid;
 begin
   line:=jsonb_build_object(
     'productId','10000000-0000-4000-8000-000000000602',
@@ -207,10 +207,10 @@ begin
     20000,
     jsonb_build_array(line)
   );
-  sale_id:=(result->>'id')::uuid;
+  v_sale_id:=(result->>'id')::uuid;
   if not exists(
     select 1 from public.sale_items
-    where sale_items.sale_id=sale_id and whole_crates=1 and crates_out=1
+    where sale_items.sale_id=v_sale_id and whole_crates=1 and crates_out=1
   ) then raise exception 'Legacy sale caller no longer defaults crates out'; end if;
 end $$;
 
