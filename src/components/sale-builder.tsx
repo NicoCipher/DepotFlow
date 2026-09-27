@@ -9,6 +9,7 @@ import { useSaleDrafts } from "./sale-draft-session";
 import { PausedSalesLink } from "./paused-sales-link";
 import { SaleEmptiesStep } from "./sale-empties-step";
 import { matchSaleEmpties } from "@/domain/sale-empties";
+import { wholeNumberInputMessage } from "@/domain/sale-input";
 import { formatNaira } from "@/domain/products";
 import { formatQuantity } from "@/domain/quantity";
 import {
@@ -118,9 +119,17 @@ export function SaleBuilder({
       bottles: Number(draft.bottles),
     };
   }
+  const cratesInputError = wholeNumberInputMessage(
+    draft.crates,
+    "whole crates",
+  );
+  const bottlesInputError = wholeNumberInputMessage(
+    draft.bottles,
+    "exact bottles",
+  );
   let preview: ReturnType<typeof priceQuantity> | undefined;
   let quantityError = "";
-  if (product)
+  if (product && !cratesInputError && !bottlesInputError)
     try {
       preview = priceQuantity(product, quantity());
     } catch (error) {
@@ -144,6 +153,14 @@ export function SaleBuilder({
   } catch {
     /* The empties step explains what needs to be corrected. */
   }
+  const paymentInputError = (() => {
+    const inputError = wholeNumberInputMessage(draft.paid, "amount paid");
+    if (inputError) return inputError;
+    if (total !== undefined && Number(draft.paid) > total)
+      return `Amount paid cannot be more than ${formatNaira(total)}.`;
+    return "";
+  })();
+
   function quickCheck() {
     startTransition(async () => {
       try {
@@ -508,8 +525,21 @@ export function SaleBuilder({
                   required
                   maxLength={10}
                   value={draft.crates}
+                  aria-invalid={Boolean(cratesInputError)}
+                  aria-describedby={
+                    cratesInputError ? "sale-crates-error" : undefined
+                  }
                   onChange={(e) => update({ crates: e.target.value })}
                 />
+                {cratesInputError && (
+                  <p
+                    id="sale-crates-error"
+                    role="alert"
+                    className="mt-2 text-sm text-red-800"
+                  >
+                    {cratesInputError}
+                  </p>
+                )}
                 {product.full_crate_price === null &&
                   Number(draft.crates) > 0 && (
                     <button
@@ -600,8 +630,21 @@ export function SaleBuilder({
                   required
                   maxLength={10}
                   value={draft.bottles}
+                  aria-invalid={Boolean(bottlesInputError)}
+                  aria-describedby={
+                    bottlesInputError ? "sale-bottles-error" : undefined
+                  }
                   onChange={(e) => update({ bottles: e.target.value })}
                 />
+                {bottlesInputError && (
+                  <p
+                    id="sale-bottles-error"
+                    role="alert"
+                    className="mt-2 text-sm text-red-800"
+                  >
+                    {bottlesInputError}
+                  </p>
+                )}
                 {product.bottle_price === null && Number(draft.bottles) > 0 && (
                   <button
                     type="button"
@@ -620,11 +663,11 @@ export function SaleBuilder({
                   {saleQuantityLabel(quantity())} ·{" "}
                   {formatNaira(preview.lineTotal)}
                 </p>
-              ) : (
-                <p role="status" className="text-red-800">
+              ) : quantityError ? (
+                <p role="alert" className="text-red-800">
                   {quantityError}
                 </p>
-              )}
+              ) : null}
               <button className="primary w-full" disabled={!preview}>
                 {draft.lines.some((l) => l.productId === product.id)
                   ? "Update & keep adding"
@@ -771,24 +814,35 @@ export function SaleBuilder({
               inputMode="numeric"
               pattern="[0-9]+"
               value={draft.paid}
+              aria-invalid={Boolean(paymentInputError)}
+              aria-describedby={
+                paymentInputError ? "sale-paid-error" : undefined
+              }
               onChange={(e) => update({ paid: e.target.value })}
             />
+            {paymentInputError && (
+              <p
+                id="sale-paid-error"
+                role="alert"
+                className="mt-2 text-sm text-red-800"
+              >
+                {paymentInputError}
+              </p>
+            )}
             <p>
               Still owing:{" "}
               {total !== undefined &&
               /^\d+$/.test(draft.paid) &&
               Number(draft.paid) <= total
                 ? formatNaira(total - Number(draft.paid))
-                : "Check amount paid"}
+                : "—"}
             </p>
             <button
               className="primary w-full"
               disabled={
                 pending ||
                 total === undefined ||
-                !/^\d+$/.test(draft.paid) ||
-                !Number.isSafeInteger(Number(draft.paid)) ||
-                Number(draft.paid) > total
+                Boolean(paymentInputError)
               }
               onClick={() =>
                 startTransition(async () => {
