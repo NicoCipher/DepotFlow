@@ -56,11 +56,18 @@ export type SaleSwapRule = {
   owed_crate_type_id: string;
   returned_crate_type_id: string;
 };
+export type SaleCrateDepositPrice = {
+  pocket_count: number;
+  complete_crate_amount: number;
+  crate_only_amount: number | null;
+};
 export type SaleCatalog = {
   products: SaleProduct[];
   customers: SaleCustomer[];
   crateTypes: SaleCrateType[];
   swapRules: SaleSwapRule[];
+  bottleDepositPrice?: number | null;
+  crateDepositPrices?: SaleCrateDepositPrice[];
 };
 export type SaleQuantity = {
   crates: number;
