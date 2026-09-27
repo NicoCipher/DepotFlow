@@ -277,8 +277,23 @@ test("session draft restores all steps and unfinished quantity text without trus
     13000,
   );
 });
+test("legacy partial-empty drafts return to empties instead of assuming everything came back", () => {
+  const legacy = {
+    ...emptySaleDraft,
+    step: "review" as const,
+    allEmpties: false,
+    returns: { one: { crates: "0", bottles: "10" } },
+  };
+  delete (legacy as Partial<typeof legacy>).emptiesV2;
+  const restored = readSaleDraft(JSON.stringify(legacy));
+  assert.equal(restored.step, "empties");
+  assert.equal(restored.emptiesV2.mode, "actual");
+  assert.deepEqual(restored.emptiesV2.returnedCrates, {});
+  assert.deepEqual(restored.emptiesV2.returnedBottles, {});
+});
+
 test("customer search matches names and Nigerian phone formatting", () => {
-  const c = { id: "c", name: "Mama Ada", phone: "+2348012345678" };
+  const c = { id: "c", name: "Mama Ada", phone: "+2348012345678", empties_deposit_required: false };
   assert.equal(matchesSaleCustomer(c, "ada"), true);
   assert.equal(matchesSaleCustomer(c, "0801"), true);
   assert.equal(matchesSaleCustomer(c, "0801 234 5678"), true);

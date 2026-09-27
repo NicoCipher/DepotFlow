@@ -22,6 +22,7 @@ const storedItem: StoredSaleItem = {
   crate_type: "Trophy 12",
   bottle_type: "Trophy Big Bottle",
   whole_crates: 1,
+  crates_out: 1,
   crates_returned: 0,
   returnable_bottles_out: 18,
   bottles_returned: 6,
@@ -94,12 +95,26 @@ test("item empties show only the remainder owed from this sale", () => {
   const history = storedSaleItemHistory({
     ...storedItem,
     whole_crates: 3,
+    crates_out: 3,
     crates_returned: 1,
     returnable_bottles_out: 30,
     bottles_returned: 12,
   });
   assert.equal(history.cratesOwed, 2);
   assert.equal(history.bottlesOwed, 18);
+});
+
+test("crate-worth sold without a physical crate does not create historical crate debt", () => {
+  const history = storedSaleItemHistory({
+    ...storedItem,
+    whole_crates: 1,
+    crates_out: 0,
+    crates_returned: 0,
+    returnable_bottles_out: 12,
+    bottles_returned: 12,
+  });
+  assert.equal(history.cratesOwed, 0);
+  assert.equal(history.bottlesOwed, 0);
 });
 
 test("customer history query is scoped to the requested customer", () => {

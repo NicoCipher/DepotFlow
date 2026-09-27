@@ -62,7 +62,18 @@ const draft = {
 };
 const catalog = {
   products: [product],
-  customers: [{ id: "c", name: "Customer", phone: "08000000000" }],
+  customers: [
+    {
+      id: "c",
+      name: "Customer",
+      phone: "08000000000",
+      empties_deposit_required: false,
+    },
+  ],
+  crateTypes: [
+    { id: "crate", name: "Exact crate", is_legacy: false, pocket_count: 12 },
+  ],
+  swapRules: [],
 };
 const now = "2026-09-15T12:00:00Z";
 test("park preserves stable identity and quantities; starting another sale creates an independent active draft", () => {
@@ -137,7 +148,12 @@ test("resume/review totals use current prices and flag price, stock, product and
   });
   assert.equal(shortage.total, undefined);
   assert.match(shortage.warnings.join(), /all that is in stock/);
-  const absent = revalidateSaleDraft(draft, { products: [], customers: [] });
+  const absent = revalidateSaleDraft(draft, {
+    products: [],
+    customers: [],
+    crateTypes: [],
+    swapRules: [],
+  });
   assert.equal(absent.total, undefined);
   assert.match(absent.warnings.join(), /no longer available/);
   const unpriced = revalidateSaleDraft(draft, {
