@@ -3,13 +3,14 @@
 import { useActionState } from "react";
 import { signIn } from "@/app/sign-in/actions";
 
-export function SignInForm() {
+export function SignInForm({ next = "/" }: { next?: string }) {
   const [state, action, pending] = useActionState(signIn, {
     email: "",
     message: "",
   });
   return (
     <form action={action} className="space-y-5">
+      <input type="hidden" name="next" value={next} />
       <div>
         <label htmlFor="email">Email</label>
         <input
