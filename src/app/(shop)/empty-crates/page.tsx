@@ -1,5 +1,5 @@
 import { CrateDisplay } from "@/components/crate-display";
-import { crateNeedsSetup } from "@/domain/crate-types";
+import { crateNeedsSetup, showInDailyEmptyCrates } from "@/domain/crate-types";
 import Link from "next/link";
 import { requireOwner } from "@/lib/auth/owner";
 import { emptyCrateQuantity } from "@/domain/empty-crates";
@@ -37,35 +37,22 @@ export default async function EmptyCratesPage({
   const unresolved = stock.data.filter(
     (crate) => crateNeedsSetup(crate) && crate.crate_type_id !== null,
   );
-  const relevant = new Set<string>();
+  const currentProductTypes = new Set<string>();
   if (unresolved.length) {
-    const { data, error } = await supabase
-      .from("crate_types")
-      .select(
-        "id,products(count),empty_crate_movements(count),stock_movements(count),sale_items(count),crate_obligations(count)",
-      )
-      .in(
-        "id",
-        unresolved.map((crate) => crate.crate_type_id!),
-      );
-    if (error) throw new Error("Could not load crate types.");
-    for (const crate of data)
-      if (
-        [
-          crate.products,
-          crate.empty_crate_movements,
-          crate.stock_movements,
-          crate.sale_items,
-          crate.crate_obligations,
-        ].some((rows) => rows[0]?.count > 0)
-      )
-        relevant.add(crate.id);
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await supabase
+        .from("products")
+        .select("crate_type_id")
+        .in("crate_type_id", unresolved.map((crate) => crate.crate_type_id!))
+        .order("id")
+        .range(offset, offset + 999);
+      if (error) throw new Error("Could not load product crate types.");
+      for (const product of data) currentProductTypes.add(product.crate_type_id);
+      if (data.length < 1000) break;
+    }
   }
   const visible = stock.data.filter(
-    (crate) =>
-      !crateNeedsSetup(crate) ||
-      crate.quantity !== null ||
-      relevant.has(crate.crate_type_id!),
+    (crate) => showInDailyEmptyCrates(crate, currentProductTypes.has(crate.crate_type_id!)),
   );
   const groups = Map.groupBy(visible, (crate) =>
     crateNeedsSetup(crate) ? "Needs setup" : crate.empty_family!,
@@ -108,6 +95,18 @@ export default async function EmptyCratesPage({
                       >
                         Set count
                       </Link>
+                      {crateNeedsSetup(item) && (
+                        <div className="mt-3 space-y-2 text-sm text-stone-600">
+                          <p>
+                            {currentProductTypes.has(item.crate_type_id)
+                              ? "A current drink uses this older crate record. Create an exact crate type, then choose it on that drink."
+                              : "This older crate record has a physical count. Its past records are kept for reference."}
+                          </p>
+                          <Link className="quiet-link" href="/crate-types">
+                            Manage crate types
+                          </Link>
+                        </div>
+                      )}
                     </li>
                   ),
               )}

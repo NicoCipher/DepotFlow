@@ -40,6 +40,12 @@ export function crateNeedsSetup(crate: CrateAttributes): boolean {
     !crate.empty_family
   );
 }
+export function showInDailyEmptyCrates(
+  crate: CrateAttributes & { quantity: number | null },
+  usedByCurrentProduct: boolean,
+): boolean {
+  return !crateNeedsSetup(crate) || crate.quantity !== null || usedByCurrentProduct;
+}
 export function crateFitsProduct(
   pocketCount: number | null,
   bottles: number,
