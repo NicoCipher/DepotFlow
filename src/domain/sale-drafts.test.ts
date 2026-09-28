@@ -15,6 +15,7 @@ import {
   cancelSale,
   completeSale,
   readSaleDrafts,
+  rekeyActiveSale,
 } from "./sale-drafts.ts";
 const product: SaleProduct = {
   id: "p",
@@ -97,6 +98,28 @@ test("park preserves stable identity and quantities; starting another sale creat
     /active sale changed/,
   );
 });
+test("legacy draft ids can be replaced once with a stable UUID without changing sale facts", () => {
+  const state = updateActiveSale(
+    emptySaleDrafts,
+    null,
+    { ...draft, paid: "5000", businessDate: "2026-09-28" },
+    "imported-old-sale",
+  );
+  const requestId = "40000000-0000-4000-8000-000000000909";
+  const rekeyed = rekeyActiveSale(state, "imported-old-sale", requestId);
+  assert.equal(rekeyed.active?.id, requestId);
+  assert.deepEqual(rekeyed.active?.draft, state.active?.draft);
+  assert.throws(
+    () =>
+      rekeyActiveSale(
+        rekeyed,
+        "imported-old-sale",
+        "40000000-0000-4000-8000-000000000910",
+      ),
+    /active sale changed/,
+  );
+});
+
 test("cancel removes only the named unfinished draft", () => {
   let state = updateActiveSale(emptySaleDrafts, null, draft, "a");
   state = parkActiveSale(state, "a", now);
