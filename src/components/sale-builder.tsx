@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   refreshSaleCatalog,
   saveSale,
@@ -68,6 +68,8 @@ export function SaleBuilder({
     name: string;
   } | null>(null);
   const [pending, startTransition] = useTransition();
+  const stepHeading = useRef<HTMLHeadingElement>(null);
+  const previousStep = useRef<string | null>(null);
   const activeId = sales.state.active
     ? `${sales.state.active.id}:${sales.state.active.resumedAt ?? ""}`
     : null;
@@ -223,6 +225,13 @@ export function SaleBuilder({
         : `Available: ${formatQuantity(p.available, p.bottles_per_crate)}`;
   }
   const step = customer ? draft.step : "customer";
+  useEffect(() => {
+    if (previousStep.current !== null && previousStep.current !== step) {
+      stepHeading.current?.focus({ preventScroll: true });
+      window.scrollTo(0, 0);
+    }
+    previousStep.current = step;
+  }, [step]);
   if (saved)
     return (
       <div className="space-y-5">
@@ -323,7 +332,7 @@ export function SaleBuilder({
         aria-label="Sale draft"
         className="space-y-5"
       >
-        <h1>
+        <h1 ref={stepHeading} tabIndex={-1} className="outline-none">
           {step === "customer"
             ? "Choose customer"
             : step === "drinks"
@@ -339,7 +348,7 @@ export function SaleBuilder({
                       : "Review"}
         </h1>
         {step !== "customer" && (
-          <nav aria-label="Sale progress" className="text-sm text-stone-600">
+          <nav aria-label="Sale progress" className="grid grid-cols-4 gap-1 text-center text-xs text-stone-600 sm:text-sm">
             <span className="sr-only">Record Sale: </span>
             {(["Drinks", "Empties", "Payment", "Review"] as const).map(
               (label, index) => {
@@ -352,8 +361,10 @@ export function SaleBuilder({
                         ? 2
                         : 3;
                 return (
-                  <span key={label} className="inline-flex items-center">
-                    {index > 0 && <span aria-hidden="true" className="mx-1">·</span>}
+                  <span
+                    key={label}
+                    className={`min-w-0 border-t-2 pt-2 ${index <= current ? "border-emerald-800" : "border-stone-200"}`}
+                  >
                     <span
                       aria-current={index === current ? "step" : undefined}
                       className={index === current ? "font-semibold text-emerald-950" : ""}
@@ -663,7 +674,7 @@ export function SaleBuilder({
                 <legend className="mb-2 font-semibold">
                   Plus part of a crate
                 </legend>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 gap-2 min-[360px]:grid-cols-4">
                   {([0, 1, 2, 3] as const).map((f) => {
                     let disabled = false;
                     if (f)
@@ -773,18 +784,20 @@ export function SaleBuilder({
                   {quantityError}
                 </p>
               ) : null}
-              <button className="primary w-full" disabled={!preview}>
-                {draft.lines.some((l) => l.productId === product.id)
-                  ? "Update & keep adding"
-                  : "Add & keep adding"}
-              </button>
-              <button
-                type="button"
-                className="quiet-link w-full text-center"
-                onClick={() => update({ step: "drinks" })}
-              >
-                Back to drinks
-              </button>
+              <div className="sale-sticky-actions sticky z-10 -mx-4 flex items-center gap-3 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
+                <button
+                  type="button"
+                  className="min-h-12 shrink-0 px-2 font-semibold text-emerald-900 underline underline-offset-4"
+                  onClick={() => update({ step: "drinks" })}
+                >
+                  Back
+                </button>
+                <button type="submit" className="primary min-w-0 flex-1" disabled={!preview}>
+                  {draft.lines.some((l) => l.productId === product.id)
+                    ? "Update drink"
+                    : "Add drink"}
+                </button>
+              </div>
             </form>
           </>
         )}
@@ -934,6 +947,12 @@ export function SaleBuilder({
             </p>
             <div className="sale-sticky-actions sticky z-10 -mx-4 flex items-center gap-3 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
             <button
+              className="min-h-12 shrink-0 px-2 font-semibold text-emerald-900 underline underline-offset-4"
+              onClick={() => update({ step: "empties" })}
+            >
+              Back
+            </button>
+            <button
               className="primary min-w-0 flex-1"
               disabled={
                 pending ||
@@ -989,12 +1008,6 @@ export function SaleBuilder({
               }
             >
               {pending ? "Checking…" : "Continue to review"}
-            </button>
-            <button
-              className="min-h-12 shrink-0 px-2 font-semibold text-emerald-900 underline underline-offset-4"
-              onClick={() => update({ step: "empties" })}
-            >
-              Back
             </button>
             </div>
           </>
