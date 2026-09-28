@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import {
   crateReturnIssues,
@@ -25,6 +26,8 @@ function add(map: Record<string, string>, key: string, amount: number) {
 
 export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
   const state = draft.emptiesV2;
+  const [extraCrates, setExtraCrates] = useState<string[]>([]);
+  const [extraBottles, setExtraBottles] = useState<string[]>([]);
   const customer = catalog.customers.find((item) => item.id === draft.customerId);
   const crateName = new Map(catalog.crateTypes.map((crate) => [crate.id, crate.name]));
   const productName = new Map(
@@ -40,6 +43,37 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
         .map((product) => product.bottle_type as string),
     ),
   ).sort((a, b) => a.localeCompare(b));
+  let expected: EmptiesMatchResult | null = null;
+  try {
+    expected = matchSaleEmpties({
+      ...draft,
+      emptiesV2: { ...state, mode: "exact" },
+    }, catalog);
+  } catch {
+    // Validation below explains invalid sale quantities or crates taken.
+  }
+  const expectedCrateIds = new Set(
+    expected?.lines.filter((line) => line.cratesOut > 0).map((line) => line.crateTypeId),
+  );
+  const expectedBottleTypes = new Set(
+    expected?.lines.filter((line) => line.bottlesOut > 0 && line.bottleType).map((line) => line.bottleType as string),
+  );
+  const visibleCrateIds = new Set([
+    ...expectedCrateIds,
+    ...extraCrates,
+    ...Object.entries(state.returnedCrates)
+      .filter(([, value]) => value !== "0")
+      .map(([id]) => id),
+  ]);
+  const visibleBottleTypes = new Set([
+    ...expectedBottleTypes,
+    ...extraBottles,
+    ...Object.entries(state.returnedBottles)
+      .filter(([, value]) => value !== "0")
+      .map(([type]) => type),
+  ]);
+  const otherCrates = catalog.crateTypes.filter((crate) => !visibleCrateIds.has(crate.id));
+  const otherBottles = bottleTypes.filter((type) => !visibleBottleTypes.has(type));
 
   const cratesTakenErrors: Record<string, string> = {};
   for (const line of draft.lines.filter((item) => item.quantity.crates > 0)) {
@@ -97,11 +131,8 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
 
   function useActualReturns() {
     try {
-      const exactDraft: SaleDraft = {
-        ...draft,
-        emptiesV2: { ...state, mode: "exact" },
-      };
-      const exact = matchSaleEmpties(exactDraft, catalog);
+      const exact = expected;
+      if (!exact) throw new Error("Check the empties first.");
       const returnedCrates: Record<string, string> = {};
       const returnedBottles: Record<string, string> = {};
       for (const line of exact.lines) {
@@ -131,7 +162,43 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
 
   return (
     <>
-      <h2 className="text-xl font-semibold">Did they bring back all the empties?</h2>
+      <div>
+        <h2 className="text-xl font-semibold">Empty crates and bottles</h2>
+        <p className="mt-1 text-stone-600">Check what this customer brought back for these drinks.</p>
+      </div>
+      <p className="font-semibold">Did they bring back all the empties?</p>
+
+      <div role="group" aria-label="Empties returned" className="grid grid-cols-1 gap-2">
+        <button
+          type="button"
+          aria-pressed={state.mode === "exact"}
+          className={`flex min-h-16 w-full items-center justify-between rounded-lg border bg-white px-4 py-3 text-left font-semibold ${state.mode === "exact" ? "border-emerald-800 text-emerald-950 ring-1 ring-inset ring-emerald-800" : "border-stone-300"}`}
+          onClick={() => {
+            setExtraCrates([]);
+            setExtraBottles([]);
+            update({
+              emptiesV2: {
+                ...state,
+                mode: "exact",
+                returnedCrates: {},
+                returnedBottles: {},
+              },
+            });
+          }}
+        >
+          <span>Yes, all came back</span>
+          <span aria-hidden="true">{state.mode === "exact" ? "●" : "○"}</span>
+        </button>
+        <button
+          type="button"
+          aria-pressed={state.mode === "actual"}
+          className={`flex min-h-16 w-full items-center justify-between rounded-lg border bg-white px-4 py-3 text-left font-semibold ${state.mode === "actual" ? "border-emerald-800 text-emerald-950 ring-1 ring-inset ring-emerald-800" : "border-stone-300"}`}
+          onClick={useActualReturns}
+        >
+          <span>No, some are missing or different</span>
+          <span aria-hidden="true">{state.mode === "actual" ? "●" : "○"}</span>
+        </button>
+      </div>
 
       {draft.lines.some((line) => line.quantity.crates > 0) && (
         <details className="text-sm">
@@ -196,45 +263,17 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
         </details>
       )}
 
-      <div role="group" aria-label="Empties returned" className="grid grid-cols-1 gap-2">
-        <button
-          type="button"
-          aria-pressed={state.mode === "exact"}
-          className={`flex min-h-16 w-full items-center justify-between rounded-lg border px-4 py-3 text-left font-semibold ${state.mode === "exact" ? "border-emerald-800 bg-emerald-50 text-emerald-950" : "border-stone-300 bg-white"}`}
-          onClick={() =>
-            update({
-              emptiesV2: {
-                ...state,
-                mode: "exact",
-                returnedCrates: {},
-                returnedBottles: {},
-              },
-            })
-          }
-        >
-          <span>Yes, all came back</span>
-          <span aria-hidden="true">{state.mode === "exact" ? "●" : "○"}</span>
-        </button>
-        <button
-          type="button"
-          aria-pressed={state.mode === "actual"}
-          className={`flex min-h-16 w-full items-center justify-between rounded-lg border px-4 py-3 text-left font-semibold ${state.mode === "actual" ? "border-emerald-800 bg-emerald-50 text-emerald-950" : "border-stone-300 bg-white"}`}
-          onClick={useActualReturns}
-        >
-          <span>No, some are missing or different</span>
-          <span aria-hidden="true">{state.mode === "actual" ? "●" : "○"}</span>
-        </button>
-      </div>
-
       {state.mode === "actual" && (
         <div className="space-y-7">
+          <p className="text-sm text-stone-600">The expected counts are filled in. Change each one to what actually came back. Enter 0 if none came back.</p>
           <section className="border-t border-stone-300 pt-5">
-            <h3 className="font-semibold">Crates actually returned</h3>
+            <h3 className="text-lg font-semibold">Empty crates returned</h3>
             <p className="mt-1 text-sm text-stone-600">
-              Record the real crate type, even when it is different from the drink bought.
+              Change these counts to the crates that came back.
             </p>
+            {visibleCrateIds.size === 0 && <p className="mt-3 text-sm text-stone-600">No crates expected for this sale.</p>}
             <div className="mt-4 space-y-4">
-              {catalog.crateTypes.map((crate) => (
+              {catalog.crateTypes.filter((crate) => visibleCrateIds.has(crate.id)).map((crate) => (
                 <div key={crate.id}>
                   <label htmlFor={`returned-crate-${crate.id}`}>
                     {crate.name}
@@ -276,21 +315,37 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                 </div>
               ))}
             </div>
+            {otherCrates.length > 0 && (
+              <div className="mt-5">
+                <label htmlFor="other-returned-crate">Different crate type came back?</label>
+                <select
+                  id="other-returned-crate"
+                  value=""
+                  onChange={(event) => setExtraCrates((current) => [...current, event.target.value])}
+                >
+                  <option value="" disabled>Choose another crate type</option>
+                  {otherCrates.map((crate) => (
+                    <option key={crate.id} value={crate.id}>{crate.name}{crate.pocket_count ? ` · ${crate.pocket_count} pockets` : ""}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </section>
 
           <section className="border-t border-stone-300 pt-5">
-            <h3 className="font-semibold">Bottles actually returned</h3>
+            <h3 className="text-lg font-semibold">Empty bottles returned</h3>
             <p className="mt-1 text-sm text-stone-600">
-              Count bottles by the type that physically came back, including bottles in sacks.
+              Include loose bottles and bottles in sacks.
             </p>
+            {visibleBottleTypes.size === 0 && <p className="mt-3 text-sm text-stone-600">No bottles expected for this sale.</p>}
             <div className="mt-4 space-y-4">
-              {bottleTypes.map((bottleType, index) => (
+              {bottleTypes.filter((type) => visibleBottleTypes.has(type)).map((bottleType) => (
                 <div key={bottleType}>
-                  <label htmlFor={`returned-bottle-${index}`}>
+                  <label htmlFor={`returned-bottle-${bottleTypes.indexOf(bottleType)}`}>
                     {bottleType}
                   </label>
                   <input
-                    id={`returned-bottle-${index}`}
+                    id={`returned-bottle-${bottleTypes.indexOf(bottleType)}`}
                     className="mt-2"
                     inputMode="numeric"
                     pattern="[0-9]+"
@@ -298,7 +353,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                     aria-invalid={Boolean(returnedBottleErrors[bottleType])}
                     aria-describedby={
                       returnedBottleErrors[bottleType]
-                        ? `returned-bottle-${index}-error`
+                        ? `returned-bottle-${bottleTypes.indexOf(bottleType)}-error`
                         : undefined
                     }
                     onChange={(event) =>
@@ -315,7 +370,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                   />
                   {returnedBottleErrors[bottleType] && (
                     <p
-                      id={`returned-bottle-${index}-error`}
+                      id={`returned-bottle-${bottleTypes.indexOf(bottleType)}-error`}
                       role="alert"
                       className="mt-2 text-sm text-red-800"
                     >
@@ -325,6 +380,19 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                 </div>
               ))}
             </div>
+            {otherBottles.length > 0 && (
+              <div className="mt-5">
+                <label htmlFor="other-returned-bottle">Different bottle type came back?</label>
+                <select
+                  id="other-returned-bottle"
+                  value=""
+                  onChange={(event) => setExtraBottles((current) => [...current, event.target.value])}
+                >
+                  <option value="" disabled>Choose another bottle type</option>
+                  {otherBottles.map((type) => <option key={type} value={type}>{type}</option>)}
+                </select>
+              </div>
+            )}
           </section>
         </div>
       )}
@@ -342,7 +410,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
 
       {result && (
         <section aria-live="polite" className="rounded-lg border border-stone-200 bg-white p-4">
-          <h3 className="text-sm font-semibold text-stone-600">Empties summary</h3>
+          <h3 className="font-semibold">{shortages.length ? "Still missing" : "Empties checked"}</h3>
 
           {result.swaps.map((swap) => (
             <p key={`${swap.owedCrateTypeId}:${swap.returnedCrateTypeId}`}>
@@ -353,7 +421,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
           ))}
 
           {!shortages.length ? (
-            <p className="mt-2 text-emerald-900">Empties are settled.</p>
+            <p className="mt-2 text-emerald-900">No empty crates or bottles owed from this sale.</p>
           ) : (
             <div className="mt-3 space-y-2">
               {shortages.map((line) => (
@@ -369,7 +437,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
 
           {crateIssues.length > 0 && (
             <div className="mt-4 space-y-2">
-              <p className="font-medium">Crates that did not settle automatically</p>
+              <p className="font-medium">Different crates to check</p>
               {crateIssues.map((issue) => {
                 const returnedName =
                   crateName.get(issue.returnedCrateTypeId) ?? "Returned crate";

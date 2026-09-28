@@ -343,7 +343,7 @@ export function SaleBuilder({
                 : step === "check"
                   ? "Your drinks"
                   : step === "empties"
-                    ? "Empties"
+                    ? "Check Empties"
                     : step === "payment"
                       ? "Payment"
                       : "Review"}
