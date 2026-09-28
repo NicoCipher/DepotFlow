@@ -14,7 +14,9 @@ import {
   resumeSale,
   cancelSale,
   completeSale,
+  ensureActiveSaleRequestId,
   readSaleDrafts,
+  validSaleRequestId,
 } from "./sale-drafts.ts";
 const product: SaleProduct = {
   id: "p",
@@ -97,6 +99,66 @@ test("park preserves stable identity and quantities; starting another sale creat
     /active sale changed/,
   );
 });
+test("sale request id is created once and stays stable across edits and retries", () => {
+  const firstId = "11111111-1111-4111-8111-111111111111";
+  const secondId = "22222222-2222-4222-8222-222222222222";
+  let state = updateActiveSale(emptySaleDrafts, null, draft, firstId);
+  assert.equal(state.active?.requestId, firstId);
+  state = updateActiveSale(state, firstId, { paid: "5000" }, secondId);
+  assert.equal(state.active?.requestId, firstId);
+  assert.equal(state.active?.draft.paid, "5000");
+});
+
+test("legacy draft without a request id gets one once and keeps it", () => {
+  const fallback = "33333333-3333-4333-8333-333333333333";
+  const other = "44444444-4444-4444-8444-444444444444";
+  const legacy = {
+    ...emptySaleDrafts,
+    active: {
+      id: "imported-old-sale",
+      requestId: null,
+      pausedAt: null,
+      draft,
+    },
+  };
+  const prepared = ensureActiveSaleRequestId(
+    legacy,
+    "imported-old-sale",
+    fallback,
+  );
+  assert.equal(prepared.active?.requestId, fallback);
+  const retried = ensureActiveSaleRequestId(
+    prepared,
+    "imported-old-sale",
+    other,
+  );
+  assert.equal(retried.active?.requestId, fallback);
+  assert.equal(validSaleRequestId(retried.active?.requestId), true);
+});
+
+test("persisted request id survives reload while invalid legacy values are discarded", () => {
+  const requestId = "55555555-5555-4555-8555-555555555555";
+  const state = {
+    ...emptySaleDrafts,
+    active: {
+      id: "sale",
+      requestId,
+      pausedAt: null,
+      draft,
+    },
+  };
+  assert.equal(readSaleDrafts(JSON.stringify(state)).active?.requestId, requestId);
+  assert.equal(
+    readSaleDrafts(
+      JSON.stringify({
+        ...state,
+        active: { ...state.active, requestId: "not-a-uuid" },
+      }),
+    ).active?.requestId,
+    null,
+  );
+});
+
 test("cancel removes only the named unfinished draft", () => {
   let state = updateActiveSale(emptySaleDrafts, null, draft, "a");
   state = parkActiveSale(state, "a", now);
