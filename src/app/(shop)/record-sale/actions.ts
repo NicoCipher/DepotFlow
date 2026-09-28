@@ -17,6 +17,7 @@ import {
   safeCaughtSaleErrorMessage,
   safeDatabaseSaleErrorMessage,
   saleNetworkMessage,
+  saleSaveUncertainMessage,
   saleSessionExpiredMessage,
   saleUnexpectedErrorMessage,
 } from "@/domain/sale-errors";
@@ -153,6 +154,7 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
   )
     return { error: "Check the sale date and amount paid." };
 
+  let rpcStarted = false;
   try {
     const fresh = await loadCatalog(supabase);
     const customer = fresh.customers.find(
@@ -190,6 +192,7 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
       };
     });
 
+    rpcStarted = true;
     const { data, error } = await supabase.rpc("save_sale_v2", {
       p_request_id: requestId,
       p_customer_id: draft.customerId,
@@ -216,19 +219,19 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
         error.code,
         error.message,
       );
-      if (safeMessage === saleUnexpectedErrorMessage)
-        console.error("[DepotFlow] save_sale_v2 failed", {
+      if (safeMessage === saleUnexpectedErrorMessage) {
+        console.error("[DepotFlow] save_sale_v2 response was not definitive", {
           code: error.code,
           message: error.message,
           details: error.details,
           hint: error.hint,
         });
-      return {
-        error: safeMessage,
-        ...(safeMessage === saleUnexpectedErrorMessage
-          ? { code: "server_error" as const }
-          : {}),
-      };
+        return {
+          error: saleSaveUncertainMessage,
+          code: "save_uncertain" as const,
+        };
+      }
+      return { error: safeMessage };
     }
 
     return {
@@ -241,9 +244,17 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
       },
     };
   } catch (cause) {
+    if (rpcStarted) {
+      console.error("[DepotFlow] sale save response was lost or unknown", cause);
+      return {
+        error: saleSaveUncertainMessage,
+        code: "save_uncertain" as const,
+      };
+    }
+
     const safeMessage = safeCaughtSaleErrorMessage(cause);
     if (safeMessage === saleUnexpectedErrorMessage)
-      console.error("[DepotFlow] unexpected sale save failure", cause);
+      console.error("[DepotFlow] unexpected pre-save failure", cause);
     return {
       error: safeMessage,
       ...(safeMessage === saleUnexpectedErrorMessage
