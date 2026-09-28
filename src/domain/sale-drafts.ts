@@ -105,7 +105,9 @@ export function updateActiveSale(
     ...state,
     active: {
       id: expectedId ?? newId,
-      requestId: state.active?.requestId ?? newId,
+      requestId:
+        state.active?.requestId ??
+        (validSaleRequestId(newId) ? newId : null),
       pausedAt: null,
       resumedAt: state.active?.resumedAt ?? null,
       draft: cleanDraft({
