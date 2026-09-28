@@ -79,6 +79,11 @@ textarea[aria-invalid="true"] {
   background: white;
 }
 .secondary:hover:not(:disabled) { background: #f0f7f2; }
+.secondary[aria-pressed="true"] {
+  border-color: #065f46;
+  background: #ecfdf5;
+  color: #064e3b;
+}
 .quiet-link {
   min-height: 3rem;
   padding: 0.75rem 0;

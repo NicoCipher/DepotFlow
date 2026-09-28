@@ -134,7 +134,7 @@ export function EmptyCrateCountForm({
       )}
       {state.message?.startsWith("Your session has expired") && <Link href="/sign-in" target="_blank" rel="noopener noreferrer" className="quiet-link">Sign in in a new tab</Link>}
       <button className="primary w-full" disabled={pending}>
-        {pending ? "Checking…" : "Review count"}
+        {pending ? "Checking…" : "Next: Review crate count"}
       </button>
     </form>
   );

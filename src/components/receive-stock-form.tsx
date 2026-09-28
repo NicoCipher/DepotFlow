@@ -151,7 +151,7 @@ export function ReceiveStockForm({
       )}
       {state.message?.startsWith("Your session has expired") && <Link href="/sign-in" target="_blank" rel="noopener noreferrer" className="quiet-link">Sign in in a new tab</Link>}
       <button className="primary w-full" disabled={pending}>
-        {pending ? "Checking…" : "Review stock"}
+        {pending ? "Checking…" : "Next: Review received stock"}
       </button>
     </form>
   );
