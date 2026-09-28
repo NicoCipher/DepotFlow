@@ -11,13 +11,22 @@ async function loadOwnerSession() {
     error: userError,
   } = await supabase.auth.getUser();
 
-  if (userError || !user) return { supabase, user: null, allowed: false };
+  if (userError || !user)
+    return {
+      supabase,
+      user: null,
+      allowed: false,
+      authError: userError,
+      ownerError: null,
+    };
 
   const { data, error } = await supabase.rpc("is_shop_owner");
   return {
     supabase,
     user,
     allowed: ownerAuthorized(user.id, data, error),
+    authError: null,
+    ownerError: error,
   };
 }
 

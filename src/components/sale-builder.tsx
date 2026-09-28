@@ -1,7 +1,10 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
-import { loadSaleCatalog, saveSale } from "@/app/(shop)/record-sale/actions";
+import {
+  refreshSaleCatalog,
+  saveSale,
+} from "@/app/(shop)/record-sale/actions";
 import { CustomerForm } from "./customer-form";
 import { emptyCustomer } from "@/domain/customers";
 import { ProductImage } from "@/components/product-image";
@@ -16,6 +19,7 @@ import { wholeNumberInputMessage } from "@/domain/sale-input";
 import {
   saleNetworkMessage,
   saleSaveUncertainMessage,
+  saleSessionExpiredMessage,
 } from "@/domain/sale-errors";
 import { formatNaira } from "@/domain/products";
 import { formatQuantity } from "@/domain/quantity";
@@ -54,6 +58,7 @@ export function SaleBuilder({
   const [customerQuery, setCustomerQuery] = useState("");
   const [catalog, setCatalog] = useState(initialCatalog);
   const [message, setMessage] = useState("");
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [uncertainRequestId, setUncertainRequestId] = useState<string | null>(
     null,
   );
@@ -79,17 +84,25 @@ export function SaleBuilder({
   useEffect(() => {
     if (!activeId) return;
     let current = true;
-    loadSaleCatalog()
-      .then((fresh) => {
-        if (current) {
-          setCatalog(fresh);
-          setVerifiedId(activeId);
-          setCheckError("");
+    refreshSaleCatalog()
+      .then((response) => {
+        if (!current) return;
+        if ("error" in response) {
+          if (response.code === "session_expired") {
+            setSessionExpired(true);
+            setCheckError(saleSessionExpiredMessage);
+          } else {
+            setCheckError(response.error ?? saleNetworkMessage);
+          }
+          return;
         }
+        setCatalog(response.catalog);
+        setVerifiedId(activeId);
+        setCheckError("");
+        setSessionExpired(false);
       })
       .catch(() => {
-        if (current)
-          setCheckError(saleNetworkMessage);
+        if (current) setCheckError(saleNetworkMessage);
       });
     return () => {
       current = false;
@@ -99,6 +112,10 @@ export function SaleBuilder({
   const customer = catalog.customers.find((c) => c.id === draft.customerId);
   const product = catalog.products.find((p) => p.id === draft.editingId);
   function update(patch: Partial<SaleDraft>) {
+    if (sessionExpired) {
+      setMessage(saleSessionExpiredMessage);
+      return;
+    }
     if (saveUncertain) {
       setMessage(saleSaveUncertainMessage);
       return;
@@ -179,7 +196,17 @@ export function SaleBuilder({
   function quickCheck() {
     startTransition(async () => {
       try {
-        const fresh = await loadSaleCatalog();
+        const response = await refreshSaleCatalog();
+        if ("error" in response) {
+          if (response.code === "session_expired") {
+            setSessionExpired(true);
+            setMessage(saleSessionExpiredMessage);
+          } else {
+            setMessage(response.error ?? saleNetworkMessage);
+          }
+          return;
+        }
+        const fresh = response.catalog;
         setCatalog(fresh);
         const checked = revalidateSaleDraft(draft, fresh);
         if (checked.warnings.length) {
@@ -221,6 +248,27 @@ export function SaleBuilder({
         </a>
       </div>
     );
+  if (sessionExpired)
+    return (
+      <div className="space-y-5">
+        <h1>Record Sale</h1>
+        <div
+          role="alert"
+          className="border-l-4 border-amber-700 pl-3 text-amber-950"
+        >
+          <p className="font-semibold">{saleSessionExpiredMessage}</p>
+          <p className="mt-1 text-sm">
+            Your unfinished sale is saved on this device.
+          </p>
+        </div>
+        <Link
+          href="/sign-in?next=/record-sale"
+          className="primary block w-full text-center"
+        >
+          Sign in again
+        </Link>
+      </div>
+    );
   if (newCustomer)
     return (
       <>
@@ -230,7 +278,15 @@ export function SaleBuilder({
           initialValues={emptyCustomer}
           onCancel={() => setNewCustomer(null)}
           onCreated={async (id) => {
-            const fresh = await loadSaleCatalog();
+            const response = await refreshSaleCatalog();
+            if ("error" in response) {
+              if (response.code === "session_expired") {
+                setSessionExpired(true);
+                throw new Error(saleSessionExpiredMessage);
+              }
+              throw new Error(response.error ?? saleNetworkMessage);
+            }
+            const fresh = response.catalog;
             if (!fresh.customers.some((customer) => customer.id === id))
               throw new Error("Customer could not be loaded.");
             if (!(await sales.selectCustomer(newCustomer.draftId, id)))
@@ -250,7 +306,7 @@ export function SaleBuilder({
 
   return (
     <>
-      {!ready && (
+      {!ready && !sessionExpired && (
         <div role="status" className="mb-5">
           <p>{checkError || "Checking current prices and stock…"}</p>
           {checkError && (
@@ -869,7 +925,17 @@ export function SaleBuilder({
                 startTransition(async () => {
                   let fresh: SaleCatalog;
                   try {
-                    fresh = await loadSaleCatalog();
+                    const response = await refreshSaleCatalog();
+                    if ("error" in response) {
+                      if (response.code === "session_expired") {
+                        setSessionExpired(true);
+                        setMessage(saleSessionExpiredMessage);
+                      } else {
+                        setMessage(response.error ?? saleNetworkMessage);
+                      }
+                      return;
+                    }
+                    fresh = response.catalog;
                   } catch {
                     setMessage(saleNetworkMessage);
                     return;
@@ -1031,24 +1097,38 @@ export function SaleBuilder({
                     return;
                   }
 
-                  // A server response resolves the uncertainty, even if it is
-                  // a business-rule error rather than a successful save.
-                  setUncertainRequestId(null);
-
                   if (response.error) {
+                    if (response.code === "session_expired") {
+                      setSessionExpired(true);
+                      setMessage(saleSessionExpiredMessage);
+                      return;
+                    }
+
+                    // Any non-session server response proves this request
+                    // reached the app, so a previous uncertain state is resolved.
+                    setUncertainRequestId(null);
+
                     if (response.code === "customer_unavailable") {
                       try {
-                        const fresh = await loadSaleCatalog();
-                        setCatalog(fresh);
-                        await sales.update({ step: "customer" });
+                        const refreshed = await refreshSaleCatalog();
+                        if (!("error" in refreshed)) {
+                          setCatalog(refreshed.catalog);
+                          await sales.update({ step: "customer" });
+                        } else if (refreshed.code === "session_expired") {
+                          setSessionExpired(true);
+                          setMessage(saleSessionExpiredMessage);
+                          return;
+                        }
                       } catch {
                         // The draft stays intact. The customer screen will
                         // refresh again when the sale is reopened.
                       }
                     }
-                    setMessage(response.error);
+                    setMessage(response.error ?? saleNetworkMessage);
                     return;
                   }
+
+                  setUncertainRequestId(null);
                   if (response.result) {
                     if (await sales.complete(requestId))
                       setSaved({

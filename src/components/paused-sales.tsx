@@ -6,8 +6,11 @@ import { useSaleDrafts } from "./sale-draft-session";
 import { revalidateSaleDraft, type SaleCatalog } from "@/domain/sale-builder";
 import { hasSaleWork } from "@/domain/sale-drafts";
 import { formatNaira } from "@/domain/products";
-import { loadSaleCatalog } from "@/app/(shop)/record-sale/actions";
-import { saleNetworkMessage } from "@/domain/sale-errors";
+import { refreshSaleCatalog } from "@/app/(shop)/record-sale/actions";
+import {
+  saleNetworkMessage,
+  saleSessionExpiredMessage,
+} from "@/domain/sale-errors";
 export function PausedSales({
   ownerId,
   initialCatalog,
@@ -18,8 +21,30 @@ export function PausedSales({
   const sales = useSaleDrafts(ownerId);
   const [catalog, setCatalog] = useState(initialCatalog);
   const [message, setMessage] = useState("");
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+  if (sessionExpired)
+    return (
+      <div className="space-y-5">
+        <h1>Paused Sales</h1>
+        <div
+          role="alert"
+          className="border-l-4 border-amber-700 pl-3 text-amber-950"
+        >
+          <p className="font-semibold">{saleSessionExpiredMessage}</p>
+          <p className="mt-1 text-sm">
+            Your paused sales are saved on this device.
+          </p>
+        </div>
+        <Link
+          href="/sign-in?next=/record-sale/paused"
+          className="primary block w-full text-center"
+        >
+          Sign in again
+        </Link>
+      </div>
+    );
   return (
     <fieldset disabled={pending} className="space-y-5">
       <h1>Paused Sales</h1>
@@ -78,8 +103,17 @@ export function PausedSales({
                 onClick={() =>
                   startTransition(async () => {
                     try {
-                      const fresh = await loadSaleCatalog();
-                      setCatalog(fresh);
+                      const response = await refreshSaleCatalog();
+                      if ("error" in response) {
+                        if (response.code === "session_expired") {
+                          setSessionExpired(true);
+                          setMessage(saleSessionExpiredMessage);
+                        } else {
+                          setMessage(response.error ?? saleNetworkMessage);
+                        }
+                        return;
+                      }
+                      setCatalog(response.catalog);
                       if (await sales.resume(entry.id)) {
                         router.push("/record-sale");
                         router.refresh();
