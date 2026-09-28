@@ -131,15 +131,12 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
 
   return (
     <>
-      <h2 className="text-xl font-semibold">What empties came back?</h2>
-      <p className="text-stone-600">
-        Record what physically happened. DepotFlow works out the obligations.
-      </p>
+      <h2 className="text-xl font-semibold">Did all expected empties come back?</h2>
 
       {draft.lines.some((line) => line.quantity.crates > 0) && (
-        <details className="border-t border-stone-300 pt-4">
-          <summary className="quiet-link cursor-pointer">
-            Bottles leaving without some crates
+        <details className="text-sm">
+          <summary className="cursor-pointer py-2 font-medium text-emerald-900 underline underline-offset-4">
+            Bottles left without their crates?
           </summary>
           <p className="mt-2 text-sm text-stone-600">
             Normal sales use the same number of physical crates as whole crates sold.
@@ -199,9 +196,11 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
         </details>
       )}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div role="group" aria-label="Empties returned" className="grid grid-cols-1 gap-2">
         <button
-          className={state.mode === "exact" ? "primary" : "secondary"}
+          type="button"
+          aria-pressed={state.mode === "exact"}
+          className={`flex min-h-16 w-full items-center justify-between rounded-lg border px-4 py-3 text-left font-semibold ${state.mode === "exact" ? "border-emerald-800 bg-emerald-50 text-emerald-950" : "border-stone-300 bg-white"}`}
           onClick={() =>
             update({
               emptiesV2: {
@@ -213,13 +212,17 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
             })
           }
         >
-          All expected empties
+          <span>Yes, all came back</span>
+          <span aria-hidden="true">{state.mode === "exact" ? "●" : "○"}</span>
         </button>
         <button
-          className={state.mode === "actual" ? "primary" : "secondary"}
+          type="button"
+          aria-pressed={state.mode === "actual"}
+          className={`flex min-h-16 w-full items-center justify-between rounded-lg border px-4 py-3 text-left font-semibold ${state.mode === "actual" ? "border-emerald-800 bg-emerald-50 text-emerald-950" : "border-stone-300 bg-white"}`}
           onClick={useActualReturns}
         >
-          Some missing / different
+          <span>No, some are missing or different</span>
+          <span aria-hidden="true">{state.mode === "actual" ? "●" : "○"}</span>
         </button>
       </div>
 
@@ -338,8 +341,8 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
       )}
 
       {result && (
-        <section className="border-t border-stone-300 pt-5">
-          <h3 className="font-semibold">DepotFlow result</h3>
+        <section aria-live="polite" className="rounded-lg border border-stone-200 bg-white p-4">
+          <h3 className="text-sm font-semibold text-stone-600">Empties summary</h3>
 
           {result.swaps.map((swap) => (
             <p key={`${swap.owedCrateTypeId}:${swap.returnedCrateTypeId}`}>
@@ -453,18 +456,19 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
         </section>
       )}
 
-      <button
-        className="primary w-full"
-        disabled={
-          hasFieldErrors || !result || Boolean(error) || depositBlocked
-        }
-        onClick={() => update({ step: "payment" })}
-      >
-        Continue to Payment
-      </button>
-      <button className="secondary w-full" onClick={onBack}>
-        Back
-      </button>
+      <div className="sticky bottom-0 z-10 -mx-4 flex items-center gap-3 border-t border-stone-200 bg-[#f7f8f4] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:mx-0 sm:px-0">
+        <button type="button" className="min-h-12 shrink-0 px-2 font-semibold text-emerald-900 underline underline-offset-4" onClick={onBack}>
+          Back
+        </button>
+        <button
+          type="button"
+          className="primary min-w-0 flex-1"
+          disabled={hasFieldErrors || !result || Boolean(error) || depositBlocked}
+          onClick={() => update({ step: "payment" })}
+        >
+          Continue to payment
+        </button>
+      </div>
     </>
   );
 }

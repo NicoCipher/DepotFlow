@@ -3,6 +3,7 @@ import { requireOwner } from "@/lib/auth/owner";
 import { getCrateTypes } from "@/lib/crate-types/data";
 import { crateNeedsSetup } from "@/domain/crate-types";
 import { CrateDisplay } from "@/components/crate-display";
+import { DeleteCrateType } from "@/components/delete-crate-type";
 export default async function CrateTypesPage({
   searchParams,
 }: {
@@ -36,15 +37,15 @@ export default async function CrateTypesPage({
   );
   return (
     <>
-      <h1>Crate Types</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1>Crate Types</h1>
+        <Link href="/crate-types/new" className="primary shrink-0">Add crate type</Link>
+      </div>
       {(await searchParams).saved === "1" && (
         <p role="status" className="mt-3 text-emerald-900">
           Crate type saved.
         </p>
       )}
-      <Link href="/crate-types/new" className="primary mt-5 w-full">
-        Add crate type
-      </Link>
       {!types.length && <p className="mt-6">No crate types yet.</p>}
       {Array.from(groups)
         .sort(([a], [b]) =>
@@ -72,7 +73,7 @@ export default async function CrateTypesPage({
                     <div className="mt-3">
                       <p className="text-sm text-stone-600">Needs setup</p>
                       <Link
-                        className="secondary mt-3 w-full"
+                        className="secondary mt-3"
                         href="/crate-types/new"
                       >
                         Create exact crate type
@@ -82,14 +83,23 @@ export default async function CrateTypesPage({
                       </Link>
                     </div>
                   ) : (
-                    <Link
-                      className="secondary mt-3 w-full"
-                      href={`/crate-types/${crate.id}/edit`}
-                      aria-label={`Edit ${crate.name}`}
-                    >
-                      Edit
-                    </Link>
+                    <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1">
+                      <Link
+                        className="secondary"
+                        href={`/crate-types/${crate.id}/edit`}
+                        aria-label={`Edit ${crate.name}`}
+                      >
+                        Edit
+                      </Link>
+                      {!products.some((product) => product.crate_type_id === crate.id) && (
+                        <DeleteCrateType id={crate.id} name={crate.name} />
+                      )}
+                    </div>
                   )}
+                  {crate.is_legacy &&
+                    !products.some((product) => product.crate_type_id === crate.id) && (
+                      <DeleteCrateType id={crate.id} name={crate.name} />
+                    )}
                 </li>
               ))}
             </ul>

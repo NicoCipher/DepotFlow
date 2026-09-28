@@ -29,17 +29,11 @@ export default async function CustomersPage({
     `/customers?${new URLSearchParams({ q: query, page: String(value) })}`;
   return (
     <>
-      <h1>Customers</h1>
-      <Link className="primary mt-6 w-full" href="/customers/new">
-        Add Customer
-      </Link>
-      <Link
-        className="quiet-link mt-3 self-start"
-        href="/customers/archived"
-      >
-        Archived customers
-      </Link>
-      <form action="/customers" className="my-7">
+      <div className="flex items-center justify-between gap-3">
+        <h1>Customers</h1>
+        <Link className="primary shrink-0" href="/customers/new">Add customer</Link>
+      </div>
+      <form action="/customers" role="search" className="mb-4 mt-5">
         <label htmlFor="search">Search by name or phone</label>
         <div className="flex gap-2">
           <input
@@ -59,6 +53,9 @@ export default async function CustomersPage({
           </Link>
         )}
       </form>
+      <Link className="quiet-link mb-3 self-start text-sm" href="/customers/archived">
+        Archived customers
+      </Link>
       {!data?.length ? (
         <div className="border-t border-stone-300 py-8">
           <h2 className="text-xl font-semibold">

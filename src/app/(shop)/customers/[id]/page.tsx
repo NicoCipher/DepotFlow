@@ -2,7 +2,6 @@ import Link from "next/link";
 import { getCustomer } from "@/lib/customers/data";
 import { getRecentCustomerSales } from "@/lib/sales/data";
 import { getRecentCustomerPayments } from "@/lib/payments/data";
-import { formatEmptiesOwed } from "@/domain/customers";
 import { SalesList } from "@/components/sales-list";
 import { PaymentsList } from "@/components/payments-list";
 
@@ -82,28 +81,27 @@ export default async function CustomerPage({
           {customer.address}
         </p>
       )}
-      <dl className="mt-8 border-t border-stone-300">
-        <div className="flex items-center justify-between gap-3 border-b border-stone-300 py-5">
+      <dl className="mt-6 rounded-lg border border-stone-200 bg-white px-4">
+        <div className="flex items-center justify-between gap-3 border-b border-stone-200 py-4">
           <dt className="text-lg">Money owed</dt>
-          <dd className="text-2xl font-bold">
+          <dd className="text-xl font-bold">
             {naira(money.data?.amount ?? 0)}
           </dd>
         </div>
-        <div className="flex items-center justify-between gap-3 border-b border-stone-300 py-5">
-          <dt className="text-lg">Empties owed</dt>
-          <dd className="text-2xl font-bold">
-            {formatEmptiesOwed(
-              crates.data?.reduce((sum, row) => sum + row.quantity, 0) ?? 0,
-              bottles.data?.reduce((sum, row) => sum + row.quantity, 0) ?? 0,
-            )}
-          </dd>
+        <div className="flex items-center justify-between gap-3 border-b border-stone-200 py-4">
+          <dt>Crates owed</dt>
+          <dd className="text-lg font-semibold">{crates.data?.reduce((sum, row) => sum + row.quantity, 0) ?? 0}</dd>
+        </div>
+        <div className="flex items-center justify-between gap-3 py-4">
+          <dt>Bottles owed</dt>
+          <dd className="text-lg font-semibold">{bottles.data?.reduce((sum, row) => sum + row.quantity, 0) ?? 0}</dd>
         </div>
       </dl>
       <p className="mt-3 flex items-center justify-between text-stone-600">
         <span>Deposit held</span>
         <span>{naira(deposits.data?.amount ?? 0)}</span>
       </p>
-      <Link href={`/customers/${id}/pay`} className="primary mt-6 self-start">
+      <Link href={`/customers/${id}/pay`} className="primary mt-6 w-full">
         Record Payment
       </Link>
       <Link

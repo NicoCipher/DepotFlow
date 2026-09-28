@@ -15,7 +15,7 @@ export default async function SignInPage({
   return (
     <>
       <h1>Sign in</h1>
-      <p className="mb-8 mt-3 text-stone-600">
+      <p className="mb-5 mt-2 text-stone-600">
         Use the shop owner’s email and password.
       </p>
       <SignInForm returnTo={returnTo} />

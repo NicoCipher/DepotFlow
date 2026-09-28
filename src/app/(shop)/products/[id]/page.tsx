@@ -79,13 +79,13 @@ export default async function ProductPage({
         <h2>Physical crate</h2>
         <CrateDisplay crate={product.crate_types} />
       </section>
-      <dl className="mt-7 border-t border-stone-300">
+      <dl className="review-list mt-7">
         {details
           .filter(([, value]) => value !== null && value !== "")
           .map(([label, value]) => (
             <div
               key={label}
-              className="flex justify-between gap-4 border-b border-stone-300 py-4"
+              className="flex justify-between gap-4"
             >
               <dt className="shrink-0">{label}</dt>
               <dd className="min-w-0 break-words text-right font-semibold">

@@ -8,6 +8,34 @@ import { redirect } from "next/navigation";
 export async function refreshCrateTypes() {
   return getCrateTypes();
 }
+export async function deleteUnusedCrateType(
+  id: string,
+): Promise<{ deleted?: boolean; message?: string }> {
+  const supabase = await requireOwner();
+  if (!isProductId(id)) return { message: "Reopen the crate types page." };
+  try {
+    const { error } = await supabase.rpc("delete_unused_crate_type", {
+      p_id: id,
+    });
+    if (error) {
+      return {
+        message:
+          error.code === "23503"
+            ? "This crate type has been used in products, stock, sales, counts, customer balances or crate swaps. Keep it to preserve those records."
+            : error.code === "P0002"
+              ? "This crate type was already removed. Refresh the page."
+              : "Could not delete this crate type. Try again.",
+      };
+    }
+    revalidatePath("/crate-types");
+    revalidatePath("/products");
+    revalidatePath("/empty-crates");
+    revalidatePath("/empties-rules");
+    return { deleted: true };
+  } catch {
+    return { message: "Could not connect. Try again." };
+  }
+}
 export async function saveCrateType(
   id: string,
   editing: boolean,

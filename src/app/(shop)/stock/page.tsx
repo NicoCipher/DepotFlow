@@ -51,14 +51,14 @@ export default async function StockPage({
           Current stock saved.
         </p>
       )}
-      <div className="mt-5 mb-7 flex flex-wrap gap-x-5 gap-y-1">
-        <Link className="quiet-link" href="/stock/receive">
+      <div className="mb-6 mt-5 flex flex-wrap items-center gap-3">
+        <Link className="primary" href="/stock/receive">
           Receive Stock
         </Link>
-        <Link className="quiet-link" href="/stock/count">
+        <Link className="secondary" href="/stock/count">
           Set Current Stock
         </Link>
-        <Link className="quiet-link" href="/empty-crates">
+        <Link className="quiet-link text-sm" href="/empty-crates">
           Empty Crates
         </Link>
       </div>

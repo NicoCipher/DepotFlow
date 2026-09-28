@@ -76,7 +76,7 @@ export function ProductForm({
   return (
     <form
       action={action}
-      className="mt-7 space-y-8"
+      className="mt-5 space-y-7"
       onSubmit={(event) => {
         if (pending) {
           event.preventDefault();
@@ -108,22 +108,7 @@ export function ProductForm({
         }
       }}
     >
-      <section className="rounded-lg border border-stone-300 bg-white p-4">
-        <h2 className="text-lg font-semibold">Information needed for every drink</h2>
-        <p className="mt-2 text-sm text-stone-600">
-          Fill these once so sales, stock and empties can work automatically.
-        </p>
-        <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
-          <li>Drink name and bottles per crate</li>
-          <li>Full crate price</li>
-          <li>The physical crate the drink uses</li>
-          <li>Whether its bottles are returnable</li>
-          <li>The empty bottle type when bottles are returnable</li>
-        </ul>
-        <p className="mt-3 text-sm text-stone-600">
-          Size, image, loose-bottle price and special half/quarter prices are optional.
-        </p>
-      </section>
+      <p className="text-sm text-stone-600">Set the drink, its price and its physical crate. Optional details can be added later.</p>
       {state.message && (
         <p role="alert" className="text-red-800">
           {state.message}

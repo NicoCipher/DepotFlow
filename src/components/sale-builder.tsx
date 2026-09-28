@@ -226,12 +226,16 @@ export function SaleBuilder({
   if (saved)
     return (
       <div className="space-y-5">
-        <h1>Sale Saved</h1>
-        <p>{saved.name}</p>
-        <p>Total: {formatNaira(saved.total)}</p>
-        <p>Paid: {formatNaira(saved.paid)}</p>
-        <p>Owing from this sale: {formatNaira(saved.owing)}</p>
-        <p>Sale reference: {saved.id}</p>
+        <h1>Sale saved</h1>
+        <p className="text-lg font-semibold">{saved.name}</p>
+        <dl className="rounded-lg border border-stone-200 bg-white px-4">
+          {([["Total", saved.total], ["Paid", saved.paid], ["Still owing", saved.owing]] as const).map(([label, amount]) => (
+            <div key={label} className="flex justify-between gap-3 border-b border-stone-200 py-3 last:border-b-0">
+              <dt>{label}</dt><dd className="font-semibold">{formatNaira(amount)}</dd>
+            </div>
+          ))}
+        </dl>
+        <details className="text-sm text-stone-600"><summary className="cursor-pointer py-2">Sale reference</summary><p className="break-all">{saved.id}</p></details>
         <button className="primary w-full" onClick={() => setSaved(null)}>
           Record Another Sale
         </button>
@@ -325,19 +329,50 @@ export function SaleBuilder({
             : step === "drinks"
               ? "Add Drinks"
               : step === "quantity"
-                ? "Quantity"
+                ? "Choose quantity"
                 : step === "check"
-                  ? "Quick Check"
+                  ? "Your drinks"
                   : step === "empties"
                     ? "Empties"
                     : step === "payment"
                       ? "Payment"
                       : "Review"}
         </h1>
-        <p className="text-sm text-stone-600">Record Sale</p>
-        <PausedSalesLink ownerId={ownerId} />
+        {step !== "customer" && (
+          <nav aria-label="Sale progress" className="text-sm text-stone-600">
+            <span className="sr-only">Record Sale: </span>
+            {(["Drinks", "Empties", "Payment", "Review"] as const).map(
+              (label, index) => {
+                const current =
+                  step === "drinks" || step === "quantity" || step === "check"
+                    ? 0
+                    : step === "empties"
+                      ? 1
+                      : step === "payment"
+                        ? 2
+                        : 3;
+                return (
+                  <span key={label} className="inline-flex items-center">
+                    {index > 0 && <span aria-hidden="true" className="mx-1">·</span>}
+                    <span
+                      aria-current={index === current ? "step" : undefined}
+                      className={index === current ? "font-semibold text-emerald-950" : ""}
+                    >
+                      {label}
+                    </span>
+                  </span>
+                );
+              },
+            )}
+          </nav>
+        )}
+        {step === "customer" && <PausedSalesLink ownerId={ownerId} />}
         {sales.state.active && (draft.customerId || draft.lines.length > 0) && (
-          <div className="flex gap-6">
+          <details className="border-b border-stone-200 pb-2">
+            <summary className="cursor-pointer py-2 text-sm font-medium text-emerald-900">
+              Sale options
+            </summary>
+            <div className="flex flex-wrap gap-x-6 gap-y-1">
             <button
               className="quiet-link"
               disabled={saveUncertain}
@@ -371,7 +406,8 @@ export function SaleBuilder({
             >
               Cancel Sale
             </button>
-          </div>
+            </div>
+          </details>
         )}
         {sales.error && (
           <p role="alert" className="text-red-800">
@@ -389,7 +425,7 @@ export function SaleBuilder({
         )}
         {customer && step !== "customer" && (
           <div className="flex items-center justify-between gap-3">
-            <p className="break-words font-semibold">{customer.name}</p>
+            <p className="min-w-0 break-words text-sm text-stone-600">Customer: <strong className="text-base text-stone-900">{customer.name}</strong></p>
             <button
               className="quiet-link"
               onClick={() => update({ step: "customer" })}
@@ -664,8 +700,9 @@ export function SaleBuilder({
                     );
                   })}
                 </div>
-                <p className="mt-2 text-sm text-stone-600">
-                  ¼:{" "}
+                <details className="mt-2 text-sm text-stone-600">
+                  <summary className="cursor-pointer py-2 text-emerald-900 underline underline-offset-4">Part-crate prices</summary>
+                  <p className="mt-1">¼:{" "}
                   {(() => {
                     try {
                       return formatNaira(
@@ -683,9 +720,8 @@ export function SaleBuilder({
                       return "Price not set";
                     }
                   })()}
-                  . Optional overrides replace the calculated full-price share.
-                  ¾ uses half + quarter.
-                </p>
+                  . ¾ uses half + quarter.</p>
+                </details>
               </fieldset>
               <div>
                 <label htmlFor="sale-bottles">
@@ -726,9 +762,6 @@ export function SaleBuilder({
                     Remove unpriced bottles
                   </button>
                 )}
-                <p className="mt-2 text-sm text-stone-600">
-                  For bottles only, leave crates at 0 and choose None above.
-                </p>
               </div>
               {preview ? (
                 <p role="status" className="text-xl font-semibold">
@@ -747,7 +780,7 @@ export function SaleBuilder({
               </button>
               <button
                 type="button"
-                className="secondary w-full"
+                className="quiet-link w-full text-center"
                 onClick={() => update({ step: "drinks" })}
               >
                 Back to drinks
@@ -830,22 +863,6 @@ export function SaleBuilder({
             </p>
             <button
               className="primary w-full"
-              onClick={() => update({ step: "drinks" })}
-            >
-              Keep adding drinks
-            </button>
-            <button
-              className="secondary w-full"
-              disabled={pending}
-              onClick={quickCheck}
-            >
-              {pending ? "Checking…" : "Refresh prices & stock"}
-            </button>
-            <p className="text-sm text-stone-600">
-              This is a draft. Nothing has been saved and stock has not changed.
-            </p>
-            <button
-              className="primary w-full"
               disabled={
                 !customer ||
                 !draft.lines.length ||
@@ -856,6 +873,12 @@ export function SaleBuilder({
             >
               Continue to Empties
             </button>
+            <div className="flex flex-wrap justify-between gap-x-4">
+              <button className="quiet-link" onClick={() => update({ step: "drinks" })}>Keep adding drinks</button>
+              <button className="quiet-link" disabled={pending} onClick={quickCheck}>
+                {pending ? "Checking…" : "Refresh prices & stock"}
+              </button>
+            </div>
           </>
         )}
         {step === "empties" && (
@@ -909,8 +932,9 @@ export function SaleBuilder({
                 ? formatNaira(total - Number(draft.paid))
                 : "—"}
             </p>
+            <div className="sticky bottom-0 z-10 -mx-4 flex items-center gap-3 border-t border-stone-200 bg-[#f7f8f4] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:mx-0 sm:px-0">
             <button
-              className="primary w-full"
+              className="primary min-w-0 flex-1"
               disabled={
                 pending ||
                 total === undefined ||
@@ -964,19 +988,19 @@ export function SaleBuilder({
                 })
               }
             >
-              {pending ? "Checking…" : "Continue"}
+              {pending ? "Checking…" : "Continue to review"}
             </button>
             <button
-              className="secondary w-full"
+              className="min-h-12 shrink-0 px-2 font-semibold text-emerald-900 underline underline-offset-4"
               onClick={() => update({ step: "empties" })}
             >
               Back
             </button>
+            </div>
           </>
         )}
         {step === "review" && (
           <>
-            <p className="font-semibold">Customer: {customer?.name}</p>
             <p className="text-sm text-stone-600">
               Business date: {draft.businessDate}
             </p>
@@ -1058,6 +1082,7 @@ export function SaleBuilder({
                 ? "Check drinks"
                 : formatNaira(reviewTotal - Number(draft.paid))}
             </p>
+            <div className="sticky bottom-0 z-10 -mx-4 border-t border-stone-200 bg-[#f7f8f4] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:mx-0 sm:px-0">
             <button
               className="primary w-full"
               disabled={
@@ -1153,6 +1178,7 @@ export function SaleBuilder({
                   ? "Check Sale"
                   : "Save Sale"}
             </button>
+            </div>
             {!saveUncertain && (
               <>
                 <button

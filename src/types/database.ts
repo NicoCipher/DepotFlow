@@ -805,6 +805,7 @@ export type Database = {
       }
     }
     Functions: {
+      delete_unused_crate_type: { Args: { p_id: string }; Returns: undefined }
       create_crate_type: {
         Args: {
           p_empty_family: string
