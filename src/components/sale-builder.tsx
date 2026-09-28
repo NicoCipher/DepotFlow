@@ -73,11 +73,9 @@ export function SaleBuilder({
   const [checkError, setCheckError] = useState("");
   const [checkAttempt, setCheckAttempt] = useState(0);
   const ready = activeId === null || verifiedId === activeId;
-  useEffect(() => {
-    const currentId = sales.state.active?.id ?? null;
-    if (uncertainRequestId && currentId !== uncertainRequestId)
-      setUncertainRequestId(null);
-  }, [uncertainRequestId, sales.state.active?.id]);
+  const saveUncertain =
+    uncertainRequestId !== null &&
+    sales.state.active?.id === uncertainRequestId;
   useEffect(() => {
     if (!activeId) return;
     let current = true;
@@ -101,7 +99,7 @@ export function SaleBuilder({
   const customer = catalog.customers.find((c) => c.id === draft.customerId);
   const product = catalog.products.find((p) => p.id === draft.editingId);
   function update(patch: Partial<SaleDraft>) {
-    if (uncertainRequestId) {
+    if (saveUncertain) {
       setMessage(saleSaveUncertainMessage);
       return;
     }
@@ -291,7 +289,7 @@ export function SaleBuilder({
           <div className="flex gap-6">
             <button
               className="quiet-link"
-              disabled={Boolean(uncertainRequestId)}
+              disabled={saveUncertain}
               onClick={() =>
                 startTransition(async () => {
                   if (await sales.park()) {
@@ -305,7 +303,7 @@ export function SaleBuilder({
             </button>
             <button
               className="quiet-link"
-              disabled={Boolean(uncertainRequestId)}
+              disabled={saveUncertain}
               onClick={() => {
                 const id = sales.state.active?.id;
                 if (
@@ -352,7 +350,7 @@ export function SaleBuilder({
         {message && (
           <p
             role="alert"
-            className={uncertainRequestId ? "text-amber-900" : "text-red-800"}
+            className={saveUncertain ? "text-amber-900" : "text-red-800"}
           >
             {message}
           </p>
@@ -929,7 +927,7 @@ export function SaleBuilder({
               <input
                 id="sale-date"
                 type="date"
-                disabled={Boolean(uncertainRequestId)}
+                disabled={saveUncertain}
                 value={draft.businessDate}
                 onChange={(e) => update({ businessDate: e.target.value })}
               />
@@ -1014,7 +1012,7 @@ export function SaleBuilder({
                   if (!activeDraftId) return;
 
                   const requestId =
-                    uncertainRequestId ??
+                    (saveUncertain ? uncertainRequestId : null) ??
                     (await sales.ensureRequestId(activeDraftId));
                   if (!requestId) {
                     setMessage(
@@ -1062,14 +1060,14 @@ export function SaleBuilder({
               }
             >
               {pending
-                ? uncertainRequestId
+                ? saveUncertain
                   ? "Checking…"
                   : "Saving…"
-                : uncertainRequestId
+                : saveUncertain
                   ? "Check Sale"
                   : "Save Sale"}
             </button>
-            {!uncertainRequestId && (
+            {!saveUncertain && (
               <>
                 <button
                   className="secondary w-full"
