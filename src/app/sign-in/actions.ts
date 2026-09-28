@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ownerAuthorized } from "@/domain/authorization";
+import { safeSignInReturnPath } from "@/domain/auth-navigation";
 
 export type SignInState = { email: string; message: string };
 export async function signIn(
@@ -13,6 +14,7 @@ export async function signIn(
     .trim()
     .slice(0, 254);
   const password = String(formData.get("password") ?? "");
+  const returnPath = safeSignInReturnPath(formData.get("next"));
   if (
     !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
     !password ||
@@ -42,7 +44,7 @@ export async function signIn(
   } catch {
     return { email, message: "Could not connect. Please try again." };
   }
-  redirect("/");
+  redirect(returnPath);
 }
 
 export async function signOut() {
