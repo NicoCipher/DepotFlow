@@ -83,6 +83,22 @@ export function updateActiveSale(
     },
   };
 }
+export function rekeyActiveSale(
+  state: SaleDrafts,
+  expectedId: string,
+  newId: string,
+): SaleDrafts {
+  if (state.active?.id !== expectedId)
+    throw new Error("The active sale changed. Open it again before saving.");
+  if (!newId || state.paused.some((entry) => entry.id === newId))
+    throw new Error("Could not prepare this sale for saving.");
+  if (expectedId === newId) return state;
+  return {
+    ...state,
+    active: { ...state.active, id: newId },
+  };
+}
+
 export function parkActiveSale(
   state: SaleDrafts,
   expectedId: string | null,
