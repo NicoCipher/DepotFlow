@@ -565,7 +565,7 @@ export function SaleBuilder({
                 .toLowerCase()
                 .includes(draft.productQuery.trim().toLowerCase()),
             ) && <p>No matching drinks.</p>}
-            <div className="sticky bottom-0 space-y-2 border-t border-stone-300 bg-[#f7f8f4] py-4">
+            <div className="sale-sticky-actions sticky z-10 space-y-2 border-t border-stone-300 bg-background py-4">
               <p>
                 {draft.lines.length}{" "}
                 {draft.lines.length === 1 ? "drink" : "drinks"}
@@ -932,7 +932,7 @@ export function SaleBuilder({
                 ? formatNaira(total - Number(draft.paid))
                 : "—"}
             </p>
-            <div className="sticky bottom-0 z-10 -mx-4 flex items-center gap-3 border-t border-stone-200 bg-[#f7f8f4] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:mx-0 sm:px-0">
+            <div className="sale-sticky-actions sticky z-10 -mx-4 flex items-center gap-3 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
             <button
               className="primary min-w-0 flex-1"
               disabled={
@@ -1082,7 +1082,7 @@ export function SaleBuilder({
                 ? "Check drinks"
                 : formatNaira(reviewTotal - Number(draft.paid))}
             </p>
-            <div className="sticky bottom-0 z-10 -mx-4 border-t border-stone-200 bg-[#f7f8f4] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:mx-0 sm:px-0">
+            <div className="sale-sticky-actions sticky z-10 -mx-4 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
             <button
               className="primary w-full"
               disabled={

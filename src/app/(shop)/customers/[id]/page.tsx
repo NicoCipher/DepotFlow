@@ -101,9 +101,15 @@ export default async function CustomerPage({
         <span>Deposit held</span>
         <span>{naira(deposits.data?.amount ?? 0)}</span>
       </p>
-      <Link href={`/customers/${id}/pay`} className="primary mt-6 w-full">
-        Record Payment
-      </Link>
+      {(money.data?.amount ?? 0) > 0 ? (
+        <Link href={`/customers/${id}/pay`} className="primary mt-6 w-full">
+          Record Payment
+        </Link>
+      ) : (
+        <p className="mt-6 rounded-lg bg-emerald-50 px-4 py-3 text-center font-medium text-emerald-900">
+          No payment due
+        </p>
+      )}
       <Link
         href={`/customers/${id}/edit`}
         className="quiet-link mt-2 self-start"

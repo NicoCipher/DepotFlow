@@ -456,7 +456,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
         </section>
       )}
 
-      <div className="sticky bottom-0 z-10 -mx-4 flex items-center gap-3 border-t border-stone-200 bg-[#f7f8f4] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:mx-0 sm:px-0">
+      <div className="sale-sticky-actions sticky z-10 -mx-4 flex items-center gap-3 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
         <button type="button" className="min-h-12 shrink-0 px-2 font-semibold text-emerald-900 underline underline-offset-4" onClick={onBack}>
           Back
         </button>
