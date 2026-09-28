@@ -22,6 +22,30 @@ export function validatePaymentAmount(text: string): number {
   return amount;
 }
 
+export type PaymentError = { field?: "amount" | "businessDate"; message: string; retryable: boolean };
+
+export function paymentSaveError(code?: string, message?: string): PaymentError {
+  if (code === "42501" || code === "PGRST301" || code === "401" || code === "403")
+    return { message: "Your session has expired. Sign in again, then check payment history before recording another payment.", retryable: false };
+  if (code === "22023") {
+    switch (message) {
+      case "Payment cannot exceed money owed.":
+        return { field: "amount", message: "This payment is more than the customer currently owes. Check Money Owed and enter an amount up to that balance.", retryable: false };
+      case "This customer does not owe any money.":
+        return { field: "amount", message: "This customer no longer owes money. Check their payment history before trying again.", retryable: false };
+      case "Enter a whole payment amount greater than zero.":
+        return { field: "amount", message: "Enter a whole payment amount greater than zero.", retryable: false };
+      case "Choose a valid business date.":
+        return { field: "businessDate", message: "Choose a valid business date.", retryable: false };
+      case "Customer no longer exists.":
+        return { message: "This customer is no longer available. Return to Customers.", retryable: false };
+      case "This payment form was already used with different details.":
+        return { message: "This form may have already saved a payment. Check payment history before recording another payment.", retryable: false };
+    }
+  }
+  return { message: "Could not confirm whether the payment saved. Try again with the same details; this form will not record it twice.", retryable: true };
+}
+
 export function newestPayments(
   payments: PaymentSummary[],
 ): PaymentSummary[] {

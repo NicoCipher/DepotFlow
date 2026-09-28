@@ -5,6 +5,7 @@ import {
   newestPayments,
   paymentHistoryState,
   validatePaymentAmount,
+  paymentSaveError,
   type PaymentSummary,
 } from "./payments.ts";
 
@@ -32,6 +33,19 @@ test("payments are ordered newest business date first", () => {
     ]).map((entry) => entry.id),
     ["2", "3", "1"],
   );
+});
+
+test("payment database errors are mapped without exposing unknown database text", () => {
+  assert.equal(paymentSaveError("22023", "Payment cannot exceed money owed.").field, "amount");
+  assert.match(paymentSaveError("22023", "Payment cannot exceed money owed.").message, /more than.*owes/);
+  assert.equal(paymentSaveError("22023", "Choose a valid business date.").field, "businessDate");
+  assert.equal(paymentSaveError("22023", "This payment form was already used with different details.").retryable, false);
+  assert.equal(paymentSaveError("42501").retryable, false);
+  for (const code of ["22023", "23505", "PGRST000", undefined]) {
+    const result = paymentSaveError(code, "private.money_owed violates secret_constraint");
+    assert.doesNotMatch(result.message, /private|constraint|money_owed/);
+  }
+  assert.equal(paymentSaveError("PGRST000").retryable, true);
 });
 
 test("same-day payments break ties by created_at then id, newest first", () => {
