@@ -14,8 +14,11 @@ import {
 } from "@/domain/sale-empties";
 import {
   isSaleSessionExpired,
+  safeCaughtSaleErrorMessage,
+  safeDatabaseSaleErrorMessage,
   saleNetworkMessage,
   saleSessionExpiredMessage,
+  saleUnexpectedErrorMessage,
 } from "@/domain/sale-errors";
 
 type OwnerClient = Awaited<ReturnType<typeof requireOwner>>;
@@ -200,17 +203,31 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
     if (error) {
       if (
         error.code === "22023" &&
-        /customer is archived|customer not found/i.test(error.message)
+        /customer is archived|customer (not found|no longer exists)/i.test(
+          error.message,
+        )
       )
         return {
           error: inactiveSaleCustomerMessage,
           code: "customer_unavailable" as const,
         };
+
+      const safeMessage = safeDatabaseSaleErrorMessage(
+        error.code,
+        error.message,
+      );
+      if (safeMessage === saleUnexpectedErrorMessage)
+        console.error("[DepotFlow] save_sale_v2 failed", {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+        });
       return {
-        error:
-          error.code === "22023"
-            ? error.message
-            : "Could not save sale. Review and try again.",
+        error: safeMessage,
+        ...(safeMessage === saleUnexpectedErrorMessage
+          ? { code: "server_error" as const }
+          : {}),
       };
     }
 
@@ -224,11 +241,14 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
       },
     };
   } catch (cause) {
+    const safeMessage = safeCaughtSaleErrorMessage(cause);
+    if (safeMessage === saleUnexpectedErrorMessage)
+      console.error("[DepotFlow] unexpected sale save failure", cause);
     return {
-      error:
-        cause instanceof Error
-          ? cause.message
-          : "Could not save sale. Review and try again.",
+      error: safeMessage,
+      ...(safeMessage === saleUnexpectedErrorMessage
+        ? { code: "server_error" as const }
+        : {}),
     };
   }
 }
