@@ -8,6 +8,7 @@ export type StoredSaleDraft = {
   draft: SaleDraft;
   pausedAt: string | null;
   resumedAt?: string | null;
+  saveUncertain?: boolean;
 };
 export type SaleDrafts = {
   version: 2;
@@ -42,6 +43,19 @@ export function replaceActiveSaleId(
     active: { ...state.active, id: requestId },
   };
 }
+export function setActiveSaleSaveUncertain(
+  state: SaleDrafts,
+  expectedId: string,
+  saveUncertain: boolean,
+): SaleDrafts {
+  if (state.active?.id !== expectedId)
+    throw new Error("The active sale changed. Open it again before saving.");
+  return {
+    ...state,
+    active: { ...state.active, saveUncertain },
+  };
+}
+
 export function hasSaleWork(draft: SaleDraft) {
   return Boolean(draft.customerId || draft.lines.length);
 }
@@ -70,10 +84,15 @@ export function readSaleDrafts(raw: string | null): SaleDrafts {
     return {
       version: 2,
       active: data.active
-        ? { ...data.active, draft: cleanDraft(data.active.draft) }
+        ? {
+            ...data.active,
+            saveUncertain: data.active.saveUncertain === true,
+            draft: cleanDraft(data.active.draft),
+          }
         : null,
       paused: data.paused.map((entry: StoredSaleDraft) => ({
         ...entry,
+        saveUncertain: entry.saveUncertain === true,
         draft: cleanDraft(entry.draft),
       })),
     };
@@ -99,6 +118,7 @@ export function updateActiveSale(
       id: expectedId ?? newId,
       pausedAt: null,
       resumedAt: state.active?.resumedAt ?? null,
+      saveUncertain: state.active?.saveUncertain ?? false,
       draft: cleanDraft({
         ...(state.active?.draft ?? emptySaleDraft),
         ...patch,
