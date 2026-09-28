@@ -1,7 +1,10 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
-import { loadSaleCatalog, saveSale } from "@/app/(shop)/record-sale/actions";
+import {
+  refreshSaleCatalog,
+  saveSale,
+} from "@/app/(shop)/record-sale/actions";
 import { CustomerForm } from "./customer-form";
 import { emptyCustomer } from "@/domain/customers";
 import { ProductImage } from "@/components/product-image";
@@ -16,6 +19,7 @@ import { wholeNumberInputMessage } from "@/domain/sale-input";
 import {
   saleNetworkMessage,
   saleSaveUncertainMessage,
+  saleSessionExpiredMessage,
 } from "@/domain/sale-errors";
 import { formatNaira } from "@/domain/products";
 import { formatQuantity } from "@/domain/quantity";
@@ -54,6 +58,7 @@ export function SaleBuilder({
   const [customerQuery, setCustomerQuery] = useState("");
   const [catalog, setCatalog] = useState(initialCatalog);
   const [message, setMessage] = useState("");
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [uncertainRequestId, setUncertainRequestId] = useState<string | null>(
     null,
   );
@@ -79,17 +84,26 @@ export function SaleBuilder({
   useEffect(() => {
     if (!activeId) return;
     let current = true;
-    loadSaleCatalog()
-      .then((fresh) => {
-        if (current) {
-          setCatalog(fresh);
-          setVerifiedId(activeId);
+    refreshSaleCatalog()
+      .then((response) => {
+        if (!current) return;
+        if (response.code === "session_expired") {
+          setSessionExpired(true);
           setCheckError("");
+          setMessage(response.error);
+          return;
         }
+        if ("catalog" in response && response.catalog) {
+          setCatalog(response.catalog);
+          setVerifiedId(activeId);
+          setSessionExpired(false);
+          setCheckError("");
+          return;
+        }
+        setCheckError(response.error || saleNetworkMessage);
       })
       .catch(() => {
-        if (current)
-          setCheckError(saleNetworkMessage);
+        if (current) setCheckError(saleNetworkMessage);
       });
     return () => {
       current = false;
@@ -179,7 +193,17 @@ export function SaleBuilder({
   function quickCheck() {
     startTransition(async () => {
       try {
-        const fresh = await loadSaleCatalog();
+        const response = await refreshSaleCatalog();
+        if (response.code === "session_expired") {
+          setSessionExpired(true);
+          setMessage(response.error);
+          return;
+        }
+        if (!("catalog" in response) || !response.catalog) {
+          setMessage(response.error || saleNetworkMessage);
+          return;
+        }
+        const fresh = response.catalog;
         setCatalog(fresh);
         const checked = revalidateSaleDraft(draft, fresh);
         if (checked.warnings.length) {
@@ -230,7 +254,16 @@ export function SaleBuilder({
           initialValues={emptyCustomer}
           onCancel={() => setNewCustomer(null)}
           onCreated={async (id) => {
-            const fresh = await loadSaleCatalog();
+            const response = await refreshSaleCatalog();
+            if (response.code === "session_expired") {
+              setSessionExpired(true);
+              setMessage(response.error);
+              setNewCustomer(null);
+              return;
+            }
+            if (!("catalog" in response) || !response.catalog)
+              throw new Error(response.error || saleNetworkMessage);
+            const fresh = response.catalog;
             if (!fresh.customers.some((customer) => customer.id === id))
               throw new Error("Customer could not be loaded.");
             if (!(await sales.selectCustomer(newCustomer.draftId, id)))
@@ -250,7 +283,24 @@ export function SaleBuilder({
 
   return (
     <>
-      {!ready && (
+      {sessionExpired && (
+        <div
+          role="alert"
+          className="mb-5 border-l-4 border-amber-700 pl-3 text-amber-950"
+        >
+          <p className="font-semibold">{saleSessionExpiredMessage}</p>
+          <p className="mt-1 text-sm">
+            Everything in this sale is still saved on this device.
+          </p>
+          <Link
+            href="/sign-in?next=/record-sale"
+            className="secondary mt-3 inline-block"
+          >
+            Sign in again
+          </Link>
+        </div>
+      )}
+      {!ready && !sessionExpired && (
         <div role="status" className="mb-5">
           <p>{checkError || "Checking current prices and stock…"}</p>
           {checkError && (
@@ -264,7 +314,7 @@ export function SaleBuilder({
         </div>
       )}
       <fieldset
-        disabled={pending || !ready}
+        disabled={pending || !ready || sessionExpired}
         aria-label="Sale draft"
         className="space-y-5"
       >
@@ -869,7 +919,17 @@ export function SaleBuilder({
                 startTransition(async () => {
                   let fresh: SaleCatalog;
                   try {
-                    fresh = await loadSaleCatalog();
+                    const response = await refreshSaleCatalog();
+                    if (response.code === "session_expired") {
+                      setSessionExpired(true);
+                      setMessage(response.error);
+                      return;
+                    }
+                    if (!("catalog" in response) || !response.catalog) {
+                      setMessage(response.error || saleNetworkMessage);
+                      return;
+                    }
+                    fresh = response.catalog;
                   } catch {
                     setMessage(saleNetworkMessage);
                     return;
@@ -1036,14 +1096,25 @@ export function SaleBuilder({
                   setUncertainRequestId(null);
 
                   if (response.error) {
+                    if (response.code === "session_expired") {
+                      setSessionExpired(true);
+                      setMessage(response.error);
+                      return;
+                    }
                     if (response.code === "customer_unavailable") {
                       try {
-                        const fresh = await loadSaleCatalog();
-                        setCatalog(fresh);
-                        await sales.update({ step: "customer" });
+                        const refreshed = await refreshSaleCatalog();
+                        if (refreshed.code === "session_expired") {
+                          setSessionExpired(true);
+                          setMessage(refreshed.error);
+                          return;
+                        }
+                        if ("catalog" in refreshed && refreshed.catalog) {
+                          setCatalog(refreshed.catalog);
+                          await sales.update({ step: "customer" });
+                        }
                       } catch {
-                        // The draft stays intact. The customer screen will
-                        // refresh again when the sale is reopened.
+                        // The draft stays intact and can be retried.
                       }
                     }
                     setMessage(response.error);
