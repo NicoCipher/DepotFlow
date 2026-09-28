@@ -3,13 +3,14 @@
 import { useActionState } from "react";
 import { signIn } from "@/app/sign-in/actions";
 
-export function SignInForm() {
+export function SignInForm({ returnTo = "/" }: { returnTo?: string }) {
   const [state, action, pending] = useActionState(signIn, {
     email: "",
     message: "",
   });
   return (
     <form action={action} className="space-y-5">
+      <input type="hidden" name="return_to" value={returnTo} />
       <div>
         <label htmlFor="email">Email</label>
         <input
