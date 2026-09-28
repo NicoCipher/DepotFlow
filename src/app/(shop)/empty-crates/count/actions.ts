@@ -1,10 +1,11 @@
 "use server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { requireOwner } from "@/lib/auth/owner";
+import { ownerSession } from "@/lib/auth/owner";
 import { isProductId } from "@/domain/products";
 import {
   emptyCrateCountPreview,
+  emptyCrateSaveError,
   type EmptyCrateCountState,
 } from "@/domain/empty-crates";
 
@@ -13,17 +14,25 @@ export async function reviewEmptyCrateCount(
   _previous: EmptyCrateCountState,
   form: FormData,
 ): Promise<EmptyCrateCountState> {
-  const supabase = await requireOwner();
   const values = {
     quantity: String(form.get("quantity") ?? ""),
     businessDate: String(form.get("businessDate") ?? ""),
   };
-  const { data, error } = await supabase
+  if (!isProductId(crateTypeId)) return { ...values, message: "Choose an existing crate type." };
+  let session: Awaited<ReturnType<typeof ownerSession>>;
+  try { session = await ownerSession(); } catch { return { ...values, message: "Could not load empty crates. Try again." }; }
+  if (!session.allowed || !session.user) return { ...values, message: "Your session has expired. Sign in again to review empty crates." };
+  let data: { crate_type_id: string | null; quantity: number | null } | null;
+  try {
+  const result = await session.supabase
     .from("known_empty_crates")
     .select("crate_type_id,quantity")
     .eq("crate_type_id", crateTypeId)
     .maybeSingle();
-  if (error || !data)
+  if (result.error) return { ...values, message: "Could not load this crate type. Try again." };
+  data = result.data;
+  } catch { return { ...values, message: "Could not load empty crates. Try again." }; }
+  if (!data)
     return { ...values, message: "Could not load this crate type. Try again." };
   try {
     return {
@@ -35,9 +44,11 @@ export async function reviewEmptyCrateCount(
       ),
     };
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Check your count.";
     return {
       ...values,
-      message: error instanceof Error ? error.message : "Check your count.",
+      message: ["Enter a whole number of crates, zero or more.", "Choose a valid business date."].includes(message) ? message : "Could not review this count. Try again.",
+      field: message === "Choose a valid business date." ? "businessDate" : message === "Enter a whole number of crates, zero or more." ? "quantity" : undefined,
     };
   }
 }
@@ -45,17 +56,22 @@ export async function confirmEmptyCrateCount(
   crateTypeId: string,
   requestId: string,
   review: NonNullable<EmptyCrateCountState["review"]>,
-): Promise<{ message: string }> {
-  const supabase = await requireOwner();
-  if (!isProductId(requestId))
+): Promise<{ message: string; retryable?: boolean }> {
+  if (!isProductId(crateTypeId) || !isProductId(requestId))
     return { message: "Please reopen Set Current Count." };
+  let checked: ReturnType<typeof emptyCrateCountPreview>;
   try {
-    const checked = emptyCrateCountPreview(
+    checked = emptyCrateCountPreview(
       String(review.quantity),
       review.businessDate,
       review.previousQuantity,
     );
-    const { error } = await supabase.rpc("set_empty_crate_count", {
+  } catch { return { message: "Check the count and business date, then review again." }; }
+  let session: Awaited<ReturnType<typeof ownerSession>>;
+  try { session = await ownerSession(); } catch { return emptyCrateSaveError(); }
+  if (!session.allowed || !session.user) return emptyCrateSaveError("42501");
+  try {
+    const { error } = await session.supabase.rpc("set_empty_crate_count", {
       p_request_id: requestId,
       p_crate_type_id: crateTypeId,
       p_quantity: checked.quantity,
@@ -66,15 +82,9 @@ export async function confirmEmptyCrateCount(
       // keep the real null/number value at runtime.
       p_expected_quantity: checked.previousQuantity as number,
     });
-    if (error)
-      return {
-        message:
-          error.code === "22023"
-            ? error.message
-            : "Could not save. You can safely try again.",
-      };
+    if (error) return emptyCrateSaveError(error.code, error.message);
   } catch {
-    return { message: "Could not save. Check your count or safely try again." };
+    return emptyCrateSaveError();
   }
   revalidatePath("/empty-crates");
   revalidatePath("/stock");

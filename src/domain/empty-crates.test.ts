@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { emptyCrateQuantity, emptyCrateCountPreview } from "./empty-crates.ts";
+import { emptyCrateQuantity, emptyCrateCountPreview, emptyCrateSaveError } from "./empty-crates.ts";
+
+test("empty crate saves explain changed counts and hide unknown database errors", () => {
+  assert.match(emptyCrateSaveError("22023", "Empty crates changed. Review the count again.").message, /changed since/);
+  assert.equal(emptyCrateSaveError("22023", "Empty crates changed. Review the count again.").retryable, false);
+  assert.equal(emptyCrateSaveError("42501").retryable, false);
+  assert.equal(emptyCrateSaveError("PGRST000", "private.empty_crate_stock").retryable, true);
+  assert.doesNotMatch(emptyCrateSaveError("22023", "private.empty_crate_stock").message, /private|empty_crate_stock/);
+});
 
 test("unrecorded empty crates stay distinct from confirmed zero", () => {
   assert.equal(emptyCrateQuantity(null), "Not recorded");

@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import {
   reviewEmptyCrateCount,
@@ -47,13 +48,14 @@ function ConfirmEmptyCrateCount({
           {state.message}
         </p>
       )}
+      {state.message?.startsWith("Your session has expired") && <Link href="/sign-in" target="_blank" rel="noopener noreferrer" className="quiet-link">Sign in in a new tab</Link>}
       <button className="primary w-full" disabled={pending}>
-        {pending ? "Saving…" : "Save Current Count"}
+        {pending ? "Saving…" : state.retryable ? "Retry same count" : "Save Current Count"}
       </button>
       <button
         type="button"
         className="quiet-link w-full text-center"
-        disabled={pending}
+        disabled={pending || state.retryable}
         onClick={onBack}
       >
         Change count
@@ -68,11 +70,11 @@ export function EmptyCrateCountForm({
   crateTypeId: string;
   requestId: string;
 }) {
-  const [submissionId] = useState(requestId);
+  const [submissionId, setSubmissionId] = useState(requestId);
   const [editing, setEditing] = useState(false);
   const [values, setValues] = useState({
     quantity: "",
-    businessDate: "",
+    businessDate: new Date().toLocaleDateString("sv-SE"),
   });
   const [state, action, pending] = useActionState(
     reviewEmptyCrateCount.bind(null, crateTypeId),
@@ -84,7 +86,7 @@ export function EmptyCrateCountForm({
         crateTypeId={crateTypeId}
         requestId={submissionId}
         review={state.review}
-        onBack={() => setEditing(true)}
+        onBack={() => { setSubmissionId(crypto.randomUUID()); setEditing(true); }}
       />
     );
   return (
@@ -104,6 +106,7 @@ export function EmptyCrateCountForm({
           required
           value={values.quantity}
           readOnly={pending}
+          aria-invalid={state.field === "quantity"}
           onChange={(e) => setValues({ ...values, quantity: e.target.value })}
         />
       </div>
@@ -118,6 +121,7 @@ export function EmptyCrateCountForm({
           required
           value={values.businessDate}
           readOnly={pending}
+          aria-invalid={state.field === "businessDate"}
           onChange={(e) =>
             setValues({ ...values, businessDate: e.target.value })
           }
@@ -128,6 +132,7 @@ export function EmptyCrateCountForm({
           {state.message}
         </p>
       )}
+      {state.message?.startsWith("Your session has expired") && <Link href="/sign-in" target="_blank" rel="noopener noreferrer" className="quiet-link">Sign in in a new tab</Link>}
       <button className="primary w-full" disabled={pending}>
         {pending ? "Checking…" : "Review count"}
       </button>
