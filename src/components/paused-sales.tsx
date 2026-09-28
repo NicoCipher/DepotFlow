@@ -109,7 +109,7 @@ export function PausedSales({
                           setSessionExpired(true);
                           setMessage(saleSessionExpiredMessage);
                         } else {
-                          setMessage(response.error);
+                          setMessage(response.error ?? saleNetworkMessage);
                         }
                         return;
                       }
