@@ -24,9 +24,9 @@ export default async function EmptyCrateCountPage({
   return (
     <>
       <h1>Set Current Count</h1>
-      <section aria-label="Crate type being counted" className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Counting</p>
-        <h2 className="break-words text-xl font-bold text-emerald-950"><CrateDisplay crate={data} /></h2>
+      <section aria-label="Crate type being counted" className="mt-5 border-b border-stone-200 pb-4">
+        <p className="text-sm text-stone-500">Counting</p>
+        <h2 className="break-words text-2xl font-semibold tracking-tight text-stone-950"><CrateDisplay crate={data} /></h2>
       </section>
       <p className="mt-2 text-stone-600">
         Count the empty crates physically in the shop now.
