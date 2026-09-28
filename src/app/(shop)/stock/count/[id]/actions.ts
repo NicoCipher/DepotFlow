@@ -1,16 +1,15 @@
 "use server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { requireOwner } from "@/lib/auth/owner";
+import { ownerSession } from "@/lib/auth/owner";
 import { isProductId } from "@/domain/products";
-import { stockCountPreview, type StockCountState } from "@/domain/stock-count";
+import { stockCountInputField, stockCountPreview, stockCountSaveError, type StockCountState } from "@/domain/stock-count";
 
 export async function reviewCount(
   productId: string,
   _previous: StockCountState,
   form: FormData,
 ): Promise<StockCountState> {
-  const supabase = await requireOwner();
   const values = {
     crates: String(form.get("crates") ?? ""),
     bottles: String(form.get("bottles") ?? ""),
@@ -18,12 +17,23 @@ export async function reviewCount(
   };
   if (!isProductId(productId))
     return { ...values, message: "Product not found." };
-  const { data, error } = await supabase
+  let session: Awaited<ReturnType<typeof ownerSession>>;
+  try { session = await ownerSession(); } catch {
+    return { ...values, message: "Could not load stock. Try again." };
+  }
+  if (!session.allowed || !session.user)
+    return { ...values, message: "Your session has expired. Sign in again to review stock." };
+  let data: { bottles_per_crate: number; stock: { total_bottles: number } | null } | null;
+  try {
+  const result = await session.supabase
     .from("products")
     .select("bottles_per_crate,stock(total_bottles)")
     .eq("id", productId)
     .maybeSingle();
-  if (error || !data)
+  if (result.error) return { ...values, message: "Could not load stock. Try again." };
+  data = result.data;
+  } catch { return { ...values, message: "Could not load stock. Try again." }; }
+  if (!data)
     return { ...values, message: "Could not load stock. Try again." };
   try {
     return {
@@ -37,10 +47,11 @@ export async function reviewCount(
       ),
     };
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Check your stock count.";
     return {
       ...values,
-      message:
-        error instanceof Error ? error.message : "Check your stock count.",
+      message: message === "Choose a valid business date." || message === "Enter whole numbers of crates and loose bottles, zero or more." || message === "Loose bottles must be fewer than a full crate." || message === "That would exceed the stock limit." ? message : "Could not review this count. Try again.",
+      field: stockCountInputField(values.crates, values.bottles, values.businessDate) ?? (message === "Loose bottles must be fewer than a full crate." ? "bottles" : message === "That would exceed the stock limit." ? "crates" : undefined),
     };
   }
 }
@@ -48,19 +59,24 @@ export async function confirmCount(
   productId: string,
   requestId: string,
   review: NonNullable<StockCountState["review"]>,
-): Promise<{ message: string }> {
-  const supabase = await requireOwner();
+): Promise<{ message: string; retryable?: boolean }> {
   if (!isProductId(productId) || !isProductId(requestId))
     return { message: "Please reopen Set Current Stock." };
+  let checked: ReturnType<typeof stockCountPreview>;
   try {
-    const checked = stockCountPreview(
+    checked = stockCountPreview(
       String(review.crates),
       String(review.bottles),
       review.businessDate,
       review.stock,
       review.bottlesPerCrate,
     );
-    const { error } = await supabase.rpc("set_current_stock", {
+  } catch { return { message: "Check the count and business date, then review again." }; }
+  let session: Awaited<ReturnType<typeof ownerSession>>;
+  try { session = await ownerSession(); } catch { return stockCountSaveError(); }
+  if (!session.allowed || !session.user) return stockCountSaveError("42501");
+  try {
+    const { error } = await session.supabase.rpc("set_current_stock", {
       p_product_id: productId,
       p_request_id: requestId,
       p_crates: checked.crates,
@@ -69,15 +85,9 @@ export async function confirmCount(
       p_expected_stock: checked.stock,
       p_expected_bottles_per_crate: checked.bottlesPerCrate,
     });
-    if (error)
-      return {
-        message:
-          error.code === "22023"
-            ? error.message
-            : "Could not save. You can safely try again.",
-      };
+    if (error) return stockCountSaveError(error.code, error.message);
   } catch {
-    return { message: "Could not save. Check your count or safely try again." };
+    return stockCountSaveError();
   }
   revalidatePath("/stock");
   redirect("/stock?counted=1");

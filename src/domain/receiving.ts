@@ -10,6 +10,7 @@ export type ReceivingState = {
   crates: string;
   businessDate: string;
   message?: string;
+  field?: "crates" | "businessDate";
   review?: ReceivingSnapshot & {
     crates: number;
     businessDate: string;
@@ -17,6 +18,24 @@ export type ReceivingState = {
     emptiesAfter: number;
   };
 };
+export function receivingSaveError(code?: string, message?: string) {
+  if (["42501", "PGRST301", "401", "403"].includes(code ?? ""))
+    return { message: "Your session has expired. Sign in again and check stock history before receiving more stock.", retryable: false };
+  if (code === "22023") {
+    const known: Record<string, string> = {
+      "Stock or product details changed. Review again.": "Stock or empty crates changed. Go back and review the latest amounts.",
+      "Not enough empty crates of this type.": "There are not enough matching empty crates. Go back and check the available amount.",
+      "This receiving form has already been used.": "This form may have saved a different receipt. Check stock history before trying again.",
+      "This stock form has already been used.": "This form may have saved another stock change. Check stock history before trying again.",
+      "Product not found.": "This product is no longer available. Choose another product.",
+      "That would exceed the stock limit.": "Receiving these crates would exceed the stock limit. Change the amount and review again.",
+      "Enter a positive whole number of crates.": "Enter a positive whole number of crates and review again.",
+      "Choose a valid business date.": "Choose a valid business date and review again.",
+    };
+    if (message && known[message]) return { message: known[message], retryable: false };
+  }
+  return { message: "Could not confirm whether stock was received. Retry these exact details; they will not be saved twice.", retryable: true };
+}
 export function receivingPreview(raw: string, snapshot: ReceivingSnapshot) {
   const crates = Number(raw.trim());
   if (

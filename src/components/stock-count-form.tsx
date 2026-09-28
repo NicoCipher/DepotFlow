@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import {
   reviewCount,
@@ -49,13 +50,14 @@ function ConfirmCount({
           {state.message}
         </p>
       )}
+      {state.message?.startsWith("Your session has expired") && <Link href="/sign-in" target="_blank" rel="noopener noreferrer" className="quiet-link">Sign in in a new tab</Link>}
       <button className="primary w-full" disabled={pending}>
-        {pending ? "Saving…" : "Save Current Stock"}
+        {pending ? "Saving…" : state.retryable ? "Retry same count" : "Save Current Stock"}
       </button>
       <button
         type="button"
         className="quiet-link w-full text-center"
-        disabled={pending}
+        disabled={pending || state.retryable}
         onClick={onBack}
       >
         Change count
@@ -70,12 +72,12 @@ export function StockCountForm({
   productId: string;
   requestId: string;
 }) {
-  const [submissionId] = useState(requestId);
+  const [submissionId, setSubmissionId] = useState(requestId);
   const [editing, setEditing] = useState(false);
   const [values, setValues] = useState({
     crates: "",
     bottles: "0",
-    businessDate: "",
+    businessDate: new Date().toLocaleDateString("sv-SE"),
   });
   const [state, action, pending] = useActionState(
     reviewCount.bind(null, productId),
@@ -87,7 +89,7 @@ export function StockCountForm({
         productId={productId}
         requestId={submissionId}
         review={state.review}
-        onBack={() => setEditing(true)}
+        onBack={() => { setSubmissionId(crypto.randomUUID()); setEditing(true); }}
       />
     );
   return (
@@ -107,6 +109,7 @@ export function StockCountForm({
           required
           value={values.crates}
           readOnly={pending}
+          aria-invalid={state.field === "crates"}
           onChange={(e) => setValues({ ...values, crates: e.target.value })}
         />
       </div>
@@ -121,6 +124,7 @@ export function StockCountForm({
           required
           value={values.bottles}
           readOnly={pending}
+          aria-invalid={state.field === "bottles"}
           onChange={(e) => setValues({ ...values, bottles: e.target.value })}
         />
       </div>
@@ -135,6 +139,7 @@ export function StockCountForm({
           required
           value={values.businessDate}
           readOnly={pending}
+          aria-invalid={state.field === "businessDate"}
           onChange={(e) =>
             setValues({ ...values, businessDate: e.target.value })
           }
@@ -145,6 +150,7 @@ export function StockCountForm({
           {state.message}
         </p>
       )}
+      {state.message?.startsWith("Your session has expired") && <Link href="/sign-in" target="_blank" rel="noopener noreferrer" className="quiet-link">Sign in in a new tab</Link>}
       <button className="primary w-full" disabled={pending}>
         {pending ? "Checking…" : "Review stock count"}
       </button>

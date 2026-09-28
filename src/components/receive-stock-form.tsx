@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import {
   reviewReceiving,
@@ -67,13 +68,14 @@ function ConfirmReceiving({
           {state.message}
         </p>
       )}
+      {state.message?.startsWith("Your session has expired") && <Link href="/sign-in" target="_blank" rel="noopener noreferrer" className="quiet-link">Sign in in a new tab</Link>}
       <button className="primary w-full" disabled={pending}>
-        {pending ? "Saving…" : "Save Stock Received"}
+        {pending ? "Saving…" : state.retryable ? "Retry same receipt" : "Save Stock Received"}
       </button>
       <button
         type="button"
         className="quiet-link w-full text-center"
-        disabled={pending}
+        disabled={pending || state.retryable}
         onClick={onBack}
       >
         Change amount
@@ -89,10 +91,10 @@ export function ReceiveStockForm({
   requestId: string;
 }) {
   // Keep the receiving ID stable across server-action re-renders and retries.
-  const [submissionId] = useState(requestId);
+  const [submissionId, setSubmissionId] = useState(requestId);
   const [editing, setEditing] = useState(false);
   const [crates, setCrates] = useState("");
-  const [businessDate, setBusinessDate] = useState("");
+  const [businessDate, setBusinessDate] = useState(() => new Date().toLocaleDateString("sv-SE"));
   const [state, action, pending] = useActionState(
     reviewReceiving.bind(null, productId),
     { crates: "", businessDate: "" } as ReceivingState,
@@ -103,7 +105,7 @@ export function ReceiveStockForm({
         productId={productId}
         requestId={submissionId}
         review={state.review}
-        onBack={() => setEditing(true)}
+        onBack={() => { setSubmissionId(crypto.randomUUID()); setEditing(true); }}
       />
     );
   return (
@@ -123,6 +125,7 @@ export function ReceiveStockForm({
           required
           value={crates}
           readOnly={pending}
+          aria-invalid={state.field === "crates"}
           onChange={(event) => setCrates(event.target.value)}
         />
       </div>
@@ -137,6 +140,7 @@ export function ReceiveStockForm({
           required
           value={businessDate}
           readOnly={pending}
+          aria-invalid={state.field === "businessDate"}
           onChange={(event) => setBusinessDate(event.target.value)}
         />
       </div>
@@ -145,6 +149,7 @@ export function ReceiveStockForm({
           {state.message}
         </p>
       )}
+      {state.message?.startsWith("Your session has expired") && <Link href="/sign-in" target="_blank" rel="noopener noreferrer" className="quiet-link">Sign in in a new tab</Link>}
       <button className="primary w-full" disabled={pending}>
         {pending ? "Checking…" : "Review stock"}
       </button>
