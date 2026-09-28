@@ -30,9 +30,10 @@ select pg_temp.ok((public.manager_snapshot('2026-09-28')->>'received')::int=3000
 select pg_temp.ok((public.store_activity('2026-09-28','2026-09-28',null,'payment',30,0)->>'received')::int=3000,'Activity total is incorrect');
 reset role;
 update public.customer_payments set receipt_status='voided' where request_id='20000000-0000-4000-8000-000000009201';
+select set_config('app.test_receipt_token',(select verification_token::text from public.customer_payments limit 1),true);
 set local role anon;
 select set_config('request.jwt.claim.sub','',true);
-select pg_temp.ok((select public.verify_receipt(verification_token)->>'status'='voided' from public.customer_payments limit 1),'Voided status hidden');
+select pg_temp.ok(public.verify_receipt(current_setting('app.test_receipt_token')::uuid)->>'status'='voided','Voided status hidden');
 do $$begin
   begin perform public.manager_snapshot('2026-09-28'); raise exception 'Anonymous snapshot accepted';
   exception when insufficient_privilege then null; end;
