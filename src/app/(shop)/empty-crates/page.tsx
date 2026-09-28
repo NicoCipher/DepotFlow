@@ -1,3 +1,4 @@
+import { SuccessToast } from "@/components/success-toast";
 import { CrateDisplay } from "@/components/crate-display";
 import { crateNeedsSetup, showInDailyEmptyCrates } from "@/domain/crate-types";
 import Link from "next/link";
@@ -60,11 +61,7 @@ export default async function EmptyCratesPage({
   return (
     <>
       <h1>Empty Crates</h1>
-      {params.saved === "1" && (
-        <p role="status" className="mt-3 text-emerald-900">
-          Empty-crate count saved.
-        </p>
-      )}
+      {params.saved === "1" && <SuccessToast message="Empty crate count saved." />}
       {!visible.length && <p className="mt-6">No crate counts to show.</p>}
       {Array.from(groups)
         .sort(([a], [b]) =>

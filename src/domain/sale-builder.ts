@@ -317,6 +317,7 @@ export type SaleDraft = {
     | "review";
   businessDate: string;
   paid: string;
+  paymentMethod: string;
   allEmpties: boolean;
   returns: Record<string, { crates: string; bottles: string }>;
   emptiesV2: {
@@ -338,6 +339,7 @@ export const emptySaleDraft: SaleDraft = {
   step: "customer",
   businessDate: "",
   paid: "0",
+  paymentMethod: "",
   allEmpties: true,
   returns: {},
   emptiesV2: {
@@ -433,6 +435,7 @@ export function readSaleDraft(raw: string | null): SaleDraft {
           : d.step,
       businessDate: typeof d.businessDate === "string" ? d.businessDate : "",
       paid: typeof d.paid === "string" ? d.paid : "0",
+      paymentMethod: typeof d.paymentMethod === "string" ? d.paymentMethod : "",
       allEmpties: typeof d.allEmpties === "boolean" ? d.allEmpties : true,
       returns,
       emptiesV2: {

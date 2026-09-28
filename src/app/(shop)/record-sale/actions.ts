@@ -154,6 +154,8 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
   )
     return { error: "Check the sale date and amount paid." };
 
+  if (Number(draft.paid) > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))
+    return { error: "Choose how the customer paid." };
   let rpcStarted = false;
   try {
     const fresh = await loadCatalog(supabase);
@@ -198,6 +200,7 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
       p_customer_id: draft.customerId,
       p_business_date: draft.businessDate,
       p_paid: Number(draft.paid),
+      p_payment_method: Number(draft.paid) > 0 ? draft.paymentMethod : "not_recorded",
       p_lines: lines,
       p_returned_crates: actual.crates,
       p_returned_bottles: actual.bottles,

@@ -22,7 +22,7 @@ export function validatePaymentAmount(text: string): number {
   return amount;
 }
 
-export type PaymentError = { field?: "amount" | "businessDate"; message: string; retryable: boolean };
+export type PaymentError = { field?: "amount" | "businessDate" | "method"; message: string; retryable: boolean };
 
 export function paymentSaveError(code?: string, message?: string): PaymentError {
   if (code === "42501" || code === "PGRST301" || code === "401" || code === "403")
@@ -35,6 +35,8 @@ export function paymentSaveError(code?: string, message?: string): PaymentError 
         return { field: "amount", message: "This customer no longer owes money. Check their payment history before trying again.", retryable: false };
       case "Enter a whole payment amount greater than zero.":
         return { field: "amount", message: "Enter a whole payment amount greater than zero.", retryable: false };
+      case "Choose a payment method.":
+        return { field: "method", message: "Choose how the customer paid.", retryable: false };
       case "Choose a valid business date.":
         return { field: "businessDate", message: "Choose a valid business date.", retryable: false };
       case "Customer no longer exists.":

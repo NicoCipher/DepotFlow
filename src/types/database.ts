@@ -211,6 +211,10 @@ export type Database = {
           id: string
           owed_after: number
           request_id: string
+          method: string
+          receipt_number: string
+          verification_token: string
+          receipt_status: string
         }
         Insert: {
           amount: number
@@ -220,6 +224,10 @@ export type Database = {
           id?: string
           owed_after: number
           request_id: string
+          method?: string
+          receipt_number?: string
+          verification_token?: string
+          receipt_status?: string
         }
         Update: {
           amount?: number
@@ -229,6 +237,10 @@ export type Database = {
           id?: string
           owed_after?: number
           request_id?: string
+          method?: string
+          receipt_number?: string
+          verification_token?: string
+          receipt_status?: string
         }
         Relationships: [
           {
@@ -655,6 +667,10 @@ export type Database = {
           request_id: string | null
           request_payload: Json | null
           total_amount: number
+          payment_method: string
+          receipt_number: string
+          verification_token: string
+          receipt_status: string
         }
         Insert: {
           business_date?: string | null
@@ -665,6 +681,10 @@ export type Database = {
           request_id?: string | null
           request_payload?: Json | null
           total_amount: number
+          payment_method?: string
+          receipt_number?: string
+          verification_token?: string
+          receipt_status?: string
         }
         Update: {
           business_date?: string | null
@@ -675,6 +695,10 @@ export type Database = {
           request_id?: string | null
           request_payload?: Json | null
           total_amount?: number
+          payment_method?: string
+          receipt_number?: string
+          verification_token?: string
+          receipt_status?: string
         }
         Relationships: [
           {
@@ -840,8 +864,12 @@ export type Database = {
         }
         Returns: Json
       }
+      manager_snapshot: { Args: { p_day: string }; Returns: Json }
+      store_activity: { Args: { p_from: string; p_to: string; p_customer: string | null; p_type: string; p_limit: number; p_offset: number }; Returns: Json }
+      verify_receipt: { Args: { p_token: string }; Returns: Json }
       record_payment: {
         Args: {
+          p_method: string
           p_amount: number
           p_business_date: string
           p_customer_id: string
@@ -861,6 +889,7 @@ export type Database = {
       }
       save_sale_v2: {
         Args: {
+          p_payment_method: string
           p_business_date: string
           p_customer_id: string
           p_lines: Json

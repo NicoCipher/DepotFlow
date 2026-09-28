@@ -35,7 +35,7 @@ export default async function RecordPaymentPage({
       {owed > 0 ? (
         <>
           <p className="mt-5 text-stone-700">Enter what {customer.name} paid. The amount cannot be more than what they owe.</p>
-          <RecordPaymentForm customerId={id} requestId={randomUUID()} />
+          <RecordPaymentForm customerId={id} requestId={randomUUID()} owed={owed} />
         </>
       ) : (
         <p className="mt-6 text-stone-600">
