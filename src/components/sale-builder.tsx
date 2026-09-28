@@ -92,7 +92,7 @@ export function SaleBuilder({
             setSessionExpired(true);
             setCheckError(saleSessionExpiredMessage);
           } else {
-            setCheckError(response.error);
+            setCheckError(response.error ?? saleNetworkMessage);
           }
           return;
         }
@@ -202,7 +202,7 @@ export function SaleBuilder({
             setSessionExpired(true);
             setMessage(saleSessionExpiredMessage);
           } else {
-            setMessage(response.error);
+            setMessage(response.error ?? saleNetworkMessage);
           }
           return;
         }
@@ -284,7 +284,7 @@ export function SaleBuilder({
                 setSessionExpired(true);
                 throw new Error(saleSessionExpiredMessage);
               }
-              throw new Error(response.error);
+              throw new Error(response.error ?? saleNetworkMessage);
             }
             const fresh = response.catalog;
             if (!fresh.customers.some((customer) => customer.id === id))
@@ -931,7 +931,7 @@ export function SaleBuilder({
                         setSessionExpired(true);
                         setMessage(saleSessionExpiredMessage);
                       } else {
-                        setMessage(response.error);
+                        setMessage(response.error ?? saleNetworkMessage);
                       }
                       return;
                     }
@@ -1124,7 +1124,7 @@ export function SaleBuilder({
                         // refresh again when the sale is reopened.
                       }
                     }
-                    setMessage(response.error);
+                    setMessage(response.error ?? saleNetworkMessage);
                     return;
                   }
 
