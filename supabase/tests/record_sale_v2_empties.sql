@@ -67,6 +67,76 @@ begin
   ) then raise exception 'Sack sale created a crate obligation'; end if;
 end $$;
 
+-- Retrying the exact same request is idempotent. This is the save-timeout
+-- recovery path: the first call may have committed even if the browser did not
+-- receive the response.
+do $
+declare
+  first_id uuid;
+  retry jsonb;
+  line jsonb;
+  stock_before integer;
+  empties_before integer;
+begin
+  select id into first_id
+  from public.sales
+  where request_id='40000000-0000-4000-8000-000000000701';
+
+  select total_bottles into stock_before
+  from public.stock
+  where product_id='10000000-0000-4000-8000-000000000702';
+
+  select quantity into empties_before
+  from public.empty_bottle_stock
+  where bottle_type='Trophy bottle';
+
+  line:=jsonb_build_object(
+    'productId','10000000-0000-4000-8000-000000000702',
+    'quantity',jsonb_build_object('crates',1,'fraction',0,'bottles',0),
+    'cratesTaken',0,'returnedCrates',0,'returnedBottles',12,
+    'expected',jsonb_build_object(
+      'full',12000,'half',6000,'quarter',3000,'bottle',1000,'size',12,
+      'crate','50000000-0000-4000-8000-000000000702',
+      'returnable',true,'bottleType','Trophy bottle','stock',120
+    )
+  );
+
+  retry:=public.save_sale_v2(
+    '40000000-0000-4000-8000-000000000701',
+    '20000000-0000-4000-8000-000000000701',
+    '2026-09-27',12000,jsonb_build_array(line),'[]'::jsonb,
+    '[{"bottleType":"Trophy bottle","quantity":12}]'::jsonb
+  );
+
+  if (retry->>'id')::uuid is distinct from first_id then
+    raise exception 'Idempotent retry returned a different sale';
+  end if;
+  if (select total_bottles from public.stock
+      where product_id='10000000-0000-4000-8000-000000000702')
+      is distinct from stock_before then
+    raise exception 'Idempotent retry deducted stock twice';
+  end if;
+  if (select quantity from public.empty_bottle_stock
+      where bottle_type='Trophy bottle')
+      is distinct from empties_before then
+    raise exception 'Idempotent retry added returned bottles twice';
+  end if;
+  if (select count(*) from public.sales
+      where request_id='40000000-0000-4000-8000-000000000701') <> 1 then
+    raise exception 'Idempotent retry created a duplicate sale';
+  end if;
+
+  begin
+    perform public.save_sale_v2(
+      '40000000-0000-4000-8000-000000000701',
+      '20000000-0000-4000-8000-000000000701',
+      '2026-09-27',11000,jsonb_build_array(line),'[]'::jsonb,
+      '[{"bottleType":"Trophy bottle","quantity":12}]'::jsonb
+    );
+    raise exception 'Changed payload reused an existing sale request';
+  exception when invalid_parameter_value then null; end;
+end $;
+
 -- A complete Trophy package may be recorded physically while settling Goldberg.
 -- Matching rules are resolved by the application; the DB keeps expected settlement
 -- separate from the actual stock that came back.
