@@ -27,12 +27,16 @@ export default async function RecordPaymentPage({
         Back to {customer.name}
       </Link>
       <h1>Record Payment</h1>
-      <p className="mt-2 break-words text-lg font-semibold">
-        {customer.name}
-      </p>
-      <p className="mt-1 text-stone-600">Money owed: {formatNaira(owed)}</p>
+      <section aria-label="Payment for customer" className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Payment from</p>
+        <p className="break-words text-xl font-bold text-emerald-950">{customer.name}</p>
+        <p className="mt-2 text-emerald-950">Money owed: <strong className="text-lg">{formatNaira(owed)}</strong></p>
+      </section>
       {owed > 0 ? (
-        <RecordPaymentForm customerId={id} requestId={randomUUID()} />
+        <>
+          <p className="mt-5 text-stone-700">Enter what {customer.name} paid. The amount cannot be more than what they owe.</p>
+          <RecordPaymentForm customerId={id} requestId={randomUUID()} />
+        </>
       ) : (
         <p className="mt-6 text-stone-600">
           This customer does not owe any money.

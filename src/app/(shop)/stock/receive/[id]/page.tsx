@@ -11,9 +11,10 @@ export default async function ReceivePage({
   return (
     <>
       <h1>Receive Stock</h1>
-      <h2 className="mt-5 break-words text-xl font-semibold">
-        {product.name} {product.size}
-      </h2>
+      <section aria-label="Drink being received" className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Receiving</p>
+        <h2 className="break-words text-xl font-bold text-emerald-950">{product.name} {product.size}</h2>
+      </section>
       <p className="mt-2 text-stone-600">
         {product.bottles_per_crate} bottles per crate. Enter only what came in.
       </p>

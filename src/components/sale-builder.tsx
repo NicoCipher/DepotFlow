@@ -225,6 +225,7 @@ export function SaleBuilder({
         : `Available: ${formatQuantity(p.available, p.bottles_per_crate)}`;
   }
   const step = customer ? draft.step : "customer";
+  const displayedTotal = step === "review" ? reviewTotal : total;
   useEffect(() => {
     if (previousStep.current !== null && previousStep.current !== step) {
       stepHeading.current?.focus({ preventScroll: true });
@@ -377,6 +378,29 @@ export function SaleBuilder({
             )}
           </nav>
         )}
+        {customer && step !== "customer" && (
+          <section aria-label="Current sale" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Sale for</p>
+                <p className="break-words text-xl font-bold text-emerald-950">{customer.name}</p>
+                {customer.phone && <p className="text-sm text-emerald-900">{customer.phone}</p>}
+              </div>
+              <button
+                className="shrink-0 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-950"
+                onClick={() => update({ step: "customer" })}
+              >
+                Change
+              </button>
+            </div>
+            {draft.lines.length > 0 && (
+              <p className="mt-3 border-t border-emerald-200 pt-3 text-sm font-medium text-emerald-950">
+                {draft.lines.length} {draft.lines.length === 1 ? "drink" : "drinks"} in sale
+                {displayedTotal !== undefined && <> · <strong>{formatNaira(displayedTotal)}</strong> total</>}
+              </p>
+            )}
+          </section>
+        )}
         {step === "customer" && <PausedSalesLink ownerId={ownerId} />}
         {sales.state.active && (draft.customerId || draft.lines.length > 0) && (
           <details className="border-b border-stone-200 pb-2">
@@ -434,17 +458,6 @@ export function SaleBuilder({
             )}
           </div>
         )}
-        {customer && step !== "customer" && (
-          <div className="flex items-center justify-between gap-3">
-            <p className="min-w-0 break-words text-sm text-stone-600">Customer: <strong className="text-base text-stone-900">{customer.name}</strong></p>
-            <button
-              className="quiet-link"
-              onClick={() => update({ step: "customer" })}
-            >
-              Change customer
-            </button>
-          </div>
-        )}
         {message && (
           <p
             role="alert"
@@ -455,17 +468,7 @@ export function SaleBuilder({
         )}
         {step === "customer" && (
           <>
-            <button
-              className="secondary w-full"
-              onClick={() =>
-                setNewCustomer({
-                  id: crypto.randomUUID(),
-                  draftId: sales.state.active?.id ?? null,
-                })
-              }
-            >
-              New Customer
-            </button>
+            <p className="text-stone-700">Who is buying these drinks?</p>
             <label htmlFor="sale-customer-search">
               Search by name or phone
             </label>
@@ -476,22 +479,38 @@ export function SaleBuilder({
               value={customerQuery}
               onChange={(e) => setCustomerQuery(e.target.value)}
             />
+            <button
+              className="secondary w-full"
+              onClick={() =>
+                setNewCustomer({
+                  id: crypto.randomUUID(),
+                  draftId: sales.state.active?.id ?? null,
+                })
+              }
+            >
+              Add new customer
+            </button>
             {!catalog.customers.length && (
               <p>No customers yet. Add a new customer to start this sale.</p>
             )}
-            <ul className="divide-y divide-stone-200">
+            <ul className="divide-y divide-stone-200" aria-label="Choose a customer">
               {catalog.customers
                 .filter((c) => matchesSaleCustomer(c, customerQuery))
                 .map((c) => (
                   <li key={c.id}>
                     <button
-                      className="min-h-20 w-full py-4 text-left"
+                      className="flex min-h-20 w-full items-center justify-between gap-3 py-4 text-left"
                       onClick={() =>
                         update({ customerId: c.id, step: "drinks" })
                       }
                     >
-                      <span className="block font-semibold">{c.name}</span>
-                      <span className="text-sm text-stone-600">{c.phone}</span>
+                      <span className="min-w-0">
+                        <span className="block break-words font-semibold">{c.name}</span>
+                        <span className="block text-sm text-stone-600">{c.phone}</span>
+                      </span>
+                      <span className="shrink-0 text-sm font-semibold text-emerald-900">
+                        {draft.customerId === c.id ? "Selected" : "Choose"}
+                      </span>
                     </button>
                   </li>
                 ))}
@@ -504,6 +523,7 @@ export function SaleBuilder({
         )}
         {step === "drinks" && (
           <>
+            <p className="text-stone-700">Choose a drink, set its quantity, then add another if needed.</p>
             <div>
               <label htmlFor="sale-drink-search">Search drinks</label>
               <input
@@ -577,13 +597,11 @@ export function SaleBuilder({
                 .includes(draft.productQuery.trim().toLowerCase()),
             ) && <p>No matching drinks.</p>}
             <div className="sale-sticky-actions sticky z-10 space-y-2 border-t border-stone-300 bg-background py-4">
-              <p>
-                {draft.lines.length}{" "}
-                {draft.lines.length === 1 ? "drink" : "drinks"}
-                {total !== undefined && draft.lines.length > 0
-                  ? ` · ${formatNaira(total)}`
-                  : ""}
+              <p className="flex min-w-0 justify-between gap-2 text-sm font-semibold text-emerald-950">
+                <span className="truncate">{customer?.name}</span>
+                {total !== undefined && draft.lines.length > 0 && <span className="shrink-0">{formatNaira(total)}</span>}
               </p>
+              {!draft.lines.length && <p className="text-sm text-stone-700">Add at least one drink to continue.</p>}
               <button
                 className="primary w-full"
                 disabled={
@@ -593,17 +611,14 @@ export function SaleBuilder({
                 }
                 onClick={quickCheck}
               >
-                {pending
-                  ? "Checking stock…"
-                  : total === undefined
-                    ? "Continue · Check quantities"
-                    : `Continue · ${formatNaira(total)}`}
+                {pending ? "Checking stock…" : "Next: Check empties"}
               </button>
             </div>
           </>
         )}
         {step === "quantity" && product && (
           <>
+            <p className="text-stone-700">Enter the crates and bottles they are buying.</p>
             <h2 className="text-xl font-semibold">
               {product.name} {product.size}
             </h2>
@@ -794,8 +809,8 @@ export function SaleBuilder({
                 </button>
                 <button type="submit" className="primary min-w-0 flex-1" disabled={!preview}>
                   {draft.lines.some((l) => l.productId === product.id)
-                    ? "Update drink"
-                    : "Add drink"}
+                    ? "Update · Add more drinks"
+                    : "Add · Choose more drinks"}
                 </button>
               </div>
             </form>
@@ -904,23 +919,33 @@ export function SaleBuilder({
         )}
         {step === "payment" && (
           <>
-            <p className="text-xl">
-              Total: {total === undefined ? "Check drinks" : formatNaira(total)}
+            <p className="text-stone-700">How much did they pay today?</p>
+            <p className="text-xl font-semibold">
+              Sale total: {total === undefined ? "Check drinks" : formatNaira(total)}
             </p>
-            <button
-              className="secondary w-full"
-              disabled={total === undefined}
-              onClick={() =>
-                total !== undefined && update({ paid: String(total) })
-              }
-            >
-              Paid in full
-            </button>
-            <label htmlFor="sale-paid">Other amount paid</label>
+            <div className="grid grid-cols-2 gap-2" role="group" aria-label="Quick payment amounts">
+              <button
+                className="secondary w-full"
+                aria-pressed={total !== undefined && draft.paid === String(total)}
+                disabled={total === undefined}
+                onClick={() => total !== undefined && update({ paid: String(total) })}
+              >
+                Paid in full
+              </button>
+              <button
+                className="secondary w-full"
+                aria-pressed={draft.paid === "0"}
+                onClick={() => update({ paid: "0" })}
+              >
+                Pay later
+              </button>
+            </div>
+            <label htmlFor="sale-paid">Amount paid now (₦)</label>
             <input
               id="sale-paid"
               inputMode="numeric"
               pattern="[0-9]+"
+              maxLength={12}
               value={draft.paid}
               aria-invalid={Boolean(paymentInputError)}
               aria-describedby={
@@ -937,8 +962,8 @@ export function SaleBuilder({
                 {paymentInputError}
               </p>
             )}
-            <p>
-              Still owing:{" "}
+            <p className="rounded-lg bg-stone-100 p-4 font-semibold">
+              They will owe:{" "}
               {total !== undefined &&
               /^\d+$/.test(draft.paid) &&
               Number(draft.paid) <= total
@@ -1014,8 +1039,9 @@ export function SaleBuilder({
         )}
         {step === "review" && (
           <>
+            <p className="text-stone-700">Check this sale before saving it.</p>
             <p className="text-sm text-stone-600">
-              Business date: {draft.businessDate}
+              Sale date: {draft.businessDate}
             </p>
             <details>
               <summary className="quiet-link cursor-pointer">Change date</summary>
@@ -1082,20 +1108,22 @@ export function SaleBuilder({
               );
             })}
 
-            <p className="text-xl font-semibold">
-              Total:{" "}
-              {reviewTotal === undefined
-                ? "Check drinks"
-                : formatNaira(reviewTotal)}
-            </p>
-            <p>Paid: {formatNaira(Number(draft.paid))}</p>
-            <p>
-              Still owing:{" "}
-              {reviewTotal === undefined
-                ? "Check drinks"
-                : formatNaira(reviewTotal - Number(draft.paid))}
-            </p>
+            <dl className="rounded-xl border border-stone-200 bg-white px-4">
+              <div className="flex justify-between gap-3 border-b border-stone-200 py-3">
+                <dt>Sale total</dt>
+                <dd className="font-semibold">{reviewTotal === undefined ? "Check drinks" : formatNaira(reviewTotal)}</dd>
+              </div>
+              <div className="flex justify-between gap-3 border-b border-stone-200 py-3">
+                <dt>Paid now</dt>
+                <dd className="font-semibold">{formatNaira(Number(draft.paid))}</dd>
+              </div>
+              <div className="flex justify-between gap-3 py-3 text-lg font-semibold">
+                <dt>Still owing</dt>
+                <dd>{reviewTotal === undefined ? "Check drinks" : formatNaira(reviewTotal - Number(draft.paid))}</dd>
+              </div>
+            </dl>
             <div className="sale-sticky-actions sticky z-10 -mx-4 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
+            <p className="mb-2 truncate text-sm font-semibold text-emerald-950">Sale for {customer?.name}</p>
             <button
               className="primary w-full"
               disabled={

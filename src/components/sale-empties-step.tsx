@@ -131,7 +131,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
 
   return (
     <>
-      <h2 className="text-xl font-semibold">Did all expected empties come back?</h2>
+      <h2 className="text-xl font-semibold">Did they bring back all the empties?</h2>
 
       {draft.lines.some((line) => line.quantity.crates > 0) && (
         <details className="text-sm">
@@ -466,7 +466,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
           disabled={hasFieldErrors || !result || Boolean(error) || depositBlocked}
           onClick={() => update({ step: "payment" })}
         >
-          Continue to payment
+          Next: Enter payment
         </button>
       </div>
     </>

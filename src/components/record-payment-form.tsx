@@ -21,9 +21,9 @@ export function RecordPaymentForm({
     { amount: "", businessDate: "" },
   );
   return (
-    <form action={action} className="mt-6 space-y-5">
+    <form action={action} className="mt-5 space-y-5">
       <div>
-        <label htmlFor="amount">Amount paid</label>
+        <label htmlFor="amount">Amount paid now (₦)</label>
         <input
           id="amount"
           name="amount"
@@ -64,7 +64,7 @@ export function RecordPaymentForm({
         <Link href="/sign-in" target="_blank" rel="noopener noreferrer" className="quiet-link">Sign in in a new tab</Link>
       )}
       <button className="primary w-full" disabled={pending}>
-        {pending ? "Saving…" : state.retryable ? "Retry same payment" : "Record Payment"}
+        {pending ? "Saving…" : state.retryable ? "Retry same payment" : "Save payment"}
       </button>
     </form>
   );
