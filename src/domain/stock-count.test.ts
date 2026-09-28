@@ -1,6 +1,21 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { stockCountPreview, validateBusinessDate } from "./stock-count.ts";
+import { stockCountInputField, stockCountPreview, stockCountSaveError, validateBusinessDate } from "./stock-count.ts";
+
+test("stock count input identifies the field to correct", () => {
+  assert.equal(stockCountInputField("-1", "0", "2026-09-28"), "crates");
+  assert.equal(stockCountInputField("1", "1.5", "2026-09-28"), "bottles");
+  assert.equal(stockCountInputField("1", "0", "2026-02-30"), "businessDate");
+  assert.equal(stockCountInputField("1", "0", "2026-09-28"), undefined);
+});
+
+test("stock count maps changed stock and ambiguous saves without database wording", () => {
+  assert.match(stockCountSaveError("22023", "Stock or product details changed. Review again.").message, /Stock changed/);
+  assert.equal(stockCountSaveError("22023", "Stock or product details changed. Review again.").retryable, false);
+  assert.equal(stockCountSaveError("42501").retryable, false);
+  assert.equal(stockCountSaveError("PGRST000", "private.stock violation").retryable, true);
+  assert.doesNotMatch(stockCountSaveError("22023", "private.stock violation").message, /private|violation/);
+});
 
 test("current count uses product crate size and replaces rather than adds", () => {
   assert.equal(

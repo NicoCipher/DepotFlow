@@ -54,5 +54,36 @@ export type StockCountState = {
   bottles: string;
   businessDate: string;
   message?: string;
+  field?: "crates" | "bottles" | "businessDate";
   review?: ReturnType<typeof stockCountPreview>;
 };
+
+export function stockCountSaveError(code?: string, message?: string) {
+  if (code === "42501" || code === "PGRST301" || code === "401" || code === "403")
+    return { message: "Your session has expired. Sign in again and check stock history before saving another count.", retryable: false };
+  if (code === "22023") {
+    switch (message) {
+      case "Stock or product details changed. Review again.":
+        return { message: "Stock changed since your review. Go back and review the latest stock before saving.", retryable: false };
+      case "This stock form has already been used.":
+        return { message: "This form may have saved a different count. Check stock history before starting another count.", retryable: false };
+      case "Product not found.":
+        return { message: "This product is no longer available. Choose another product.", retryable: false };
+      case "Loose bottles must be fewer than a full crate.":
+        return { message: "Loose bottles must be fewer than a full crate. Change the count and review again.", retryable: false };
+      case "Enter whole numbers of crates and loose bottles, zero or more.":
+      case "That would exceed the stock limit.":
+      case "Choose a valid business date.":
+        return { message: "Check the count and business date, then review again.", retryable: false };
+    }
+  }
+  return { message: "Could not confirm whether this count saved. Retry this exact count; it will not be saved twice.", retryable: true };
+}
+
+export function stockCountInputField(crates: string, bottles: string, businessDate: string): StockCountState["field"] {
+  const validNumber = (value: string) => /^\d+$/.test(value.trim()) && Number(value.trim()) <= 2147483647;
+  if (!validNumber(crates)) return "crates";
+  if (!validNumber(bottles)) return "bottles";
+  try { validateBusinessDate(businessDate); } catch { return "businessDate"; }
+  return undefined;
+}
