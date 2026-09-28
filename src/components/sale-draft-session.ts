@@ -9,6 +9,7 @@ import {
   emptySaleDrafts,
   readSaleDrafts,
   updateActiveSale,
+  rekeyActiveSale,
   selectSaleCustomer,
   parkActiveSale,
   resumeSale,
@@ -87,6 +88,21 @@ export function useSaleDrafts(ownerId: string) {
       mutate((current) =>
         updateActiveSale(current, activeId, patch, crypto.randomUUID()),
       ),
+    ensureRequestId: async () => {
+      const currentId = state.active?.id ?? null;
+      if (!currentId) return null;
+      if (
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          currentId,
+        )
+      )
+        return currentId;
+      const nextId = crypto.randomUUID();
+      const saved = await mutate((current) =>
+        rekeyActiveSale(current, currentId, nextId),
+      );
+      return saved ? nextId : null;
+    },
     selectCustomer: (expectedId: string | null, customerId: string) =>
       mutate((current) =>
         selectSaleCustomer(
