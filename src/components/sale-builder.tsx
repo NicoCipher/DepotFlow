@@ -13,6 +13,7 @@ import {
   missingEmptiesMessage,
 } from "@/domain/sale-empties";
 import { wholeNumberInputMessage } from "@/domain/sale-input";
+import { saleNetworkMessage } from "@/domain/sale-errors";
 import { formatNaira } from "@/domain/products";
 import { formatQuantity } from "@/domain/quantity";
 import {
@@ -79,9 +80,7 @@ export function SaleBuilder({
       })
       .catch(() => {
         if (current)
-          setCheckError(
-            "Could not check current prices and stock. Try again to open this sale.",
-          );
+          setCheckError(saleNetworkMessage);
       });
     return () => {
       current = false;
@@ -177,9 +176,7 @@ export function SaleBuilder({
         await sales.update({ step: "empties" });
         setMessage("");
       } catch {
-        setMessage(
-          "Could not check current prices and stock. Your drinks are still here. Try again.",
-        );
+        setMessage(saleNetworkMessage);
       }
     });
   }
@@ -852,8 +849,14 @@ export function SaleBuilder({
               }
               onClick={() =>
                 startTransition(async () => {
+                  let fresh: SaleCatalog;
                   try {
-                    const fresh = await loadSaleCatalog();
+                    fresh = await loadSaleCatalog();
+                  } catch {
+                    setMessage(saleNetworkMessage);
+                    return;
+                  }
+                  try {
                     setCatalog(fresh);
                     matchSaleEmpties(draft, fresh);
                     const lines = draft.lines.map((line) => {
@@ -873,7 +876,11 @@ export function SaleBuilder({
                     });
                     setMessage("");
                   } catch (e) {
-                    setMessage((e as Error).message);
+                    setMessage(
+                      e instanceof Error
+                        ? e.message
+                        : "Check this sale and try again.",
+                    );
                   }
                 })
               }
@@ -984,10 +991,16 @@ export function SaleBuilder({
                 startTransition(async () => {
                   const id = sales.state.active?.id;
                   if (!id) return;
-                  const response = await saveSale(
-                    id.startsWith("imported-") ? ownerId : id,
-                    draft,
-                  );
+                  let response: Awaited<ReturnType<typeof saveSale>>;
+                  try {
+                    response = await saveSale(
+                      id.startsWith("imported-") ? ownerId : id,
+                      draft,
+                    );
+                  } catch {
+                    setMessage(saleNetworkMessage);
+                    return;
+                  }
                   if (response.error) {
                     if (response.code === "customer_unavailable") {
                       try {

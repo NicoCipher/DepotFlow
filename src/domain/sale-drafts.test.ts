@@ -134,6 +134,34 @@ test("persisted drafts restore quantities and customer IDs without storing custo
     emptySaleDrafts,
   );
 });
+test("sale facts survive local persistence while the network is unavailable", () => {
+  const offlineDraft = {
+    ...draft,
+    step: "payment" as const,
+    paid: "5000",
+    businessDate: "2026-09-27",
+    emptiesV2: {
+      mode: "actual" as const,
+      cratesTaken: { p: "1" },
+      returnedCrates: { crate: "1" },
+      returnedBottles: { glass: "10" },
+    },
+  };
+  const state = updateActiveSale(
+    emptySaleDrafts,
+    null,
+    offlineDraft,
+    "offline-sale",
+  );
+  const restored = readSaleDrafts(JSON.stringify(state));
+  assert.equal(restored.active?.id, "offline-sale");
+  assert.equal(restored.active?.draft.step, "payment");
+  assert.equal(restored.active?.draft.paid, "5000");
+  assert.equal(restored.active?.draft.businessDate, "2026-09-27");
+  assert.deepEqual(restored.active?.draft.lines, offlineDraft.lines);
+  assert.deepEqual(restored.active?.draft.emptiesV2, offlineDraft.emptiesV2);
+});
+
 test("resume/review totals use current prices and flag price, stock, product and customer changes", () => {
   assert.equal(revalidateSaleDraft(draft, catalog).total, 12000);
   const check = revalidateSaleDraft(draft, {
