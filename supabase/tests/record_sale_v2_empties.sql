@@ -108,7 +108,7 @@ end $$;
 
 -- Retrying the same request after an uncertain client response is idempotent.
 -- The second call must return the original sale and must not deduct stock twice.
-do $
+do $retry$
 declare
   first_result jsonb;
   retry_result jsonb;
@@ -164,7 +164,7 @@ begin
   if stock_after <> stock_before - 12 then
     raise exception 'Idempotent retry deducted stock more than once';
   end if;
-end $;
+end $retry$;
 
 -- Exact crate, two wrong/missing bottles: crate settles, only 10 Trophy bottles settle.
 do $$
