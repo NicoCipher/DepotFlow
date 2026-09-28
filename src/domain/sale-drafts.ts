@@ -19,6 +19,29 @@ export const emptySaleDrafts: SaleDrafts = {
   active: null,
   paused: [],
 };
+
+export function isSaleRequestId(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    id,
+  );
+}
+
+export function replaceActiveSaleId(
+  state: SaleDrafts,
+  expectedId: string,
+  requestId: string,
+): SaleDrafts {
+  if (state.active?.id !== expectedId)
+    throw new Error("The active sale changed. Open it again before saving.");
+  if (!isSaleRequestId(requestId))
+    throw new Error("Could not prepare this sale for saving.");
+  if (state.paused.some((entry) => entry.id === requestId))
+    throw new Error("Could not prepare this sale for saving.");
+  return {
+    ...state,
+    active: { ...state.active, id: requestId },
+  };
+}
 export function hasSaleWork(draft: SaleDraft) {
   return Boolean(draft.customerId || draft.lines.length);
 }

@@ -14,6 +14,8 @@ import {
   resumeSale,
   cancelSale,
   completeSale,
+  isSaleRequestId,
+  replaceActiveSaleId,
   type SaleDrafts,
 } from "@/domain/sale-drafts";
 const eventName = "depotflow-sale-drafts";
@@ -79,6 +81,14 @@ export function useSaleDrafts(ownerId: string) {
       return false;
     }
   }
+  async function ensureRequestId(expectedId: string) {
+    if (isSaleRequestId(expectedId)) return expectedId;
+    const requestId = crypto.randomUUID();
+    const saved = await mutate((current) =>
+      replaceActiveSaleId(current, expectedId, requestId),
+    );
+    return saved ? requestId : null;
+  }
   return {
     state: state ?? emptySaleDrafts,
     draft: state.active?.draft ?? emptySaleDraft,
@@ -104,5 +114,6 @@ export function useSaleDrafts(ownerId: string) {
       mutate((current) => resumeSale(current, id, new Date().toISOString())),
     cancel: (id: string) => mutate((current) => cancelSale(current, id)),
     complete: (id: string) => mutate((current) => completeSale(current, id)),
+    ensureRequestId,
   };
 }

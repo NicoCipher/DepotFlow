@@ -13,7 +13,10 @@ import {
   missingEmptiesMessage,
 } from "@/domain/sale-empties";
 import { wholeNumberInputMessage } from "@/domain/sale-input";
-import { saleNetworkMessage } from "@/domain/sale-errors";
+import {
+  saleNetworkMessage,
+  saleSaveUncertainMessage,
+} from "@/domain/sale-errors";
 import { formatNaira } from "@/domain/products";
 import { formatQuantity } from "@/domain/quantity";
 import {
@@ -51,6 +54,9 @@ export function SaleBuilder({
   const [customerQuery, setCustomerQuery] = useState("");
   const [catalog, setCatalog] = useState(initialCatalog);
   const [message, setMessage] = useState("");
+  const [uncertainRequestId, setUncertainRequestId] = useState<string | null>(
+    null,
+  );
   const [saved, setSaved] = useState<{
     id: string;
     total: number;
@@ -67,6 +73,9 @@ export function SaleBuilder({
   const [checkError, setCheckError] = useState("");
   const [checkAttempt, setCheckAttempt] = useState(0);
   const ready = activeId === null || verifiedId === activeId;
+  const saveUncertain =
+    uncertainRequestId !== null &&
+    sales.state.active?.id === uncertainRequestId;
   useEffect(() => {
     if (!activeId) return;
     let current = true;
@@ -90,6 +99,10 @@ export function SaleBuilder({
   const customer = catalog.customers.find((c) => c.id === draft.customerId);
   const product = catalog.products.find((p) => p.id === draft.editingId);
   function update(patch: Partial<SaleDraft>) {
+    if (saveUncertain) {
+      setMessage(saleSaveUncertainMessage);
+      return;
+    }
     void sales.update(patch);
     setMessage("");
   }
@@ -276,6 +289,7 @@ export function SaleBuilder({
           <div className="flex gap-6">
             <button
               className="quiet-link"
+              disabled={saveUncertain}
               onClick={() =>
                 startTransition(async () => {
                   if (await sales.park()) {
@@ -289,6 +303,7 @@ export function SaleBuilder({
             </button>
             <button
               className="quiet-link"
+              disabled={saveUncertain}
               onClick={() => {
                 const id = sales.state.active?.id;
                 if (
@@ -333,7 +348,10 @@ export function SaleBuilder({
           </div>
         )}
         {message && (
-          <p role="alert" className="text-red-800">
+          <p
+            role="alert"
+            className={saveUncertain ? "text-amber-900" : "text-red-800"}
+          >
             {message}
           </p>
         )}
@@ -909,6 +927,7 @@ export function SaleBuilder({
               <input
                 id="sale-date"
                 type="date"
+                disabled={saveUncertain}
                 value={draft.businessDate}
                 onChange={(e) => update({ businessDate: e.target.value })}
               />
@@ -989,18 +1008,33 @@ export function SaleBuilder({
               }
               onClick={() =>
                 startTransition(async () => {
-                  const id = sales.state.active?.id;
-                  if (!id) return;
-                  let response: Awaited<ReturnType<typeof saveSale>>;
-                  try {
-                    response = await saveSale(
-                      id.startsWith("imported-") ? ownerId : id,
-                      draft,
+                  const activeDraftId = sales.state.active?.id;
+                  if (!activeDraftId) return;
+
+                  const requestId =
+                    (saveUncertain ? uncertainRequestId : null) ??
+                    (await sales.ensureRequestId(activeDraftId));
+                  if (!requestId) {
+                    setMessage(
+                      sales.error ||
+                        "Could not prepare this sale for saving. Your sale is still here.",
                     );
-                  } catch {
-                    setMessage(saleNetworkMessage);
                     return;
                   }
+
+                  let response: Awaited<ReturnType<typeof saveSale>>;
+                  try {
+                    response = await saveSale(requestId, draft);
+                  } catch {
+                    setUncertainRequestId(requestId);
+                    setMessage(saleSaveUncertainMessage);
+                    return;
+                  }
+
+                  // A server response resolves the uncertainty, even if it is
+                  // a business-rule error rather than a successful save.
+                  setUncertainRequestId(null);
+
                   if (response.error) {
                     if (response.code === "customer_unavailable") {
                       try {
@@ -1016,7 +1050,7 @@ export function SaleBuilder({
                     return;
                   }
                   if (response.result) {
-                    if (await sales.complete(id))
+                    if (await sales.complete(requestId))
                       setSaved({
                         ...response.result,
                         name: customer?.name ?? "Customer",
@@ -1025,26 +1059,36 @@ export function SaleBuilder({
                 })
               }
             >
-              {pending ? "Saving…" : "Save Sale"}
+              {pending
+                ? saveUncertain
+                  ? "Checking…"
+                  : "Saving…"
+                : saveUncertain
+                  ? "Check Sale"
+                  : "Save Sale"}
             </button>
-            <button
-              className="secondary w-full"
-              onClick={() => update({ step: "payment" })}
-            >
-              Back to Payment
-            </button>
-            <button
-              className="quiet-link"
-              onClick={() => update({ step: "empties" })}
-            >
-              Edit empties
-            </button>
-            <button
-              className="quiet-link"
-              onClick={() => update({ step: "drinks" })}
-            >
-              Edit drinks
-            </button>
+            {!saveUncertain && (
+              <>
+                <button
+                  className="secondary w-full"
+                  onClick={() => update({ step: "payment" })}
+                >
+                  Back to Payment
+                </button>
+                <button
+                  className="quiet-link"
+                  onClick={() => update({ step: "empties" })}
+                >
+                  Edit empties
+                </button>
+                <button
+                  className="quiet-link"
+                  onClick={() => update({ step: "drinks" })}
+                >
+                  Edit drinks
+                </button>
+              </>
+            )}
           </>
         )}
       </fieldset>

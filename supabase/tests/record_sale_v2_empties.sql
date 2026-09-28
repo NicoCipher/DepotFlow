@@ -106,6 +106,66 @@ begin
   ) then raise exception 'Resolved swap still created a Goldberg crate obligation'; end if;
 end $$;
 
+-- Retrying the same request after an uncertain client response is idempotent.
+-- The second call must return the original sale and must not deduct stock twice.
+do $retry$
+declare
+  first_result jsonb;
+  retry_result jsonb;
+  sid uuid;
+  line jsonb;
+  stock_before integer;
+  stock_after integer;
+begin
+  select total_bottles into stock_before
+  from public.stock
+  where product_id='10000000-0000-4000-8000-000000000701';
+
+  line:=jsonb_build_object(
+    'productId','10000000-0000-4000-8000-000000000701',
+    'quantity',jsonb_build_object('crates',1,'fraction',0,'bottles',0),
+    'cratesTaken',1,'returnedCrates',1,'returnedBottles',12,
+    'expected',jsonb_build_object(
+      'full',12000,'half',6000,'quarter',3000,'bottle',1000,'size',12,
+      'crate','50000000-0000-4000-8000-000000000701',
+      'returnable',true,'bottleType','Goldberg bottle','stock',stock_before
+    )
+  );
+
+  first_result:=public.save_sale_v2(
+    '40000000-0000-4000-8000-000000000706',
+    '20000000-0000-4000-8000-000000000701',
+    '2026-09-27',12000,jsonb_build_array(line),
+    '[{"crateTypeId":"50000000-0000-4000-8000-000000000701","quantity":1}]'::jsonb,
+    '[{"bottleType":"Goldberg bottle","quantity":12}]'::jsonb
+  );
+
+  retry_result:=public.save_sale_v2(
+    '40000000-0000-4000-8000-000000000706',
+    '20000000-0000-4000-8000-000000000701',
+    '2026-09-27',12000,jsonb_build_array(line),
+    '[{"crateTypeId":"50000000-0000-4000-8000-000000000701","quantity":1}]'::jsonb,
+    '[{"bottleType":"Goldberg bottle","quantity":12}]'::jsonb
+  );
+
+  sid:=(first_result->>'id')::uuid;
+  if (retry_result->>'id')::uuid is distinct from sid then
+    raise exception 'Idempotent retry returned a different sale';
+  end if;
+
+  if (select count(*) from public.sales where request_id='40000000-0000-4000-8000-000000000706') <> 1 then
+    raise exception 'Idempotent retry created a duplicate sale';
+  end if;
+
+  select total_bottles into stock_after
+  from public.stock
+  where product_id='10000000-0000-4000-8000-000000000701';
+
+  if stock_after <> stock_before - 12 then
+    raise exception 'Idempotent retry deducted stock more than once';
+  end if;
+end $retry$;
+
 -- Exact crate, two wrong/missing bottles: crate settles, only 10 Trophy bottles settle.
 do $$
 declare result jsonb; line jsonb;
