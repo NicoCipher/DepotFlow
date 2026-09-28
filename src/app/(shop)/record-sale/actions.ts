@@ -201,3 +201,32 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
     };
   }
 }
+
+export async function findSavedSale(requestId: string) {
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      requestId,
+    )
+  )
+    return { result: null };
+
+  const supabase = await requireOwner();
+  const { data, error } = await supabase
+    .from("sales")
+    .select("id,customer_id,total_amount,paid_amount")
+    .eq("request_id", requestId)
+    .maybeSingle();
+
+  if (error) return { result: null };
+  if (!data) return { result: null };
+
+  return {
+    result: {
+      id: data.id,
+      total: data.total_amount,
+      paid: data.paid_amount,
+      owing: data.total_amount - data.paid_amount,
+      customer: data.customer_id,
+    },
+  };
+}
