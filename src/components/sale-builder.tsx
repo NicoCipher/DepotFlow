@@ -59,9 +59,6 @@ export function SaleBuilder({
   const [catalog, setCatalog] = useState(initialCatalog);
   const [message, setMessage] = useState("");
   const [sessionExpired, setSessionExpired] = useState(false);
-  const [uncertainRequestId, setUncertainRequestId] = useState<string | null>(
-    null,
-  );
   const [saved, setSaved] = useState<{
     id: string;
     total: number;
@@ -78,9 +75,7 @@ export function SaleBuilder({
   const [checkError, setCheckError] = useState("");
   const [checkAttempt, setCheckAttempt] = useState(0);
   const ready = activeId === null || verifiedId === activeId;
-  const saveUncertain =
-    uncertainRequestId !== null &&
-    sales.state.active?.id === uncertainRequestId;
+  const saveUncertain = sales.state.active?.saveUncertain === true;
   useEffect(() => {
     if (!activeId) return;
     let current = true;
@@ -1078,8 +1073,7 @@ export function SaleBuilder({
                   if (!activeDraftId) return;
 
                   const requestId =
-                    (saveUncertain ? uncertainRequestId : null) ??
-                    (await sales.ensureRequestId(activeDraftId));
+                    await sales.ensureRequestId(activeDraftId);
                   if (!requestId) {
                     setMessage(
                       sales.error ||
@@ -1088,25 +1082,38 @@ export function SaleBuilder({
                     return;
                   }
 
+                  // Persist uncertainty before the request leaves the device.
+                  // If the tab closes or the response is lost, reopening the
+                  // draft stays locked to this same request ID.
+                  if (!(await sales.setSaveUncertain(requestId, true))) {
+                    setMessage(
+                      "Could not prepare this sale for safe saving. Your sale is still here.",
+                    );
+                    return;
+                  }
+
                   let response: Awaited<ReturnType<typeof saveSale>>;
                   try {
                     response = await saveSale(requestId, draft);
                   } catch {
-                    setUncertainRequestId(requestId);
                     setMessage(saleSaveUncertainMessage);
                     return;
                   }
 
                   if (response.error) {
+                    if (response.code === "save_uncertain") {
+                      setMessage(response.error);
+                      return;
+                    }
+
+                    // These responses are definitive: the sale did not commit.
+                    await sales.setSaveUncertain(requestId, false);
+
                     if (response.code === "session_expired") {
                       setSessionExpired(true);
                       setMessage(saleSessionExpiredMessage);
                       return;
                     }
-
-                    // Any non-session server response proves this request
-                    // reached the app, so a previous uncertain state is resolved.
-                    setUncertainRequestId(null);
 
                     if (response.code === "customer_unavailable") {
                       try {
@@ -1128,7 +1135,6 @@ export function SaleBuilder({
                     return;
                   }
 
-                  setUncertainRequestId(null);
                   if (response.result) {
                     if (await sales.complete(requestId))
                       setSaved({
