@@ -16,6 +16,7 @@ import {
   completeSale,
   isSaleRequestId,
   replaceActiveSaleId,
+  setActiveSaleSaveUncertain,
   type SaleDrafts,
 } from "@/domain/sale-drafts";
 const eventName = "depotflow-sale-drafts";
@@ -115,5 +116,9 @@ export function useSaleDrafts(ownerId: string) {
     cancel: (id: string) => mutate((current) => cancelSale(current, id)),
     complete: (id: string) => mutate((current) => completeSale(current, id)),
     ensureRequestId,
+    setSaveUncertain: (expectedId: string, value: boolean) =>
+      mutate((current) =>
+        setActiveSaleSaveUncertain(current, expectedId, value),
+      ),
   };
 }

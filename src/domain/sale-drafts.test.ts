@@ -17,6 +17,7 @@ import {
   readSaleDrafts,
   isSaleRequestId,
   replaceActiveSaleId,
+  setActiveSaleSaveUncertain,
 } from "./sale-drafts.ts";
 const product: SaleProduct = {
   id: "p",
@@ -112,6 +113,28 @@ test("legacy draft ID can be replaced once with a stable save request ID", () =>
     () => replaceActiveSaleId(migrated, "legacy-sale", crypto.randomUUID()),
     /active sale changed/,
   );
+});
+
+test("uncertain save state survives persistence and keeps the same request ID", () => {
+  const requestId = "40000000-0000-4000-8000-000000000998";
+  let state = updateActiveSale(emptySaleDrafts, null, draft, requestId);
+  state = setActiveSaleSaveUncertain(state, requestId, true);
+  const restored = readSaleDrafts(JSON.stringify(state));
+
+  assert.equal(restored.active?.id, requestId);
+  assert.equal(restored.active?.saveUncertain, true);
+  assert.deepEqual(restored.active?.draft, draft);
+
+  const cleared = setActiveSaleSaveUncertain(restored, requestId, false);
+  assert.equal(cleared.active?.saveUncertain, false);
+});
+
+test("editing a stored draft preserves its uncertain-save marker", () => {
+  const requestId = "40000000-0000-4000-8000-000000000997";
+  let state = updateActiveSale(emptySaleDrafts, null, draft, requestId);
+  state = setActiveSaleSaveUncertain(state, requestId, true);
+  state = updateActiveSale(state, requestId, { paid: "5000" }, requestId);
+  assert.equal(state.active?.saveUncertain, true);
 });
 
 test("cancel removes only the named unfinished draft", () => {
