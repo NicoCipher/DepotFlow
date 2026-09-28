@@ -13,7 +13,10 @@ import {
   missingEmptiesMessage,
 } from "@/domain/sale-empties";
 import { wholeNumberInputMessage } from "@/domain/sale-input";
-import { saleNetworkMessage } from "@/domain/sale-errors";
+import {
+  saleNetworkMessage,
+  saleSaveUncertainMessage,
+} from "@/domain/sale-errors";
 import { formatNaira } from "@/domain/products";
 import { formatQuantity } from "@/domain/quantity";
 import {
@@ -51,6 +54,7 @@ export function SaleBuilder({
   const [customerQuery, setCustomerQuery] = useState("");
   const [catalog, setCatalog] = useState(initialCatalog);
   const [message, setMessage] = useState("");
+  const [saveUncertain, setSaveUncertain] = useState(false);
   const [saved, setSaved] = useState<{
     id: string;
     total: number;
@@ -90,6 +94,10 @@ export function SaleBuilder({
   const customer = catalog.customers.find((c) => c.id === draft.customerId);
   const product = catalog.products.find((p) => p.id === draft.editingId);
   function update(patch: Partial<SaleDraft>) {
+    if (saveUncertain) {
+      setMessage(saleSaveUncertainMessage);
+      return;
+    }
     void sales.update(patch);
     setMessage("");
   }
@@ -276,6 +284,7 @@ export function SaleBuilder({
           <div className="flex gap-6">
             <button
               className="quiet-link"
+              disabled={saveUncertain}
               onClick={() =>
                 startTransition(async () => {
                   if (await sales.park()) {
@@ -289,6 +298,7 @@ export function SaleBuilder({
             </button>
             <button
               className="quiet-link"
+              disabled={saveUncertain}
               onClick={() => {
                 const id = sales.state.active?.id;
                 if (
@@ -326,6 +336,7 @@ export function SaleBuilder({
             <p className="break-words font-semibold">{customer.name}</p>
             <button
               className="quiet-link"
+              disabled={saveUncertain}
               onClick={() => update({ step: "customer" })}
             >
               Change customer
@@ -991,16 +1002,25 @@ export function SaleBuilder({
                 startTransition(async () => {
                   const id = sales.state.active?.id;
                   if (!id) return;
-                  let response: Awaited<ReturnType<typeof saveSale>>;
-                  try {
-                    response = await saveSale(
-                      id.startsWith("imported-") ? ownerId : id,
-                      draft,
+
+                  const requestId = await sales.ensureRequestId();
+                  if (!requestId) {
+                    setMessage(
+                      "Could not prepare a safe save retry. Your sale is still here. Try again.",
                     );
-                  } catch {
-                    setMessage(saleNetworkMessage);
                     return;
                   }
+
+                  let response: Awaited<ReturnType<typeof saveSale>>;
+                  try {
+                    response = await saveSale(requestId, draft);
+                  } catch {
+                    setSaveUncertain(true);
+                    setMessage(saleSaveUncertainMessage);
+                    return;
+                  }
+
+                  setSaveUncertain(false);
                   if (response.error) {
                     if (response.code === "customer_unavailable") {
                       try {
@@ -1025,22 +1045,31 @@ export function SaleBuilder({
                 })
               }
             >
-              {pending ? "Saving…" : "Save Sale"}
+              {pending
+                ? saveUncertain
+                  ? "Checking sale…"
+                  : "Saving…"
+                : saveUncertain
+                  ? "Check Sale"
+                  : "Save Sale"}
             </button>
             <button
               className="secondary w-full"
+              disabled={saveUncertain}
               onClick={() => update({ step: "payment" })}
             >
               Back to Payment
             </button>
             <button
               className="quiet-link"
+              disabled={saveUncertain}
               onClick={() => update({ step: "empties" })}
             >
               Edit empties
             </button>
             <button
               className="quiet-link"
+              disabled={saveUncertain}
               onClick={() => update({ step: "drinks" })}
             >
               Edit drinks
