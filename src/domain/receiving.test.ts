@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { receivingPreview } from "./receiving.ts";
+import { receivingPreview, receivingSaveError } from "./receiving.ts";
+test("receiving handles changed empties and ambiguous saves without leaking database text", () => {
+  assert.match(receivingSaveError("22023", "Not enough empty crates of this type.").message, /not enough matching empty crates/i);
+  assert.equal(receivingSaveError("22023", "Stock or product details changed. Review again.").retryable, false);
+  assert.equal(receivingSaveError("42501").retryable, false);
+  assert.equal(receivingSaveError("PGRST000", "private.stock_receipts failure").retryable, true);
+  assert.doesNotMatch(receivingSaveError("22023", "private.stock_receipts failure").message, /private|stock_receipts/);
+});
 const snapshot = {
   stock: 5,
   empties: 10,
