@@ -25,7 +25,7 @@ function ConfirmCount({
   return (
     <form action={action} className="mt-6 space-y-5">
       <h2 className="text-xl font-semibold">Check the current count</h2>
-      <dl className="space-y-4">
+      <dl className="review-list">
         <div>
           <dt>Business date</dt>
           <dd>{review.businessDate}</dd>
@@ -54,11 +54,11 @@ function ConfirmCount({
       </button>
       <button
         type="button"
-        className="secondary w-full"
+        className="quiet-link w-full text-center"
         disabled={pending}
         onClick={onBack}
       >
-        Change / review again
+        Change count
       </button>
     </form>
   );

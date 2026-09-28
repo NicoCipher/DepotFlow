@@ -34,14 +34,11 @@ export default async function ProductsPage({
     `/products?${new URLSearchParams({ q: query, page: String(value) })}`;
   return (
     <>
-      <h1>Products</h1>
-      <Link className="primary mt-6 w-full" href="/products/new">
-        Add Product
-      </Link>
-      <Link className="quiet-link mt-3" href="/crate-types">
-        Manage crate types
-      </Link>
-      <form action="/products" className="my-7">
+      <div className="flex items-center justify-between gap-3">
+        <h1>Products</h1>
+        <Link className="primary shrink-0" href="/products/new">Add product</Link>
+      </div>
+      <form action="/products" role="search" className="mb-4 mt-5">
         <label htmlFor="search">Search by name or size</label>
         <div className="flex gap-2">
           <input
@@ -61,6 +58,9 @@ export default async function ProductsPage({
           </Link>
         )}
       </form>
+      <Link className="quiet-link mb-3 self-start text-sm" href="/crate-types">
+        Manage crate types
+      </Link>
       {!data?.length ? (
         <div className="border-t border-stone-300 py-8">
           <h2 className="text-xl font-semibold">

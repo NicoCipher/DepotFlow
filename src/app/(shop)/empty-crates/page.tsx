@@ -94,7 +94,7 @@ export default async function EmptyCratesPage({
               {crates.map(
                 (item) =>
                   item.crate_type_id && (
-                    <li key={item.crate_type_id} className="py-5">
+                    <li key={item.crate_type_id} className="py-4">
                       <CrateDisplay crate={item} includeFamily={false} />
                       <p className="mt-2 text-lg font-semibold">
                         {item.quantity === null
@@ -102,11 +102,11 @@ export default async function EmptyCratesPage({
                           : `Current: ${emptyCrateQuantity(item.quantity)}`}
                       </p>
                       <Link
-                        className="primary mt-4 w-full"
+                        className="secondary mt-3"
                         href={`/empty-crates/count?${new URLSearchParams({ type: item.crate_type_id })}`}
                         aria-label={`Set Current Count for ${item.name}`}
                       >
-                        Set Current Count
+                        Set count
                       </Link>
                     </li>
                   ),

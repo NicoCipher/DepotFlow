@@ -71,8 +71,8 @@ export function PausedSales({
             (c) => c.id === entry.draft.customerId,
           );
           return (
-            <li key={entry.id} className="space-y-3 py-5">
-              <h2 className="text-xl font-semibold">
+            <li key={entry.id} className="space-y-2 py-4">
+              <h2 className="text-lg font-semibold">
                 {customer?.name ?? "Choose customer"}
               </h2>
               <p>
@@ -98,8 +98,9 @@ export function PausedSales({
                   {warning}
                 </p>
               ))}
+              <div className="flex items-center gap-4">
               <button
-                className="primary w-full"
+                className="primary flex-1"
                 onClick={() =>
                   startTransition(async () => {
                     try {
@@ -127,7 +128,7 @@ export function PausedSales({
                 Resume
               </button>
               <button
-                className="quiet-link"
+                className="quiet-link shrink-0 text-sm"
                 onClick={() => {
                   if (
                     window.confirm(
@@ -139,6 +140,7 @@ export function PausedSales({
               >
                 Cancel Sale
               </button>
+              </div>
             </li>
           );
         })}

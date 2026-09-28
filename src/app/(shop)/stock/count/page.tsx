@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireOwner } from "@/lib/auth/owner";
-import { ProductImage } from "@/components/product-image";
+import { StockProductChoice } from "@/components/stock-product-choice";
 import { productSearchFilter } from "@/domain/products";
 
 export default async function ChooseCountProductPage({
@@ -31,7 +31,7 @@ export default async function ChooseCountProductPage({
     <>
       <h1>Set Current Stock</h1>
       <p className="mt-3">Choose the drink you counted in the shop.</p>
-      <form action="/stock/count" className="my-7">
+      <form action="/stock/count" role="search" className="my-5">
         <label htmlFor="search">Search by name or size</label>
         <div className="flex gap-2">
           <input
@@ -66,20 +66,7 @@ export default async function ChooseCountProductPage({
         <ul className="space-y-3">
           {data.map((product) => (
             <li key={product.id}>
-              <Link
-                className="flex min-h-20 items-center justify-between gap-4 rounded-lg border border-stone-200 bg-white p-4"
-                href={`/stock/count/${product.id}`}
-              >
-                <div className="h-16 w-14 shrink-0 overflow-hidden rounded">
-                  <ProductImage src={product.image_url} name={product.name} />
-                </div>
-                <span className="min-w-0 break-words font-semibold">
-                  {product.name} {product.size}
-                </span>
-                <span className="text-sm">
-                  {product.bottles_per_crate} bottles / crate
-                </span>
-              </Link>
+              <StockProductChoice product={product} action="count" />
             </li>
           ))}
         </ul>

@@ -25,7 +25,7 @@ export default async function SalePage({
       >
         {formatBusinessDate(sale.businessDate)}
       </time>
-      <dl className="mt-6 border-t border-stone-300">
+      <dl className="mt-6 rounded-lg border border-stone-200 bg-white px-4">
         {[
           ["Grand total", formatNaira(sale.total)],
           ["Amount paid", formatNaira(sale.paid)],
@@ -33,7 +33,7 @@ export default async function SalePage({
         ].map(([label, value]) => (
           <div
             key={label}
-            className="flex items-center justify-between gap-3 border-b border-stone-300 py-4"
+            className="flex items-center justify-between gap-3 border-b border-stone-200 py-4 last:border-b-0"
           >
             <dt>{label}</dt>
             <dd

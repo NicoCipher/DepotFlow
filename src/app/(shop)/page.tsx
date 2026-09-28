@@ -35,20 +35,6 @@ export default async function Home() {
           Empty Crates <span aria-hidden="true">→</span>
         </Link>
       </section>
-      <section aria-label="Manage" className="mt-6">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-stone-500">
-          Manage
-        </h2>
-        <Link href="/sales" className="quiet-link block">
-          Sales History
-        </Link>
-        <Link href="/products" className="quiet-link block">
-          Products
-        </Link>
-        <Link href="/empties-rules" className="quiet-link block">
-          Empties Rules
-        </Link>
-      </section>
     </>
   );
 }

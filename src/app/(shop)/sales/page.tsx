@@ -15,11 +15,11 @@ export default async function SalesPage({
   const { sales, count } = await getSalesPage(page);
   return (
     <>
-      <div className="mb-6 flex items-center justify-between gap-4">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <h1>Sales</h1>
         {sales.length > 0 && (
-          <Link className="primary" href="/record-sale">
-            Record Sale
+          <Link className="primary shrink-0" href="/record-sale">
+            Record sale
           </Link>
         )}
       </div>

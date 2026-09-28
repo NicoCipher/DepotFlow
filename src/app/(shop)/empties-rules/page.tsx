@@ -42,9 +42,7 @@ export default async function EmptiesRulesPage({
   return (
     <>
       <h1>Empties Rules</h1>
-      <p className="mt-3 text-stone-600">
-        Set these once. The system will apply them automatically during sales.
-      </p>
+      <p className="mt-2 text-sm text-stone-600">Set deposit prices used when empties are missing.</p>
 
       {(params.saved === "bottle" || params.saved === "crate") && (
         <p role="status" className="mt-4 text-emerald-900">
@@ -57,7 +55,7 @@ export default async function EmptiesRulesPage({
         </p>
       )}
 
-      <section className="mt-8 border-t border-stone-300 pt-6">
+      <section className="mt-6 border-t border-stone-300 pt-5">
         <h2 className="text-xl font-semibold">Bottle deposit</h2>
         <p className="mt-2 text-stone-600">
           One price for a returnable bottle, regardless of drink brand.
@@ -89,7 +87,7 @@ export default async function EmptiesRulesPage({
         </form>
       </section>
 
-      <section className="mt-8 border-t border-stone-300 pt-6">
+      <section className="mt-6 border-t border-stone-300 pt-5">
         <h2 className="text-xl font-semibold">Complete crate deposits</h2>
         <p className="mt-2 text-stone-600">
           A complete crate deposit covers the physical crate and all bottles
@@ -106,7 +104,7 @@ export default async function EmptiesRulesPage({
               <form
                 action={saveCrateDepositPrice}
                 key={pocketCount}
-                className="border-t border-stone-200 pt-4"
+                className="rounded-lg border border-stone-200 bg-white p-4"
               >
                 <input
                   type="hidden"
@@ -159,7 +157,7 @@ export default async function EmptiesRulesPage({
                   crate itself is missing.
                 </p>
 
-                <button className="secondary mt-4 w-full">Save</button>
+                <button className="secondary mt-4 w-full">Save {pocketCount}-pocket prices</button>
               </form>
             );
           })}

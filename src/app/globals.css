@@ -76,6 +76,23 @@ textarea[aria-invalid="true"] {
   text-decoration: underline;
   text-underline-offset: 4px;
 }
+.review-list {
+  border: 1px solid #e7e5e4;
+  border-radius: 0.5rem;
+  background: white;
+  padding: 0 1rem;
+}
+.review-list > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  padding: 0.875rem 0;
+  border-bottom: 1px solid #e7e5e4;
+}
+.review-list > div:last-child { border-bottom: 0; }
+.review-list dt { color: #57534e; }
+.review-list dd { text-align: right; }
 button:disabled {
   opacity: 0.65;
 }
