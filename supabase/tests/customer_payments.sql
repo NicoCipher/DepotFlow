@@ -5,9 +5,11 @@ insert into auth.users(id) values
   ('00000000-0000-4000-8000-000000000052');
 insert into private.shop_owner(user_id) values ('00000000-0000-4000-8000-000000000051');
 insert into public.customers(id,name,phone) values
-  ('10000000-0000-4000-8000-000000000051','Pay Test','+2348030000051');
+  ('10000000-0000-4000-8000-000000000051','Pay Test','+2348030000051'),
+  ('10000000-0000-4000-8000-000000000052','Overpayment Test','+2348030000052');
 insert into public.money_owed(customer_id,amount) values
-  ('10000000-0000-4000-8000-000000000051',20000);
+  ('10000000-0000-4000-8000-000000000051',20000),
+  ('10000000-0000-4000-8000-000000000052',5000);
 -- A pre-existing historical sale: payments must never touch its stored totals.
 insert into public.sales(id,customer_id,total_amount,paid_amount) values
   ('40000000-0000-4000-8000-000000000051','10000000-0000-4000-8000-000000000051',15000,5000);
@@ -16,6 +18,22 @@ begin if ok is distinct from true then raise exception '%',message; end if; end 
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000051',true);
+
+-- Exact owner scenario: entering ₦7,000 when the customer owes ₦5,000
+-- must leave the balance and ledger untouched. A subsequent valid payment
+-- may then be retried after a lost response without deducting twice.
+do $$ begin
+  begin
+    perform public.record_payment('20000000-0000-4000-8000-000000000054','10000000-0000-4000-8000-000000000052',7000,'2026-01-05');
+    raise exception '7000 payment accepted against 5000 owed';
+  exception when invalid_parameter_value then null; end;
+end $$;
+select pg_temp.check_true((select amount=5000 from public.money_owed where customer_id='10000000-0000-4000-8000-000000000052'),'Overpayment changed the 5000 balance');
+select pg_temp.check_true(not exists(select 1 from public.customer_payments where request_id='20000000-0000-4000-8000-000000000054'),'Overpayment created a ledger row');
+select public.record_payment('20000000-0000-4000-8000-000000000055','10000000-0000-4000-8000-000000000052',5000,'2026-01-05');
+select public.record_payment('20000000-0000-4000-8000-000000000055','10000000-0000-4000-8000-000000000052',5000,'2026-01-05');
+select pg_temp.check_true((select amount=0 from public.money_owed where customer_id='10000000-0000-4000-8000-000000000052'),'Lost-response retry deducted twice');
+select pg_temp.check_true((select count(*)=1 from public.customer_payments where customer_id='10000000-0000-4000-8000-000000000052'),'Lost-response retry created two payments');
 
 -- A normal payment reduces money owed and writes one ledger row; the old sale is untouched.
 select public.record_payment('20000000-0000-4000-8000-000000000051','10000000-0000-4000-8000-000000000051',8000,'2026-01-05');
@@ -62,7 +80,7 @@ do $$ declare n numeric; d date; begin
   exception when invalid_parameter_value then null; end;
 end $$;
 select pg_temp.check_true((select amount=12000 from public.money_owed where customer_id='10000000-0000-4000-8000-000000000051'),'Rejected payment attempt still changed the balance');
-select pg_temp.check_true((select count(*)=1 from public.customer_payments),'Rejected payment attempt was recorded');
+select pg_temp.check_true((select count(*)=1 from public.customer_payments where customer_id='10000000-0000-4000-8000-000000000051'),'Rejected payment attempt was recorded');
 
 -- Paying the remaining balance down to exactly zero is allowed.
 select public.record_payment('20000000-0000-4000-8000-000000000052','10000000-0000-4000-8000-000000000051',12000,'2026-01-08');
