@@ -7,7 +7,16 @@ import {
   crateDescription,
   crateFitsProduct,
   crateNeedsSetup,
+  showInDailyEmptyCrates,
 } from "./crate-types.ts";
+
+test("daily empty crates hide unused legacy records without a count while keeping actionable or physical records", () => {
+  const legacy = { ...attributes, is_legacy: true, empty_family: null, pocket_count: null, quantity: null };
+  assert.equal(showInDailyEmptyCrates(legacy, false), false);
+  assert.equal(showInDailyEmptyCrates(legacy, true), true);
+  assert.equal(showInDailyEmptyCrates({ ...legacy, quantity: 3 }, false), true);
+  assert.equal(showInDailyEmptyCrates({ ...attributes, quantity: null }, false), true);
+});
 import {
   emptyProduct,
   validateProduct,

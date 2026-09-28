@@ -120,8 +120,13 @@ export default async function CrateTypesPage({
               <li key={crate.id} className="py-4">
                 <CrateDisplay crate={crate} />
                 <p className="mt-2 text-sm text-stone-600">
-                  This older record is kept separately from current crate setup.
+                  Older records cannot be edited into a new crate type. Create
+                  an exact type for current drinks. This record can be deleted
+                  only if no stock, sales, counts, or other records use it.
                 </p>
+                <div className="mt-3">
+                  <DeleteCrateType id={crate.id} name={crate.name} />
+                </div>
               </li>
             ))}
           </ul>
