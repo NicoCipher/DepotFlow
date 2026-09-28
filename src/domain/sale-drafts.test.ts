@@ -15,6 +15,8 @@ import {
   cancelSale,
   completeSale,
   readSaleDrafts,
+  isSaleRequestId,
+  replaceActiveSaleId,
 } from "./sale-drafts.ts";
 const product: SaleProduct = {
   id: "p",
@@ -97,6 +99,21 @@ test("park preserves stable identity and quantities; starting another sale creat
     /active sale changed/,
   );
 });
+test("legacy draft ID can be replaced once with a stable save request ID", () => {
+  const state = updateActiveSale(emptySaleDrafts, null, draft, "legacy-sale");
+  const requestId = "40000000-0000-4000-8000-000000000999";
+  assert.equal(isSaleRequestId("legacy-sale"), false);
+  assert.equal(isSaleRequestId(requestId), true);
+
+  const migrated = replaceActiveSaleId(state, "legacy-sale", requestId);
+  assert.equal(migrated.active?.id, requestId);
+  assert.deepEqual(migrated.active?.draft, draft);
+  assert.throws(
+    () => replaceActiveSaleId(migrated, "legacy-sale", crypto.randomUUID()),
+    /active sale changed/,
+  );
+});
+
 test("cancel removes only the named unfinished draft", () => {
   let state = updateActiveSale(emptySaleDrafts, null, draft, "a");
   state = parkActiveSale(state, "a", now);
