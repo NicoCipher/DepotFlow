@@ -1,6 +1,6 @@
 "use server";
 
-import { requireOwner } from "@/lib/auth/owner";
+import { ownerSession, requireOwner } from "@/lib/auth/owner";
 import {
   inactiveSaleCustomerMessage,
   type SaleCatalog,
@@ -12,6 +12,11 @@ import {
   actualSaleEmpties,
   matchSaleEmpties,
 } from "@/domain/sale-empties";
+import {
+  isSaleSessionExpired,
+  saleNetworkMessage,
+  saleSessionExpiredMessage,
+} from "@/domain/sale-errors";
 
 type OwnerClient = Awaited<ReturnType<typeof requireOwner>>;
 
@@ -107,8 +112,34 @@ export async function loadSaleCatalog(): Promise<SaleCatalog> {
   return loadCatalog(await requireOwner());
 }
 
+export async function refreshSaleCatalog() {
+  const session = await ownerSession();
+  if (!session.user) {
+    if (isSaleSessionExpired(false, session.authError))
+      return {
+        error: saleSessionExpiredMessage,
+        code: "session_expired" as const,
+      };
+    throw new Error(saleNetworkMessage);
+  }
+  if (!session.allowed) throw new Error(saleNetworkMessage);
+
+  return { catalog: await loadCatalog(session.supabase) };
+}
+
 export async function saveSale(requestId: string, draft: SaleDraft) {
-  const supabase = await requireOwner();
+  const session = await ownerSession();
+  if (!session.user) {
+    if (isSaleSessionExpired(false, session.authError))
+      return {
+        error: saleSessionExpiredMessage,
+        code: "session_expired" as const,
+      };
+    return { error: saleNetworkMessage, code: "network_error" as const };
+  }
+  if (!session.allowed)
+    return { error: saleNetworkMessage, code: "network_error" as const };
+  const supabase = session.supabase;
   if (
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       requestId,
