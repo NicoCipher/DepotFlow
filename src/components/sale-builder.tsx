@@ -379,24 +379,24 @@ export function SaleBuilder({
           </nav>
         )}
         {customer && step !== "customer" && (
-          <section aria-label="Current sale" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+          <section aria-label="Current sale" className="border-b border-stone-200 pb-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Sale for</p>
-                <p className="break-words text-xl font-bold text-emerald-950">{customer.name}</p>
-                {customer.phone && <p className="text-sm text-emerald-900">{customer.phone}</p>}
+                <p className="text-sm text-stone-500">Customer</p>
+                <p className="break-words text-2xl font-semibold tracking-tight text-stone-950">{customer.name}</p>
+                {customer.phone && <p className="mt-0.5 text-sm text-stone-500">{customer.phone}</p>}
               </div>
               <button
-                className="shrink-0 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-950"
+                className="min-h-11 shrink-0 px-2 text-sm font-semibold text-emerald-800 underline underline-offset-4"
                 onClick={() => update({ step: "customer" })}
               >
                 Change
               </button>
             </div>
             {draft.lines.length > 0 && (
-              <p className="mt-3 border-t border-emerald-200 pt-3 text-sm font-medium text-emerald-950">
+              <p className="mt-3 text-sm text-stone-600">
                 {draft.lines.length} {draft.lines.length === 1 ? "drink" : "drinks"} in sale
-                {displayedTotal !== undefined && <> · <strong>{formatNaira(displayedTotal)}</strong> total</>}
+                {displayedTotal !== undefined && <> <span aria-hidden="true">·</span> <strong className="font-semibold text-stone-950">{formatNaira(displayedTotal)}</strong> total</>}
               </p>
             )}
           </section>
