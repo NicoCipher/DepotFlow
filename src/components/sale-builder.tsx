@@ -1,7 +1,10 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
-import { loadSaleCatalog, saveSale } from "@/app/(shop)/record-sale/actions";
+import {
+  refreshSaleCatalog,
+  saveSale,
+} from "@/app/(shop)/record-sale/actions";
 import { CustomerForm } from "./customer-form";
 import { emptyCustomer } from "@/domain/customers";
 import { ProductImage } from "@/components/product-image";
@@ -16,6 +19,7 @@ import { wholeNumberInputMessage } from "@/domain/sale-input";
 import {
   saleNetworkMessage,
   saleSaveUncertainMessage,
+  saleSessionExpiredMessage,
 } from "@/domain/sale-errors";
 import { formatNaira } from "@/domain/products";
 import { formatQuantity } from "@/domain/quantity";
@@ -54,6 +58,7 @@ export function SaleBuilder({
   const [customerQuery, setCustomerQuery] = useState("");
   const [catalog, setCatalog] = useState(initialCatalog);
   const [message, setMessage] = useState("");
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [uncertainRequestId, setUncertainRequestId] = useState<string | null>(
     null,
   );
@@ -79,17 +84,25 @@ export function SaleBuilder({
   useEffect(() => {
     if (!activeId) return;
     let current = true;
-    loadSaleCatalog()
-      .then((fresh) => {
-        if (current) {
-          setCatalog(fresh);
-          setVerifiedId(activeId);
-          setCheckError("");
+    refreshSaleCatalog()
+      .then((response) => {
+        if (!current) return;
+        if ("error" in response) {
+          if (response.code === "session_expired") {
+            setSessionExpired(true);
+            setCheckError(saleSessionExpiredMessage);
+          } else {
+            setCheckError(response.error);
+          }
+          return;
         }
+        setCatalog(response.catalog);
+        setVerifiedId(activeId);
+        setCheckError("");
+        setSessionExpired(false);
       })
       .catch(() => {
-        if (current)
-          setCheckError(saleNetworkMessage);
+        if (current) setCheckError(saleNetworkMessage);
       });
     return () => {
       current = false;
@@ -99,6 +112,10 @@ export function SaleBuilder({
   const customer = catalog.customers.find((c) => c.id === draft.customerId);
   const product = catalog.products.find((p) => p.id === draft.editingId);
   function update(patch: Partial<SaleDraft>) {
+    if (sessionExpired) {
+      setMessage(saleSessionExpiredMessage);
+      return;
+    }
     if (saveUncertain) {
       setMessage(saleSaveUncertainMessage);
       return;
@@ -179,7 +196,17 @@ export function SaleBuilder({
   function quickCheck() {
     startTransition(async () => {
       try {
-        const fresh = await loadSaleCatalog();
+        const response = await refreshSaleCatalog();
+        if ("error" in response) {
+          if (response.code === "session_expired") {
+            setSessionExpired(true);
+            setMessage(saleSessionExpiredMessage);
+          } else {
+            setMessage(response.error);
+          }
+          return;
+        }
+        const fresh = response.catalog;
         setCatalog(fresh);
         const checked = revalidateSaleDraft(draft, fresh);
         if (checked.warnings.length) {
@@ -250,7 +277,24 @@ export function SaleBuilder({
 
   return (
     <>
-      {!ready && (
+      {sessionExpired && (
+        <div
+          role="alert"
+          className="mb-5 border-l-4 border-amber-700 pl-3 text-amber-950"
+        >
+          <p>{saleSessionExpiredMessage}</p>
+          <p className="mt-1 text-sm">
+            Your unfinished sale is saved on this device.
+          </p>
+          <Link
+            href="/sign-in?next=/record-sale"
+            className="quiet-link mt-3 inline-block"
+          >
+            Sign in again
+          </Link>
+        </div>
+      )}
+      {!ready && !sessionExpired && (
         <div role="status" className="mb-5">
           <p>{checkError || "Checking current prices and stock…"}</p>
           {checkError && (
@@ -264,7 +308,7 @@ export function SaleBuilder({
         </div>
       )}
       <fieldset
-        disabled={pending || !ready}
+        disabled={pending || !ready || sessionExpired}
         aria-label="Sale draft"
         className="space-y-5"
       >
