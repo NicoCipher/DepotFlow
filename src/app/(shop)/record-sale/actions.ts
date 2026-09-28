@@ -14,8 +14,11 @@ import {
 } from "@/domain/sale-empties";
 import {
   isSaleSessionExpired,
+  safeSaleDatabaseMessage,
+  safeSaleDomainMessage,
   saleNetworkMessage,
   saleSessionExpiredMessage,
+  saleUnexpectedMessage,
 } from "@/domain/sale-errors";
 
 type OwnerClient = Awaited<ReturnType<typeof requireOwner>>;
@@ -124,7 +127,18 @@ export async function refreshSaleCatalog() {
   }
   if (!session.allowed) throw new Error(saleNetworkMessage);
 
-  return { catalog: await loadCatalog(session.supabase) };
+  try {
+    return { catalog: await loadCatalog(session.supabase) };
+  } catch (cause) {
+    console.error("record_sale_catalog_error", {
+      name: cause instanceof Error ? cause.name : typeof cause,
+      message: cause instanceof Error ? cause.message : "unknown",
+    });
+    return {
+      error: saleUnexpectedMessage,
+      code: "temporary_problem" as const,
+    };
+  }
 }
 
 export async function saveSale(requestId: string, draft: SaleDraft) {
@@ -200,17 +214,29 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
     if (error) {
       if (
         error.code === "22023" &&
-        /customer is archived|customer not found/i.test(error.message)
+        /customer is archived|customer not found|customer no longer exists/i.test(
+          error.message,
+        )
       )
         return {
           error: inactiveSaleCustomerMessage,
           code: "customer_unavailable" as const,
         };
+      const safeMessage = safeSaleDatabaseMessage(error);
+      if (safeMessage)
+        return {
+          error: safeMessage,
+          code: "business_rule" as const,
+        };
+
+      console.error("record_sale_database_error", {
+        requestId,
+        code: error.code,
+        message: error.message,
+      });
       return {
-        error:
-          error.code === "22023"
-            ? error.message
-            : "Could not save sale. Review and try again.",
+        error: saleUnexpectedMessage,
+        code: "temporary_problem" as const,
       };
     }
 
@@ -224,11 +250,21 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
       },
     };
   } catch (cause) {
+    const safeMessage = safeSaleDomainMessage(cause);
+    if (safeMessage)
+      return {
+        error: safeMessage,
+        code: "business_rule" as const,
+      };
+
+    console.error("record_sale_unexpected_error", {
+      requestId,
+      name: cause instanceof Error ? cause.name : typeof cause,
+      message: cause instanceof Error ? cause.message : "unknown",
+    });
     return {
-      error:
-        cause instanceof Error
-          ? cause.message
-          : "Could not save sale. Review and try again.",
+      error: saleUnexpectedMessage,
+      code: "temporary_problem" as const,
     };
   }
 }
