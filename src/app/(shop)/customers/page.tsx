@@ -1,3 +1,5 @@
+import { PageIntro } from "@/components/page-intro";
+import { formatNaira } from "@/domain/products";
 import Link from "next/link";
 import { requireOwner } from "@/lib/auth/owner";
 import { customerSearchFilter } from "@/domain/customers";
@@ -17,7 +19,9 @@ export default async function CustomersPage({
   );
   let request = supabase
     .from("customers")
-    .select("id,name,phone,business_name", { count: "exact" })
+    .select("id,name,phone,business_name,money_owed(amount)", {
+      count: "exact",
+    })
     .is("archived_at", null)
     .order("name")
     .order("id")
@@ -29,11 +33,17 @@ export default async function CustomersPage({
     `/customers?${new URLSearchParams({ q: query, page: String(value) })}`;
   return (
     <>
-      <div className="flex items-center justify-between gap-3">
-        <h1>Customers</h1>
-        <Link className="primary shrink-0" href="/customers/new">Add customer</Link>
-      </div>
-      <form action="/customers" role="search" className="mb-4 mt-5">
+      <PageIntro
+        eyebrow="People you sell to"
+        title="Customers"
+        description="Open a customer to see what they owe, record a payment, or check their history."
+        action={
+          <Link className="primary" href="/customers/new">
+            Add customer
+          </Link>
+        }
+      />
+      <form action="/customers" role="search" className="mb-5">
         <label htmlFor="search">Search by name or phone</label>
         <div className="flex gap-2">
           <input
@@ -53,9 +63,6 @@ export default async function CustomersPage({
           </Link>
         )}
       </form>
-      <Link className="quiet-link mb-3 self-start text-sm" href="/customers/archived">
-        Archived customers
-      </Link>
       {!data?.length ? (
         <div className="border-t border-stone-300 py-8">
           <h2 className="text-xl font-semibold">
@@ -68,12 +75,15 @@ export default async function CustomersPage({
           </p>
         </div>
       ) : (
-        <ul className="border-t border-stone-300">
+        <ul className="space-y-3">
           {data.map((customer) => (
-            <li key={customer.id} className="border-b border-stone-300">
+            <li
+              key={customer.id}
+              className="rounded-xl border border-stone-200 bg-white"
+            >
               <Link
                 href={`/customers/${customer.id}`}
-                className="block min-h-24 py-5"
+                className="block min-h-24 p-4"
               >
                 <span className="block break-words text-lg font-semibold">
                   {customer.name}
@@ -83,14 +93,33 @@ export default async function CustomersPage({
                     {customer.business_name}
                   </span>
                 )}
-                <span className="mt-1 block text-stone-600">
+                <span className="mt-1 block text-sm text-stone-500">
                   {customer.phone}
+                </span>
+                <span className="mt-3 flex items-center justify-between gap-3 border-t border-stone-100 pt-3 text-sm">
+                  <span
+                    className={
+                      (customer.money_owed?.amount ?? 0) > 0
+                        ? "font-semibold text-amber-900"
+                        : "text-stone-500"
+                    }
+                  >
+                    {(customer.money_owed?.amount ?? 0) > 0
+                      ? `${formatNaira(customer.money_owed!.amount)} owed`
+                      : "No money owed"}
+                  </span>
+                  <span className="font-semibold text-emerald-900">
+                    Open <span aria-hidden="true">→</span>
+                  </span>
                 </span>
               </Link>
             </li>
           ))}
         </ul>
       )}
+      <p className="mt-4 text-sm text-stone-500">
+        {count ?? 0} {query ? "matching customers" : "active customers"}
+      </p>
       <nav aria-label="Customer pages" className="mt-4 flex justify-between">
         {page > 1 && (
           <Link className="quiet-link" href={pageUrl(page - 1)}>
@@ -103,6 +132,12 @@ export default async function CustomersPage({
           </Link>
         )}
       </nav>
+      <Link
+        className="quiet-link mt-5 self-start text-sm"
+        href="/customers/archived"
+      >
+        Archived customers
+      </Link>
     </>
   );
 }

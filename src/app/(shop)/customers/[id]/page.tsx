@@ -15,8 +15,8 @@ export default async function CustomerPage({
 }) {
   const { id } = await params;
   const { customer, supabase } = await getCustomer(id);
-  const [money, crates, bottles, deposits, sales, payments] =
-    await Promise.all([
+  const [money, crates, bottles, deposits, sales, payments] = await Promise.all(
+    [
       supabase
         .from("money_owed")
         .select("amount")
@@ -37,64 +37,113 @@ export default async function CustomerPage({
         .maybeSingle(),
       getRecentCustomerSales(supabase, id),
       getRecentCustomerPayments(supabase, id),
-    ]);
+    ],
+  );
   if ([money, crates, bottles, deposits].some((result) => result.error))
     throw new Error("Could not load customer totals.");
   const { saved } = await searchParams;
   const naira = (value: number) => `₦${value.toLocaleString("en-NG")}`;
   return (
     <>
-      {saved && ({ added: "Customer added.", updated: "Customer updated.", payment: "Payment recorded.", archived: "Customer archived.", restored: "Customer restored." } as Record<string,string>)[saved] &&
-        <SuccessToast message={({ added: "Customer added.", updated: "Customer updated.", payment: "Payment recorded.", archived: "Customer archived.", restored: "Customer restored." } as Record<string,string>)[saved]} />}
+      {saved &&
+        (
+          {
+            added: "Customer added.",
+            updated: "Customer updated.",
+            payment: "Payment recorded.",
+            archived: "Customer archived.",
+            restored: "Customer restored.",
+          } as Record<string, string>
+        )[saved] && (
+          <SuccessToast
+            message={
+              (
+                {
+                  added: "Customer added.",
+                  updated: "Customer updated.",
+                  payment: "Payment recorded.",
+                  archived: "Customer archived.",
+                  restored: "Customer restored.",
+                } as Record<string, string>
+              )[saved]
+            }
+          />
+        )}
       {customer.archived_at && (
         <p className="mb-3 inline-block self-start border border-stone-400 px-2 py-1 text-sm font-semibold uppercase tracking-wide text-stone-600">
           Archived
         </p>
       )}
+      <Link className="quiet-link mb-3 self-start text-sm" href="/customers">
+        ← Customers
+      </Link>
+      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-emerald-800">
+        Customer account
+      </p>
       <h1 className="break-words">{customer.name}</h1>
-      <a
-        href={`tel:${customer.phone.replace(/[^+0-9]/g, "")}`}
-        className="quiet-link mt-2 inline-block"
-      >
-        {customer.phone}
-      </a>
       {customer.business_name && (
-        <p className="mt-3 break-words font-medium">{customer.business_name}</p>
-      )}
-      {customer.address && (
-        <p className="mt-2 whitespace-pre-line break-words text-stone-600">
-          {customer.address}
+        <p className="mt-2 break-words text-stone-600">
+          {customer.business_name}
         </p>
       )}
-      <dl className="mt-6 rounded-lg border border-stone-200 bg-white px-4">
-        <div className="flex items-center justify-between gap-3 border-b border-stone-200 py-4">
-          <dt className="text-lg">Money owed</dt>
-          <dd className="text-xl font-bold">
-            {naira(money.data?.amount ?? 0)}
+      <section
+        className="mt-5 rounded-2xl border border-stone-200 bg-white p-5"
+        aria-label="Customer balance"
+      >
+        <p className="text-sm text-stone-600">Money owed</p>
+        <p className="mt-1 break-words text-3xl font-semibold tracking-tight">
+          {naira(money.data?.amount ?? 0)}
+        </p>
+        {(money.data?.amount ?? 0) > 0 ? (
+          <Link href={`/customers/${id}/pay`} className="primary mt-4 w-full">
+            Record Payment
+          </Link>
+        ) : (
+          <p className="mt-3 text-sm font-medium text-emerald-800">
+            All payments up to date
+          </p>
+        )}
+      </section>
+      <dl className="mt-3 grid grid-cols-2 gap-3">
+        <div className="rounded-xl border border-stone-200 bg-white p-4">
+          <dt className="text-sm text-stone-600">Crates owed</dt>
+          <dd className="mt-1 text-2xl font-semibold">
+            {crates.data?.reduce((sum, row) => sum + row.quantity, 0) ?? 0}
           </dd>
         </div>
-        <div className="flex items-center justify-between gap-3 border-b border-stone-200 py-4">
-          <dt>Crates owed</dt>
-          <dd className="text-lg font-semibold">{crates.data?.reduce((sum, row) => sum + row.quantity, 0) ?? 0}</dd>
-        </div>
-        <div className="flex items-center justify-between gap-3 py-4">
-          <dt>Bottles owed</dt>
-          <dd className="text-lg font-semibold">{bottles.data?.reduce((sum, row) => sum + row.quantity, 0) ?? 0}</dd>
+        <div className="rounded-xl border border-stone-200 bg-white p-4">
+          <dt className="text-sm text-stone-600">Bottles owed</dt>
+          <dd className="mt-1 text-2xl font-semibold">
+            {bottles.data?.reduce((sum, row) => sum + row.quantity, 0) ?? 0}
+          </dd>
         </div>
       </dl>
-      <p className="mt-3 flex items-center justify-between text-stone-600">
+      <p className="mt-3 flex justify-between gap-3 px-1 text-sm text-stone-600">
         <span>Deposit held</span>
         <span>{naira(deposits.data?.amount ?? 0)}</span>
       </p>
-      {(money.data?.amount ?? 0) > 0 ? (
-        <Link href={`/customers/${id}/pay`} className="primary mt-6 w-full">
-          Record Payment
-        </Link>
-      ) : (
-        <p className="mt-6 rounded-lg bg-emerald-50 px-4 py-3 text-center font-medium text-emerald-900">
-          No payment due
-        </p>
-      )}
+      <Link className="secondary mt-5 w-full" href={`/activity?customer=${id}`}>
+        View all customer activity
+      </Link>
+      <details className="group mt-5 border-y border-stone-200 py-2">
+        <summary className="flex min-h-11 cursor-pointer items-center justify-between font-medium">
+          Contact details{" "}
+          <span aria-hidden="true" className="group-open:rotate-45">
+            +
+          </span>
+        </summary>
+        <a
+          href={`tel:${customer.phone.replace(/[^+0-9]/g, "")}`}
+          className="quiet-link inline-block"
+        >
+          {customer.phone}
+        </a>
+        {customer.address && (
+          <p className="mb-3 whitespace-pre-line break-words text-sm text-stone-600">
+            {customer.address}
+          </p>
+        )}
+      </details>
       <Link
         href={`/customers/${id}/edit`}
         className="quiet-link mt-2 self-start"
@@ -106,10 +155,10 @@ export default async function CustomerPage({
           id="customer-sales-heading"
           className="mb-4 text-sm font-semibold uppercase tracking-wide text-stone-500"
         >
-          Sales
+          Recent sales
         </h2>
         <SalesList
-          sales={sales}
+          sales={sales.slice(0, 3)}
           showCustomer={false}
           showItemCount={false}
           emptyTitle="No sales for this customer"
@@ -121,9 +170,9 @@ export default async function CustomerPage({
           id="customer-payments-heading"
           className="mb-4 text-sm font-semibold uppercase tracking-wide text-stone-500"
         >
-          Payment History
+          Recent payments
         </h2>
-        <PaymentsList payments={payments} />
+        <PaymentsList payments={payments.slice(0, 3)} />
       </section>
     </>
   );

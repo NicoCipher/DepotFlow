@@ -20,7 +20,7 @@ export default async function Home() {
     </div></section>
     <section aria-labelledby="attention-heading"><h2 id="attention-heading" className="mb-3 text-lg font-semibold">Needs attention</h2><div className="divide-y divide-stone-100 rounded-2xl border border-stone-200 bg-white px-4">
       <Link href="/customers" className="flex min-h-16 items-center justify-between gap-3 py-3"><span><strong className="block">Outstanding balances</strong><small className="text-stone-600">{snapshot.customers_owing} customers owe money</small></span><strong className="shrink-0 text-emerald-950">{formatNaira(snapshot.outstanding)} →</strong></Link>
-      <Link href="/stock" className="flex min-h-16 items-center justify-between gap-3 py-3"><span><strong className="block">Low stock</strong><small className="text-stone-600">One crate or less</small></span><strong>{snapshot.low_stock} drinks →</strong></Link>
+      <Link href="/stock" className="flex min-h-16 items-center justify-between gap-3 py-3"><span><strong className="block">Stock to check</strong><small className="text-stone-600">Low stock or no count</small></span><strong>{snapshot.low_stock} drinks →</strong></Link>
       {snapshot.missing_counts > 0 && <Link href="/stock/count" className="flex min-h-16 items-center justify-between gap-3 py-3"><span><strong className="block">Stock not counted</strong><small className="text-stone-600">Record starting quantities</small></span><strong>{snapshot.missing_counts} →</strong></Link>}
     </div></section>
     <Link href="/activity" className="secondary w-full">View all store activity →</Link>

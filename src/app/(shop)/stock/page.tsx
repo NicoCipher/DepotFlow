@@ -1,8 +1,7 @@
 import { SuccessToast } from "@/components/success-toast";
-import { CrateDisplay } from "@/components/crate-display";
+import { PageIntro } from "@/components/page-intro";
 import Link from "next/link";
 import { requireOwner } from "@/lib/auth/owner";
-import { formatQuantity } from "@/domain/quantity";
 import { StockCard } from "@/components/stock-card";
 
 export default async function StockPage({
@@ -16,54 +15,66 @@ export default async function StockPage({
     1,
     Math.min(10000, Number.parseInt(params.page ?? "1", 10) || 1),
   );
-  // These reads are independent, so start them together instead of waiting
-  // for the stock list before requesting recent history.
-  const [stockResult, history] = await Promise.all([
-    supabase
-      .from("products")
-      .select("id,name,size,image_url,bottles_per_crate,stock(total_bottles)", {
-        count: "exact",
-      })
-      .order("name")
-      .order("id")
-      .range((page - 1) * 30, page * 30 - 1),
-    supabase
-      .from("stock_movements")
-      .select(
-        "id,crate_types(*),product_name,movement_type,quantity_change,resulting_stock,business_date,bottles_per_crate",
-      )
-      .order("created_at", { ascending: false })
-      .order("id", { ascending: false })
-      .limit(20),
-  ]);
-  const { data, error, count } = stockResult;
+  const { data, error, count } = await supabase
+    .from("products")
+    .select("id,name,size,image_url,bottles_per_crate,stock(total_bottles)", {
+      count: "exact",
+    })
+    .order("name")
+    .order("id")
+    .range((page - 1) * 30, page * 30 - 1);
   if (error) throw new Error("Could not load stock.");
-  if (history.error) throw new Error("Could not load stock history.");
   return (
     <>
-      <h1>Stock</h1>
+      <PageIntro
+        eyebrow="Drinks in the depot"
+        title="Stock"
+        description="See what is available to sell. Receive a delivery or correct a physical count."
+      />
       {params.received === "1" && <SuccessToast message="Stock received." />}
-      {params.counted === "1" && <SuccessToast message="Current stock saved." />}
-      <div className="mb-6 mt-5 flex flex-wrap items-center gap-3">
-        <Link className="primary" href="/stock/receive">
-          Receive Stock
+      {params.counted === "1" && (
+        <SuccessToast message="Current stock saved." />
+      )}
+      <div className="mb-7 grid grid-cols-2 gap-3">
+        <Link
+          className="rounded-xl bg-emerald-900 p-4 text-white"
+          href="/stock/receive"
+        >
+          <span className="block font-semibold">
+            Receive Stock <span aria-hidden="true">↓</span>
+          </span>
+          <span className="mt-1 block text-xs leading-5 text-emerald-100">
+            Add a new delivery
+          </span>
         </Link>
-        <Link className="secondary" href="/stock/count">
-          Set Current Stock
-        </Link>
-        <Link className="quiet-link text-sm" href="/empty-crates">
-          Empty Crates
+        <Link
+          className="rounded-xl border border-stone-200 bg-white p-4"
+          href="/stock/count"
+        >
+          <span className="block font-semibold">Count Stock</span>
+          <span className="mt-1 block text-xs leading-5 text-stone-600">
+            Set what is here now
+          </span>
         </Link>
       </div>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold">Available drinks</h2>
+        <span className="text-sm text-stone-500">{count ?? 0} products</span>
+      </div>
       {!data?.length ? (
-        <div className="border-t border-stone-300 py-6">
-          <h2 className="text-xl font-semibold">
-            {page > 1 ? "No more products" : "No products yet"}
+        <div className="rounded-xl border border-dashed border-stone-300 p-6">
+          <h2 className="font-semibold">
+            {page > 1 ? "No more drinks" : "Add your first drink"}
           </h2>
+          <p className="mt-2 text-sm text-stone-600">
+            {page > 1
+              ? "Return to the previous page."
+              : "Add a product, then count its stock to start selling."}
+          </p>
           {page === 1 && (
-            <p className="mt-2 text-stone-600">
-              Your products will appear here with their recorded stock.
-            </p>
+            <Link className="primary mt-4" href="/products/new">
+              Add product
+            </Link>
           )}
         </div>
       ) : (
@@ -81,70 +92,29 @@ export default async function StockPage({
       <nav aria-label="Stock pages" className="mt-4 flex justify-between">
         {page > 1 && (
           <Link className="quiet-link" href={`/stock?page=${page - 1}`}>
-            Previous
+            ← Previous
           </Link>
         )}
         {(count ?? 0) > page * 30 && (
           <Link className="quiet-link ml-auto" href={`/stock?page=${page + 1}`}>
-            Next
+            Next →
           </Link>
         )}
       </nav>
-      <section className="mt-10" aria-labelledby="history-title">
-        <h2
-          id="history-title"
-          className="text-sm font-semibold uppercase tracking-wide text-stone-500"
+      <div className="mt-6 divide-y divide-stone-200 border-t border-stone-200">
+        <Link
+          className="flex min-h-14 items-center justify-between gap-3 py-3 font-medium text-emerald-900"
+          href="/empty-crates"
         >
-          Recent stock history
-        </h2>
-        {!history.data?.length ? (
-          <p className="mt-4 text-stone-600">No stock history yet.</p>
-        ) : (
-          <ul className="mt-4 divide-y divide-stone-200 text-stone-700">
-            {history.data.map((movement) => (
-              <li key={movement.id} className="space-y-2 py-5">
-                <time
-                  dateTime={movement.business_date}
-                  className="text-sm text-stone-600"
-                >
-                  {new Intl.DateTimeFormat("en-NG", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                    timeZone: "UTC",
-                  }).format(new Date(`${movement.business_date}T00:00:00Z`))}
-                </time>
-                <h3 className="break-words font-semibold">
-                  {movement.product_name}
-                </h3>
-                {movement.crate_types && (
-                  <p className="text-sm text-stone-600">
-                    <CrateDisplay crate={movement.crate_types} />
-                  </p>
-                )}
-                <p>
-                  {movement.movement_type === "receive"
-                    ? "Stock received"
-                    : "Current stock counted"}
-                </p>
-                <p>
-                  Change:{" "}
-                  {movement.quantity_change === 0
-                    ? "No change"
-                    : `${movement.quantity_change > 0 ? "+" : "−"}${formatQuantity(Math.abs(movement.quantity_change), movement.bottles_per_crate)}`}
-                </p>
-                <p>
-                  Stock after:{" "}
-                  {formatQuantity(
-                    movement.resulting_stock,
-                    movement.bottles_per_crate,
-                  )}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+          Empty crates in the depot <span aria-hidden="true">→</span>
+        </Link>
+        <Link
+          className="flex min-h-14 items-center justify-between gap-3 py-3 font-medium text-emerald-900"
+          href="/activity?type=stock"
+        >
+          View stock history <span aria-hidden="true">→</span>
+        </Link>
+      </div>
     </>
   );
 }
