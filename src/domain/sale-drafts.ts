@@ -5,6 +5,7 @@ import {
 } from "./sale-builder.ts";
 export type StoredSaleDraft = {
   id: string;
+  requestId?: string | null;
   draft: SaleDraft;
   pausedAt: string | null;
   resumedAt?: string | null;
@@ -46,18 +47,48 @@ export function readSaleDrafts(raw: string | null): SaleDrafts {
     }
     return {
       version: 2,
-      active: data.active
-        ? { ...data.active, draft: cleanDraft(data.active.draft) }
-        : null,
-      paused: data.paused.map((entry: StoredSaleDraft) => ({
-        ...entry,
-        draft: cleanDraft(entry.draft),
-      })),
+      active: data.active ? cleanStoredEntry(data.active) : null,
+      paused: data.paused.map((entry: StoredSaleDraft) =>
+        cleanStoredEntry(entry),
+      ),
     };
   } catch {
     return emptySaleDrafts;
   }
 }
+export function validSaleRequestId(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    )
+  );
+}
+
+function cleanStoredEntry(entry: StoredSaleDraft): StoredSaleDraft {
+  return {
+    ...entry,
+    requestId: validSaleRequestId(entry.requestId) ? entry.requestId : null,
+    draft: cleanDraft(entry.draft),
+  };
+}
+
+export function ensureActiveSaleRequestId(
+  state: SaleDrafts,
+  expectedId: string,
+  fallbackRequestId: string,
+): SaleDrafts {
+  if (state.active?.id !== expectedId)
+    throw new Error("The active sale changed. Open it again.");
+  if (!validSaleRequestId(fallbackRequestId))
+    throw new Error("Could not prepare a safe sale retry.");
+  if (validSaleRequestId(state.active.requestId)) return state;
+  return {
+    ...state,
+    active: { ...state.active, requestId: fallbackRequestId },
+  };
+}
+
 // Keep customer identity only, never a typed phone/name search or contact record.
 function cleanDraft(draft: SaleDraft): SaleDraft {
   return { ...draft, customerQuery: "" };
@@ -74,6 +105,7 @@ export function updateActiveSale(
     ...state,
     active: {
       id: expectedId ?? newId,
+      requestId: state.active?.requestId ?? newId,
       pausedAt: null,
       resumedAt: state.active?.resumedAt ?? null,
       draft: cleanDraft({
