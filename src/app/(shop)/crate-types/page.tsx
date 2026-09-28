@@ -32,7 +32,12 @@ export default async function CrateTypesPage({
     getCrateTypes(),
     productsPromise,
   ]);
-  const groups = Map.groupBy(types, (crate) =>
+  const currentCrateIds = new Set(products.map((product) => product.crate_type_id));
+  const olderRecords = types.filter(
+    (crate) => crate.is_legacy && !currentCrateIds.has(crate.id),
+  );
+  const activeTypes = types.filter((crate) => !olderRecords.includes(crate));
+  const groups = Map.groupBy(activeTypes, (crate) =>
     crateNeedsSetup(crate) ? "Needs setup" : crate.empty_family!,
   );
   return (
@@ -96,15 +101,32 @@ export default async function CrateTypesPage({
                       )}
                     </div>
                   )}
-                  {crate.is_legacy &&
-                    !products.some((product) => product.crate_type_id === crate.id) && (
-                      <DeleteCrateType id={crate.id} name={crate.name} />
-                    )}
                 </li>
               ))}
             </ul>
           </section>
         ))}
+      {olderRecords.length > 0 && (
+        <details className="mt-8 border-t border-stone-300 pt-3">
+          <summary className="min-h-12 cursor-pointer py-3 font-semibold text-emerald-900">
+            Older crate records ({olderRecords.length})
+          </summary>
+          <p className="mb-2 text-sm text-stone-600">
+            No current drinks use these records. They may still belong to past
+            stock or sales, so they stay available here for reference.
+          </p>
+          <ul className="divide-y divide-stone-200">
+            {olderRecords.map((crate) => (
+              <li key={crate.id} className="py-4">
+                <CrateDisplay crate={crate} />
+                <p className="mt-2 text-sm text-stone-600">
+                  This older record is kept separately from current crate setup.
+                </p>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       <Link className="quiet-link mt-5" href="/products">
         Back to Products
       </Link>
