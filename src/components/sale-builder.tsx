@@ -397,7 +397,7 @@ export function SaleBuilder({
             </button>
           </div>
         )}
-        {message && (
+        {message && !sessionExpired && (
           <p
             role="alert"
             className={saveUncertain ? "text-amber-900" : "text-red-800"}
