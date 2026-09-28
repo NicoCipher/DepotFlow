@@ -1,7 +1,11 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
-import { loadSaleCatalog, saveSale } from "@/app/(shop)/record-sale/actions";
+import {
+  findSavedSale,
+  loadSaleCatalog,
+  saveSale,
+} from "@/app/(shop)/record-sale/actions";
 import { CustomerForm } from "./customer-form";
 import { emptyCustomer } from "@/domain/customers";
 import { ProductImage } from "@/components/product-image";
@@ -13,7 +17,13 @@ import {
   missingEmptiesMessage,
 } from "@/domain/sale-empties";
 import { wholeNumberInputMessage } from "@/domain/sale-input";
-import { saleNetworkMessage } from "@/domain/sale-errors";
+import {
+  SaleSaveTimeoutError,
+  saleNetworkMessage,
+  saleSaveCheckingMessage,
+  saleSaveRetryMessage,
+  withSaleSaveTimeout,
+} from "@/domain/sale-errors";
 import { formatNaira } from "@/domain/products";
 import { formatQuantity } from "@/domain/quantity";
 import {
@@ -989,15 +999,63 @@ export function SaleBuilder({
               }
               onClick={() =>
                 startTransition(async () => {
-                  const id = sales.state.active?.id;
-                  if (!id) return;
+                  const localId = sales.state.active?.id;
+                  if (!localId) return;
+                  const requestId = await sales.ensureRequestId();
+                  if (!requestId) {
+                    setMessage(
+                      "Could not prepare this sale for saving. Your sale is still here. Try again.",
+                    );
+                    return;
+                  }
+
+                  const finishSavedSale = async (result: {
+                    id: string;
+                    total: number;
+                    paid: number;
+                    owing: number;
+                    customer: string;
+                  }) => {
+                    if (await sales.complete(requestId))
+                      setSaved({
+                        ...result,
+                        name: customer?.name ?? "Customer",
+                      });
+                  };
+
                   let response: Awaited<ReturnType<typeof saveSale>>;
                   try {
-                    response = await saveSale(
-                      id.startsWith("imported-") ? ownerId : id,
-                      draft,
+                    response = await withSaleSaveTimeout(
+                      saveSale(requestId, draft),
                     );
-                  } catch {
+                  } catch (error) {
+                    if (error instanceof SaleSaveTimeoutError) {
+                      setMessage(saleSaveCheckingMessage);
+                      let recovered: Awaited<
+                        ReturnType<typeof findSavedSale>
+                      >["result"] = null;
+                      for (const delay of [0, 800, 1600]) {
+                        if (delay)
+                          await new Promise((resolve) =>
+                            window.setTimeout(resolve, delay),
+                          );
+                        try {
+                          const check = await findSavedSale(requestId);
+                          if (check.result) {
+                            recovered = check.result;
+                            break;
+                          }
+                        } catch {
+                          break;
+                        }
+                      }
+                      if (recovered) {
+                        await finishSavedSale(recovered);
+                        return;
+                      }
+                      setMessage(saleSaveRetryMessage);
+                      return;
+                    }
                     setMessage(saleNetworkMessage);
                     return;
                   }
@@ -1016,11 +1074,7 @@ export function SaleBuilder({
                     return;
                   }
                   if (response.result) {
-                    if (await sales.complete(id))
-                      setSaved({
-                        ...response.result,
-                        name: customer?.name ?? "Customer",
-                      });
+                    await finishSavedSale(response.result);
                   }
                 })
               }
