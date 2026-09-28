@@ -1,6 +1,10 @@
 "use server";
 
-import { requireOwner } from "@/lib/auth/owner";
+import { ownerSession, requireOwner } from "@/lib/auth/owner";
+import {
+  saleNetworkMessage,
+  saleSessionExpiredMessage,
+} from "@/domain/sale-errors";
 import {
   inactiveSaleCustomerMessage,
   type SaleCatalog,
@@ -107,8 +111,42 @@ export async function loadSaleCatalog(): Promise<SaleCatalog> {
   return loadCatalog(await requireOwner());
 }
 
+export async function refreshSaleCatalog() {
+  const session = await ownerSession();
+  if (session.status === "signed_out" || !session.allowed || !session.user)
+    return {
+      error: saleSessionExpiredMessage,
+      code: "session_expired" as const,
+    };
+  if (session.status === "temporary_error")
+    return {
+      error: saleNetworkMessage,
+      code: "temporary_problem" as const,
+    };
+
+  try {
+    return { catalog: await loadCatalog(session.supabase) };
+  } catch {
+    return {
+      error: saleNetworkMessage,
+      code: "temporary_problem" as const,
+    };
+  }
+}
+
 export async function saveSale(requestId: string, draft: SaleDraft) {
-  const supabase = await requireOwner();
+  const session = await ownerSession();
+  if (session.status === "signed_out" || !session.allowed || !session.user)
+    return {
+      error: saleSessionExpiredMessage,
+      code: "session_expired" as const,
+    };
+  if (session.status === "temporary_error")
+    return {
+      error: saleNetworkMessage,
+      code: "temporary_problem" as const,
+    };
+  const supabase = session.supabase;
   if (
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       requestId,
