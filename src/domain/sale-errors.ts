@@ -3,3 +3,6 @@ export const saleNetworkMessage =
 
 export const saleSaveUncertainMessage =
   "Couldn’t confirm whether this sale was saved. Tap Check Sale to verify. Don’t change the sale yet.";
+
+export const saleSessionExpiredMessage =
+  "Sign in again to continue this sale.";
