@@ -1,3 +1,4 @@
+import { SuccessToast } from "@/components/success-toast";
 import { CrateDisplay } from "@/components/crate-display";
 import Link from "next/link";
 import { requireOwner } from "@/lib/auth/owner";
@@ -41,16 +42,8 @@ export default async function StockPage({
   return (
     <>
       <h1>Stock</h1>
-      {params.received === "1" && (
-        <p role="status" className="mt-3 text-emerald-900">
-          Stock received.
-        </p>
-      )}
-      {params.counted === "1" && (
-        <p role="status" className="mt-3 text-emerald-900">
-          Current stock saved.
-        </p>
-      )}
+      {params.received === "1" && <SuccessToast message="Stock received." />}
+      {params.counted === "1" && <SuccessToast message="Current stock saved." />}
       <div className="mb-6 mt-5 flex flex-wrap items-center gap-3">
         <Link className="primary" href="/stock/receive">
           Receive Stock

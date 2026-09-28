@@ -44,6 +44,7 @@ export default async function SalePage({
           </div>
         ))}
       </dl>
+      {sale.paid > 0 && <Link className="primary mt-5 w-full" href={`/receipts/sale/${sale.id}`}>View Receipt</Link>}
       <section className="mt-9" aria-labelledby="sale-items-heading">
         <h2 id="sale-items-heading" className="text-2xl font-semibold">
           Drinks

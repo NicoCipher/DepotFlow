@@ -1,3 +1,4 @@
+import { SuccessToast } from "@/components/success-toast";
 import Link from "next/link";
 import { getCustomer } from "@/lib/customers/data";
 import { getRecentCustomerSales } from "@/lib/sales/data";
@@ -43,24 +44,8 @@ export default async function CustomerPage({
   const naira = (value: number) => `₦${value.toLocaleString("en-NG")}`;
   return (
     <>
-      {(saved === "added" ||
-        saved === "updated" ||
-        saved === "payment" ||
-        saved === "archived" ||
-        saved === "restored") && (
-        <p
-          role="status"
-          className="mb-5 border-l-4 border-emerald-800 pl-3 text-emerald-900"
-        >
-          {saved === "payment"
-            ? "Payment recorded."
-            : saved === "archived"
-              ? "Customer archived."
-              : saved === "restored"
-                ? "Customer restored."
-                : `Customer ${saved === "added" ? "added" : "updated"}.`}
-        </p>
-      )}
+      {saved && ({ added: "Customer added.", updated: "Customer updated.", payment: "Payment recorded.", archived: "Customer archived.", restored: "Customer restored." } as Record<string,string>)[saved] &&
+        <SuccessToast message={({ added: "Customer added.", updated: "Customer updated.", payment: "Payment recorded.", archived: "Customer archived.", restored: "Customer restored." } as Record<string,string>)[saved]} />}
       {customer.archived_at && (
         <p className="mb-3 inline-block self-start border border-stone-400 px-2 py-1 text-sm font-semibold uppercase tracking-wide text-stone-600">
           Archived

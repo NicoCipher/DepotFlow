@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { formatNaira } from "@/domain/products";
 import { formatBusinessDate } from "@/domain/sales";
 import { paymentHistoryState, type PaymentSummary } from "@/domain/payments";
@@ -31,9 +32,9 @@ export function PaymentsList({ payments }: { payments: PaymentSummary[] }) {
               Money owed after: {formatNaira(payment.owedAfter)}
             </span>
           </div>
-          <span className="shrink-0 text-xl font-semibold text-emerald-800">
-            {formatNaira(payment.amount)}
-          </span>
+          <Link href={`/receipts/payment/${payment.id}`} className="shrink-0 text-right font-semibold text-emerald-800">
+            {formatNaira(payment.amount)}<span className="block text-sm underline">View Receipt</span>
+          </Link>
         </li>
       ))}
     </ul>

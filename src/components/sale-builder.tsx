@@ -245,6 +245,7 @@ export function SaleBuilder({
             </div>
           ))}
         </dl>
+        {saved.paid > 0 && <a className="primary w-full" href={`/receipts/sale/${saved.id}`}>View Receipt</a>}
         <details className="text-sm text-stone-600"><summary className="cursor-pointer py-2">Sale reference</summary><p className="break-all">{saved.id}</p></details>
         <button className="primary w-full" onClick={() => setSaved(null)}>
           Record Another Sale
@@ -962,6 +963,12 @@ export function SaleBuilder({
                 {paymentInputError}
               </p>
             )}
+            {Number(draft.paid) > 0 && <div className="mt-4">
+              <label htmlFor="sale-method">How did they pay?</label>
+              <select id="sale-method" value={draft.paymentMethod} onChange={(e) => update({ paymentMethod: e.target.value })} required>
+                <option value="">Choose method</option><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="pos">POS</option>
+              </select>
+            </div>}
             <p className="rounded-lg bg-stone-100 p-4 font-semibold">
               They will owe:{" "}
               {total !== undefined &&
@@ -982,7 +989,7 @@ export function SaleBuilder({
               disabled={
                 pending ||
                 total === undefined ||
-                Boolean(paymentInputError)
+                Boolean(paymentInputError) || (Number(draft.paid) > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))
               }
               onClick={() =>
                 startTransition(async () => {
@@ -1117,6 +1124,7 @@ export function SaleBuilder({
                 <dt>Paid now</dt>
                 <dd className="font-semibold">{formatNaira(Number(draft.paid))}</dd>
               </div>
+              {Number(draft.paid) > 0 && <div className="flex justify-between gap-3 border-b border-stone-200 py-3"><dt>Method</dt><dd className="font-semibold">{{ cash: "Cash", transfer: "Bank transfer", pos: "POS" }[draft.paymentMethod as "cash" | "transfer" | "pos"] ?? "Choose a method"}</dd></div>}
               <div className="flex justify-between gap-3 py-3 text-lg font-semibold">
                 <dt>Still owing</dt>
                 <dd>{reviewTotal === undefined ? "Check drinks" : formatNaira(reviewTotal - Number(draft.paid))}</dd>
@@ -1131,7 +1139,8 @@ export function SaleBuilder({
                 !draft.businessDate ||
                 reviewTotal === undefined ||
                 !emptiesReview ||
-                Number(draft.paid) > reviewTotal
+                Number(draft.paid) > reviewTotal ||
+                (Number(draft.paid) > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))
               }
               onClick={() =>
                 startTransition(async () => {
