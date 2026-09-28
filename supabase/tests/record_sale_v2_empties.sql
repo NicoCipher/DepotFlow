@@ -70,7 +70,7 @@ end $$;
 -- Retrying the exact same request is idempotent. This is the save-timeout
 -- recovery path: the first call may have committed even if the browser did not
 -- receive the response.
-do $
+do $retry$
 declare
   first_id uuid;
   retry jsonb;
@@ -135,7 +135,7 @@ begin
     );
     raise exception 'Changed payload reused an existing sale request';
   exception when invalid_parameter_value then null; end;
-end $;
+end $retry$;
 
 -- A complete Trophy package may be recorded physically while settling Goldberg.
 -- Matching rules are resolved by the application; the DB keeps expected settlement
