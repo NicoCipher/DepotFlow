@@ -11,13 +11,31 @@ async function loadOwnerSession() {
     error: userError,
   } = await supabase.auth.getUser();
 
-  if (userError || !user) return { supabase, user: null, allowed: false };
+  if (userError)
+    return {
+      supabase,
+      user: null,
+      allowed: false,
+      status: "temporary_error" as const,
+    };
+  if (!user)
+    return {
+      supabase,
+      user: null,
+      allowed: false,
+      status: "signed_out" as const,
+    };
 
   const { data, error } = await supabase.rpc("is_shop_owner");
   return {
     supabase,
     user,
     allowed: ownerAuthorized(user.id, data, error),
+    status: error
+      ? ("temporary_error" as const)
+      : data === true
+        ? ("ready" as const)
+        : ("signed_out" as const),
   };
 }
 
