@@ -443,6 +443,7 @@ export type Database = {
         Row: {
           bottle_price: number | null
           bottle_type: string | null
+          catalogue_product_id: string | null
           bottles_per_crate: number
           bottles_returnable: boolean
           crate_type: string | null
@@ -460,6 +461,7 @@ export type Database = {
         Insert: {
           bottle_price?: number | null
           bottle_type?: string | null
+          catalogue_product_id?: string | null
           bottles_per_crate: number
           bottles_returnable: boolean
           crate_type?: string | null
@@ -477,6 +479,7 @@ export type Database = {
         Update: {
           bottle_price?: number | null
           bottle_type?: string | null
+          catalogue_product_id?: string | null
           bottles_per_crate?: number
           bottles_returnable?: boolean
           crate_type?: string | null
@@ -493,6 +496,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "products_catalogue_product_id_fkey"
+            columns: ["catalogue_product_id"]
+            isOneToOne: true
+            referencedRelation: "product_catalogue"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "products_crate_type_id_fkey"
             columns: ["crate_type_id"]
             isOneToOne: false
@@ -505,6 +515,62 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "known_empty_crates"
             referencedColumns: ["crate_type_id"]
+          },
+        ]
+      }
+      product_catalogue: {
+        Row: {
+          id: string
+          name: string
+          manufacturer: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          manufacturer?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          manufacturer?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      product_cost_history: {
+        Row: {
+          id: string
+          owner_user_id: string
+          catalogue_product_id: string
+          cost_price: number
+          effective_on: string
+          recorded_at: string
+        }
+        Insert: {
+          id?: string
+          owner_user_id: string
+          catalogue_product_id: string
+          cost_price: number
+          effective_on: string
+          recorded_at?: string
+        }
+        Update: {
+          id?: string
+          owner_user_id?: string
+          catalogue_product_id?: string
+          cost_price?: number
+          effective_on?: string
+          recorded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_cost_history_catalogue_product_id_fkey"
+            columns: ["catalogue_product_id"]
+            isOneToOne: false
+            referencedRelation: "product_catalogue"
+            referencedColumns: ["id"]
           },
         ]
       }

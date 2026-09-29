@@ -61,6 +61,9 @@ export default async function ProductsPage({
       <Link className="quiet-link mb-3 self-start text-sm" href="/crate-types">
         Manage crate types
       </Link>
+      <Link className="quiet-link mb-3 self-start text-sm" href="/products/catalogue">
+        View product catalogue and Cost Prices
+      </Link>
       {!data?.length ? (
         <div className="border-t border-stone-300 py-8">
           <h2 className="text-xl font-semibold">

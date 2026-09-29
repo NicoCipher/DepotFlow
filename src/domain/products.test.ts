@@ -171,6 +171,7 @@ test("duplicate retry comparison checks every saved detail without assuming uniq
     ...data,
     crate_type: null,
     empty_family: null,
+    catalogue_product_id: null,
     id: "10000000-0000-4000-8000-000000000001",
     created_at: "2026-09-13",
   });
