@@ -1,3 +1,4 @@
+import { isUuid } from "./ids.ts";
 import type { Product } from "./models";
 
 export const productTextFields = [
@@ -39,8 +40,7 @@ export const emptyProduct: ProductValues = {
   crate_type_id: "",
   bottle_type: "",
 };
-export const isProductId = (id: string) =>
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+export const isProductId = isUuid;
 export const formatNaira = (amount: number) =>
   `₦${amount.toLocaleString("en-NG")}`;
 export function validImageUrl(value: string): boolean {

@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import { SessionRecoveryLink } from "./session-recovery-link";
 import { useActionState, useState } from "react";
 import {
   reviewEmptyCrateCount,
@@ -48,7 +48,7 @@ function ConfirmEmptyCrateCount({
           {state.message}
         </p>
       )}
-      {state.message?.startsWith("Your session has expired") && <Link href="/sign-in" target="_blank" rel="noopener noreferrer" className="quiet-link">Sign in in a new tab</Link>}
+      <SessionRecoveryLink message={state.message} />
       <button className="primary w-full" disabled={pending}>
         {pending ? "Saving…" : state.retryable ? "Retry same count" : "Save Current Count"}
       </button>
@@ -132,7 +132,7 @@ export function EmptyCrateCountForm({
           {state.message}
         </p>
       )}
-      {state.message?.startsWith("Your session has expired") && <Link href="/sign-in" target="_blank" rel="noopener noreferrer" className="quiet-link">Sign in in a new tab</Link>}
+      <SessionRecoveryLink message={state.message} />
       <button className="primary w-full" disabled={pending}>
         {pending ? "Checking…" : "Next: Review crate count"}
       </button>

@@ -1,3 +1,4 @@
+import { isUuid } from "./ids.ts";
 import {
   emptySaleDraft,
   readSaleDraft,
@@ -21,11 +22,7 @@ export const emptySaleDrafts: SaleDrafts = {
   paused: [],
 };
 
-export function isSaleRequestId(id: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    id,
-  );
-}
+export const isSaleRequestId = isUuid;
 
 export function replaceActiveSaleId(
   state: SaleDrafts,
