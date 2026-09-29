@@ -16,22 +16,31 @@ export default async function CataloguePage({
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit",
   }).format(new Date());
-  const [catalogue, assortment, history] = await Promise.all([
+  const [catalogue, assortment, history, sellingHistory] = await Promise.all([
     supabase.from("product_catalogue").select("id,name,manufacturer").order("name").limit(1000),
-    supabase.from("products").select("id,catalogue_product_id").not("catalogue_product_id", "is", null).limit(1000),
+    supabase.from("products").select("id,catalogue_product_id,full_crate_price").not("catalogue_product_id", "is", null).limit(1000),
     supabase.from("product_cost_history")
       .select("catalogue_product_id,cost_price,effective_on,recorded_at")
       .lte("effective_on", today)
       .order("effective_on", { ascending: false })
       .order("recorded_at", { ascending: false }).limit(1000),
+    supabase.from("product_selling_price_history")
+      .select("catalogue_product_id,selling_price,effective_on,recorded_at")
+      .lte("effective_on", today)
+      .order("effective_on", { ascending: false })
+      .order("recorded_at", { ascending: false }).limit(1000),
   ]);
-  if (catalogue.error || assortment.error || history.error) {
+  if (catalogue.error || assortment.error || history.error || sellingHistory.error) {
     throw new Error("Could not load the product catalogue.");
   }
-  const configured = new Map(assortment.data.map((item) => [item.catalogue_product_id, item.id]));
+  const configured = new Map(assortment.data.map((item) => [item.catalogue_product_id, item]));
   const currentCosts = new Map<string, { cost_price: number; effective_on: string }>();
   for (const cost of history.data) {
     if (!currentCosts.has(cost.catalogue_product_id)) currentCosts.set(cost.catalogue_product_id, cost);
+  }
+  const sellingPrices = new Map<string, { selling_price: number; effective_on: string | null }>();
+  for (const price of sellingHistory.data) {
+    if (!sellingPrices.has(price.catalogue_product_id)) sellingPrices.set(price.catalogue_product_id, price);
   }
   const matches = catalogue.data.filter((item) => item.name.toLocaleLowerCase().includes(query));
 
@@ -43,7 +52,7 @@ export default async function CataloguePage({
           description="These are this depot’s buying costs. Only drinks configured in Products are ready for stock and sales." />
       </div>
       <p className="text-sm text-stone-600">
-        Buying pack sizes have not been confirmed, so these costs are not used to calculate profit or stock value.
+        Pack sizes have not been confirmed for catalogue-only drinks. These prices are not used to calculate profit or stock value.
       </p>
       <form action="/products/catalogue" role="search" className="mt-6">
         <label htmlFor="catalogue-search">Find a drink</label>
@@ -67,15 +76,16 @@ export default async function CataloguePage({
                 </h2>
                 <ul className="space-y-3">
                   {items.map((item) => {
-                    const productId = configured.get(item.id);
+                    const product = configured.get(item.id);
                     const cost = currentCosts.get(item.id);
+                    const selling = sellingPrices.get(item.id);
                     return (
                       <li key={item.id} className="rounded-2xl border border-stone-200 bg-white p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <h3 className="font-semibold">{item.name}</h3>
                             <p className="mt-1 text-sm text-stone-600">
-                              {productId ? "Configured for this depot" : "Catalogue only · not set up for sales"}
+                              {product ? "Configured for this depot" : "Catalogue only · not set up for sales"}
                             </p>
                           </div>
                           <div className="shrink-0 text-right">
@@ -83,8 +93,16 @@ export default async function CataloguePage({
                             <p className="font-semibold">{cost ? formatNaira(cost.cost_price) : "Not recorded"}</p>
                           </div>
                         </div>
-                        {cost && <p className="mt-2 text-xs text-stone-600">Effective {cost.effective_on}</p>}
-                        {productId && <Link href={`/products/${productId}`} className="quiet-link mt-3 inline-block text-sm">View configured drink</Link>}
+                        <div className="mt-3 flex items-center justify-between gap-3 border-t border-stone-100 pt-3">
+                          <p className="text-sm text-stone-600">Selling Price</p>
+                          <p className="font-semibold">
+                            {product ? formatNaira(product.full_crate_price)
+                              : selling ? formatNaira(selling.selling_price) : "Not confirmed"}
+                          </p>
+                        </div>
+                        {cost && <p className="mt-2 text-xs text-stone-600">Cost effective {cost.effective_on}</p>}
+                        {selling && <p className="text-xs text-stone-600">Selling price effective {selling.effective_on}</p>}
+                        {product && <Link href={`/products/${product.id}`} className="quiet-link mt-3 inline-block text-sm">View configured drink</Link>}
                       </li>
                     );
                   })}
