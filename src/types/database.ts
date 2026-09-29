@@ -202,6 +202,12 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_opening_balances: {
+        Row: { id: string; customer_id: string; request_id: string; amount: number; business_date: string; note: string; crates: Json; bottles: Json; request_payload: Json; created_at: string }
+        Insert: { id?: string; customer_id: string; request_id: string; amount: number; business_date: string; note?: string; crates: Json; bottles: Json; request_payload: Json; created_at?: string }
+        Update: { id?: string; customer_id?: string; request_id?: string; amount?: number; business_date?: string; note?: string; crates?: Json; bottles?: Json; request_payload?: Json; created_at?: string }
+        Relationships: [{ foreignKeyName: "customer_opening_balances_customer_id_fkey"; columns: ["customer_id"]; isOneToOne: true; referencedRelation: "customers"; referencedColumns: ["id"] }]
+      }
       customer_payments: {
         Row: {
           amount: number
@@ -867,6 +873,7 @@ export type Database = {
       manager_snapshot: { Args: { p_day: string }; Returns: Json }
       store_activity: { Args: { p_from: string; p_to: string; p_customer: string | null; p_type: string; p_limit: number; p_offset: number }; Returns: Json }
       verify_receipt: { Args: { p_token: string }; Returns: Json }
+      record_opening_balances: { Args: { p_request_id: string; p_customer_id: string; p_amount: number; p_business_date: string; p_note: string; p_crates: Json; p_bottles: Json }; Returns: string }
       record_payment: {
         Args: {
           p_method: string

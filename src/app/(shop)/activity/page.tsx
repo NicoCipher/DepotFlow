@@ -10,7 +10,7 @@ export default async function Activity({ searchParams }: { searchParams: Promise
   const now = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   const from = /^\d{4}-\d{2}-\d{2}$/.test(filters.from ?? "") ? filters.from! : "0001-01-01";
   const to = /^\d{4}-\d{2}-\d{2}$/.test(filters.to ?? "") ? filters.to! : now;
-  const type = ["all","sale","payment","stock","empties"].includes(filters.type ?? "") ? filters.type! : "all";
+  const type = ["all","sale","payment","stock","empties","opening"].includes(filters.type ?? "") ? filters.type! : "all";
   const customer = /^[0-9a-f-]{36}$/i.test(filters.customer ?? "") ? filters.customer! : null;
   const page = Math.max(1, Math.min(100000, Number.parseInt(filters.page ?? "1",10) || 1));
   const db = await requireOwner();
@@ -24,7 +24,7 @@ export default async function Activity({ searchParams }: { searchParams: Promise
   return <div className="space-y-6"><header><p className="text-sm font-semibold uppercase tracking-wide text-emerald-800">Store history</p><h1>Activity</h1><p className="mt-1 text-stone-600">See what happened and where money came from.</p></header>
     <form action="/activity" className="grid grid-cols-2 gap-3 rounded-2xl border border-stone-200 bg-white p-4">
       <div><label htmlFor="from">From</label><input id="from" name="from" type="date" defaultValue={from} /></div><div><label htmlFor="to">To</label><input id="to" name="to" type="date" defaultValue={to} /></div>
-      <div><label htmlFor="type">Activity</label><select id="type" name="type" defaultValue={type}><option value="all">All activity</option><option value="sale">Sales</option><option value="payment">Payments</option><option value="stock">Stock</option><option value="empties">Empties</option></select></div>
+      <div><label htmlFor="type">Activity</label><select id="type" name="type" defaultValue={type}><option value="all">All activity</option><option value="sale">Sales</option><option value="payment">Payments</option><option value="stock">Stock</option><option value="empties">Empties</option><option value="opening">Opening balances</option></select></div>
       <div><label htmlFor="customer">Customer</label><select id="customer" name="customer" defaultValue={customer ?? ""}><option value="">All customers</option>{customersResult.data.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
       <button className="primary col-span-2">Show activity</button>
     </form>
