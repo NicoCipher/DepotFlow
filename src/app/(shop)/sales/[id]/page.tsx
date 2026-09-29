@@ -49,6 +49,7 @@ export default async function SalePage({
         <h2 id="sale-items-heading" className="text-2xl font-semibold">
           Drinks
         </h2>
+        <p className="mt-2 text-sm text-stone-600">Quantities and empties below are from this sale only.</p>
         <ul className="mt-3 border-t border-stone-300">
           {sale.items.map((item) => (
             <li key={item.id} className="border-b border-stone-300 py-5">
@@ -69,7 +70,7 @@ export default async function SalePage({
                     Crates{item.crateType ? ` · ${item.crateType}` : ""}
                   </p>
                   <p className="mt-1 text-stone-700">
-                    Returned {item.cratesReturned} · Owed {item.cratesOwed}
+                    Returned {item.cratesReturned} · Owed from this sale {item.cratesOwed}
                   </p>
                 </div>
               )}
@@ -79,7 +80,7 @@ export default async function SalePage({
                     Bottles{item.bottleType ? ` · ${item.bottleType}` : ""}
                   </p>
                   <p className="mt-1 text-stone-700">
-                    Returned {item.bottlesReturned} · Owed {item.bottlesOwed}
+                    Returned {item.bottlesReturned} · Owed from this sale {item.bottlesOwed}
                   </p>
                 </div>
               )}
@@ -92,7 +93,7 @@ export default async function SalePage({
         <dd className="mt-1 break-all text-stone-700">{sale.id}</dd>
       </dl>
       <Link className="secondary w-full" href={`/customers/${sale.customerId}`}>
-        View Customer
+        View Customer’s Total Balances
       </Link>
     </>
   );
