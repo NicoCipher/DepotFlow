@@ -28,8 +28,10 @@ export default async function CustomerPage({
         .eq("customer_id", id),
       supabase
         .from("bottle_obligations")
-        .select("quantity")
-        .eq("customer_id", id),
+        .select("bottle_type,quantity")
+        .eq("customer_id", id)
+        .gt("quantity", 0)
+        .order("bottle_type"),
       supabase
         .from("deposits")
         .select("amount")
@@ -104,6 +106,7 @@ export default async function CustomerPage({
           </p>
         )}
       </section>
+      <p className="mt-6 text-sm font-semibold text-stone-700">Empties still owed · all sales</p>
       <dl className="mt-3 grid grid-cols-2 gap-3">
         <div className="rounded-xl border border-stone-200 bg-white p-4">
           <dt className="text-sm text-stone-600">Crates owed</dt>
@@ -118,6 +121,20 @@ export default async function CustomerPage({
           </dd>
         </div>
       </dl>
+      {(bottles.data?.length ?? 0) > 0 && (
+        <section className="mt-3 rounded-xl border border-stone-200 bg-white px-4 py-3" aria-labelledby="bottles-owed-breakdown">
+          <h2 id="bottles-owed-breakdown" className="text-sm font-semibold">Bottles owed by type</h2>
+          <dl className="mt-2 divide-y divide-stone-100">
+            {bottles.data?.map((bottle) => (
+              <div key={bottle.bottle_type} className="flex items-center justify-between gap-4 py-2 text-sm">
+                <dt className="min-w-0 break-words text-stone-600">{bottle.bottle_type}</dt>
+                <dd className="shrink-0 font-semibold tabular-nums">{bottle.quantity} {bottle.quantity === 1 ? "bottle" : "bottles"}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-2 text-xs leading-5 text-stone-500">Includes bottles still owed from earlier sales.</p>
+        </section>
+      )}
       <p className="mt-3 flex justify-between gap-3 px-1 text-sm text-stone-600">
         <span>Deposit held</span>
         <span>{naira(deposits.data?.amount ?? 0)}</span>
