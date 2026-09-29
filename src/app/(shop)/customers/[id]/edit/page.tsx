@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { SuccessToast } from "@/components/success-toast";
 import { getCustomer } from "@/lib/customers/data";
 import { CustomerForm } from "@/components/customer-form";
 import { ArchiveCustomerControl } from "@/components/archive-customer-control";
@@ -18,7 +20,25 @@ export default async function EditCustomerPage({
   const { saved } = await searchParams;
   return (
     <>
-      <h1>Edit customer</h1>
+      <Link className="quiet-link mb-3 self-start" href={`/customers/${id}`}>
+        ← Customer account
+      </Link>
+      <h1>Manage Customer</h1>
+      <p className="mt-2 break-words text-xl font-semibold text-stone-700">
+        {customer.name}
+      </p>
+      <Link
+        href={`/customers/${id}/opening-balances`}
+        className="mb-6 mt-5 flex items-center justify-between gap-3 rounded-xl border border-stone-200 bg-white p-4"
+      >
+        <span>
+          <strong className="block text-emerald-950">Opening Balances</strong>
+          <span className="mt-1 block text-sm leading-6 text-stone-600">
+            Money, crates and bottles owed before DepotFlow
+          </span>
+        </span>
+        <span aria-hidden="true">→</span>
+      </Link>
       {(saved === "archive-failed" ||
         saved === "restore-failed" ||
         saved === "empties-terms-failed") && (
@@ -32,13 +52,9 @@ export default async function EditCustomerPage({
         </p>
       )}
       {saved === "empties-terms" && (
-        <p
-          role="status"
-          className="mb-5 border-l-4 border-emerald-800 pl-3 text-emerald-900"
-        >
-          Empties terms saved.
-        </p>
+        <SuccessToast message="Empties terms saved." />
       )}
+      <h2 className="mb-4 text-lg font-semibold">Customer details</h2>
       <CustomerForm
         id={id}
         editing
