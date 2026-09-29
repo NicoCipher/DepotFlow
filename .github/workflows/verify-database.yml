@@ -62,3 +62,18 @@ jobs:
             echo "Running $f"
             python3 "$f"
           done
+
+      - name: Verify catalogue import against existing products
+        run: |
+          set -euo pipefail
+          createdb -h /tmp -p 55439 depotflow_catalogue_import
+          db=depotflow_catalogue_import
+          psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 -f supabase/tests/bootstrap.sql
+          for f in supabase/migrations/*.sql; do
+            if [[ "$f" == *business_product_cost_catalogue.sql ]]; then
+              psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 -f supabase/tests/fixtures/product_catalogue_before.sql
+            fi
+            psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 -f "$f"
+          done
+          psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 -f supabase/tests/fixtures/product_catalogue_after.sql
+          dropdb -h /tmp -p 55439 "$db"
