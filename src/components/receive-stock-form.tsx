@@ -1,5 +1,6 @@
 "use client";
 import { SessionRecoveryLink } from "./session-recovery-link";
+import { ReviewSaveActions } from "./review-save-actions";
 import { useActionState, useState } from "react";
 import {
   reviewReceiving,
@@ -63,23 +64,8 @@ function ConfirmReceiving({
           </dd>
         </div>
       </dl>
-      {state.message && (
-        <p role="alert" className="text-red-800">
-          {state.message}
-        </p>
-      )}
-      <SessionRecoveryLink message={state.message} />
-      <button className="primary w-full" disabled={pending}>
-        {pending ? "Saving…" : state.retryable ? "Retry same receipt" : "Save Stock Received"}
-      </button>
-      <button
-        type="button"
-        className="quiet-link w-full text-center"
-        disabled={pending || state.retryable}
-        onClick={onBack}
-      >
-        Change amount
-      </button>
+      <ReviewSaveActions message={state.message} pending={pending} retryable={state.retryable}
+        saveLabel="Save Stock Received" retryLabel="Retry same receipt" changeLabel="Change amount" onBack={onBack} />
     </form>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 import { SessionRecoveryLink } from "./session-recovery-link";
+import { ReviewSaveActions } from "./review-save-actions";
 import { useActionState, useState } from "react";
 import {
   reviewEmptyCrateCount,
@@ -43,23 +44,8 @@ function ConfirmEmptyCrateCount({
         </div>
       </dl>
       <p>This replaces the recorded empty-crate count for this exact type.</p>
-      {state.message && (
-        <p role="alert" className="text-red-800">
-          {state.message}
-        </p>
-      )}
-      <SessionRecoveryLink message={state.message} />
-      <button className="primary w-full" disabled={pending}>
-        {pending ? "Saving…" : state.retryable ? "Retry same count" : "Save Current Count"}
-      </button>
-      <button
-        type="button"
-        className="quiet-link w-full text-center"
-        disabled={pending || state.retryable}
-        onClick={onBack}
-      >
-        Change count
-      </button>
+      <ReviewSaveActions message={state.message} pending={pending} retryable={state.retryable}
+        saveLabel="Save Current Count" retryLabel="Retry same count" changeLabel="Change count" onBack={onBack} />
     </form>
   );
 }
