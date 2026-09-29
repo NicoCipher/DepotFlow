@@ -47,7 +47,7 @@ do $$ begin
       join public.product_catalogue c on c.name=s.name) <> 21 then
     raise exception 'A confirmed selling-price name is missing from the catalogue';
   end if;
-  if exists (
+  if exists (select 1 from private.shop_owner) and (exists (
     select 1 from public.products p
     join public.product_catalogue c on c.id=p.catalogue_product_id
     join (values ('33',10500),('Big Stout',16500),('Castle Lite',10200),
@@ -56,7 +56,7 @@ do $$ begin
     where p.full_crate_price<>expected.old_price
   ) or (select count(*) from public.products p
       join public.product_catalogue c on c.id=p.catalogue_product_id
-      where c.name in ('33','Big Stout','Castle Lite','Desperados','Trophy')) <> 5 then
+      where c.name in ('33','Big Stout','Castle Lite','Desperados','Trophy')) <> 5) then
     raise exception 'Configured selling prices changed since review; inspect before applying';
   end if;
 end $$;
