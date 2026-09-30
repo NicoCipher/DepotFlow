@@ -86,6 +86,9 @@ join public.product_catalogue c on c.name=s.name;
 -- Keep the confirmed list available when the first owner is provisioned
 -- after migrations. This hook only appends missing quotes; it never changes
 -- configured product prices or stock.
+-- Also runs when shop_owner.user_id is updated, seeding the new owner. A quote
+-- is missing when no confirmed_list row exists for that owner, catalogue drink,
+-- and effective date 2026-09-29. Insert errors abort the triggering owner write.
 create function private.seed_owner_selling_prices() returns trigger
 language plpgsql security definer set search_path='' as $$
 begin
@@ -116,6 +119,10 @@ where p.catalogue_product_id=c.id
 
 -- Later edits to a configured full-crate selling price should not leave the
 -- catalogue quote stale. This trigger appends a dated history row atomically.
+-- A changed catalogue link also records the full-crate price, including zero,
+-- in naira, effective on the transaction's start date in Africa/Lagos. Skip
+-- unchanged values, a cleared catalogue link, or an absent shop owner.
+-- History insert errors abort the triggering product update.
 create function private.record_product_selling_price() returns trigger
 language plpgsql security definer set search_path='' as $$
 declare v_owner uuid;

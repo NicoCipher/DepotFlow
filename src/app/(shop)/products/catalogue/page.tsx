@@ -3,6 +3,19 @@ import { requireOwner } from "@/lib/auth/owner";
 import { formatNaira } from "@/domain/products";
 import { PageIntro } from "@/components/page-intro";
 
+/**
+ * Render the owner's catalogue with buying costs and selling prices in naira.
+ * `searchParams.q` filters names by a case-insensitive substring after trimming
+ * and truncation to 120 characters; a missing or non-string value shows all matches.
+ * Catalogue entries, configured products, and cost history are each capped at
+ * 1,000 rows. History must be dated on or before today in Africa/Lagos.
+ * Configured full-crate prices take precedence over the latest eligible selling
+ * quote; quote ties use recording time, then edit order. Missing costs display
+ * "Not recorded"; catalogue-only drinks without a quote show "Not confirmed".
+ *
+ * Redirect to sign-in if owner authorization fails. Supabase configuration errors
+ * propagate; catalogue query errors throw "Could not load the product catalogue."
+ */
 export default async function CataloguePage({
   searchParams,
 }: {
