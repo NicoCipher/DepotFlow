@@ -27,6 +27,10 @@ do $$ begin
       where selling_price=10200 and source='product_edit') then
     raise exception 'Configured edits did not append selling-price history';
   end if;
+  if (select selling_price from public.product_selling_price_history
+      order by effective_on desc,recorded_at desc,edit_order desc limit 1) <> 10200 then
+    raise exception 'Latest same-transaction edit selected an earlier price';
+  end if;
   begin
     update public.product_selling_price_history set selling_price=1;
     raise exception 'History was directly editable';

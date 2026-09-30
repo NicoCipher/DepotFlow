@@ -10,11 +10,12 @@ create table public.product_selling_price_history (
   selling_price integer not null check (selling_price > 0 and selling_price % 50 = 0),
   effective_on date,
   source text not null check (source in ('prior_configuration','confirmed_list','product_edit')),
+  edit_order bigint generated always as identity,
   recorded_at timestamptz not null default now()
 );
 create index product_selling_price_history_current_idx
   on public.product_selling_price_history
-  (owner_user_id,catalogue_product_id,effective_on desc nulls last,recorded_at desc);
+  (owner_user_id,catalogue_product_id,effective_on desc nulls last,recorded_at desc,edit_order desc);
 alter table public.product_selling_price_history enable row level security;
 revoke all on public.product_selling_price_history from public,anon,authenticated;
 grant select on public.product_selling_price_history to authenticated;
@@ -22,10 +23,10 @@ create policy owner_read on public.product_selling_price_history for select to a
   using (owner_user_id=(select auth.uid()) and
     exists(select 1 from private.shop_owner where user_id=(select auth.uid())));
 
--- These two clearly named drinks were absent from the cost list. Catalogue
+-- These confirmed drinks were absent from the cost list. Catalogue
 -- entries alone create no stock or sale configuration.
 insert into public.product_catalogue(name,manufacturer) values
-  ('Budweiser',null),('Flying Fish',null)
+  ('Budweiser',null),('Flying Fish',null),('Trophy Stout',null)
 on conflict do nothing;
 
 create temporary table confirmed_selling_prices (
@@ -40,11 +41,12 @@ insert into confirmed_selling_prices(name,amount) values
   ('Big Stout',16500),('Small Stout',20100),
   ('Malta',15000),('Malta Can',13000),
   ('Castle Lite',10500),('Trophy',9000),
-  ('Budweiser',11800),('Flying Fish',15100);
+  ('Budweiser',11800),('Flying Fish',15100),
+  ('Big Ice',17800),('Small Ice',17900),('Trophy Stout',11600);
 
 do $$ begin
   if (select count(*) from confirmed_selling_prices s
-      join public.product_catalogue c on c.name=s.name) <> 22 then
+      join public.product_catalogue c on c.name=s.name) <> 25 then
     raise exception 'A confirmed selling-price name is missing from the catalogue';
   end if;
   if exists (select 1 from private.shop_owner) and (exists (
@@ -84,7 +86,9 @@ join public.product_catalogue c on c.name=s.name;
 update public.products p set full_crate_price=s.amount
 from public.product_catalogue c
 join confirmed_selling_prices s on s.name=c.name
-where p.catalogue_product_id=c.id and p.full_crate_price<>s.amount;
+where p.catalogue_product_id=c.id
+  and c.name in ('33','Goldberg','Castle Lite','Trophy')
+  and p.full_crate_price<>s.amount;
 
 -- Later edits to a configured full-crate selling price should not leave the
 -- catalogue quote stale. This trigger appends a dated history row atomically.

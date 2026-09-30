@@ -582,6 +582,7 @@ export type Database = {
           selling_price: number
           effective_on: string | null
           source: string
+          edit_order: number
           recorded_at: string
         }
         Insert: {
@@ -591,6 +592,7 @@ export type Database = {
           selling_price: number
           effective_on?: string | null
           source: string
+          edit_order?: never
           recorded_at?: string
         }
         Update: {
@@ -600,6 +602,7 @@ export type Database = {
           selling_price?: number
           effective_on?: string | null
           source?: string
+          edit_order?: never
           recorded_at?: string
         }
         Relationships: [

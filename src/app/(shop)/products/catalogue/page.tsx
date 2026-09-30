@@ -16,7 +16,7 @@ export default async function CataloguePage({
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit",
   }).format(new Date());
-  const [catalogue, assortment, history, sellingHistory] = await Promise.all([
+  const [catalogue, assortment, history] = await Promise.all([
     supabase.from("product_catalogue").select("id,name,manufacturer").order("name").limit(1000),
     supabase.from("products").select("id,catalogue_product_id,full_crate_price").not("catalogue_product_id", "is", null).limit(1000),
     supabase.from("product_cost_history")
@@ -24,13 +24,8 @@ export default async function CataloguePage({
       .lte("effective_on", today)
       .order("effective_on", { ascending: false })
       .order("recorded_at", { ascending: false }).limit(1000),
-    supabase.from("product_selling_price_history")
-      .select("catalogue_product_id,selling_price,effective_on,recorded_at")
-      .lte("effective_on", today)
-      .order("effective_on", { ascending: false })
-      .order("recorded_at", { ascending: false }).limit(1000),
   ]);
-  if (catalogue.error || assortment.error || history.error || sellingHistory.error) {
+  if (catalogue.error || assortment.error || history.error) {
     throw new Error("Could not load the product catalogue.");
   }
   const configured = new Map(assortment.data.map((item) => [item.catalogue_product_id, item]));
@@ -39,8 +34,21 @@ export default async function CataloguePage({
     if (!currentCosts.has(cost.catalogue_product_id)) currentCosts.set(cost.catalogue_product_id, cost);
   }
   const sellingPrices = new Map<string, { selling_price: number; effective_on: string | null }>();
-  for (const price of sellingHistory.data) {
-    if (!sellingPrices.has(price.catalogue_product_id)) sellingPrices.set(price.catalogue_product_id, price);
+  // Read every eligible page so busy products cannot hide another drink's price.
+  const pageSize = 1000;
+  for (let offset = 0; ; offset += pageSize) {
+    const page = await supabase.from("product_selling_price_history")
+      .select("catalogue_product_id,selling_price,effective_on,recorded_at,edit_order")
+      .lte("effective_on", today)
+      .order("effective_on", { ascending: false })
+      .order("recorded_at", { ascending: false })
+      .order("edit_order", { ascending: false })
+      .range(offset, offset + pageSize - 1);
+    if (page.error) throw new Error("Could not load the product catalogue.");
+    for (const price of page.data) {
+      if (!sellingPrices.has(price.catalogue_product_id)) sellingPrices.set(price.catalogue_product_id, price);
+    }
+    if (page.data.length < pageSize) break;
   }
   const matches = catalogue.data.filter((item) => item.name.toLocaleLowerCase().includes(query));
 
