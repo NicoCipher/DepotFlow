@@ -56,11 +56,11 @@ export default async function CataloguePage({
     <>
       <Link href="/products" className="quiet-link">← Products</Link>
       <div className="mt-7">
-        <PageIntro eyebrow="Product catalogue" title="Drinks and Cost Prices"
-          description="These are this depot’s buying costs. Only drinks configured in Products are ready for stock and sales." />
+        <PageIntro eyebrow="Product catalogue" title="Choose a drink"
+          description="Choose a drink, check its selling price and complete its crate details to add it to your shop." />
       </div>
       <p className="text-sm text-stone-600">
-        Pack sizes have not been confirmed for catalogue-only drinks. These prices are not used to calculate profit or stock value.
+        Crate details are completed during setup. Cost Price is what you pay to buy the drink; Selling Price is what you charge.
       </p>
       <form action="/products/catalogue" role="search" className="mt-6">
         <label htmlFor="catalogue-search">Find a drink</label>
@@ -70,6 +70,7 @@ export default async function CataloguePage({
           <button className="secondary">Search</button>
         </div>
       </form>
+      <Link href="/products/new" className="quiet-link mt-4 inline-block">Drink not listed? Add your own</Link>
       {matches.length === 0 ? (
         <p className="mt-8 text-stone-600">No matching drinks. Try another name.</p>
       ) : (
@@ -110,7 +111,8 @@ export default async function CataloguePage({
                         </div>
                         {cost && <p className="mt-2 text-xs text-stone-600">Cost effective {cost.effective_on}</p>}
                         {selling && <p className="text-xs text-stone-600">Selling price effective {selling.effective_on}</p>}
-                        {product && <Link href={`/products/${product.id}`} className="quiet-link mt-3 inline-block text-sm">View configured drink</Link>}
+                        {product ? <Link href={`/products/${product.id}/edit`} className="secondary mt-4 block text-center">Edit drink</Link>
+                          : <Link href={`/products/new?catalogue=${item.id}`} className="primary mt-4 block text-center">Add this drink</Link>}
                       </li>
                     );
                   })}

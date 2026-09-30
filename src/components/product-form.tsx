@@ -19,11 +19,13 @@ export function ProductForm({
   initialValues,
   editing = false,
   crateTypes,
+  catalogueProductId,
 }: {
   id: string;
   initialValues: ProductValues;
   editing?: boolean;
   crateTypes: CrateType[];
+  catalogueProductId?: string;
 }) {
   const [availableCrates, setAvailableCrates] = useState(crateTypes);
   const [values, setValues] = useState(initialValues);
@@ -108,6 +110,7 @@ export function ProductForm({
         }
       }}
     >
+      {catalogueProductId && <input type="hidden" name="catalogue_product_id" value={catalogueProductId} />}
       <p className="text-sm text-stone-600">Set the drink, its price and its physical crate. Optional details can be added later.</p>
       {state.message && (
         <p role="alert" className="text-red-800">

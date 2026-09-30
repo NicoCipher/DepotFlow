@@ -58,6 +58,12 @@ async function save(
       },
       message: "Finish the physical crate details.",
     };
+  const catalogueId = editing ? "" : String(formData.get("catalogue_product_id") ?? "");
+  if (catalogueId) {
+    if (!isProductId(catalogueId)) return { values, errors: {}, message: "Choose the drink again from the catalogue." };
+    const drink = await supabase.from("product_catalogue").select("id").eq("id", catalogueId).maybeSingle();
+    if (drink.error || !drink.data) return { values, errors: {}, message: "Could not find this catalogue drink. Your details are still here. Please try again." };
+  }
   try {
     const result = editing
       ? await supabase
@@ -68,7 +74,7 @@ async function save(
           .maybeSingle()
       : await supabase
           .from("products")
-          .insert({ id, ...checked.data })
+          .insert({ id, ...checked.data, ...(catalogueId ? { catalogue_product_id: catalogueId } : {}) })
           .select("id")
           .single();
     if (result.error || !result.data) {
@@ -83,13 +89,14 @@ async function save(
         if (
           existing.error ||
           !existing.data ||
-          !sameProductDetails(existing.data, checked.data)
+          !sameProductDetails(existing.data, checked.data) ||
+          existing.data.catalogue_product_id !== (catalogueId || null)
         ) {
           return {
             values,
             errors: {},
             message:
-              "This form was already saved with different details. Open the product list to check.",
+              "This drink may already be in your shop. Open Products to check before adding it again.",
           };
         }
       } else {
@@ -112,6 +119,7 @@ async function save(
     };
   }
   revalidatePath("/products");
+  revalidatePath("/products/catalogue");
   revalidatePath("/empty-crates");
   revalidatePath("/stock");
   revalidatePath(`/products/${id}`);
