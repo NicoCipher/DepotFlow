@@ -36,7 +36,7 @@ export default async function ProductsPage({
     <>
       <div className="flex items-center justify-between gap-3">
         <h1>Products</h1>
-        <Link className="primary shrink-0" href="/products/new">Add product</Link>
+        <Link className="primary shrink-0" href="/products/catalogue">Add product</Link>
       </div>
       <form action="/products" role="search" className="mb-4 mt-5">
         <label htmlFor="search">Search by name or size</label>

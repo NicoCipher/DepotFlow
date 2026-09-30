@@ -90,6 +90,9 @@ jobs:
               psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 -f supabase/tests/fixtures/product_catalogue_before.sql
             fi
             psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 -f "$f"
+            if [[ "$f" == *business_product_cost_catalogue.sql ]]; then
+              psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 -f supabase/tests/fixtures/product_catalogue_after.sql
+            fi
           done
-          psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 -f supabase/tests/fixtures/product_catalogue_after.sql
+          psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 -f supabase/tests/fixtures/selling_prices_after.sql
           dropdb -h /tmp -p 55439 "$db"

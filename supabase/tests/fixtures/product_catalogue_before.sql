@@ -24,5 +24,11 @@ select count(*) as product_count,
     'quarter',p.quarter_crate_price,'bottle',p.bottle_price,
     'crate',p.crate_type_id,'bottle_type',p.bottle_type,
     'per_crate',p.bottles_per_crate,'returnable',p.bottles_returnable,
-    'stock',s.total_bottles) order by p.id)::text) as unchanged_data_hash
+    'stock',s.total_bottles) order by p.id)::text) as unchanged_data_hash,
+  md5(jsonb_agg(jsonb_build_object(
+    'id',p.id,'name',p.name,'size',p.size,
+    'half',p.half_crate_price,'quarter',p.quarter_crate_price,
+    'bottle',p.bottle_price,'crate',p.crate_type_id,'bottle_type',p.bottle_type,
+    'per_crate',p.bottles_per_crate,'returnable',p.bottles_returnable,
+    'stock',s.total_bottles) order by p.id)::text) as non_full_price_hash
 from public.products p join public.stock s on s.product_id=p.id;

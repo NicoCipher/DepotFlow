@@ -574,6 +574,47 @@ export type Database = {
           },
         ]
       }
+      product_selling_price_history: {
+        Row: {
+          id: string
+          owner_user_id: string
+          catalogue_product_id: string
+          selling_price: number
+          effective_on: string | null
+          source: string
+          edit_order: number
+          recorded_at: string
+        }
+        Insert: {
+          id?: string
+          owner_user_id: string
+          catalogue_product_id: string
+          selling_price: number
+          effective_on?: string | null
+          source: string
+          edit_order?: never
+          recorded_at?: string
+        }
+        Update: {
+          id?: string
+          owner_user_id?: string
+          catalogue_product_id?: string
+          selling_price?: number
+          effective_on?: string | null
+          source?: string
+          edit_order?: never
+          recorded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_selling_price_history_catalogue_product_id_fkey"
+            columns: ["catalogue_product_id"]
+            isOneToOne: false
+            referencedRelation: "product_catalogue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sale_empty_bottle_returns: {
         Row: {
           bottle_type: string
