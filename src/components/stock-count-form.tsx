@@ -1,5 +1,6 @@
 "use client";
-import Link from "next/link";
+import { SessionRecoveryLink } from "./session-recovery-link";
+import { ReviewSaveActions } from "./review-save-actions";
 import { useActionState, useState } from "react";
 import {
   reviewCount,
@@ -45,23 +46,8 @@ function ConfirmCount({
       <p>
         This replaces the recorded drinks stock. Empty crates stay unchanged.
       </p>
-      {state.message && (
-        <p role="alert" className="text-red-800">
-          {state.message}
-        </p>
-      )}
-      {state.message?.startsWith("Your session has expired") && <Link href="/sign-in" target="_blank" rel="noopener noreferrer" className="quiet-link">Sign in in a new tab</Link>}
-      <button className="primary w-full" disabled={pending}>
-        {pending ? "Saving…" : state.retryable ? "Retry same count" : "Save Current Stock"}
-      </button>
-      <button
-        type="button"
-        className="quiet-link w-full text-center"
-        disabled={pending || state.retryable}
-        onClick={onBack}
-      >
-        Change count
-      </button>
+      <ReviewSaveActions message={state.message} pending={pending} retryable={state.retryable}
+        saveLabel="Save Current Stock" retryLabel="Retry same count" changeLabel="Change count" onBack={onBack} />
     </form>
   );
 }
@@ -150,7 +136,7 @@ export function StockCountForm({
           {state.message}
         </p>
       )}
-      {state.message?.startsWith("Your session has expired") && <Link href="/sign-in" target="_blank" rel="noopener noreferrer" className="quiet-link">Sign in in a new tab</Link>}
+      <SessionRecoveryLink message={state.message} />
       <button className="primary w-full" disabled={pending}>
         {pending ? "Checking…" : "Next: Review stock count"}
       </button>

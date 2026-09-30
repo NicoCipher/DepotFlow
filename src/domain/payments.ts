@@ -1,3 +1,4 @@
+import { isSessionExpiredCode } from "./save-errors.ts";
 export type PaymentSummary = {
   id: string;
   customerId: string;
@@ -25,7 +26,7 @@ export function validatePaymentAmount(text: string): number {
 export type PaymentError = { field?: "amount" | "businessDate" | "method"; message: string; retryable: boolean };
 
 export function paymentSaveError(code?: string, message?: string): PaymentError {
-  if (code === "42501" || code === "PGRST301" || code === "401" || code === "403")
+  if (isSessionExpiredCode(code))
     return { message: "Your session has expired. Sign in again, then check payment history before recording another payment.", retryable: false };
   if (code === "22023") {
     switch (message) {

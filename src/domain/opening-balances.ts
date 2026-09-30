@@ -1,3 +1,4 @@
+import { isSessionExpiredCode } from "./save-errors.ts";
 import { validateBusinessDate } from "./stock-count.ts";
 export type OpeningInput = {
   amount: string;
@@ -97,7 +98,7 @@ export function openingSaveError(
   code?: string,
   message?: string,
 ): OpeningState {
-  if (["42501", "PGRST301", "401", "403"].includes(code ?? ""))
+  if (isSessionExpiredCode(code))
     return {
       message:
         "Your session has expired. Sign in again, then reopen Opening Balances.",

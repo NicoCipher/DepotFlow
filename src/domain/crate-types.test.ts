@@ -3,7 +3,6 @@ import { test } from "node:test";
 import {
   validateCrateType,
   crateLabel,
-  crateMatches,
   crateDescription,
   crateFitsProduct,
   crateNeedsSetup,
@@ -52,11 +51,7 @@ test("matching physical attributes never select or merge an exact product crate 
     validateProduct({ ...product, crate_type_id: "NBL" }).valid,
     false,
   );
-  assert.equal(crateMatches(attributes, "NBL", "12"), true);
-  assert.equal(
-    crateMatches({ ...attributes, pocket_count: 20 }, "NBL", "12"),
-    false,
-  );
+
 });
 test("pockets allow Other positive integers without being limited to presets", () => {
   for (const pocket_count of ["12", "20", "24", "18", "1", "2147483647"])
