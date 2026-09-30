@@ -16,22 +16,28 @@ begin
   if exists (
     select 1 from (values
       ('"33" Export',10300),('Big Guinness Stout',16500),('Castle Lite',10500),
-      ('Desperados',22000),('Goldberg',10200),('Trophy',9000)
+      ('Desperados',22000),('Goldberg',10000),('Trophy',9000)
     ) expected(name,amount)
     left join public.products p on p.name=expected.name
     where p.full_crate_price is distinct from expected.amount
   ) then raise exception 'Configured selling price mismatch'; end if;
   if (select count(*) from public.product_selling_price_history
       where source='confirmed_list' and effective_on='2026-09-29'
-      and owner_user_id='00000000-0000-4000-8000-000000000051') <> 21
+      and owner_user_id='00000000-0000-4000-8000-000000000051') <> 22
     or (select count(*) from public.product_selling_price_history
-      where source='prior_configuration' and effective_on is null) <> 3 then
-    raise exception 'Expected 21 current quotes and 3 previous configured prices';
+      where source='prior_configuration' and effective_on is null) <> 4 then
+    raise exception 'Expected 22 current quotes and 4 previous configured prices';
+  end if;
+  if (select array_agg(h.selling_price order by h.selling_price)
+      from public.product_selling_price_history h
+      join public.product_catalogue c on c.id=h.catalogue_product_id
+      where c.name='Goldberg') is distinct from array[10000,10200] then
+    raise exception 'Goldberg current and previous selling prices were not preserved';
   end if;
   if exists (
     select 1 from public.product_selling_price_history h
     join public.product_catalogue c on c.id=h.catalogue_product_id
-    where c.name in ('Goldberg','Big Ice','Small Ice','Trophy Stout')
+    where c.name in ('Big Ice','Small Ice','Trophy Stout')
   ) then raise exception 'Unclear entry was silently priced'; end if;
   if exists (
     select 1 from public.products p join public.product_catalogue c

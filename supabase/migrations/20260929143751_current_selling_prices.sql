@@ -33,7 +33,7 @@ create temporary table confirmed_selling_prices (
   amount integer not null
 ) on commit drop;
 insert into confirmed_selling_prices(name,amount) values
-  ('33',10300),('Heineken',14000),('Star',12500),('Gulder',12600),
+  ('33',10300),('Goldberg',10000),('Heineken',14000),('Star',12500),('Gulder',12600),
   ('Legend',12400),('Tiger',16500),('Radler',16200),('Amstel',16000),
   ('Desperados',22000),('Turbo',11000),('Life',10000),
   ('Medium Legend',16500),('Medium Heineken',19000),
@@ -44,19 +44,19 @@ insert into confirmed_selling_prices(name,amount) values
 
 do $$ begin
   if (select count(*) from confirmed_selling_prices s
-      join public.product_catalogue c on c.name=s.name) <> 21 then
+      join public.product_catalogue c on c.name=s.name) <> 22 then
     raise exception 'A confirmed selling-price name is missing from the catalogue';
   end if;
   if exists (select 1 from private.shop_owner) and (exists (
     select 1 from public.products p
     join public.product_catalogue c on c.id=p.catalogue_product_id
-    join (values ('33',10500),('Big Stout',16500),('Castle Lite',10200),
+    join (values ('33',10500),('Goldberg',10200),('Big Stout',16500),('Castle Lite',10200),
                  ('Desperados',22000),('Trophy',9200)) expected(name,old_price)
       on expected.name=c.name
     where p.full_crate_price<>expected.old_price
   ) or (select count(*) from public.products p
       join public.product_catalogue c on c.id=p.catalogue_product_id
-      where c.name in ('33','Big Stout','Castle Lite','Desperados','Trophy')) <> 5) then
+      where c.name in ('33','Goldberg','Big Stout','Castle Lite','Desperados','Trophy')) <> 6) then
     raise exception 'Configured selling prices changed since review; inspect before applying';
   end if;
 end $$;
