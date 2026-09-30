@@ -110,4 +110,9 @@ delete from public.products where id='{product}';
 delete from public.crate_types where id='{crate_type}';
 delete from public.customers where id in ('{customer_sale_wins}','{customer_archive_wins}');
 delete from private.shop_owner where user_id='{owner}';
-delete from auth.users where id='{owner}'""")
+do $$ begin
+if to_regclass('public.product_selling_price_history') is not null then
+  execute 'delete from public.product_selling_price_history where owner_user_id=' || quote_literal('{owner}');
+end if;
+end $$;
+delete from auth.users where id='{owner}' """)

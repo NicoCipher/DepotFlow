@@ -58,4 +58,9 @@ finally:
 delete from public.money_owed where customer_id='{customer}';
 delete from public.customers where id='{customer}';
 delete from private.shop_owner where user_id='{owner}';
-delete from auth.users where id='{owner}'""")
+do $$ begin
+if to_regclass('public.product_selling_price_history') is not null then
+  execute 'delete from public.product_selling_price_history where owner_user_id=' || quote_literal('{owner}');
+end if;
+end $$;
+delete from auth.users where id='{owner}' """)
