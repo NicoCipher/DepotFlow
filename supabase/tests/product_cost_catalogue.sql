@@ -2,8 +2,8 @@
 begin;
 
 do $$ begin
-  if (select count(*) from public.product_catalogue) <> 45 then
-    raise exception 'Expected 40 costed and 5 existing-only catalogue identities';
+  if (select count(*) from public.product_catalogue) <> 46 then
+    raise exception 'Expected 40 costed and 6 existing-only catalogue identities';
   end if;
   if (select count(*) from public.product_catalogue where manufacturer='NB') <> 29
     or (select count(*) from public.product_catalogue where manufacturer='GN') <> 11 then
@@ -32,7 +32,7 @@ from public.product_catalogue where name='Goldberg';
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000041',true);
 do $$ begin
-  if (select count(*) from public.product_catalogue) <> 45
+  if (select count(*) from public.product_catalogue) <> 46
     or (select count(*) from public.product_cost_history) <> 2 then
     raise exception 'Owner cannot read catalogue and historical costs';
   end if;
