@@ -7,7 +7,7 @@ create table public.product_selling_price_history (
   id uuid primary key default gen_random_uuid(),
   owner_user_id uuid not null references auth.users(id),
   catalogue_product_id uuid not null references public.product_catalogue(id),
-  selling_price integer not null check (selling_price > 0 and selling_price % 50 = 0),
+  selling_price integer not null check (selling_price >= 0 and selling_price % 50 = 0),
   effective_on date,
   source text not null check (source in ('prior_configuration','confirmed_list','product_edit')),
   edit_order bigint generated always as identity,
@@ -29,11 +29,13 @@ insert into public.product_catalogue(name,manufacturer) values
   ('Budweiser',null),('Flying Fish',null),('Trophy Stout',null)
 on conflict do nothing;
 
-create temporary table confirmed_selling_prices (
+create table private.confirmed_selling_prices (
   name text primary key,
   amount integer not null
-) on commit drop;
-insert into confirmed_selling_prices(name,amount) values
+);
+alter table private.confirmed_selling_prices enable row level security;
+revoke all on private.confirmed_selling_prices from public,anon,authenticated;
+insert into private.confirmed_selling_prices(name,amount) values
   ('33',10300),('Goldberg',10000),('Heineken',14000),('Star',12500),('Gulder',12600),
   ('Legend',12400),('Tiger',16500),('Radler',16200),('Amstel',16000),
   ('Desperados',22000),('Turbo',11000),('Life',10000),
@@ -45,7 +47,7 @@ insert into confirmed_selling_prices(name,amount) values
   ('Big Ice',17800),('Small Ice',17900),('Trophy Stout',11600);
 
 do $$ begin
-  if (select count(*) from confirmed_selling_prices s
+  if (select count(*) from private.confirmed_selling_prices s
       join public.product_catalogue c on c.name=s.name) <> 25 then
     raise exception 'A confirmed selling-price name is missing from the catalogue';
   end if;
@@ -71,21 +73,43 @@ select o.user_id,c.id,p.full_crate_price,null,'prior_configuration'
 from private.shop_owner o
 join public.products p on true
 join public.product_catalogue c on c.id=p.catalogue_product_id
-join confirmed_selling_prices s on s.name=c.name
+join private.confirmed_selling_prices s on s.name=c.name
 where p.full_crate_price<>s.amount;
 
 insert into public.product_selling_price_history
   (owner_user_id,catalogue_product_id,selling_price,effective_on,source)
 select o.user_id,c.id,s.amount,date '2026-09-29','confirmed_list'
 from private.shop_owner o
-join confirmed_selling_prices s on true
+join private.confirmed_selling_prices s on true
 join public.product_catalogue c on c.name=s.name;
+
+-- Keep the confirmed list available when the first owner is provisioned
+-- after migrations. This hook only appends missing quotes; it never changes
+-- configured product prices or stock.
+create function private.seed_owner_selling_prices() returns trigger
+language plpgsql security definer set search_path='' as $$
+begin
+  insert into public.product_selling_price_history
+    (owner_user_id,catalogue_product_id,selling_price,effective_on,source)
+  select new.user_id,c.id,s.amount,date '2026-09-29','confirmed_list'
+  from private.confirmed_selling_prices s
+  join public.product_catalogue c on c.name=s.name
+  where not exists (
+    select 1 from public.product_selling_price_history h
+    where h.owner_user_id=new.user_id and h.catalogue_product_id=c.id
+      and h.source='confirmed_list' and h.effective_on=date '2026-09-29'
+  );
+  return new;
+end $$;
+revoke all on function private.seed_owner_selling_prices() from public,anon,authenticated;
+create trigger seed_owner_selling_prices after insert or update of user_id
+  on private.shop_owner for each row execute function private.seed_owner_selling_prices();
 
 -- Only known configured products change. Existing IDs, stock, bottle/crate
 -- setup, partial and bottle price overrides stay untouched.
 update public.products p set full_crate_price=s.amount
 from public.product_catalogue c
-join confirmed_selling_prices s on s.name=c.name
+join private.confirmed_selling_prices s on s.name=c.name
 where p.catalogue_product_id=c.id
   and c.name in ('33','Goldberg','Castle Lite','Trophy')
   and p.full_crate_price<>s.amount;
@@ -102,7 +126,7 @@ begin
     return new;
   end if;
   select user_id into v_owner from private.shop_owner;
-  if v_owner is not null and new.full_crate_price>0 then
+  if v_owner is not null then
     insert into public.product_selling_price_history
       (owner_user_id,catalogue_product_id,selling_price,effective_on,source)
     values (v_owner,new.catalogue_product_id,new.full_crate_price,

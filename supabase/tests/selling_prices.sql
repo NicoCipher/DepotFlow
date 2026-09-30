@@ -5,6 +5,21 @@ insert into auth.users(id) values
   ('00000000-0000-4000-8000-000000000062');
 insert into private.shop_owner(user_id) values
   ('00000000-0000-4000-8000-000000000061');
+do $$ begin
+  if (select count(*) from public.product_selling_price_history
+      where source='confirmed_list') <> 25 or not exists (
+    select 1 from public.product_selling_price_history h
+    join public.product_catalogue c on c.id=h.catalogue_product_id
+    where c.name='Trophy Stout' and h.selling_price=11600
+      and h.effective_on=date '2026-09-29'
+  ) then raise exception 'Owner provisioning did not seed confirmed prices'; end if;
+end $$;
+update private.shop_owner set user_id=user_id;
+do $$ begin
+  if (select count(*) from public.product_selling_price_history) <> 25 then
+    raise exception 'Owner provisioning duplicated confirmed prices';
+  end if;
+end $$;
 insert into public.crate_types(id,name,empty_family,pocket_count) values
   ('50000000-0000-4000-8000-000000000061','Test crate','NB',12);
 insert into public.products
@@ -20,7 +35,7 @@ where id='60000000-0000-4000-8000-000000000061';
 update public.products set full_crate_price=10200
 where id='60000000-0000-4000-8000-000000000061';
 do $$ begin
-  if (select count(*) from public.product_selling_price_history) <> 2
+  if (select count(*) from public.product_selling_price_history where source='product_edit') <> 2
     or not exists(select 1 from public.product_selling_price_history
       where selling_price=10100 and source='product_edit')
     or not exists(select 1 from public.product_selling_price_history
@@ -35,6 +50,16 @@ do $$ begin
     update public.product_selling_price_history set selling_price=1;
     raise exception 'History was directly editable';
   exception when insufficient_privilege then null; end;
+end $$;
+update public.products set full_crate_price=0
+where id='60000000-0000-4000-8000-000000000061';
+do $$ begin
+  if (select selling_price from public.product_selling_price_history
+      where source='product_edit'
+      order by effective_on desc,recorded_at desc,edit_order desc limit 1)
+      is distinct from 0 then
+    raise exception 'Supported zero-price edit was not recorded';
+  end if;
 end $$;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000062',true);
 do $$ begin
