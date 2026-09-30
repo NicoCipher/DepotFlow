@@ -52,16 +52,6 @@ export function crateFitsProduct(
 ): boolean {
   return pocketCount === null || pocketCount === bottles;
 }
-export function crateMatches(
-  crate: CrateAttributes,
-  family: string,
-  pockets: string,
-): boolean {
-  return (
-    (!family || crate.empty_family === family) &&
-    (!pockets || String(crate.pocket_count) === pockets)
-  );
-}
 export function validateCrateType(values: {
   name: string;
   empty_family: string;

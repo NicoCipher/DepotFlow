@@ -1,3 +1,4 @@
+import { isSessionExpiredCode } from "./save-errors.ts";
 import { validateBusinessDate } from "./stock-count.ts";
 
 export function emptyCrateQuantity(quantity: number | null): string {
@@ -31,7 +32,7 @@ export type EmptyCrateCountState = {
   review?: ReturnType<typeof emptyCrateCountPreview>;
 };
 export function emptyCrateSaveError(code?: string, message?: string) {
-  if (["42501", "PGRST301", "401", "403"].includes(code ?? ""))
+  if (isSessionExpiredCode(code))
     return { message: "Your session has expired. Sign in again and check empty crate history before saving another count.", retryable: false };
   if (code === "22023") {
     const known: Record<string, string> = {

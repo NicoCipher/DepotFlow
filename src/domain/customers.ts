@@ -1,3 +1,4 @@
+import { isUuid } from "./ids.ts";
 export type CustomerValues = {
   name: string;
   phone: string;
@@ -17,8 +18,7 @@ export const emptyCustomer: CustomerValues = {
   business_name: "",
   address: "",
 };
-export const isCustomerId = (id: string) =>
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+export const isCustomerId = isUuid;
 
 export function normalizePhone(value: string): string {
   const compact = value.replace(/[\s().-]/g, "");
@@ -60,13 +60,6 @@ export function customerSearchFilter(query: string): string {
 }
 
 /** Crate and bottle obligations are independent counts, not a single quantity to split. */
-export function formatEmptiesOwed(crates: number, bottles: number): string {
-  const parts: string[] = [];
-  if (crates) parts.push(`${crates} ${crates === 1 ? "crate" : "crates"}`);
-  if (bottles) parts.push(`${bottles} ${bottles === 1 ? "bottle" : "bottles"}`);
-  return parts.length ? parts.join(" + ") : "None";
-}
-
 export function sameCustomerDetails(
   a: ReturnType<typeof validateCustomer>["data"],
   b: ReturnType<typeof validateCustomer>["data"],

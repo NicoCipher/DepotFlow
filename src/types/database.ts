@@ -988,16 +988,6 @@ export type Database = {
         }
         Returns: Json
       }
-      save_sale: {
-        Args: {
-          p_business_date: string
-          p_customer_id: string
-          p_lines: Json
-          p_paid: number
-          p_request_id: string
-        }
-        Returns: Json
-      }
       save_sale_v2: {
         Args: {
           p_payment_method: string

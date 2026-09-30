@@ -1,3 +1,4 @@
+import { isUuid } from "./ids.ts";
 export type SaleSummary = {
   id: string;
   customerId: string;
@@ -40,10 +41,7 @@ export type SaleItemHistory = {
   bottlesOwed: number;
 };
 
-export const isSaleId = (id: string) =>
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    id,
-  );
+export const isSaleId = isUuid;
 
 export function saleOwing(total: number, paid: number): number {
   return total - paid;

@@ -1,3 +1,4 @@
+import { isSessionExpiredCode } from "./save-errors.ts";
 import { toBottles } from "./quantity.ts";
 
 export function validateBusinessDate(value: string): string {
@@ -59,7 +60,7 @@ export type StockCountState = {
 };
 
 export function stockCountSaveError(code?: string, message?: string) {
-  if (code === "42501" || code === "PGRST301" || code === "401" || code === "403")
+  if (isSessionExpiredCode(code))
     return { message: "Your session has expired. Sign in again and check stock history before saving another count.", retryable: false };
   if (code === "22023") {
     switch (message) {

@@ -244,48 +244,6 @@ export function saleTotal(lines: DraftLine[], products: SaleProduct[]) {
   if (!Number.isSafeInteger(total)) throw new Error("That total is too large.");
   return total;
 }
-export function emptiesFor(line: DraftLine, product: SaleProduct) {
-  const fractional =
-    (line.quantity.fraction * product.bottles_per_crate) / 4 +
-    line.quantity.bottles;
-  if (!Number.isSafeInteger(fractional))
-    throw new Error("Check the bottle quantity.");
-  if (
-    line.quantity.crates &&
-    (product.crate_type?.is_legacy ||
-      product.crate_type?.pocket_count !== product.bottles_per_crate)
-  )
-    throw new Error(
-      `${product.name}: Choose an exact crate type before saving.`,
-    );
-  return {
-    crates: line.quantity.crates,
-    bottles: product.bottles_returnable
-      ? line.quantity.crates * product.bottles_per_crate + fractional
-      : 0,
-  };
-}
-export function returnedEmpties(
-  draft: SaleDraft,
-  line: DraftLine,
-  product: SaleProduct,
-) {
-  const due = emptiesFor(line, product);
-  const entry = draft.returns[line.productId];
-  function count(raw: string | undefined, max: number) {
-    if (draft.allEmpties) return max;
-    if (raw === undefined || !/^\d+$/.test(raw))
-      throw new Error("Enter whole numbers of returned empties.");
-    const value = Number(raw);
-    if (!Number.isSafeInteger(value) || value > max)
-      throw new Error("Returned empties cannot exceed those in this sale.");
-    return value;
-  }
-  return {
-    crates: count(entry?.crates, due.crates),
-    bottles: count(entry?.bottles, due.bottles),
-  };
-}
 export function saleQuantityLabel(q: SaleQuantity) {
   const fraction = ["", "¼", "½", "¾"][q.fraction];
   const parts = [];

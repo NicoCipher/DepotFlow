@@ -1,3 +1,4 @@
+import { isSessionExpiredCode } from "./save-errors.ts";
 export type ReceivingSnapshot = {
   stock: number;
   empties: number;
@@ -19,7 +20,7 @@ export type ReceivingState = {
   };
 };
 export function receivingSaveError(code?: string, message?: string) {
-  if (["42501", "PGRST301", "401", "403"].includes(code ?? ""))
+  if (isSessionExpiredCode(code))
     return { message: "Your session has expired. Sign in again and check stock history before receiving more stock.", retryable: false };
   if (code === "22023") {
     const known: Record<string, string> = {

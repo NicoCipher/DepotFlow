@@ -21,9 +21,6 @@ html { scroll-padding-bottom: 6rem; }
 .sale-sticky-actions { bottom: calc(4rem + env(safe-area-inset-bottom)); }
 @media (min-width: 640px) { .sale-sticky-actions { bottom: 0; } }
 
-button:disabled {
-  cursor: not-allowed;
-}
 
 h1 {
   font-size: 1.875rem;
@@ -109,6 +106,7 @@ textarea[aria-invalid="true"] {
 .review-list dt { color: #57534e; }
 .review-list dd { text-align: right; }
 button:disabled {
+  cursor: not-allowed;
   opacity: 0.65;
 }
 @media (prefers-reduced-motion: no-preference) {

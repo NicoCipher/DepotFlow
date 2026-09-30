@@ -44,6 +44,16 @@ jobs:
           set -euo pipefail
           for f in supabase/migrations/*.sql; do
             echo "Applying $f"
+            if [[ "$f" == *retire_legacy_public_rpcs.sql ]]; then
+              # These files exercise the historical signatures; run them at
+              # their final supported migration state before retirement.
+              for old in customer_archiving customer_payments empties_rules sale_partial_pricing record_sale_v2_empties; do
+                psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 -f "supabase/tests/$old.sql"
+              done
+              for old in customer_archiving customer_payments; do
+                python3 "supabase/tests/concurrency/$old.py"
+              done
+            fi
             psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 -f "$f"
           done
 
@@ -51,6 +61,9 @@ jobs:
         run: |
           set -euo pipefail
           for f in supabase/tests/*.sql; do
+            case "$f" in
+              */customer_archiving.sql|*/customer_payments.sql|*/empties_rules.sql|*/sale_partial_pricing.sql|*/record_sale_v2_empties.sql) continue ;;
+            esac
             echo "Running $f"
             psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 -f "$f"
           done
@@ -59,6 +72,9 @@ jobs:
         run: |
           set -euo pipefail
           for f in supabase/tests/concurrency/*.py; do
+            case "$f" in
+              */customer_archiving.py|*/customer_payments.py) continue ;;
+            esac
             echo "Running $f"
             python3 "$f"
           done

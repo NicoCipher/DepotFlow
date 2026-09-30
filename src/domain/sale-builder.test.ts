@@ -11,8 +11,6 @@ import {
   salePriceSnapshot,
   salePriceChangeMessage,
   saleTotal,
-  emptiesFor,
-  returnedEmpties,
   reviewedLine,
   reviewedTotal,
   type SaleProduct,
@@ -37,48 +35,6 @@ const q = (crates = 0, fraction: 0 | 1 | 2 | 3 = 0, bottles = 0) => ({
   crates,
   fraction,
   bottles,
-});
-test("whole crates and loose bottles retain distinct exact obligations", () => {
-  const line = { productId: product.id, quantity: q(2, 1, 5) };
-  assert.deepEqual(emptiesFor(line, product), { crates: 2, bottles: 32 });
-  const draft = {
-    ...emptySaleDraft,
-    allEmpties: false,
-    returns: { one: { crates: "1", bottles: "7" } },
-  };
-  assert.deepEqual(returnedEmpties(draft, line, product), {
-    crates: 1,
-    bottles: 7,
-  });
-  assert.deepEqual(
-    returnedEmpties({ ...draft, allEmpties: true }, line, product),
-    { crates: 2, bottles: 32 },
-  );
-  assert.deepEqual(emptiesFor({ ...line, quantity: q(0, 1, 9) }, product), {
-    crates: 0,
-    bottles: 12,
-  });
-  assert.deepEqual(
-    emptiesFor(line, { ...product, bottles_returnable: false }),
-    { crates: 2, bottles: 0 },
-  );
-  assert.throws(
-    () =>
-      emptiesFor(line, {
-        ...product,
-        crate_type: { name: "Unknown", is_legacy: true, pocket_count: 12, empty_family: "Test" },
-      }),
-    /exact crate/,
-  );
-  assert.throws(
-    () =>
-      returnedEmpties(
-        { ...draft, returns: { one: { crates: "3", bottles: "7" } } },
-        line,
-        product,
-      ),
-    /cannot exceed/,
-  );
 });
 test("review keeps the original payable total for an idempotent retry after stock changes", () => {
   const line = reviewedLine(
