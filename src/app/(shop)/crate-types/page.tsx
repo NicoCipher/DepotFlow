@@ -7,9 +7,10 @@ import { DeleteCrateType } from "@/components/delete-crate-type";
 export default async function CrateTypesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ saved?: string }>;
+  searchParams: Promise<{ saved?: string; deleted?: string }>;
 }) {
   const supabase = await requireOwner();
+  const status = await searchParams;
   const productsPromise = (async () => {
     const products: {
       id: string;
@@ -43,15 +44,17 @@ export default async function CrateTypesPage({
   return (
     <>
       <div className="flex items-center justify-between gap-3">
-        <h1>Crate Types</h1>
-        <Link href="/crate-types/new" className="primary shrink-0">Add crate type</Link>
+        <h1>Crates</h1>
+        <Link href="/crate-types/new" className="primary shrink-0">Add crate</Link>
       </div>
-      {(await searchParams).saved === "1" && (
+      {status.saved === "1" && (
         <p role="status" className="mt-3 text-emerald-900">
-          Crate type saved.
+          Crate saved. Return to your drink setup tab if you came from there.
         </p>
       )}
-      {!types.length && <p className="mt-6">No crate types yet.</p>}
+      {status.deleted === "1" && <p role="status" className="mt-3 text-emerald-900">Unused crate deleted.</p>}
+      <p className="mt-4 text-stone-600">Set up the crates your drinks use. This page describes each crate; record the number in your shop under Empty Crates.</p>
+      {!types.length && <p className="mt-6">No crates set up yet. Add your first crate above, then select it when setting up a drink.</p>}
       {Array.from(groups)
         .sort(([a], [b]) =>
           a === "Needs setup"
@@ -68,7 +71,7 @@ export default async function CrateTypesPage({
                 <li key={crate.id} className="py-5">
                   <CrateDisplay crate={crate} includeFamily={false} />
                   <p className="mt-2 text-sm">
-                    Products:{" "}
+                    Used by:{" "}
                     {products
                       .filter((p) => p.crate_type_id === crate.id)
                       .map((p) => [p.name, p.size].filter(Boolean).join(" "))
@@ -81,10 +84,10 @@ export default async function CrateTypesPage({
                         className="secondary mt-3"
                         href="/crate-types/new"
                       >
-                        Create exact crate type
+                        Set up a physical crate
                       </Link>
                       <Link className="quiet-link mt-2" href="/products">
-                        Choose a crate on each product
+                        Choose the crate for each drink
                       </Link>
                     </div>
                   ) : (

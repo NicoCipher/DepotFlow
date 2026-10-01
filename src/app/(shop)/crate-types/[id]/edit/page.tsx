@@ -57,7 +57,8 @@ export default async function EditCrateTypePage({
 
   return (
     <>
-      <h1>Edit crate type</h1>
+      <Link href="/crate-types" className="quiet-link inline-flex">← Crates</Link>
+      <h1 className="mt-5">Edit {current.data.name}</h1>
       <CrateTypeForm
         id={id}
         editing

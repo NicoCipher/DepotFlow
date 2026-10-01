@@ -143,6 +143,12 @@ export function ShopNavigation() {
           <details
             key={pathname}
             className="group relative flex min-w-0 flex-1"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.currentTarget.open = false;
+                event.currentTarget.querySelector("summary")?.focus();
+              }
+            }}
           >
             <summary
               className={`flex min-h-16 w-full cursor-pointer list-none flex-col items-center justify-center gap-1 px-1 text-center text-[11px] font-semibold leading-tight [&::-webkit-details-marker]:hidden ${moreActive ? "text-emerald-900" : "text-stone-600"}`}
@@ -155,7 +161,7 @@ export function ShopNavigation() {
               </span>
               <span>More</span>
             </summary>
-            <div className="absolute bottom-full right-0 mb-2 w-[min(19rem,90vw)] rounded-xl border border-stone-200 bg-white p-3 shadow-xl">
+            <div className="absolute bottom-full right-0 mb-2 max-h-[70dvh] w-[min(19rem,90vw)] overflow-y-auto overscroll-contain rounded-xl border border-stone-200 bg-white p-3 shadow-xl">
               <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
                 More pages
               </p>
