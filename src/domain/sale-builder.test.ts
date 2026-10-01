@@ -298,3 +298,16 @@ test("customer search matches names and Nigerian phone formatting", () => {
   assert.equal(matchesSaleCustomer(c, "0801 234 5678"), true);
   assert.equal(matchesSaleCustomer(c, "elsewhere"), false);
 });
+
+ test("24-bottle quantities use full-crate proportions without requiring bottle prices", () => {
+  const p = { ...product, bottles_per_crate: 24, full_crate_price: 24000, bottle_price: null };
+  for (const eighths of [1,3,5,7] as const) {
+    const quantity = { crates: 1, fraction: 0 as const, bottles: 0, eighths };
+    assert.deepEqual(priceQuantity(p, quantity), { totalBottles: 24 + eighths * 3, lineTotal: 24000 + eighths * 3000 });
+    assert.equal(reviewedTotal([reviewedLine({productId:p.id,quantity},p)]), 24000 + eighths * 3000);
+  }
+  assert.throws(()=>priceQuantity(product,{crates:0,fraction:0,bottles:0,eighths:1}), /24-bottle/);
+  assert.throws(()=>priceQuantity({...p,full_crate_price:10050},{crates:0,fraction:0,bottles:0,eighths:1}), /whole-naira/);
+  assert.throws(()=>priceQuantity(p,{crates:0,fraction:1,bottles:0,eighths:1}), /valid/);
+  assert.throws(()=>priceQuantity({...p,available:2},{crates:0,fraction:0,bottles:0,eighths:1}), /available/);
+ });

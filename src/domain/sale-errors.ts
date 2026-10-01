@@ -4,8 +4,7 @@ export const saleNetworkMessage =
 export const saleSaveUncertainMessage =
   "Couldn’t confirm whether this sale was saved. Tap Check Sale to verify. Don’t change the sale yet.";
 
-export const saleSessionExpiredMessage =
-  "Sign in again to continue this sale.";
+export const saleSessionExpiredMessage = "Sign in again to continue this sale.";
 
 export function isSaleSessionExpired(
   hasUser: boolean,
@@ -23,6 +22,14 @@ export const saleUnexpectedErrorMessage =
   "Something went wrong. Your sale is still here. Try again.";
 
 const safeCaughtSaleMessages: RegExp[] = [
+  /^Choose Accept or Hold for the different empties before saving\.$/,
+  /^Check the empties choices\.$/,
+  /^Choose different empties only for what is still owed\.$/,
+  /^The replacement crate must have the same number of spaces\.$/,
+  /^Set the crate size before choosing a replacement\.$/,
+  /^Empties matching exceeded what came back\.$/,
+  /^Choose a valid 24-bottle quantity\.$/,
+  /^The crate price does not give a whole-naira price for this bottle quantity\.$/,
   /^Review current prices and stock before saving\.$/,
   /^Review the drinks in this sale\.$/,
   /^That (total|quantity) is too large\.$/,
@@ -57,6 +64,13 @@ export function safeCaughtSaleErrorMessage(error: unknown): string {
 }
 
 const safeDatabaseSaleMessages = new Map<string, string>([
+  ["Choose Accept or Hold for the different empties before saving.", "Choose Accept or Hold for the different empties before saving."],
+  ["Choose a valid 24-bottle quantity.", "Choose a valid 24-bottle quantity."],
+  [
+    "The crate price does not give a whole-naira price for this bottle quantity.",
+    "The crate price does not give a whole-naira price for this bottle quantity.",
+  ],
+  ["Check the empties choices.", "Check the empties choices."],
   ["Check the sale details.", "Check the sale details and try again."],
   [
     "This sale request was already used with different details.",
@@ -80,7 +94,10 @@ const safeDatabaseSaleMessages = new Map<string, string>([
     "A returned bottle type is no longer available.",
     "A returned bottle is no longer available. Review the empties.",
   ],
-  ["Review duplicate drinks.", "The same drink appears twice. Review the sale."],
+  [
+    "Review duplicate drinks.",
+    "The same drink appears twice. Review the sale.",
+  ],
   [
     "A drink no longer exists. Review the sale.",
     "A drink is no longer available. Remove it from this sale.",
@@ -103,7 +120,10 @@ const safeDatabaseSaleMessages = new Map<string, string>([
     "Choose an exact crate type for this drink before saving.",
     "This drink’s physical crate setup is incomplete. Fix the drink setup before saving.",
   ],
-  ["A price is missing. Review the sale.", "A price is missing. Review the sale."],
+  [
+    "A price is missing. Review the sale.",
+    "A price is missing. Review the sale.",
+  ],
   [
     "Set a partial-crate price override because the full-crate price does not divide into whole naira.",
     "Set the part-crate price because the full-crate price does not divide into whole naira.",

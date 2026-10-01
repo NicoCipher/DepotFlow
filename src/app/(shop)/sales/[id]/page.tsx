@@ -44,12 +44,21 @@ export default async function SalePage({
           </div>
         ))}
       </dl>
-      {sale.paid > 0 && <Link className="primary mt-5 w-full" href={`/receipts/sale/${sale.id}`}>View Receipt</Link>}
+      {sale.paid > 0 && (
+        <Link
+          className="primary mt-5 w-full"
+          href={`/receipts/sale/${sale.id}`}
+        >
+          View Receipt
+        </Link>
+      )}
       <section className="mt-9" aria-labelledby="sale-items-heading">
         <h2 id="sale-items-heading" className="text-2xl font-semibold">
           Drinks
         </h2>
-        <p className="mt-2 text-sm text-stone-600">Quantities and empties below are from this sale only.</p>
+        <p className="mt-2 text-sm text-stone-600">
+          Quantities and empties below are from this sale only.
+        </p>
         <ul className="mt-3 border-t border-stone-300">
           {sale.items.map((item) => (
             <li key={item.id} className="border-b border-stone-300 py-5">
@@ -70,7 +79,8 @@ export default async function SalePage({
                     Crates{item.crateType ? ` · ${item.crateType}` : ""}
                   </p>
                   <p className="mt-1 text-stone-700">
-                    Returned {item.cratesReturned} · Owed from this sale {item.cratesOwed}
+                    Returned {item.cratesReturned} · Owed from this sale{" "}
+                    {item.cratesOwed}
                   </p>
                 </div>
               )}
@@ -80,7 +90,8 @@ export default async function SalePage({
                     Bottles{item.bottleType ? ` · ${item.bottleType}` : ""}
                   </p>
                   <p className="mt-1 text-stone-700">
-                    Returned {item.bottlesReturned} · Owed from this sale {item.bottlesOwed}
+                    Returned {item.bottlesReturned} · Owed from this sale{" "}
+                    {item.bottlesOwed}
                   </p>
                 </div>
               )}
@@ -88,6 +99,31 @@ export default async function SalePage({
           ))}
         </ul>
       </section>
+      {sale.emptyChoices.length > 0 && (
+        <section className="mt-6 rounded-xl border border-stone-200 bg-white p-4">
+          <h2 className="text-xl font-semibold">
+            Different empties from this sale
+          </h2>
+          <ul className="mt-3 space-y-4">
+            {sale.emptyChoices.map((choice) => (
+              <li key={choice.id}>
+                <p className="font-semibold">
+                  {choice.product_name} · {choice.quantity}{" "}
+                  {choice.returned_name}{" "}
+                  {choice.kind === "crate" ? "crates" : "bottles"}
+                </p>
+                <p className="mt-1 text-sm">
+                  {choice.decision === "accept"
+                    ? `Accepted instead of ${choice.owed_name}.`
+                    : choice.released_at
+                      ? `Held empties collected by customer. ${choice.owed_name} was still owed when this sale was saved.`
+                      : `Held for customer. ${choice.owed_name} was still owed when this sale was saved.`}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <dl className="mt-8 border-t border-stone-300 py-5 text-sm">
         <dt className="font-semibold">Sale reference</dt>
         <dd className="mt-1 break-all text-stone-700">{sale.id}</dd>

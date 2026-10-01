@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   crateReturnIssues,
+  assertSaleEmptiesResolved,
+  hasUnmatchedSaleEmpties,
   depositSetupIssues,
   emptyEmptiesV2,
   matchSaleEmpties,
@@ -288,4 +290,75 @@ test("different pocket counts are not silently swapped", () => {
   const result = matchSaleEmpties(draft, local);
   assert.equal(result.lines[0].cratesOwed, 1);
   assert.equal(result.lines[0].bottlesOwed, 12);
+});
+
+test("Goldberg and Trophy: hold wrong crate while correct bottles settle separately", () => {
+  const draft = sale("goldberg");
+  draft.lines.push(sale("trophy").lines[0]);
+  draft.emptiesV2.returnedCrates = { "trophy-crate": "2" };
+  draft.emptiesV2.returnedBottles = { "Goldberg bottle": "12", "Trophy bottle": "12" };
+  draft.emptiesV2.decisions = [{ productId: "goldberg", kind: "crate", returnedType: "trophy-crate", quantity: "1", decision: "hold" }];
+  const result = matchSaleEmpties(draft, catalog);
+  assert.deepEqual(result.lines.map(row => [row.cratesOwed,row.bottlesOwed]), [[1,0],[0,0]]);
+  assert.deepEqual(result.unmatchedCrates, {});
+  assert.equal(result.decisions[0].decision, "hold");
+  draft.emptiesV2.decisions[0].decision = "accept";
+  assert.equal(matchSaleEmpties(draft, catalog).hasShortage, false);
+});
+
+test("wrong crate and wrong bottles can be held or accepted independently", () => {
+  const draft = sale("goldberg");
+  draft.emptiesV2.returnedCrates = { "trophy-crate": "1" };
+  draft.emptiesV2.returnedBottles = { "Trophy bottle": "12" };
+  draft.emptiesV2.decisions = [
+    { productId: "goldberg", kind: "crate", returnedType: "trophy-crate", quantity: "1", decision: "accept" },
+    { productId: "goldberg", kind: "bottle", returnedType: "Trophy bottle", quantity: "12", decision: "hold" },
+  ];
+  let result = matchSaleEmpties(draft, catalog);
+  assert.equal(result.lines[0].cratesOwed, 0);
+  assert.equal(result.lines[0].bottlesOwed, 12);
+  assert.equal(result.swaps.length, 0);
+  draft.emptiesV2.decisions[1].decision = "accept";
+  result = matchSaleEmpties(draft, catalog);
+  assert.equal(result.hasShortage, false);
+  draft.emptiesV2.decisions.push({ ...draft.emptiesV2.decisions[1] });
+  assert.throws(() => matchSaleEmpties(draft, catalog));
+});
+
+test("explicit choices cannot consume another drink's exact empties or different crate capacities", () => {
+  const draft = sale("goldberg");
+  draft.lines.push(sale("trophy").lines[0]);
+  draft.emptiesV2.returnedCrates = { "trophy-crate": "1" };
+  draft.emptiesV2.returnedBottles = { "Trophy bottle": "12" };
+  draft.emptiesV2.decisions = [{ productId: "goldberg", kind: "crate", returnedType: "trophy-crate", quantity: "1", decision: "accept" }];
+  assert.throws(() => matchSaleEmpties(draft, catalog));
+  draft.emptiesV2.returnedCrates = { "big-crate": "1" };
+  draft.emptiesV2.decisions[0].returnedType = "big-crate";
+  assert.throws(() => matchSaleEmpties(draft, catalog), /same number of spaces/);
+  draft.emptiesV2.decisions[0].decision = "hold";
+  assert.equal(matchSaleEmpties(draft, catalog).lines[0].cratesOwed, 1);
+});
+
+test("a hold reserves the wrong empties before unrelated permanent swaps", () => {
+  const other = product("other", "Other NB drink", "goldberg-crate", "Goldberg bottle");
+  const draft = sale("goldberg");
+  draft.lines.push(sale("trophy").lines[0], sale("other").lines[0]);
+  draft.emptiesV2.returnedCrates = { "trophy-crate": "3" };
+  draft.emptiesV2.returnedBottles = { "Goldberg bottle": "12", "Trophy bottle": "24" };
+  draft.emptiesV2.decisions = [{ productId: "goldberg", kind: "crate", returnedType: "trophy-crate", quantity: "1", decision: "hold" }];
+  const result = matchSaleEmpties(draft, { ...catalog, products: [...catalog.products, other] });
+  assert.deepEqual(result.lines.map(row => [row.cratesOwed,row.bottlesOwed]), [[1,0],[0,0],[0,0]]);
+  assert.equal(result.swaps.length, 1);
+  assert.equal(result.swaps[0].quantity, 1);
+});
+
+test("unmatched wrong returns require an explicit choice before saving", () => {
+  const draft = sale("goldberg");
+  draft.emptiesV2.returnedCrates = { "trophy-crate": "1" };
+  draft.emptiesV2.returnedBottles = { "Goldberg bottle": "12" };
+  const result = matchSaleEmpties(draft, { ...catalog, swapRules: [] });
+  assert.equal(hasUnmatchedSaleEmpties(result), true);
+  assert.throws(() => assertSaleEmptiesResolved(result), /Choose Accept or Hold/);
+  draft.emptiesV2.decisions = [{ productId: "goldberg", kind: "crate", returnedType: "trophy-crate", quantity: "1", decision: "hold" }];
+  assert.doesNotThrow(() => assertSaleEmptiesResolved(matchSaleEmpties(draft, catalog)));
 });

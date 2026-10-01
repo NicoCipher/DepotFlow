@@ -8,6 +8,7 @@ import { saleProductSetupIssue } from "./sale-builder.ts";
 import { parseWholeNumberInput } from "./sale-input.ts";
 
 export type EmptiesV2State = {
+  decisions?: SaleDraft["emptiesV2"]["decisions"];
   mode: "exact" | "actual";
   cratesTaken: Record<string, string>;
   returnedCrates: Record<string, string>;
@@ -40,12 +41,21 @@ export type EmptiesSwap = {
 };
 
 export type EmptiesMatchResult = {
+  decisions: NonNullable<EmptiesV2State["decisions"]>;
   lines: EmptiesLineResult[];
   swaps: EmptiesSwap[];
   unmatchedCrates: Record<string, number>;
   unmatchedBottles: Record<string, number>;
   hasShortage: boolean;
 };
+
+export function hasUnmatchedSaleEmpties(result: EmptiesMatchResult) {
+  return Object.values(result.unmatchedCrates).some(quantity => quantity > 0) || Object.values(result.unmatchedBottles).some(quantity => quantity > 0);
+}
+
+export function assertSaleEmptiesResolved(result: EmptiesMatchResult) {
+  if (hasUnmatchedSaleEmpties(result)) throw new Error("Choose Accept or Hold for the different empties before saving.");
+}
 
 export function missingEmptiesMessage(
   line: Pick<EmptiesLineResult, "cratesOwed" | "bottlesOwed">,
@@ -93,8 +103,7 @@ export function depositSetupIssues(
       Math.floor(line.bottlesOwed / pocket),
     );
     const crateOnlyMissing = line.cratesOwed - completeMissing;
-    const looseBottleMissing =
-      line.bottlesOwed - completeMissing * pocket;
+    const looseBottleMissing = line.bottlesOwed - completeMissing * pocket;
     const rate = crateRates.get(pocket);
 
     if (completeMissing > 0 && !rate) {
@@ -117,10 +126,7 @@ export function depositSetupIssues(
   }
 
   if (bottleRateNeeded && catalog.bottleDepositPrice == null)
-    issues.set(
-      "bottle",
-      "Deposit price per bottle has not been set.",
-    );
+    issues.set("bottle", "Deposit price per bottle has not been set.");
 
   return [...issues].map(([key, message]) => ({ key, message }));
 }
@@ -149,7 +155,8 @@ function add(map: Map<string, number>, key: string, amount: number) {
 function take(map: Map<string, number>, key: string, amount: number) {
   if (!amount) return;
   const current = map.get(key) ?? 0;
-  if (amount > current) throw new Error("Empties matching exceeded what came back.");
+  if (amount > current)
+    throw new Error("Empties matching exceeded what came back.");
   const next = current - amount;
   if (next) map.set(key, next);
   else map.delete(key);
@@ -164,19 +171,24 @@ function productFor(line: DraftLine, catalog: SaleCatalog) {
 function totalReturnableBottles(line: DraftLine, product: SaleProduct) {
   if (!product.bottles_returnable) return 0;
   const fraction =
-    (line.quantity.fraction * product.bottles_per_crate) / 4;
+    (line.quantity.eighths
+      ? line.quantity.eighths / 8
+      : line.quantity.fraction / 4) * product.bottles_per_crate;
   if (!Number.isSafeInteger(fraction))
     throw new Error(`${product.name}: Check the bottle quantity.`);
   const total =
     line.quantity.crates * product.bottles_per_crate +
     fraction +
     line.quantity.bottles;
-  if (!Number.isSafeInteger(total)) throw new Error("That quantity is too large.");
+  if (!Number.isSafeInteger(total))
+    throw new Error("That quantity is too large.");
   return total;
 }
 
 function cratePocket(catalog: SaleCatalog, id: string) {
-  return catalog.crateTypes.find((crate) => crate.id === id)?.pocket_count ?? null;
+  return (
+    catalog.crateTypes.find((crate) => crate.id === id)?.pocket_count ?? null
+  );
 }
 
 function canonicalBottleType(catalog: SaleCatalog, crateTypeId: string) {
@@ -201,17 +213,16 @@ function parseActualCounts(
   const result = new Map<string, number>();
   for (const [id, raw] of Object.entries(values)) {
     if (!allowed.has(id))
-      throw new Error(`${label} type is no longer available. Review the empties.`);
+      throw new Error(
+        `${label} type is no longer available. Review the empties.`,
+      );
     const value = whole(raw);
     if (value) result.set(id, value);
   }
   return result;
 }
 
-export function cratesTakenFor(
-  draft: SaleDraft,
-  line: DraftLine,
-): number {
+export function cratesTakenFor(draft: SaleDraft, line: DraftLine): number {
   const state = draft.emptiesV2 ?? emptyEmptiesV2;
   const value = whole(state.cratesTaken[line.productId], line.quantity.crates);
   if (value > line.quantity.crates)
@@ -219,10 +230,7 @@ export function cratesTakenFor(
   return value;
 }
 
-export function actualSaleEmpties(
-  draft: SaleDraft,
-  catalog: SaleCatalog,
-) {
+export function actualSaleEmpties(draft: SaleDraft, catalog: SaleCatalog) {
   const match = matchSaleEmpties(draft, catalog);
   const state = draft.emptiesV2 ?? emptyEmptiesV2;
   const crates = new Map<string, number>();
@@ -346,7 +354,8 @@ export function matchSaleEmpties(
   draft: SaleDraft,
   catalog: SaleCatalog,
 ): EmptiesMatchResult {
-  if (!draft.lines.length) throw new Error("Add drinks before recording empties.");
+  if (!draft.lines.length)
+    throw new Error("Add drinks before recording empties.");
 
   const state = draft.emptiesV2 ?? emptyEmptiesV2;
   const results: EmptiesLineResult[] = draft.lines.map((line) => {
@@ -419,52 +428,59 @@ export function matchSaleEmpties(
 
   // 2. Explicitly allowed swaps only settle as complete packages.
   const swaps: EmptiesSwap[] = [];
-  for (const row of results) {
-    if (!row.cratesOwed || !row.bottleType) continue;
-    const expectedPocket = cratePocket(catalog, row.crateTypeId);
-    if (!expectedPocket) continue;
-    const allowed = catalog.swapRules
-      .filter((rule) => rule.owed_crate_type_id === row.crateTypeId)
-      .map((rule) => rule.returned_crate_type_id);
+  function applyConfiguredSwaps(rows: EmptiesLineResult[]) {
+    for (const row of rows) {
+      if (!row.cratesOwed || !row.bottleType) continue;
+      const expectedPocket = cratePocket(catalog, row.crateTypeId);
+      if (!expectedPocket) continue;
+      const allowed = catalog.swapRules
+        .filter((rule) => rule.owed_crate_type_id === row.crateTypeId)
+        .map((rule) => rule.returned_crate_type_id)
+        .sort();
 
-    for (const returnedType of allowed) {
-      if (!row.cratesOwed || row.bottlesOwed < expectedPocket) break;
-      const returnedPocket = cratePocket(catalog, returnedType);
-      const returnedBottleType = canonicalBottleType(catalog, returnedType);
-      // Different capacities are never silently treated as equivalent.
-      if (
-        returnedPocket !== expectedPocket ||
-        !returnedBottleType ||
-        returnedType === row.crateTypeId
-      )
-        continue;
-      const quantity = Math.min(
-        row.cratesOwed,
-        actualCrates.get(returnedType) ?? 0,
-        Math.floor((actualBottles.get(returnedBottleType) ?? 0) / returnedPocket),
-        Math.floor(row.bottlesOwed / expectedPocket),
-      );
-      if (!quantity) continue;
-      take(actualCrates, returnedType, quantity);
-      take(actualBottles, returnedBottleType, quantity * returnedPocket);
-      row.cratesSettled += quantity;
-      row.bottlesSettled += quantity * expectedPocket;
-      row.cratesOwed -= quantity;
-      row.bottlesOwed -= quantity * expectedPocket;
-      const existing = swaps.find(
-        (swap) =>
-          swap.owedCrateTypeId === row.crateTypeId &&
-          swap.returnedCrateTypeId === returnedType,
-      );
-      if (existing) existing.quantity += quantity;
-      else
-        swaps.push({
-          owedCrateTypeId: row.crateTypeId,
-          returnedCrateTypeId: returnedType,
-          quantity,
-        });
+      for (const returnedType of allowed) {
+        if (!row.cratesOwed || row.bottlesOwed < expectedPocket) break;
+        const returnedPocket = cratePocket(catalog, returnedType);
+        const returnedBottleType = canonicalBottleType(catalog, returnedType);
+        // Different capacities are never silently treated as equivalent.
+        if (
+          returnedPocket !== expectedPocket ||
+          !returnedBottleType ||
+          returnedType === row.crateTypeId
+        )
+          continue;
+        const quantity = Math.min(
+          row.cratesOwed,
+          actualCrates.get(returnedType) ?? 0,
+          Math.floor(
+            (actualBottles.get(returnedBottleType) ?? 0) / returnedPocket,
+          ),
+          Math.floor(row.bottlesOwed / expectedPocket),
+        );
+        if (!quantity) continue;
+        take(actualCrates, returnedType, quantity);
+        take(actualBottles, returnedBottleType, quantity * returnedPocket);
+        row.cratesSettled += quantity;
+        row.bottlesSettled += quantity * expectedPocket;
+        row.cratesOwed -= quantity;
+        row.bottlesOwed -= quantity * expectedPocket;
+        const existing = swaps.find(
+          (swap) =>
+            swap.owedCrateTypeId === row.crateTypeId &&
+            swap.returnedCrateTypeId === returnedType,
+        );
+        if (existing) existing.quantity += quantity;
+        else
+          swaps.push({
+            owedCrateTypeId: row.crateTypeId,
+            returnedCrateTypeId: returnedType,
+            quantity,
+          });
+      }
     }
   }
+  const decisions = state.mode === "actual" ? (state.decisions ?? []) : [];
+  if (!decisions.length) applyConfiguredSwaps(results);
 
   // 3. An exact physical crate can still settle the crate even when its
   // bottles are incomplete or mixed.
@@ -493,7 +509,67 @@ export function matchSaleEmpties(
     row.bottlesOwed -= quantity;
   }
 
+  const assigned = new Map<string, number>();
+  if (decisions.length > 1000) throw new Error("Check the empties choices.");
+  for (const choice of decisions) {
+    const row = results.find((item) => item.productId === choice.productId);
+    const quantity = whole(choice.quantity);
+    if (
+      !row ||
+      !quantity ||
+      !["crate", "bottle"].includes(choice.kind) ||
+      !["accept", "hold"].includes(choice.decision)
+    )
+      throw new Error("Check the empties choices.");
+    const isCrate = choice.kind === "crate";
+    const owedType = isCrate ? row.crateTypeId : row.bottleType;
+    const key = `${row.productId}:${choice.kind}`;
+    const availableOwed = isCrate ? row.cratesOwed : row.bottlesOwed;
+    if (
+      !owedType ||
+      choice.returnedType === owedType ||
+      quantity + (assigned.get(key) ?? 0) > availableOwed
+    )
+      throw new Error("Choose different empties only for what is still owed.");
+    if (
+      isCrate &&
+      choice.decision === "accept" &&
+      cratePocket(catalog, choice.returnedType) !==
+        cratePocket(catalog, row.crateTypeId)
+    )
+      throw new Error(
+        "The replacement crate must have the same number of spaces.",
+      );
+    if (
+      isCrate &&
+      choice.decision === "accept" &&
+      (!cratePocket(catalog, row.crateTypeId) ||
+        !cratePocket(catalog, choice.returnedType))
+    )
+      throw new Error("Set the crate size before choosing a replacement.");
+    take(isCrate ? actualCrates : actualBottles, choice.returnedType, quantity);
+    // Held empties stay owed; accepted empties settle only this choice's type.
+    if (choice.decision === "accept") {
+      if (isCrate) {
+        row.cratesSettled += quantity;
+        row.cratesOwed -= quantity;
+      } else {
+        row.bottlesSettled += quantity;
+        row.bottlesOwed -= quantity;
+      }
+    } else assigned.set(key, (assigned.get(key) ?? 0) + quantity);
+  }
+
+  if (decisions.length)
+    applyConfiguredSwaps(
+      results.filter(
+        (row) =>
+          !decisions.some((choice) => choice.productId === row.productId),
+      ),
+    );
+
   return {
+    decisions,
     lines: results,
     swaps,
     unmatchedCrates: Object.fromEntries(actualCrates),

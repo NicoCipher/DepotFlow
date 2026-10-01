@@ -14,6 +14,18 @@ export type Database = {
   }
   public: {
     Tables: {
+      shop_profile: {
+        Row: { id: boolean; name: string; address: string; phone: string; logo_url: string }
+        Insert: { id?: boolean; name: string; address?: string; phone?: string; logo_url?: string }
+        Update: { name?: string; address?: string; phone?: string; logo_url?: string }
+        Relationships: []
+      }
+      sale_empty_decisions: {
+        Row: { id: string; sale_id: string; customer_id: string; product_id: string; product_name: string; kind: string; returned_type: string; returned_name: string; owed_type: string; owed_name: string; quantity: number; decision: string; released_at: string | null }
+        Insert: { id?: string; sale_id: string; customer_id: string; product_id: string; product_name: string; kind: string; returned_type: string; returned_name: string; owed_type: string; owed_name: string; quantity: number; decision: string; released_at?: string | null }
+        Update: { released_at?: string | null }
+        Relationships: []
+      }
       bottle_deposit_price: {
         Row: {
           amount: number
@@ -220,6 +232,7 @@ export type Database = {
           method: string
           receipt_number: string
           verification_token: string
+          receipt_business: Json | null
           receipt_status: string
         }
         Insert: {
@@ -233,6 +246,7 @@ export type Database = {
           method?: string
           receipt_number?: string
           verification_token?: string
+          receipt_business?: Json | null
           receipt_status?: string
         }
         Update: {
@@ -246,6 +260,7 @@ export type Database = {
           method?: string
           receipt_number?: string
           verification_token?: string
+          receipt_business?: Json | null
           receipt_status?: string
         }
         Relationships: [
@@ -783,6 +798,7 @@ export type Database = {
           payment_method: string
           receipt_number: string
           verification_token: string
+          receipt_business: Json | null
           receipt_status: string
         }
         Insert: {
@@ -797,6 +813,7 @@ export type Database = {
           payment_method?: string
           receipt_number?: string
           verification_token?: string
+          receipt_business?: Json | null
           receipt_status?: string
         }
         Update: {
@@ -811,6 +828,7 @@ export type Database = {
           payment_method?: string
           receipt_number?: string
           verification_token?: string
+          receipt_business?: Json | null
           receipt_status?: string
         }
         Relationships: [
@@ -942,6 +960,9 @@ export type Database = {
       }
     }
     Functions: {
+      record_customer_empty_return: { Args: { p_request_id: string; p_customer_id: string; p_crates: Json; p_bottles: Json; p_release_ids: string[] }; Returns: undefined }
+      save_business_details: { Args: { p_name: string; p_address: string; p_phone: string; p_logo_url: string }; Returns: undefined }
+      release_held_empties: { Args: { p_id: string }; Returns: undefined }
       delete_unused_crate_type: { Args: { p_id: string }; Returns: undefined }
       create_crate_type: {
         Args: {
