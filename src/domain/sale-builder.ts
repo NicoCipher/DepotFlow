@@ -70,6 +70,7 @@ export type SaleCatalog = {
   crateDepositPrices?: SaleCrateDepositPrice[];
 };
 export type SaleQuantity = {
+  eighths?: 0 | 1 | 3 | 5 | 7;
   crates: number;
   fraction: 0 | 1 | 2 | 3;
   bottles: number;
@@ -164,6 +165,9 @@ export function effectivePartialPrice(
 }
 export function priceQuantity(product: SaleProduct, quantity: SaleQuantity) {
   const { crates, fraction, bottles } = quantity;
+  const eighths = quantity.eighths ?? 0;
+  if (![0, 1, 3, 5, 7].includes(eighths) || (eighths && (fraction || product.bottles_per_crate !== 24)))
+    throw new Error("Choose a valid 24-bottle quantity.");
   if (
     ![crates, bottles].every((n) => Number.isSafeInteger(n) && n >= 0) ||
     ![0, 1, 2, 3].includes(fraction)
@@ -172,7 +176,7 @@ export function priceQuantity(product: SaleProduct, quantity: SaleQuantity) {
   let totalBottles: number;
   try {
     totalBottles = toBottles(
-      crates + fraction / 4,
+      crates + (eighths ? eighths / 8 : fraction / 4),
       product.bottles_per_crate,
       bottles,
     );
@@ -201,7 +205,11 @@ export function priceQuantity(product: SaleProduct, quantity: SaleQuantity) {
       throw new Error("Check this drink’s prices.");
     return value * units;
   }
+  const smallPartPrice = eighths ? (product.full_crate_price === null ? null : product.full_crate_price * eighths / 8) : 0;
+  if (eighths && (smallPartPrice === null || !Number.isSafeInteger(smallPartPrice)))
+    throw new Error("The crate price does not give a whole-naira price for this bottle quantity.");
   const lineTotal =
+    (smallPartPrice ?? 0) +
     price(product.full_crate_price, "Full-crate", crates) +
     (fraction >= 2 ? effectivePartialPrice(product, "half") : 0) +
     (fraction % 2 ? effectivePartialPrice(product, "quarter") : 0) +
@@ -246,6 +254,7 @@ export function saleTotal(lines: DraftLine[], products: SaleProduct[]) {
 }
 export function saleQuantityLabel(q: SaleQuantity) {
   const fraction = ["", "¼", "½", "¾"][q.fraction];
+  if (q.eighths) return [q.crates ? `${q.crates} ${q.crates === 1 ? "crate" : "crates"}` : "", `${q.eighths * 3 + q.bottles} bottles`].filter(Boolean).join(" + ");
   const parts = [];
   if (q.crates || fraction)
     parts.push(
@@ -279,6 +288,7 @@ export type SaleDraft = {
   allEmpties: boolean;
   returns: Record<string, { crates: string; bottles: string }>;
   emptiesV2: {
+    decisions?: { productId: string; kind: "crate" | "bottle"; returnedType: string; quantity: string; decision: "accept" | "hold" }[];
     mode: "exact" | "actual";
     cratesTaken: Record<string, string>;
     returnedCrates: Record<string, string>;
@@ -287,6 +297,7 @@ export type SaleDraft = {
   editingId: string;
   crates: string;
   fraction: 0 | 1 | 2 | 3;
+  eighths?: 0 | 1 | 3 | 5 | 7;
   bottles: string;
   customerQuery: string;
   productQuery: string;
@@ -301,6 +312,7 @@ export const emptySaleDraft: SaleDraft = {
   allEmpties: true,
   returns: {},
   emptiesV2: {
+    decisions: [],
     mode: "exact",
     cratesTaken: {},
     returnedCrates: {},
@@ -309,6 +321,7 @@ export const emptySaleDraft: SaleDraft = {
   editingId: "",
   crates: "0",
   fraction: 0,
+  eighths: 0,
   bottles: "0",
   customerQuery: "",
   productQuery: "",
@@ -328,6 +341,7 @@ export function readSaleDraft(raw: string | null): SaleDraft {
         "review",
       ].includes(d.step) ||
       ![0, 1, 2, 3].includes(d.fraction) ||
+      ![0, 1, 3, 5, 7].includes(d.eighths ?? 0) ||
       ![
         "customerId",
         "editingId",
@@ -345,6 +359,7 @@ export function readSaleDraft(raw: string | null): SaleDraft {
         typeof line.productId !== "string" ||
         !line.quantity ||
         ![0, 1, 2, 3].includes(line.quantity.fraction) ||
+        ![0, 1, 3, 5, 7].includes(line.quantity.eighths ?? 0) ||
         ![line.quantity.crates, line.quantity.bottles].every(
           (n) => Number.isSafeInteger(n) && n >= 0,
         )
@@ -403,6 +418,11 @@ export function readSaleDraft(raw: string | null): SaleDraft {
             : legacyNeedsReentry
               ? "actual"
               : "exact",
+        decisions: Array.isArray(rawEmpties.decisions) && rawEmpties.decisions.length <= 1000 && rawEmpties.decisions.every((entry: unknown) => {
+          if (!entry || typeof entry !== "object") return false;
+          const row = entry as Record<string, unknown>;
+          return typeof row.productId === "string" && typeof row.returnedType === "string" && typeof row.quantity === "string" && ["crate", "bottle"].includes(String(row.kind)) && ["accept", "hold"].includes(String(row.decision));
+        }) ? rawEmpties.decisions : [],
         cratesTaken: stringMap(rawEmpties.cratesTaken),
         returnedCrates: stringMap(rawEmpties.returnedCrates),
         returnedBottles: stringMap(rawEmpties.returnedBottles),
@@ -416,7 +436,7 @@ export function readSaleDraft(raw: string | null): SaleDraft {
 /** Authoritative inputs used by this quantity are compared; totals are never restored. */
 export function salePriceSnapshot(product: SaleProduct, q: SaleQuantity) {
   return JSON.stringify([
-    q.crates || q.fraction ? product.full_crate_price : null,
+    q.crates || q.fraction || q.eighths ? product.full_crate_price : null,
     q.fraction ? product.half_crate_price : null,
     q.fraction ? product.quarter_crate_price : null,
     q.bottles ? product.bottle_price : null,
@@ -449,6 +469,11 @@ function storedPriceTotal(line: DraftLine): number | null {
     }
 
     let total = 0;
+    if (line.quantity.eighths) {
+      const fullPrice = required(full);
+      if (fullPrice === null) return null;
+      total += fullPrice * line.quantity.eighths / 8;
+    }
     if (line.quantity.crates) {
       const fullPrice = required(full);
       if (fullPrice === null) return null;
@@ -505,7 +530,7 @@ export function salePriceChangeMessage(
 }
 export function quantityPriceSet(product: SaleProduct, q: SaleQuantity) {
   return (
-    (!q.crates || product.full_crate_price !== null) &&
+    (!(q.crates || q.eighths) || product.full_crate_price !== null) &&
     (!(q.fraction >= 2) ||
       product.half_crate_price !== null ||
       product.full_crate_price !== null) &&

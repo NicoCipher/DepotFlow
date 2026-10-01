@@ -66,7 +66,10 @@ export async function getSale(id: string) {
     .maybeSingle();
   if (error) throw new Error("Could not load sale.");
   if (!data) notFound();
+  const choices = await supabase.from("sale_empty_decisions").select("id,product_name,kind,returned_name,owed_name,quantity,decision,released_at").eq("sale_id", id).order("id");
+  if (choices.error) throw new Error("Could not load this sale's empties choices.");
   return {
+    emptyChoices: choices.data,
     id: data.id,
     customerId: data.customer_id,
     customerName: data.customer?.name ?? "Customer not available",

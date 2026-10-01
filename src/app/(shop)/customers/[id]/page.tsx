@@ -1,3 +1,4 @@
+import { releaseHeldEmpties } from "./held-actions";
 import { SuccessToast } from "@/components/success-toast";
 import Link from "next/link";
 import { getCustomer } from "@/lib/customers/data";
@@ -15,7 +16,7 @@ export default async function CustomerPage({
 }) {
   const { id } = await params;
   const { customer, supabase } = await getCustomer(id);
-  const [money, crates, bottles, deposits, sales, payments] = await Promise.all(
+  const [money, crates, bottles, deposits, sales, payments, held] = await Promise.all(
     [
       supabase
         .from("money_owed")
@@ -39,9 +40,10 @@ export default async function CustomerPage({
         .maybeSingle(),
       getRecentCustomerSales(supabase, id),
       getRecentCustomerPayments(supabase, id),
+      supabase.from("sale_empty_decisions").select("id,product_name,kind,returned_name,owed_name,quantity,sale_id").eq("customer_id", id).eq("decision", "hold").is("released_at", null).order("id"),
     ],
   );
-  if ([money, crates, bottles, deposits].some((result) => result.error))
+  if ([money, crates, bottles, deposits, held].some((result) => result.error))
     throw new Error("Could not load customer totals.");
   const { saved } = await searchParams;
   const naira = (value: number) => `₦${value.toLocaleString("en-NG")}`;
@@ -53,6 +55,7 @@ export default async function CustomerPage({
             added: "Customer added.",
             updated: "Customer updated.",
             payment: "Payment recorded.",
+            empties: "Empties returned. Balances updated.",
             archived: "Customer archived.",
             restored: "Customer restored.",
           } as Record<string, string>
@@ -64,6 +67,7 @@ export default async function CustomerPage({
                   added: "Customer added.",
                   updated: "Customer updated.",
                   payment: "Payment recorded.",
+            empties: "Empties returned. Balances updated.",
                   archived: "Customer archived.",
                   restored: "Customer restored.",
                 } as Record<string, string>
@@ -139,9 +143,11 @@ export default async function CustomerPage({
         <span>Deposit held</span>
         <span>{naira(deposits.data?.amount ?? 0)}</span>
       </p>
+      {((crates.data ?? []).some(row => row.quantity > 0) || Boolean(bottles.data?.length) || Boolean(held.data?.length)) && <Link className="secondary mt-5 w-full" href={`/customers/${id}/return-empties`}>Record empties brought back</Link>}
       <Link className="secondary mt-5 w-full" href={`/activity?customer=${id}`}>
         View all customer activity
       </Link>
+      {Boolean(held.data?.length) && <section className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4"><h2 className="text-xl font-semibold">Wrong empties held here</h2><p className="mt-2 text-sm">These belong to this customer. They are separate from your usable empty stock. The correct types are still owed.</p><ul className="mt-3 divide-y divide-amber-200">{held.data?.map(item => <li key={item.id} className="py-4"><p className="font-semibold">{item.quantity} {item.returned_name} {item.kind === "crate" ? "crates" : "bottles"}</p><p className="mt-1 text-sm">Held for {item.product_name} · {item.owed_name} still owed</p><Link className="quiet-link" href={`/sales/${item.sale_id}`}>View sale</Link><form action={releaseHeldEmpties} className="mt-2"><input type="hidden" name="id" value={item.id} /><input type="hidden" name="customer" value={id} /><button className="secondary w-full">Customer collected these empties</button></form></li>)}</ul></section>}
       <details className="group mt-5 border-y border-stone-200 py-2">
         <summary className="flex min-h-11 cursor-pointer items-center justify-between font-medium">
           Contact details{" "}

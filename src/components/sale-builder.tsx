@@ -25,7 +25,6 @@ import { formatNaira } from "@/domain/products";
 import { formatQuantity } from "@/domain/quantity";
 import {
   matchesSaleCustomer,
-  quantityPriceSet,
   revalidateSaleDraft,
   saleProductSetupIssue,
   priceQuantity,
@@ -136,6 +135,7 @@ export function SaleBuilder({
       editingId: p.id,
       crates: String(q?.crates ?? 0),
       fraction: q?.fraction ?? 0,
+      eighths: q?.eighths ?? 0,
       bottles: String(q?.bottles ?? 0),
     });
   }
@@ -145,6 +145,7 @@ export function SaleBuilder({
     return {
       crates: Number(draft.crates),
       fraction: draft.fraction,
+      ...(draft.eighths ? { eighths: draft.eighths } : {}),
       bottles: Number(draft.bottles),
     };
   }
@@ -524,7 +525,22 @@ export function SaleBuilder({
         )}
         {step === "drinks" && (
           <>
-            <p className="text-stone-700">Choose a drink, set its quantity, then add another if needed.</p>
+            {!draft.lines.length && <p className="text-stone-700">Choose a drink, set its quantity, then add another if needed.</p>}
+            {draft.lines.length > 0 && <section aria-label="Drinks in this sale" className="rounded-lg border-2 border-emerald-800 bg-emerald-50 p-4">
+              <h2 className="text-lg font-semibold">Drinks chosen</h2>
+              <ul className="mt-3 divide-y divide-emerald-200">{draft.lines.map((line) => {
+                const item = catalog.products.find((p) => p.id === line.productId);
+                return <li key={line.productId} className="py-3">
+                  <p className="break-words text-lg font-semibold">{item?.name ?? "Unavailable drink"} {item?.size}</p>
+                  <p>{saleQuantityLabel(line.quantity)}</p>
+                  <div className="mt-1 flex flex-wrap gap-x-5">
+                    {item && <button type="button" className="quiet-link" onClick={() => edit(item)}>Change quantity</button>}
+                    <button type="button" className="quiet-link" onClick={() => update({ lines: removeSaleLine(draft.lines, line.productId) })}>Remove</button>
+                  </div>
+                </li>;
+              })}</ul>
+              <p className="mt-3 border-t border-emerald-300 pt-3 text-xl font-semibold">Total: {total === undefined ? "Check quantities" : formatNaira(total)}</p>
+            </section>}
             <div>
               <label htmlFor="sale-drink-search">Search drinks</label>
               <input
@@ -550,7 +566,7 @@ export function SaleBuilder({
                   return (
                     <li key={p.id} className="py-4">
                       <button
-                        className="flex min-h-24 w-full items-center gap-4 text-left"
+                        className={`flex min-h-24 w-full items-center gap-4 rounded-lg p-2 text-left ${line ? "bg-emerald-50 ring-2 ring-inset ring-emerald-800" : ""}`}
                         disabled={!p.available || Boolean(setupIssue)}
                         onClick={() => edit(p)}
                       >
@@ -688,43 +704,24 @@ export function SaleBuilder({
               </div>
               <fieldset>
                 <legend className="mb-2 font-semibold">
-                  Plus part of a crate
+                  Plus bottles from an opened crate
                 </legend>
                 <div className="grid grid-cols-2 gap-2 min-[360px]:grid-cols-4">
-                  {([0, 1, 2, 3] as const).map((f) => {
+                  {(product.bottles_per_crate === 24 ? [0, 1, 2, 3, 4, 5, 6, 7] : [0, 1, 2, 3]).map((part) => {
+                    const eighths = (product.bottles_per_crate === 24 && part % 2 ? part : 0) as 0 | 1 | 3 | 5 | 7;
+                    const fraction = (product.bottles_per_crate === 24 ? (part % 2 ? 0 : part / 2) : part) as 0 | 1 | 2 | 3;
+                    const chosen = draft.fraction === fraction && (draft.eighths ?? 0) === eighths;
+                    let amount: number | null = part === 0 ? 0 : null;
                     let disabled = false;
-                    if (f)
-                      try {
-                        priceQuantity(product, { ...quantity(), fraction: f });
-                      } catch {
-                        disabled = true;
-                      }
-                    return (
-                      <button
-                        type="button"
-                        key={f}
-                        aria-pressed={draft.fraction === f}
-                        className={
-                          draft.fraction === f ? "primary" : "secondary"
-                        }
-                        disabled={disabled}
-                        onClick={() => update({ fraction: f })}
-                      >
-                        <span>
-                          {["None", "¼", "½", "¾"][f]}
-                          {f > 0 &&
-                            !quantityPriceSet(product, {
-                              crates: 0,
-                              fraction: f,
-                              bottles: 0,
-                            }) && (
-                              <span className="block text-xs">
-                                Price not set
-                              </span>
-                            )}
-                        </span>
-                      </button>
-                    );
+                    if (part) {
+                      try { amount = priceQuantity({ ...product, available: Number.MAX_SAFE_INTEGER }, { crates: 0, fraction, eighths, bottles: 0 }).lineTotal; } catch { disabled = true; }
+                      try { priceQuantity(product, { ...quantity(), fraction, eighths }); } catch { disabled = true; }
+                    }
+                    return <button type="button" key={part} aria-pressed={chosen} className={chosen ? "primary" : "secondary"} disabled={disabled} onClick={() => update({ fraction, eighths })}>
+                      <span>{part === 0 ? "None" : `${eighths ? eighths * 3 : product.bottles_per_crate * fraction / 4} bottles`}
+                        {part > 0 && <span className="block text-xs">{amount === null ? "Price unavailable" : formatNaira(amount)}</span>}
+                      </span>
+                    </button>;
                   })}
                 </div>
                 <details className="mt-2 text-sm text-stone-600">
@@ -810,8 +807,8 @@ export function SaleBuilder({
                 </button>
                 <button type="submit" className="primary min-w-0 flex-1" disabled={!preview}>
                   {draft.lines.some((l) => l.productId === product.id)
-                    ? "Update · Add more drinks"
-                    : "Add · Choose more drinks"}
+                    ? "Save quantity"
+                    : "Add to sale"}
                 </button>
               </div>
             </form>
@@ -1097,6 +1094,7 @@ export function SaleBuilder({
               }
             })}
 
+            {emptiesReview?.decisions.map((choice, index) => <p key={`empty-choice-${index}`} className="rounded-lg bg-amber-50 p-3 text-sm">{catalog.products.find(product => product.id === choice.productId)?.name} · {choice.quantity} {choice.kind === "crate" ? catalog.crateTypes.find(crate => crate.id === choice.returnedType)?.name : choice.returnedType} {choice.kind === "crate" ? "crates" : "bottles"}: {choice.decision === "hold" ? "held for customer; correct type is still owed" : "accepted for this sale"}.</p>)}
             {emptiesReview?.swaps.map((swap) => {
               const from = catalog.crateTypes.find(
                 (crate) => crate.id === swap.returnedCrateTypeId,

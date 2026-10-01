@@ -8,10 +8,7 @@ import {
   type SaleProduct,
   type SaleDraft,
 } from "@/domain/sale-builder";
-import {
-  actualSaleEmpties,
-  matchSaleEmpties,
-} from "@/domain/sale-empties";
+import { actualSaleEmpties, matchSaleEmpties } from "@/domain/sale-empties";
 import {
   isSaleSessionExpired,
   safeCaughtSaleErrorMessage,
@@ -154,7 +151,10 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
   )
     return { error: "Check the sale date and amount paid." };
 
-  if (Number(draft.paid) > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))
+  if (
+    Number(draft.paid) > 0 &&
+    !["cash", "transfer", "pos"].includes(draft.paymentMethod)
+  )
     return { error: "Choose how the customer paid." };
   let rpcStarted = false;
   try {
@@ -190,6 +190,13 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
         cratesTaken: resolved.cratesOut,
         returnedCrates: resolved.cratesSettled,
         returnedBottles: resolved.bottlesSettled,
+        ...(empties.decisions.length
+          ? {
+              emptyDecisions: empties.decisions.filter(
+                (choice) => choice.productId === line.productId,
+              ),
+            }
+          : {}),
         expected: line.reviewExpected,
       };
     });
@@ -200,7 +207,8 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
       p_customer_id: draft.customerId,
       p_business_date: draft.businessDate,
       p_paid: Number(draft.paid),
-      p_payment_method: Number(draft.paid) > 0 ? draft.paymentMethod : "not_recorded",
+      p_payment_method:
+        Number(draft.paid) > 0 ? draft.paymentMethod : "not_recorded",
       p_lines: lines,
       p_returned_crates: actual.crates,
       p_returned_bottles: actual.bottles,
@@ -248,7 +256,10 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
     };
   } catch (cause) {
     if (rpcStarted) {
-      console.error("[DepotFlow] sale save response was lost or unknown", cause);
+      console.error(
+        "[DepotFlow] sale save response was lost or unknown",
+        cause,
+      );
       return {
         error: saleSaveUncertainMessage,
         code: "save_uncertain" as const,

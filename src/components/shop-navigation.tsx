@@ -72,6 +72,7 @@ export function ShopNavigation() {
     href === "/" ? pathname === "/" : pathname.startsWith(href);
   const moreLinks = [
     { href: "/activity", label: "Activity" },
+    { href: "/business", label: "Business details" },
     { href: "/sales", label: "Sales History" },
     { href: "/products", label: "Products" },
     { href: "/empty-crates", label: "Empty Crates" },
