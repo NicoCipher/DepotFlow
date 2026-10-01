@@ -1,5 +1,5 @@
 "use client";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { saveEmptyReturn } from "@/app/(shop)/customers/[id]/return-empties/actions";
 type Count = { id: string; name: string; owed: number };
 export function EmptyReturnForm({
@@ -15,11 +15,17 @@ export function EmptyReturnForm({
   bottles: Count[];
   held: { id: string; kind: string; returned_name: string; quantity: number }[];
 }) {
+  const [counts, setCounts] = useState<Record<string, string>>({});
+  const [collected, setCollected] = useState<string[]>([]);
   const [state, action, pending] = useActionState(saveEmptyReturn, {
     message: "",
   });
   return (
-    <form action={action} className="space-y-5">
+    <form
+      action={action}
+      onReset={(event) => event.preventDefault()}
+      className="space-y-5"
+    >
       <input type="hidden" name="request" value={request} />
       <input type="hidden" name="customer" value={customer} />
       {[
@@ -46,7 +52,14 @@ export function EmptyReturnForm({
                     pattern="[0-9]+"
                     maxLength={9}
                     required
-                    defaultValue="0"
+                    value={counts[`${kind}:${row.id}`] ?? "0"}
+                    onChange={(event) => {
+                      const value = event.currentTarget.value;
+                      setCounts((current) => ({
+                        ...current,
+                        [`${kind}:${row.id}`]: value,
+                      }));
+                    }}
                     disabled={pending}
                   />
                 </label>
@@ -75,6 +88,15 @@ export function EmptyReturnForm({
                 type="checkbox"
                 name="released"
                 value={row.id}
+                defaultChecked={collected.includes(row.id)}
+                onChange={(event) => {
+                  const checked = event.currentTarget.checked;
+                  setCollected((current) =>
+                    checked
+                      ? [...current, row.id]
+                      : current.filter((id) => id !== row.id),
+                  );
+                }}
                 disabled={pending}
                 className="h-5 w-5 shrink-0"
               />
