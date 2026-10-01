@@ -155,13 +155,13 @@ export function effectivePartialPrice(
       ? null
       : product.full_crate_price / divisor);
   if (value === null) throw new Error(`${label} price is not set.`);
-  if (!Number.isSafeInteger(value) || value < 0)
-    throw new Error(
-      override === null
-        ? `Set a ${label.toLowerCase()} price override because the full-crate price does not divide into whole naira.`
-        : "Check this drink’s prices.",
-    );
+  if (!Number.isFinite(value) || value < 0 || value > Number.MAX_SAFE_INTEGER)
+    throw new Error("Check this drink’s prices.");
   return value;
+}
+/** Round the selected partial quantity once; whole crates and loose bottles keep their prices. */
+export function roundPartialPrice(value: number) {
+  return Math.ceil(value / 50) * 50;
 }
 export function priceQuantity(product: SaleProduct, quantity: SaleQuantity) {
   const { crates, fraction, bottles } = quantity;
@@ -205,14 +205,17 @@ export function priceQuantity(product: SaleProduct, quantity: SaleQuantity) {
       throw new Error("Check this drink’s prices.");
     return value * units;
   }
-  const smallPartPrice = eighths ? (product.full_crate_price === null ? null : product.full_crate_price * eighths / 8) : 0;
-  if (eighths && (smallPartPrice === null || !Number.isSafeInteger(smallPartPrice)))
-    throw new Error("The crate price does not give a whole-naira price for this bottle quantity.");
-  const lineTotal =
-    (smallPartPrice ?? 0) +
-    price(product.full_crate_price, "Full-crate", crates) +
+  const smallPartPrice = eighths
+    ? price(product.full_crate_price, "Full-crate", 1) * eighths / 8
+    : 0;
+  const partialTotal = roundPartialPrice(
+    smallPartPrice +
     (fraction >= 2 ? effectivePartialPrice(product, "half") : 0) +
-    (fraction % 2 ? effectivePartialPrice(product, "quarter") : 0) +
+    (fraction % 2 ? effectivePartialPrice(product, "quarter") : 0),
+  );
+  const lineTotal =
+    partialTotal +
+    price(product.full_crate_price, "Full-crate", crates) +
     price(product.bottle_price, "Bottle", bottles);
   if (!Number.isSafeInteger(lineTotal))
     throw new Error("That total is too large.");
@@ -465,14 +468,15 @@ function storedPriceTotal(line: DraftLine): number | null {
       const fullPrice = required(full);
       if (fullPrice === null) return null;
       const value = fullPrice / divisor;
-      return Number.isSafeInteger(value) ? value : null;
+      return value;
     }
 
     let total = 0;
+    let partialTotal = 0;
     if (line.quantity.eighths) {
       const fullPrice = required(full);
       if (fullPrice === null) return null;
-      total += fullPrice * line.quantity.eighths / 8;
+      partialTotal += fullPrice * line.quantity.eighths / 8;
     }
     if (line.quantity.crates) {
       const fullPrice = required(full);
@@ -482,18 +486,19 @@ function storedPriceTotal(line: DraftLine): number | null {
     if (line.quantity.fraction >= 2) {
       const halfPrice = partial(half, 2);
       if (halfPrice === null) return null;
-      total += halfPrice;
+      partialTotal += halfPrice;
     }
     if (line.quantity.fraction % 2) {
       const quarterPrice = partial(quarter, 4);
       if (quarterPrice === null) return null;
-      total += quarterPrice;
+      partialTotal += quarterPrice;
     }
     if (line.quantity.bottles) {
       const bottlePrice = required(bottle);
       if (bottlePrice === null) return null;
       total += bottlePrice * line.quantity.bottles;
     }
+    total += roundPartialPrice(partialTotal);
     return Number.isSafeInteger(total) ? total : null;
   } catch {
     return null;

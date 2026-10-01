@@ -128,8 +128,8 @@ test("partial crates derive from full price while explicit overrides win", () =>
     quarter_crate_price: null,
   };
   assert.equal(priceQuantity(derived, q(0, 2)).lineTotal, 7250);
-  assert.equal(priceQuantity(derived, q(0, 1)).lineTotal, 3625);
-  assert.equal(priceQuantity(derived, q(0, 3)).lineTotal, 10875);
+  assert.equal(priceQuantity(derived, q(0, 1)).lineTotal, 3650);
+  assert.equal(priceQuantity(derived, q(0, 3)).lineTotal, 10900);
   assert.equal(
     priceQuantity({ ...derived, half_crate_price: 8000 }, q(0, 2)).lineTotal,
     8000,
@@ -142,7 +142,7 @@ test("partial crates derive from full price while explicit overrides win", () =>
   assert.equal(
     priceQuantity({ ...derived, half_crate_price: 8000 }, q(0, 3))
       .lineTotal,
-    11625,
+    11650,
   );
   assert.equal(
     priceQuantity({ ...derived, quarter_crate_price: 4000 }, q(0, 3))
@@ -307,7 +307,24 @@ test("customer search matches names and Nigerian phone formatting", () => {
     assert.equal(reviewedTotal([reviewedLine({productId:p.id,quantity},p)]), 24000 + eighths * 3000);
   }
   assert.throws(()=>priceQuantity(product,{crates:0,fraction:0,bottles:0,eighths:1}), /24-bottle/);
-  assert.throws(()=>priceQuantity({...p,full_crate_price:10050},{crates:0,fraction:0,bottles:0,eighths:1}), /whole-naira/);
+  assert.equal(priceQuantity({...p,full_crate_price:10050},{crates:0,fraction:0,bottles:0,eighths:1}).lineTotal, 1300);
   assert.throws(()=>priceQuantity(p,{crates:0,fraction:1,bottles:0,eighths:1}), /valid/);
   assert.throws(()=>priceQuantity({...p,available:2},{crates:0,fraction:0,bottles:0,eighths:1}), /available/);
  });
+
+
+test("small stout 3 through 21 bottles round once to the next 50 naira", () => {
+  const p = {...product, bottles_per_crate:24, full_crate_price:15600, half_crate_price:null, quarter_crate_price:null, available:100};
+  for (const [eighths, expected] of [[1,1950],[3,5850],[5,9750],[7,13650]] as const) {
+    const quantity = {crates:0, fraction:0 as const, bottles:0, eighths};
+    assert.equal(priceQuantity(p,quantity).lineTotal, expected);
+    assert.equal(reviewedTotal([reviewedLine({productId:p.id,quantity},p)]),expected);
+  }
+  for (const full of [8100,8120,8180,8220]) {
+    const quantity = {crates:0,fraction:1 as const,bottles:0};
+    assert.equal(priceQuantity({...p,full_crate_price:full},quantity).lineTotal,Math.ceil(full/4/50)*50);
+  }
+  assert.equal(priceQuantity({...p,full_crate_price:10050},{crates:1,fraction:0,bottles:1,eighths:3}).lineTotal,10050+3800+product.bottle_price!);
+  // Combine raw half and quarter shares before rounding.
+  assert.equal(priceQuantity({...p,full_crate_price:10050,half_crate_price:null,quarter_crate_price:null},{crates:0,fraction:3,bottles:0}).lineTotal,7550);
+});
