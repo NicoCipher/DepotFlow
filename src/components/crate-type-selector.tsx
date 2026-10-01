@@ -35,9 +35,9 @@ export function CrateTypeSelector({
   }, [onRefresh]);
   return (
     <div className="space-y-3">
-      <label htmlFor="crate_type_id">Physical crate used for this drink</label>
+      <label htmlFor="crate_type_id">Which crate does this drink use?</label>
       <p className="text-sm text-stone-600">
-        Choose the actual plastic crate that leaves the depot with this drink. The number of bottle spaces must match the bottles per crate.
+        Choose a crate with the same number of bottle spaces as this drink’s bottles per crate.
       </p>
       <select
         id="crate_type_id"
@@ -72,7 +72,7 @@ export function CrateTypeSelector({
           {error}
         </p>
       )}
-      <div className="flex flex-wrap gap-x-5">
+      <div className="flex flex-wrap gap-x-5 [&_a]:min-h-12 [&_a]:py-3">
         <Link
           className="quiet-link"
           href="/crate-types/new"
@@ -80,7 +80,7 @@ export function CrateTypeSelector({
           rel="noopener"
           title="Opens in a new tab"
         >
-          Add a physical crate
+          Crate missing? Add it
         </Link>
         <Link
           className="quiet-link"
@@ -89,9 +89,10 @@ export function CrateTypeSelector({
           rel="noopener"
           title="Opens in a new tab"
         >
-          Manage physical crates
+          Edit existing crates
         </Link>
       </div>
+      <p className="text-sm text-stone-600">Crate links open a new tab. After saving, return here and choose the crate. Your drink details stay on this page.</p>
     </div>
   );
 }

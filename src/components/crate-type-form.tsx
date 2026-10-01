@@ -54,7 +54,7 @@ export function CrateTypeForm({
         try {
           validateCrateType(values);
         } catch {
-          setMessage("Enter a name, family and positive whole pocket count.");
+          setMessage("Enter the crate name, group and a whole number of bottle spaces greater than zero.");
           return;
         }
         startTransition(async () => {
@@ -72,21 +72,10 @@ export function CrateTypeForm({
         });
       }}
     >
-      <section className="rounded-lg border border-stone-300 bg-white p-4">
-        <h2 className="font-semibold">What to record for a physical crate</h2>
-        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-stone-700">
-          <li>A name people in the depot recognize</li>
-          <li>Its crate family or group</li>
-          <li>How many bottle spaces it has</li>
-          <li>Its shape/version only when needed to tell similar crates apart</li>
-        </ul>
-        <p className="mt-2 text-sm text-stone-600">
-          Being in the same family does not automatically mean two crates can replace each other.
-        </p>
-      </section>
+      <p className="text-stone-600">Name the crate, choose its group and count its bottle spaces.</p>
       <fieldset disabled={pending} className="space-y-5">
         {field("name", "Crate name", 120)}
-        {field("empty_family", "Crate family / group", 80)}
+        {field("empty_family", "Crate group (for example, NB or Guinness)", 80)}
         <div>
           <label htmlFor="pockets">Bottle spaces in the crate</label>
           <p className="mb-2 text-sm text-stone-600">
@@ -131,7 +120,11 @@ export function CrateTypeForm({
             />
           </div>
         )}
-        {field("variant", "Shape / version (optional)", 120)}
+        <details open={Boolean(values.variant)}>
+          <summary className="min-h-12 cursor-pointer py-3 font-semibold">Shape or version (optional)</summary>
+          <p className="mb-3 text-sm text-stone-600">Only needed when two crates have similar names but different shapes.</p>
+          {field("variant", "Shape / version", 120)}
+        </details>
       </fieldset>
       {message && (
         <p role="alert" className="text-red-800">
@@ -139,7 +132,7 @@ export function CrateTypeForm({
         </p>
       )}
       <button className="primary w-full" disabled={pending}>
-        {pending ? "Saving…" : editing ? "Save changes" : "Add physical crate"}
+        {pending ? "Saving…" : editing ? "Save changes" : "Save crate"}
       </button>
       <Link className="quiet-link block text-center" href="/crate-types">
         Cancel
