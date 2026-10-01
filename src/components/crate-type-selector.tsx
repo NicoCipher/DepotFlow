@@ -1,11 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import Link from "next/link";
-import {
-  crateLabel,
-  crateNeedsSetup,
-  type CrateType,
-} from "@/domain/crate-types";
+import { crateLabel, crateNeedsSetup, type CrateChoice } from "@/domain/crate-types";
 import { refreshCrateTypes } from "@/app/(shop)/crate-types/actions";
 export function CrateTypeSelector({
   types,
@@ -14,13 +10,15 @@ export function CrateTypeSelector({
   disabled,
   error,
   onRefresh,
+  onAdd,
 }: {
-  types: CrateType[];
+  types: CrateChoice[];
   selected: string;
   onChange: (id: string) => void;
   disabled: boolean;
   error?: string;
-  onRefresh: (types: CrateType[]) => void;
+  onRefresh: (types: CrateChoice[]) => void;
+  onAdd: () => void;
 }) {
   useEffect(() => {
     async function refresh() {
@@ -37,7 +35,7 @@ export function CrateTypeSelector({
     <div className="space-y-3">
       <label htmlFor="crate_type_id">Which crate does this drink use?</label>
       <p className="text-sm text-stone-600">
-        Choose a crate with the same number of bottle spaces as this drink’s bottles per crate.
+        Choose the crate this drink comes in. We will fill in how many bottles it holds.
       </p>
       <select
         id="crate_type_id"
@@ -62,13 +60,14 @@ export function CrateTypeSelector({
           .filter((crate) => !crateNeedsSetup(crate) || crate.id === selected)
           .map((crate) => (
             <option key={crate.id} value={crate.id}>
-              {crateLabel(crate)}
+              {crateLabel({ ...crate, pocket_count: null })}
+              {crate.pocket_count !== null ? ` · ${crate.pocket_count} bottles` : ""}
               {crateNeedsSetup(crate) ? " — Needs setup" : ""}
             </option>
           ))}
       </select>
       {!types.some((crate) => !crateNeedsSetup(crate)) && (
-        <p className="text-sm text-stone-600">No ready crates yet. Use “Crate missing? Add it” below, then return to select your saved crate.</p>
+        <p className="text-sm text-stone-600">No crates ready to choose. Add the crate this drink comes in below.</p>
       )}
       {error && (
         <p id="crate-type-error" role="alert" className="text-red-800">
@@ -76,15 +75,7 @@ export function CrateTypeSelector({
         </p>
       )}
       <div className="flex flex-wrap gap-x-5 [&_a]:min-h-12 [&_a]:py-3">
-        <Link
-          className="quiet-link"
-          href="/crate-types/new"
-          target="_blank"
-          rel="noopener"
-          title="Opens in a new tab"
-        >
-          Crate missing? Add it
-        </Link>
+        <button type="button" className="secondary" disabled={disabled} onClick={onAdd}>Add a missing crate</button>
         <Link
           className="quiet-link"
           href="/crate-types"
@@ -92,10 +83,10 @@ export function CrateTypeSelector({
           rel="noopener"
           title="Opens in a new tab"
         >
-          Edit existing crates
+          Edit saved crates (new tab)
         </Link>
       </div>
-      <p className="text-sm text-stone-600">Crate links open a new tab. After saving, return here and choose the crate. Your drink details stay on this page.</p>
+
     </div>
   );
 }

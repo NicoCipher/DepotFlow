@@ -1,12 +1,14 @@
 "use client";
+import { CrateTypeForm } from "@/components/crate-type-form";
 import { CrateTypeSelector } from "@/components/crate-type-selector";
 import {
   crateFitsProduct,
   crateNeedsSetup,
   type CrateType,
+  type CrateChoice,
 } from "@/domain/crate-types";
 import Link from "next/link";
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { addProduct, editProduct } from "@/app/(shop)/products/actions";
 import {
   validateProduct,
@@ -27,8 +29,43 @@ export function ProductForm({
   crateTypes: CrateType[];
   catalogueProductId?: string;
 }) {
-  const [availableCrates, setAvailableCrates] = useState(crateTypes);
+  const [availableCrates, setAvailableCrates] = useState<CrateChoice[]>(crateTypes);
   const [values, setValues] = useState(initialValues);
+  const [crateDraft, setCrateDraft] = useState<{ id: string; bottles: string } | null>(null);
+  const crateSubview = useRef<typeof crateDraft>(null);
+  useEffect(() => {
+    function restoreSubview(event: PopStateEvent) {
+      const draft = event.state?.depotflowCrateSetup === id ? crateSubview.current : null;
+      setCrateDraft(draft);
+      if (!draft) requestAnimationFrame(() => document.getElementById("crate_type_id")?.focus());
+    }
+    window.addEventListener("popstate", restoreSubview);
+    return () => window.removeEventListener("popstate", restoreSubview);
+  }, [id]);
+  function openCrateSetup() {
+    const draft = { id: crypto.randomUUID(), bottles: values.bottles_per_crate };
+    crateSubview.current = draft;
+    window.history.pushState({ ...window.history.state, depotflowCrateSetup: id }, "", "#add-crate");
+    setCrateDraft(draft);
+  }
+  function closeCrateSetup() {
+    crateSubview.current = null;
+    setCrateDraft(null);
+    if (window.history.state?.depotflowCrateSetup === id) {
+      // Remove the finished subview so Forward cannot reopen a saved crate form.
+      window.history.replaceState({ ...window.history.state, depotflowCrateSetup: null }, "", window.location.pathname + window.location.search);
+      window.history.back();
+    } else requestAnimationFrame(() => document.getElementById("crate_type_id")?.focus());
+  }
+  const [crateMessage, setCrateMessage] = useState("");
+  function chooseCrate(crate: CrateChoice) {
+    setValues((current) => ({
+      ...current,
+      crate_type_id: crate.id,
+      bottles_per_crate: crate.pocket_count === null ? current.bottles_per_crate : String(crate.pocket_count),
+    }));
+    setClientErrors((current) => ({ ...current, crate_type_id: undefined, bottles_per_crate: undefined }));
+  }
   const optionalDetails = useRef<HTMLDetailsElement>(null);
   const optionalFields = ["size", "image_url", "half_crate_price", "quarter_crate_price", "bottle_price"] as const;
   const [optionalOpen, setOptionalOpen] = useState(() =>
@@ -81,7 +118,23 @@ export function ProductForm({
     );
   }
   return (
-    <form
+    <>
+    {crateDraft && (
+      <section className="mt-5">
+        <h2 className="text-xl font-semibold">Add the crate for {values.name || "this drink"}</h2>
+        <p className="mt-2 text-stone-600">Your drink details are kept here. Save this crate to continue.</p>
+        <CrateTypeForm id={crateDraft.id}
+          initial={{ name: "", empty_family: "", pocket_count: crateDraft.bottles, variant: "" }}
+          onCancel={closeCrateSetup}
+          onSaved={(crate) => {
+            setAvailableCrates((current) => [...current.filter((item) => item.id !== crate.id), crate]);
+            chooseCrate(crate);
+            setCrateMessage(`${crate.name} saved and selected.`);
+            closeCrateSetup();
+          }} />
+      </section>
+    )}
+    {!crateDraft && <form
       action={action}
       className="mt-5 space-y-7"
       onSubmit={(event) => {
@@ -116,12 +169,12 @@ export function ProductForm({
             optionalDetails.current.open = true;
             setOptionalOpen(true);
           }
-          document.getElementById(firstError)?.focus();
+          document.getElementById(firstError === "bottles_per_crate" ? "crate_type_id" : firstError)?.focus();
         }
       }}
     >
       {catalogueProductId && <input type="hidden" name="catalogue_product_id" value={catalogueProductId} />}
-      <p className="text-sm text-stone-600">Check the drink and selling price, then complete its crate and bottle details.</p>
+      <p className="text-sm text-stone-600">Enter the price, choose the crate, then save the drink.</p>
       {state.message && (
         <p role="alert" className="text-red-800">
           {state.message}
@@ -140,55 +193,50 @@ export function ProductForm({
       <fieldset className="space-y-5 border-t border-stone-300 pt-5">
         <legend className="text-lg font-semibold">3. Crate and bottles</legend>
         <p className="text-sm text-stone-600">Use the actual crate and bottles for this drink. These details help track empties.</p>
-        {field("bottles_per_crate", "How many bottles in one crate?", 10, true, true)}
         <CrateTypeSelector
           types={availableCrates}
           onRefresh={setAvailableCrates}
           selected={values.crate_type_id}
-          onChange={(id) => change("crate_type_id", id)}
+          onChange={(id) => {
+            setCrateMessage("");
+            const crate = availableCrates.find((item) => item.id === id);
+            if (crate) chooseCrate(crate);
+            else change("crate_type_id", id);
+          }}
+          onAdd={openCrateSetup}
           disabled={pending}
           error={errors.crate_type_id}
         />
-        <div>
-          <label htmlFor="bottles_returnable">
-            Are the bottles returnable?
-          </label>
-          <select
-            id="bottles_returnable"
-            name="bottles_returnable"
-            required
-            disabled={pending}
-            value={values.bottles_returnable}
-            className="min-h-12 w-full rounded-md border border-stone-400 bg-white p-3"
-            aria-invalid={Boolean(errors.bottles_returnable)}
-            aria-describedby={
-              errors.bottles_returnable ? "returnable-error" : undefined
-            }
-            onChange={(e) => change("bottles_returnable", e.target.value)}
-          >
-            <option value="">Choose Yes or No</option>
-            <option value="true">Yes</option>
-            <option value="false">No</option>
-          </select>
-          {errors.bottles_returnable && (
-            <p
-              id="returnable-error"
-              role="alert"
-              className="mt-2 text-sm text-red-800"
-            >
-              {errors.bottles_returnable}
-            </p>
-          )}
-        </div>
-        <p className="text-sm text-stone-600">Returnable means customers bring the empty bottles back. Choose No for cans or non-returnable bottles.</p>
-        {field(
-          "bottle_type",
-          values.bottles_returnable === "true"
-            ? "Which empty bottle belongs to this drink?"
-            : "Empty bottle name (optional)",
-          120,
-          values.bottles_returnable === "true",
-        )}
+        {crateMessage && <p role="status" className="text-sm text-emerald-900">{crateMessage}</p>}
+        <input type="hidden" name="bottles_per_crate" value={values.bottles_per_crate} />
+        {values.crate_type_id && values.bottles_per_crate && <p className="text-sm font-semibold">{values.bottles_per_crate} bottles in one crate</p>}
+        {errors.bottles_per_crate && <p role="alert" className="text-sm text-red-800">Choose a crate with a valid bottle count, or add the correct crate.</p>}
+        <fieldset>
+          <legend className="mb-3 font-semibold">Do customers bring the empty bottles back?</legend>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { value: "true", label: "Yes", detail: "We collect the empties" },
+              { value: "false", label: "No", detail: "Cans or non-returnable bottles" },
+            ].map((choice) => (
+              <label key={choice.value} className={`flex min-h-20 cursor-pointer items-start gap-3 rounded-lg border p-3 ${values.bottles_returnable === choice.value ? "border-emerald-800 bg-emerald-50" : "border-stone-400 bg-white"}`}>
+                <input type="radio" name="bottles_returnable" value={choice.value} required disabled={pending}
+                  id={choice.value === "true" ? "bottles_returnable" : "bottles-not-returnable"}
+                  checked={values.bottles_returnable === choice.value}
+                  onChange={(event) => change("bottles_returnable", event.target.value)}
+                  aria-describedby={errors.bottles_returnable ? "returnable-error" : undefined}
+                  className="mt-1 h-5 min-h-0 w-5 shrink-0 accent-emerald-800" />
+                <span>{choice.label}<span className="mt-1 block text-sm font-normal text-stone-600">{choice.detail}</span></span>
+              </label>
+            ))}
+          </div>
+          {errors.bottles_returnable && <p id="returnable-error" role="alert" className="mt-2 text-sm text-red-800">{errors.bottles_returnable}</p>}
+        </fieldset>
+        {values.bottles_returnable === "true" ? (
+          <div>
+            {field("bottle_type", "What do you call the empty bottle?", 120, true)}
+            <p className="mt-2 text-sm text-stone-600">Use the name you use in the shop, for example “Guinness big”.</p>
+          </div>
+        ) : <input type="hidden" name="bottle_type" value={values.bottle_type} />}
       </fieldset>
       <details className="border-t border-stone-300 pt-5"
         ref={optionalDetails}
@@ -225,6 +273,7 @@ export function ProductForm({
       >
         Cancel
       </Link>
-    </form>
+    </form>}
+    </>
   );
 }

@@ -1,5 +1,9 @@
 import type { Database } from "../types/database";
 export type CrateType = Database["public"]["Tables"]["crate_types"]["Row"];
+export type CrateChoice = Pick<
+  CrateType,
+  "id" | "name" | "empty_family" | "pocket_count" | "variant" | "is_legacy"
+>;
 export type CrateAttributes = {
   id?: string | null;
   crate_type_id?: string | null;
