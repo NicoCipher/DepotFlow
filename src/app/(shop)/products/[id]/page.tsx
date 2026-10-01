@@ -46,7 +46,7 @@ export default async function ProductPage({
     <>
       {(saved === "added" || saved === "updated") && (
         <p role="status" className="mb-5 border-l-4 border-emerald-800 pl-3">
-          Product {saved === "added" ? "added" : "updated"}.
+          Drink {saved === "added" ? "added" : "updated"}.
         </p>
       )}
       <h1 className="break-words">{product.name}</h1>
@@ -69,9 +69,17 @@ export default async function ProductPage({
       <div className="mt-5 h-48 w-48 self-center overflow-hidden rounded bg-white">
         <ProductImage src={product.image_url} name={product.name} />
       </div>
+      {saved === "added" && !crateNeedsAttention && (
+        <section className="mt-6 border-y border-stone-300 py-5">
+          <h2 className="text-lg font-semibold">Next: record the stock in your shop</h2>
+          <p className="mt-2 text-sm text-stone-600">Adding a drink does not add any stock. Count what you have so it is available for sales.</p>
+          <Link href={`/stock/count/${product.id}`} className="primary mt-4 w-full">Enter current stock</Link>
+          <Link href="/products/catalogue" className="quiet-link mt-2 inline-flex">Add another drink</Link>
+        </section>
+      )}
       <Link
         href={`/products/${product.id}/edit`}
-        className="primary mt-6 w-full"
+        className={`${saved === "added" ? "secondary" : "primary"} mt-6 w-full`}
       >
         Edit product
       </Link>
