@@ -6,7 +6,7 @@ import {
   type CrateType,
 } from "@/domain/crate-types";
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { addProduct, editProduct } from "@/app/(shop)/products/actions";
 import {
   validateProduct,
@@ -29,6 +29,11 @@ export function ProductForm({
 }) {
   const [availableCrates, setAvailableCrates] = useState(crateTypes);
   const [values, setValues] = useState(initialValues);
+  const optionalDetails = useRef<HTMLDetailsElement>(null);
+  const optionalFields = ["size", "image_url", "half_crate_price", "quarter_crate_price", "bottle_price"] as const;
+  const [optionalOpen, setOptionalOpen] = useState(() =>
+    optionalFields.some((key) => Boolean(initialValues[key])),
+  );
   const [clientErrors, setClientErrors] = useState<ProductErrors>({});
   const [state, action, pending] = useActionState(
     (editing ? editProduct : addProduct).bind(null, id),
@@ -106,7 +111,12 @@ export function ProductForm({
         setClientErrors(checked.errors);
         if (!checked.valid) {
           event.preventDefault();
-          document.getElementById(Object.keys(checked.errors)[0])?.focus();
+          const firstError = Object.keys(checked.errors)[0];
+          if (optionalFields.some((key) => key === firstError) && optionalDetails.current) {
+            optionalDetails.current.open = true;
+            setOptionalOpen(true);
+          }
+          document.getElementById(firstError)?.focus();
         }
       }}
     >
@@ -170,6 +180,7 @@ export function ProductForm({
             </p>
           )}
         </div>
+        <p className="text-sm text-stone-600">Returnable means customers bring the empty bottles back. Choose No for cans or non-returnable bottles.</p>
         {field(
           "bottle_type",
           values.bottles_returnable === "true"
@@ -180,7 +191,9 @@ export function ProductForm({
         )}
       </fieldset>
       <details className="border-t border-stone-300 pt-5"
-        open={Boolean(values.size || values.image_url || values.half_crate_price || values.quarter_crate_price || values.bottle_price || errors.size || errors.image_url || errors.half_crate_price || errors.quarter_crate_price || errors.bottle_price)}>
+        ref={optionalDetails}
+        open={optionalOpen || optionalFields.some((key) => Boolean(errors[key]))}
+        onToggle={(event) => setOptionalOpen(event.currentTarget.open)}>
         <summary className="min-h-12 cursor-pointer py-3 font-semibold">Optional details and other selling prices</summary>
         <div className="mt-4 space-y-5">
           <p className="text-sm text-stone-600">Leave half and quarter prices blank to calculate them from the full crate price. Bottle price is separate.</p>

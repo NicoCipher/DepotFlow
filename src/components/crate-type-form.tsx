@@ -22,6 +22,8 @@ export function CrateTypeForm({
         ? "other"
         : "",
   );
+  const [variantOpen, setVariantOpen] = useState(Boolean(initial.variant));
+  const [errors, setErrors] = useState<Partial<Record<keyof typeof initial, string>>>({});
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
   const router = useRouter();
@@ -37,11 +39,15 @@ export function CrateTypeForm({
           id={key}
           value={values[key]}
           maxLength={limit}
+          aria-invalid={Boolean(errors[key])}
+          aria-describedby={errors[key] ? `${key}-error` : undefined}
           required={key !== "variant"}
           onChange={(event) =>
-            setValues({ ...values, [key]: event.target.value })
+            { setValues({ ...values, [key]: event.target.value });
+              setErrors((current) => ({ ...current, [key]: undefined })); }
           }
         />
+        {errors[key] && <p id={`${key}-error`} role="alert" className="mt-2 text-sm text-red-800">{errors[key]}</p>}
       </div>
     );
   }
@@ -51,10 +57,21 @@ export function CrateTypeForm({
       onSubmit={(event) => {
         event.preventDefault();
         if (pending) return;
+        setMessage("");
+        setErrors({});
         try {
           validateCrateType(values);
         } catch {
-          setMessage("Enter the crate name, group and a whole number of bottle spaces greater than zero.");
+          const nextErrors: typeof errors = {};
+          if (!values.name.trim()) nextErrors.name = "Enter the crate name.";
+          if (!values.empty_family.trim()) nextErrors.empty_family = "Enter the crate group, such as NB or Guinness.";
+          if (!/^\d+$/.test(values.pocket_count.trim()) || Number(values.pocket_count) < 1 || Number(values.pocket_count) > 2147483647) {
+            nextErrors.pocket_count = "Enter a whole number of bottle spaces greater than zero.";
+          }
+          setErrors(nextErrors);
+          setMessage("Check the highlighted crate details, then save again.");
+          const first = Object.keys(nextErrors)[0];
+          document.getElementById(first === "pocket_count" ? (pocket === "other" ? "other-pockets" : "pockets") : first)?.focus();
           return;
         }
         startTransition(async () => {
@@ -72,21 +89,24 @@ export function CrateTypeForm({
         });
       }}
     >
-      <p className="text-stone-600">Name the crate, choose its group and count its bottle spaces.</p>
+      <p className="text-stone-600">Set up the physical crate once, then select it for any drink that uses it.</p>
       <fieldset disabled={pending} className="space-y-5">
         {field("name", "Crate name", 120)}
         {field("empty_family", "Crate group (for example, NB or Guinness)", 80)}
         <div>
           <label htmlFor="pockets">Bottle spaces in the crate</label>
-          <p className="mb-2 text-sm text-stone-600">
+          <p id="pocket-help" className="mb-2 text-sm text-stone-600">
             Example: 12 means the crate holds 12 bottles.
           </p>
           <select
             id="pockets"
             required
+            aria-invalid={Boolean(errors.pocket_count)}
+            aria-describedby={errors.pocket_count ? "pocket-help pocket-error" : "pocket-help"}
             className="min-h-12 w-full rounded-md border border-stone-400 bg-white p-3"
             value={pocket}
             onChange={(event) => {
+              setErrors((current) => ({ ...current, pocket_count: undefined }));
               setPocket(event.target.value);
               setValues({
                 ...values,
@@ -109,18 +129,22 @@ export function CrateTypeForm({
             <label htmlFor="other-pockets">Other number of bottle spaces</label>
             <input
               id="other-pockets"
+              aria-invalid={Boolean(errors.pocket_count)}
+              aria-describedby={errors.pocket_count ? "pocket-error" : "pocket-help"}
               inputMode="numeric"
               pattern="[0-9]+"
               required
               maxLength={10}
               value={values.pocket_count}
               onChange={(event) =>
-                setValues({ ...values, pocket_count: event.target.value })
+                { setValues({ ...values, pocket_count: event.target.value });
+                  setErrors((current) => ({ ...current, pocket_count: undefined })); }
               }
             />
           </div>
         )}
-        <details open={Boolean(values.variant)}>
+        {errors.pocket_count && <p id="pocket-error" role="alert" className="text-sm text-red-800">{errors.pocket_count}</p>}
+        <details open={variantOpen} onToggle={(event) => setVariantOpen(event.currentTarget.open)}>
           <summary className="min-h-12 cursor-pointer py-3 font-semibold">Shape or version (optional)</summary>
           <p className="mb-3 text-sm text-stone-600">Only needed when two crates have similar names but different shapes.</p>
           {field("variant", "Shape / version", 120)}

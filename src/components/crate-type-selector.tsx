@@ -67,6 +67,9 @@ export function CrateTypeSelector({
             </option>
           ))}
       </select>
+      {!types.some((crate) => !crateNeedsSetup(crate)) && (
+        <p className="text-sm text-stone-600">No ready crates yet. Use “Crate missing? Add it” below, then return to select your saved crate.</p>
+      )}
       {error && (
         <p id="crate-type-error" role="alert" className="text-red-800">
           {error}
