@@ -8,7 +8,7 @@ import {
   type SaleProduct,
   type SaleDraft,
 } from "@/domain/sale-builder";
-import { actualSaleEmpties, matchSaleEmpties } from "@/domain/sale-empties";
+import { actualSaleEmpties, matchSaleEmpties, assertSaleEmptiesResolved } from "@/domain/sale-empties";
 import {
   isSaleSessionExpired,
   safeCaughtSaleErrorMessage,
@@ -169,6 +169,7 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
       };
 
     const empties = matchSaleEmpties(draft, fresh);
+    assertSaleEmptiesResolved(empties);
     if (customer.empties_deposit_required && empties.hasShortage)
       throw new Error(
         "This customer requires a deposit for missing empties. Deposit handling for shortages is not enabled yet.",

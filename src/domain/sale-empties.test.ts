@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   crateReturnIssues,
+  assertSaleEmptiesResolved,
+  hasUnmatchedSaleEmpties,
   depositSetupIssues,
   emptyEmptiesV2,
   matchSaleEmpties,
@@ -348,4 +350,15 @@ test("a hold reserves the wrong empties before unrelated permanent swaps", () =>
   assert.deepEqual(result.lines.map(row => [row.cratesOwed,row.bottlesOwed]), [[1,0],[0,0],[0,0]]);
   assert.equal(result.swaps.length, 1);
   assert.equal(result.swaps[0].quantity, 1);
+});
+
+test("unmatched wrong returns require an explicit choice before saving", () => {
+  const draft = sale("goldberg");
+  draft.emptiesV2.returnedCrates = { "trophy-crate": "1" };
+  draft.emptiesV2.returnedBottles = { "Goldberg bottle": "12" };
+  const result = matchSaleEmpties(draft, { ...catalog, swapRules: [] });
+  assert.equal(hasUnmatchedSaleEmpties(result), true);
+  assert.throws(() => assertSaleEmptiesResolved(result), /Choose Accept or Hold/);
+  draft.emptiesV2.decisions = [{ productId: "goldberg", kind: "crate", returnedType: "trophy-crate", quantity: "1", decision: "hold" }];
+  assert.doesNotThrow(() => assertSaleEmptiesResolved(matchSaleEmpties(draft, catalog)));
 });

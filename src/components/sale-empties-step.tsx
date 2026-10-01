@@ -6,6 +6,7 @@ import {
   crateReturnIssues,
   depositSetupIssues,
   matchSaleEmpties,
+  hasUnmatchedSaleEmpties,
   missingEmptiesMessage,
   type EmptiesMatchResult,
 } from "@/domain/sale-empties";
@@ -744,6 +745,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
             </div>
           )}
 
+          {hasUnmatchedSaleEmpties(result) && <p role="alert" className="mt-4 rounded-lg bg-amber-50 p-3 text-amber-950">Choose Accept or Hold above for each different type before continuing. Extra empties for an earlier sale belong under “Record empties brought back” on the customer page.</p>}
           {depositBlocked && missingDepositSetup.length > 0 && (
             <div
               role="alert"
@@ -785,7 +787,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
           type="button"
           className="primary min-w-0 flex-1"
           disabled={
-            hasFieldErrors || !result || Boolean(error) || depositBlocked
+            hasFieldErrors || !result || hasUnmatchedSaleEmpties(result) || Boolean(error) || depositBlocked
           }
           onClick={() => update({ step: "payment" })}
         >

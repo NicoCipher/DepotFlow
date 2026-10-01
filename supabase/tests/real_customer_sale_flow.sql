@@ -46,6 +46,10 @@ begin
  lines:=jsonb_build_array(pg_temp.line('10000000-0000-4000-8000-000000001001',1,0,1,12,choice));
  result:=public.save_sale_v2('40000000-0000-4000-8000-000000001002','20000000-0000-4000-8000-000000001001','2026-10-01',12000,lines,'[{"crateTypeId":"50000000-0000-4000-8000-000000001002","quantity":1}]','[{"bottleType":"Trophy Test bottle","quantity":12}]','transfer');
  perform pg_temp.ok((select quantity=1 from public.crate_obligations where customer_id='20000000-0000-4000-8000-000000001001' and crate_type_id='50000000-0000-4000-8000-000000001001'),'Accepted substitute added debt');
+ begin
+  perform public.save_sale_v2(gen_random_uuid(),'20000000-0000-4000-8000-000000001001','2026-10-01',12000,jsonb_build_array(pg_temp.line('10000000-0000-4000-8000-000000001001',1,0,0,12)),'[{"crateTypeId":"50000000-0000-4000-8000-000000001002","quantity":1}]','[{"bottleType":"NB Test bottle","quantity":12}]','cash');
+  raise exception 'Undecided wrong empties entered stock';
+ exception when invalid_parameter_value then null; end;
  -- A forged settlement without exact types or an explicit owner choice is rejected atomically.
  select total_bottles into before_stock from public.stock where product_id='10000000-0000-4000-8000-000000001001';
  begin

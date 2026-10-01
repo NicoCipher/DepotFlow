@@ -13,6 +13,7 @@ import { PausedSalesLink } from "./paused-sales-link";
 import { SaleEmptiesStep } from "./sale-empties-step";
 import {
   matchSaleEmpties,
+  hasUnmatchedSaleEmpties,
   missingEmptiesMessage,
 } from "@/domain/sale-empties";
 import { wholeNumberInputMessage } from "@/domain/sale-input";
@@ -1094,6 +1095,7 @@ export function SaleBuilder({
               }
             })}
 
+            {emptiesReview && hasUnmatchedSaleEmpties(emptiesReview) && <div role="alert" className="rounded-lg bg-amber-50 p-3"><p>Some returned empties still need an Accept or Hold choice.</p><button type="button" className="quiet-link" onClick={() => update({ step: "empties" })}>Check these empties</button></div>}
             {emptiesReview?.decisions.map((choice, index) => <p key={`empty-choice-${index}`} className="rounded-lg bg-amber-50 p-3 text-sm">{catalog.products.find(product => product.id === choice.productId)?.name} · {choice.quantity} {choice.kind === "crate" ? catalog.crateTypes.find(crate => crate.id === choice.returnedType)?.name : choice.returnedType} {choice.kind === "crate" ? "crates" : "bottles"}: {choice.decision === "hold" ? "held for customer; correct type is still owed" : "accepted for this sale"}.</p>)}
             {emptiesReview?.swaps.map((swap) => {
               const from = catalog.crateTypes.find(
@@ -1137,6 +1139,7 @@ export function SaleBuilder({
                 !draft.businessDate ||
                 reviewTotal === undefined ||
                 !emptiesReview ||
+                hasUnmatchedSaleEmpties(emptiesReview) ||
                 Number(draft.paid) > reviewTotal ||
                 (Number(draft.paid) > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))
               }

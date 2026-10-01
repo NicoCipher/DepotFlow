@@ -22,6 +22,7 @@ export const saleUnexpectedErrorMessage =
   "Something went wrong. Your sale is still here. Try again.";
 
 const safeCaughtSaleMessages: RegExp[] = [
+  /^Choose Accept or Hold for the different empties before saving\.$/,
   /^Check the empties choices\.$/,
   /^Choose different empties only for what is still owed\.$/,
   /^The replacement crate must have the same number of spaces\.$/,
@@ -63,6 +64,7 @@ export function safeCaughtSaleErrorMessage(error: unknown): string {
 }
 
 const safeDatabaseSaleMessages = new Map<string, string>([
+  ["Choose Accept or Hold for the different empties before saving.", "Choose Accept or Hold for the different empties before saving."],
   ["Choose a valid 24-bottle quantity.", "Choose a valid 24-bottle quantity."],
   [
     "The crate price does not give a whole-naira price for this bottle quantity.",

@@ -49,6 +49,14 @@ export type EmptiesMatchResult = {
   hasShortage: boolean;
 };
 
+export function hasUnmatchedSaleEmpties(result: EmptiesMatchResult) {
+  return Object.values(result.unmatchedCrates).some(quantity => quantity > 0) || Object.values(result.unmatchedBottles).some(quantity => quantity > 0);
+}
+
+export function assertSaleEmptiesResolved(result: EmptiesMatchResult) {
+  if (hasUnmatchedSaleEmpties(result)) throw new Error("Choose Accept or Hold for the different empties before saving.");
+}
+
 export function missingEmptiesMessage(
   line: Pick<EmptiesLineResult, "cratesOwed" | "bottlesOwed">,
   drinkName: string,

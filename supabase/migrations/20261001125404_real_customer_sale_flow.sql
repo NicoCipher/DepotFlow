@@ -145,6 +145,10 @@ begin
     row:=states->index; line:=p_lines->index;
     if (line->>'returnedCrates')::integer<>(row->>'settledCrates')::integer or (line->>'returnedBottles')::integer<>(row->>'settledBottles')::integer then raise exception using errcode='22023',message='Check the empties choices.'; end if;
   end loop;
+  if exists(select 1 from jsonb_each_text(crates) x where x.value::integer>0)
+    or exists(select 1 from jsonb_each_text(bottles) x where x.value::integer>0) then
+    raise exception using errcode='22023',message='Choose Accept or Hold for the different empties before saving.';
+  end if;
 end;
 $$;
 revoke all on function private.check_sale_empty_choices(jsonb,jsonb,jsonb) from public,anon,authenticated;
