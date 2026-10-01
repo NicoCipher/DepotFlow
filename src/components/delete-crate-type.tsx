@@ -17,13 +17,20 @@ export function DeleteCrateType({ id, name }: { id: string; name: string }) {
         onClick={() => {
           if (!window.confirm(`Delete ${name}? This can only work if the crate type has never been used.`)) return;
           startTransition(async () => {
-            const result = await deleteUnusedCrateType(id);
-            if (result.deleted) router.refresh();
-            else setMessage(result.message ?? "Could not delete this crate type.");
+            setMessage("");
+            try {
+              const result = await deleteUnusedCrateType(id);
+              if (result.deleted) {
+                router.replace("/crate-types?deleted=1");
+                router.refresh();
+              } else setMessage(result.message ?? "Could not delete this crate. Try again.");
+            } catch {
+              setMessage("Could not confirm deletion. Check your connection and try again.");
+            }
           });
         }}
       >
-        {pending ? "Checking…" : "Delete unused type"}
+        {pending ? "Checking…" : "Delete unused crate"}
       </button>
       {message && <p role="alert" className="mt-2 text-sm text-red-800">{message}</p>}
     </>

@@ -59,10 +59,10 @@ export default async function ProductsPage({
         )}
       </form>
       <Link className="quiet-link mb-3 self-start text-sm" href="/crate-types">
-        Manage crate types
+        Manage crates
       </Link>
       <Link className="quiet-link mb-3 self-start text-sm" href="/products/catalogue">
-        View product catalogue and Cost Prices
+        Browse drinks and buying costs
       </Link>
       {!data?.length ? (
         <div className="border-t border-stone-300 py-8">
@@ -94,7 +94,8 @@ export default async function ProductsPage({
                 <ProductCard product={product} />
                 {needsSetup && (
                   <p className="mt-2 border-l-4 border-amber-700 pl-3 text-sm text-amber-900">
-                    Setup needed: finish the physical crate details before using this drink in a sale.
+                    Crate setup needed before selling this drink.
+                    <Link href={`/products/${product.id}/edit`} className="quiet-link mt-1 inline-flex">Finish setup</Link>
                   </p>
                 )}
               </li>

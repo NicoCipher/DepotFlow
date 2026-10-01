@@ -3,19 +3,6 @@ import { requireOwner } from "@/lib/auth/owner";
 import { formatNaira } from "@/domain/products";
 import { PageIntro } from "@/components/page-intro";
 
-/**
- * Render the owner's catalogue with buying costs and selling prices in naira.
- * `searchParams.q` filters names by a case-insensitive substring after trimming
- * and truncation to 120 characters; a missing or non-string value shows all matches.
- * Catalogue entries, configured products, and cost history are each capped at
- * 1,000 rows. History must be dated on or before today in Africa/Lagos.
- * Configured full-crate prices take precedence over the latest eligible selling
- * quote; quote ties use recording time, then edit order. Missing costs display
- * "Not recorded"; catalogue-only drinks without a quote show "Not confirmed".
- *
- * Redirect to sign-in if owner authorization fails. Supabase configuration errors
- * propagate; catalogue query errors throw "Could not load the product catalogue."
- */
 export default async function CataloguePage({
   searchParams,
 }: {
@@ -78,10 +65,11 @@ export default async function CataloguePage({
       <form action="/products/catalogue" role="search" className="mt-6">
         <label htmlFor="catalogue-search">Find a drink</label>
         <div className="flex gap-2">
-          <input id="catalogue-search" name="q" type="search" maxLength={120}
+          <input key={query} id="catalogue-search" name="q" type="search" maxLength={120}
             defaultValue={query} className="min-w-0 flex-1" />
           <button className="secondary">Search</button>
         </div>
+        {query && <Link href="/products/catalogue" className="quiet-link inline-flex">Clear search</Link>}
       </form>
       <Link href="/products/new" className="quiet-link mt-4 inline-block">Drink not listed? Add your own</Link>
       {matches.length === 0 ? (
@@ -89,7 +77,7 @@ export default async function CataloguePage({
       ) : (
         <div className="mt-7 space-y-8">
           {(["NB", "GN", null] as const).map((group) => {
-            const items = matches.filter((item) => item.manufacturer === group);
+            const items = matches.filter((item) => group === null ? item.manufacturer !== "NB" && item.manufacturer !== "GN" : item.manufacturer === group);
             if (!items.length) return null;
             return (
               <section key={group ?? "other"}>
@@ -103,29 +91,27 @@ export default async function CataloguePage({
                     const selling = sellingPrices.get(item.id);
                     return (
                       <li key={item.id} className="rounded-2xl border border-stone-200 bg-white p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <h3 className="font-semibold">{item.name}</h3>
-                            <p className="mt-1 text-sm text-stone-600">
-                              {product ? "Configured for this depot" : "Catalogue only · not set up for sales"}
-                            </p>
+                        <h3 className="break-words text-lg font-semibold">{item.name}</h3>
+                        <p className="mt-1 text-sm text-stone-600">
+                          {product ? "Added to your shop" : "Not added to your shop yet"}
+                        </p>
+                        <dl className="mt-4 space-y-3 border-t border-stone-200 pt-3">
+                          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                            <dt className="text-sm text-stone-600">Selling price</dt>
+                            <dd className="font-semibold">
+                              {product ? formatNaira(product.full_crate_price)
+                                : selling ? formatNaira(selling.selling_price) : "Enter during setup"}
+                            </dd>
                           </div>
-                          <div className="shrink-0 text-right">
-                            <p className="text-xs text-stone-600">Cost Price</p>
-                            <p className="font-semibold">{cost ? formatNaira(cost.cost_price) : "Not recorded"}</p>
+                          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                            <dt className="text-sm text-stone-600">Buying cost</dt>
+                            <dd>{cost ? formatNaira(cost.cost_price) : "Not recorded"}</dd>
                           </div>
-                        </div>
-                        <div className="mt-3 flex items-center justify-between gap-3 border-t border-stone-100 pt-3">
-                          <p className="text-sm text-stone-600">Selling Price</p>
-                          <p className="font-semibold">
-                            {product ? formatNaira(product.full_crate_price)
-                              : selling ? formatNaira(selling.selling_price) : "Not confirmed"}
-                          </p>
-                        </div>
-                        {cost && <p className="mt-2 text-xs text-stone-600">Cost effective {cost.effective_on}</p>}
-                        {selling && <p className="text-xs text-stone-600">Selling price effective {selling.effective_on}</p>}
-                        {product ? <Link href={`/products/${product.id}/edit`} className="secondary mt-4 block text-center">Edit drink</Link>
-                          : <Link href={`/products/new?catalogue=${item.id}`} className="primary mt-4 block text-center">Add this drink</Link>}
+                        </dl>
+                        {cost && <p className="mt-3 text-xs text-stone-600">Buying cost from {cost.effective_on}</p>}
+                        {!product && selling && <p className="text-xs text-stone-600">Selling price from {selling.effective_on}</p>}
+                        {product ? <Link href={`/products/${product.id}/edit`} className="secondary mt-4 w-full">Edit drink</Link>
+                          : <Link href={`/products/new?catalogue=${item.id}`} className="primary mt-4 w-full">Add this drink</Link>}
                       </li>
                     );
                   })}

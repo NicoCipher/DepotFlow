@@ -36,9 +36,11 @@ export default async function NewProductPage({ searchParams }: {
   const crateTypes = await getCrateTypes();
   return (
     <>
-      <Link href="/products/catalogue" className="quiet-link">← Choose a drink</Link>
-      <h1 className="mt-5">{catalogue ? `Set up ${initialValues.name}` : "Add Product"}</h1>
-      {catalogue && <p className="mt-3 text-stone-600">The name and confirmed selling price are filled in for you. You can edit them. Complete the crate and bottle details below.</p>}
+      <Link href="/products/catalogue" className="quiet-link inline-flex">← Choose a drink</Link>
+      <h1 className="mt-5">{catalogue ? `Set up ${initialValues.name}` : "Add your own drink"}</h1>
+      {catalogue && <p className="mt-3 text-stone-600">{initialValues.full_crate_price
+        ? "The name and selling price are filled in. Check them, then complete the crate and bottle details."
+        : "The name is filled in. Enter your selling price, then complete the crate and bottle details."}</p>}
       <ProductForm crateTypes={crateTypes} id={randomUUID()}
         initialValues={initialValues} catalogueProductId={catalogue} />
     </>

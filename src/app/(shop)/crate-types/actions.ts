@@ -68,7 +68,7 @@ export async function saveCrateType(
           error.code === "55000"
             ? "This older crate record cannot be edited directly. Create an exact crate type and assign products to it instead."
             : error.code === "23514"
-              ? "Pocket count must match the bottles per crate of every product using this crate."
+              ? "The bottle spaces must match the bottles per crate of every drink using this crate."
               : "Could not save these details. Check them and try again.",
       };
     revalidatePath("/", "layout");

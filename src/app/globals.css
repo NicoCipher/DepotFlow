@@ -48,7 +48,8 @@ input:focus,
 textarea:focus,
 select:focus { border-color: #047857; }
 input[aria-invalid="true"],
-textarea[aria-invalid="true"] {
+textarea[aria-invalid="true"],
+select[aria-invalid="true"] {
   border-color: #991b1b;
 }
 :focus-visible {
