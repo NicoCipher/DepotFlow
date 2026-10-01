@@ -8,7 +8,7 @@ import {
   type CrateChoice,
 } from "@/domain/crate-types";
 import Link from "next/link";
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { addProduct, editProduct } from "@/app/(shop)/products/actions";
 import {
   validateProduct,
@@ -32,6 +32,31 @@ export function ProductForm({
   const [availableCrates, setAvailableCrates] = useState<CrateChoice[]>(crateTypes);
   const [values, setValues] = useState(initialValues);
   const [crateDraft, setCrateDraft] = useState<{ id: string; bottles: string } | null>(null);
+  const crateSubview = useRef<typeof crateDraft>(null);
+  useEffect(() => {
+    function restoreSubview(event: PopStateEvent) {
+      const draft = event.state?.depotflowCrateSetup === id ? crateSubview.current : null;
+      setCrateDraft(draft);
+      if (!draft) requestAnimationFrame(() => document.getElementById("crate_type_id")?.focus());
+    }
+    window.addEventListener("popstate", restoreSubview);
+    return () => window.removeEventListener("popstate", restoreSubview);
+  }, [id]);
+  function openCrateSetup() {
+    const draft = { id: crypto.randomUUID(), bottles: values.bottles_per_crate };
+    crateSubview.current = draft;
+    window.history.pushState({ ...window.history.state, depotflowCrateSetup: id }, "", "#add-crate");
+    setCrateDraft(draft);
+  }
+  function closeCrateSetup() {
+    crateSubview.current = null;
+    setCrateDraft(null);
+    if (window.history.state?.depotflowCrateSetup === id) {
+      // Remove the finished subview so Forward cannot reopen a saved crate form.
+      window.history.replaceState({ ...window.history.state, depotflowCrateSetup: null }, "", window.location.pathname + window.location.search);
+      window.history.back();
+    } else requestAnimationFrame(() => document.getElementById("crate_type_id")?.focus());
+  }
   const [crateMessage, setCrateMessage] = useState("");
   function chooseCrate(crate: CrateChoice) {
     setValues((current) => ({
@@ -100,16 +125,12 @@ export function ProductForm({
         <p className="mt-2 text-stone-600">Your drink details are kept here. Save this crate to continue.</p>
         <CrateTypeForm id={crateDraft.id}
           initial={{ name: "", empty_family: "", pocket_count: crateDraft.bottles, variant: "" }}
-          onCancel={() => {
-            setCrateDraft(null);
-            requestAnimationFrame(() => document.getElementById("crate_type_id")?.focus());
-          }}
+          onCancel={closeCrateSetup}
           onSaved={(crate) => {
             setAvailableCrates((current) => [...current.filter((item) => item.id !== crate.id), crate]);
             chooseCrate(crate);
             setCrateMessage(`${crate.name} saved and selected.`);
-            setCrateDraft(null);
-            requestAnimationFrame(() => document.getElementById("crate_type_id")?.focus());
+            closeCrateSetup();
           }} />
       </section>
     )}
@@ -182,7 +203,7 @@ export function ProductForm({
             if (crate) chooseCrate(crate);
             else change("crate_type_id", id);
           }}
-          onAdd={() => setCrateDraft({ id: crypto.randomUUID(), bottles: values.bottles_per_crate })}
+          onAdd={openCrateSetup}
           disabled={pending}
           error={errors.crate_type_id}
         />
