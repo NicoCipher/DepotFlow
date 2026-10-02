@@ -328,3 +328,27 @@ test("small stout 3 through 21 bottles round once to the next 50 naira", () => {
   // Combine raw half and quarter shares before rounding.
   assert.equal(priceQuantity({...p,full_crate_price:10050,half_crate_price:null,quarter_crate_price:null},{crates:0,fraction:3,bottles:0}).lineTotal,7550);
 });
+
+test("legacy persisted drafts warn with their original unrounded payable total", () => {
+  const current = { ...product, full_crate_price: 10100, half_crate_price: null, quarter_crate_price: null };
+  const line = { productId: product.id, quantity: q(0, 1), priceSnapshot: JSON.stringify([10100, null, null, null]) };
+  const restored = readSaleDraft(JSON.stringify({ ...emptySaleDraft, lines: [line] }));
+  assert.equal(salePriceChangeMessage(restored.lines[0], current),
+    "Drink: Price for this quantity changed from ₦2,525 to ₦2,550.");
+  assert.equal(salePriceChangeMessage(line, { ...current, full_crate_price: 10200 }),
+    "Drink: Price for this quantity changed from ₦2,525 to ₦2,550.");
+  const updated = putSaleLine([], line, current)[0];
+  assert.equal(salePriceChangeMessage(updated, current), null);
+  assert.equal(salePriceChangeMessage(updated, { ...current, full_crate_price: 10400 }),
+    "Drink: Price for this quantity changed from ₦2,550 to ₦2,600.");
+});
+
+test("legacy snapshots retain combined partial arithmetic without false warnings", () => {
+  const current = { ...product, full_crate_price: 10100, half_crate_price: null, quarter_crate_price: null };
+  const line = { productId: product.id, quantity: q(1, 3, 2), priceSnapshot: JSON.stringify([10100, null, null, product.bottle_price]) };
+  const oldTotal = 10100 + 7575 + 2 * product.bottle_price!;
+  const newTotal = 10100 + 7600 + 2 * product.bottle_price!;
+  assert.equal(salePriceChangeMessage(line, current),
+    `Drink: Price for this quantity changed from ₦${oldTotal.toLocaleString("en-NG")} to ₦${newTotal.toLocaleString("en-NG")}.`);
+  assert.equal(salePriceChangeMessage({ ...line, quantity: q(1), priceSnapshot: JSON.stringify([10100, null, null, null]) }, current), null);
+});

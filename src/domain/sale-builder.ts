@@ -443,6 +443,7 @@ export function salePriceSnapshot(product: SaleProduct, q: SaleQuantity) {
     q.fraction ? product.half_crate_price : null,
     q.fraction ? product.quarter_crate_price : null,
     q.bottles ? product.bottle_price : null,
+    "partial-round-up-50-v1",
   ]);
 }
 
@@ -450,7 +451,10 @@ function storedPriceTotal(line: DraftLine): number | null {
   if (!line.priceSnapshot) return null;
   try {
     const parsed = JSON.parse(line.priceSnapshot);
-    if (!Array.isArray(parsed) || parsed.length !== 4) return null;
+    if (!Array.isArray(parsed) ||
+      !(parsed.length === 4 ||
+        (parsed.length === 5 && parsed[4] === "partial-round-up-50-v1"))) return null;
+    const rounded = parsed.length === 5;
     const [full, half, quarter, bottle] = parsed as unknown[];
     for (const value of [full, half, quarter, bottle])
       if (
@@ -468,7 +472,7 @@ function storedPriceTotal(line: DraftLine): number | null {
       const fullPrice = required(full);
       if (fullPrice === null) return null;
       const value = fullPrice / divisor;
-      return value;
+      return rounded || Number.isSafeInteger(value) ? value : null;
     }
 
     let total = 0;
@@ -498,7 +502,7 @@ function storedPriceTotal(line: DraftLine): number | null {
       if (bottlePrice === null) return null;
       total += bottlePrice * line.quantity.bottles;
     }
-    total += roundPartialPrice(partialTotal);
+    total += rounded ? roundPartialPrice(partialTotal) : partialTotal;
     return Number.isSafeInteger(total) ? total : null;
   } catch {
     return null;
@@ -526,6 +530,15 @@ export function salePriceChangeMessage(
     /* A missing or invalid new price is explained by the regular line check. */
   }
 
+  // A legacy snapshot with unchanged inputs and payable total needs no warning.
+  if (oldTotal !== null && oldTotal === newTotal) {
+    try {
+      const stored = JSON.parse(line.priceSnapshot);
+      const current = JSON.parse(salePriceSnapshot(product, line.quantity));
+      if (JSON.stringify(stored.slice(0, 4)) === JSON.stringify(current.slice(0, 4)))
+        return null;
+    } catch { /* Invalid snapshots use the generic warning below. */ }
+  }
   if (oldTotal !== null && newTotal !== null)
     return `${product.name}: Price for this quantity changed from ${formatNaira(
       oldTotal,
