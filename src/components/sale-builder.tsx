@@ -34,6 +34,7 @@ import {
   saleQuantityLabel,
   saleTotal,
   effectivePartialPrice,
+  roundPartialPrice,
   reviewedLine,
   reviewedLineTotal,
   reviewedTotal,
@@ -731,7 +732,7 @@ export function SaleBuilder({
                   {(() => {
                     try {
                       return formatNaira(
-                        effectivePartialPrice(product, "quarter"),
+                        roundPartialPrice(effectivePartialPrice(product, "quarter")),
                       );
                     } catch {
                       return "Price not set";
@@ -740,12 +741,22 @@ export function SaleBuilder({
                   · ½:{" "}
                   {(() => {
                     try {
-                      return formatNaira(effectivePartialPrice(product, "half"));
+                      return formatNaira(roundPartialPrice(effectivePartialPrice(product, "half")));
                     } catch {
                       return "Price not set";
                     }
                   })()}
-                  . ¾ uses half + quarter.</p>
+                  {" "}· ¾:{" "}
+                  {(() => {
+                    try {
+                      return formatNaira(roundPartialPrice(
+                        effectivePartialPrice(product, "half") +
+                        effectivePartialPrice(product, "quarter"),
+                      ));
+                    } catch {
+                      return "Price not set";
+                    }
+                  })()}</p>
                 </details>
               </fieldset>
               <div>

@@ -67,10 +67,18 @@ begin
   perform pg_temp.ok((select total_bottles=q*3 and line_total=q*3000 from public.sale_items where sale_id=sid),'24-bottle quantity/price incorrect');
  end loop;
  update public.products set full_crate_price=10050 where id='10000000-0000-4000-8000-000000001003';
- begin
-  perform public.save_sale_v2(gen_random_uuid(),'20000000-0000-4000-8000-000000001001','2026-10-01',0,jsonb_build_array(pg_temp.line('10000000-0000-4000-8000-000000001003',0,1,0,0)),'[]','[]','');
-  raise exception 'Fractional naira price accepted';
- exception when invalid_parameter_value then null; end;
+ foreach q in array array[1,3,5,7] loop
+  result:=public.save_sale_v2(gen_random_uuid(),'20000000-0000-4000-8000-000000001001','2026-10-01',ceil(10050::numeric*q/8/50)*50,jsonb_build_array(pg_temp.line('10000000-0000-4000-8000-000000001003',0,q,0,0)),'[]','[]','cash');
+  sid:=(result->>'id')::uuid;
+  perform pg_temp.ok((result->>'total')::int=ceil(10050::numeric*q/8/50)*50,'Partial rounding incorrect');
+  perform pg_temp.ok((select line_total=(result->>'total')::int and total_bottles=q*3 from public.sale_items where sale_id=sid),'Stored partial total incorrect');
+ end loop;
+ -- Round a combined half and quarter once, preserving configured overrides.
+ update public.products set full_crate_price=10050,half_crate_price=null,quarter_crate_price=null where id='10000000-0000-4000-8000-000000001003';
+ result:=public.save_sale_v2(gen_random_uuid(),'20000000-0000-4000-8000-000000001001','2026-10-01',7550,
+   jsonb_build_array(jsonb_set(jsonb_set(pg_temp.line('10000000-0000-4000-8000-000000001003',0,0,0,0),'{quantity,fraction}','3'),'{quantity,eighths}','0')),'[]','[]','cash');
+ perform pg_temp.ok((result->>'total')::int=7550,'Partial quantity was rounded more than once');
+
 end$$;
 -- Permanent complete-package rules continue to work without per-sale choices.
 select public.set_crate_swap_rules('50000000-0000-4000-8000-000000001001',array['50000000-0000-4000-8000-000000001002'::uuid]);
