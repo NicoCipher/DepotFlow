@@ -29,6 +29,16 @@ type Held = {
   quantity: number;
 };
 
+function groupByCustomer<T extends { customer_id: string }>(rows: T[]) {
+  const grouped = new Map<string, T[]>();
+  for (const row of rows) {
+    const current = grouped.get(row.customer_id);
+    if (current) current.push(row);
+    else grouped.set(row.customer_id, [row]);
+  }
+  return grouped;
+}
+
 export default async function EmptiesPage() {
   const db = await requireOwner();
 
@@ -125,6 +135,9 @@ export default async function EmptiesPage() {
     ...held.map((row) => row.customer_id),
   ]);
   const actionCustomers = customers.filter((customer) => actionIds.has(customer.id));
+  const cratesByCustomer = groupByCustomer(crates);
+  const bottlesByCustomer = groupByCustomer(bottles);
+  const heldByCustomer = groupByCustomer(held);
   const totalCrates = crates.reduce((sum, row) => sum + row.quantity, 0);
   const totalBottles = bottles.reduce((sum, row) => sum + row.quantity, 0);
   const heldCrates = held
@@ -197,9 +210,9 @@ export default async function EmptiesPage() {
           </div>
           <ul className="grid gap-4 md:grid-cols-2">
             {actionCustomers.map((customer) => {
-              const customerCrates = crates.filter((row) => row.customer_id === customer.id);
-              const customerBottles = bottles.filter((row) => row.customer_id === customer.id);
-              const customerHeld = held.filter((row) => row.customer_id === customer.id);
+              const customerCrates = cratesByCustomer.get(customer.id) ?? [];
+              const customerBottles = bottlesByCustomer.get(customer.id) ?? [];
+              const customerHeld = heldByCustomer.get(customer.id) ?? [];
               return (
                 <li key={customer.id} className="rounded-xl border border-stone-200 bg-white p-4">
                   <div className="flex items-start justify-between gap-3">
