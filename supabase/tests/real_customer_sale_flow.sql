@@ -32,6 +32,10 @@ begin
  perform pg_temp.ok((select receipt_business->>'name'='My drinks shop' from public.sales where id=sid),'Receipt shop snapshot missing');
  perform pg_temp.ok((select count(*)=2 from public.sale_items where sale_id=sid),'Receipt line facts missing');
  perform pg_temp.ok((select public.verify_receipt(verification_token)->>'customer'='Real shop test' from public.sales where id=sid),'Public sale receipt customer missing');
+ perform pg_temp.ok((select public.verify_receipt(verification_token)->>'customer_snapshot_source'='captured' from public.sales where id=sid),'Sale customer snapshot was not captured at save');
+ update public.customers set name='Real shop renamed' where id='20000000-0000-4000-8000-000000001001';
+ perform pg_temp.ok((select public.verify_receipt(verification_token)->>'customer'='Real shop test' from public.sales where id=sid),'Customer edit rewrote historical sale receipt');
+ update public.customers set name='Real shop test' where id='20000000-0000-4000-8000-000000001001';
  perform pg_temp.ok((select public.verify_receipt(verification_token)->'business'->>'name'='My drinks shop' from public.sales where id=sid),'Public sale receipt business missing');
  perform pg_temp.ok((select (public.verify_receipt(verification_token)->>'total')::int=24000 and (public.verify_receipt(verification_token)->>'balance')::int=4000 from public.sales where id=sid),'Public sale receipt totals missing');
  perform pg_temp.ok((select public.verify_receipt(verification_token)->>'method'='cash' from public.sales where id=sid),'Public sale receipt method missing');
@@ -47,6 +51,8 @@ begin
  perform pg_temp.ok((select quantity=1 from public.crate_obligations where customer_id='20000000-0000-4000-8000-000000001001' and crate_type_id='50000000-0000-4000-8000-000000001001'),'Held collection settled debt');
  perform public.save_business_details('Updated shop','Abuja','','');
  perform pg_temp.ok((select receipt_business->>'name'='My drinks shop' from public.sales where id=sid),'Later settings rewrote historical receipt');
+ update public.sales set receipt_business=null where id=sid;
+ perform pg_temp.ok((select public.verify_receipt(verification_token)->>'business_snapshot'='false' and public.verify_receipt(verification_token)->'business'='{}'::jsonb from public.sales where id=sid),'Legacy sale receipt used current shop details');
  -- Accept wrong crates and bottles independently for this sale only.
  choice:='[{"productId":"10000000-0000-4000-8000-000000001001","kind":"crate","returnedType":"50000000-0000-4000-8000-000000001002","quantity":"1","decision":"accept"},{"productId":"10000000-0000-4000-8000-000000001001","kind":"bottle","returnedType":"Trophy Test bottle","quantity":"12","decision":"accept"}]';
  lines:=jsonb_build_array(pg_temp.line('10000000-0000-4000-8000-000000001001',1,0,1,12,choice));
