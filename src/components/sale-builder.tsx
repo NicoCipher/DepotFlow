@@ -899,7 +899,7 @@ export function SaleBuilder({
               <div className="flex items-center justify-between gap-3">
                 <span className="text-stone-600">Paying now</span>
                 <strong>
-                  {/^d+$/.test(draft.paid) ? formatNaira(Number(draft.paid)) : "—"}
+                  {/^\d+$/.test(draft.paid) ? formatNaira(Number(draft.paid)) : "—"}
                 </strong>
               </div>
               <div className="mt-2 flex items-center justify-between gap-3 border-t border-stone-200 pt-2">
