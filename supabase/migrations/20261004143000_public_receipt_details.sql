@@ -26,8 +26,7 @@ begin
         select jsonb_build_object(
           'name', sp.name,
           'address', sp.address,
-          'phone', sp.phone,
-          'logo_url', sp.logo_url
+          'phone', sp.phone
         )
         from public.shop_profile sp
         where sp.id=true
