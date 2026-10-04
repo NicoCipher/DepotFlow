@@ -1,16 +1,18 @@
-import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import { formatNaira } from "@/domain/products";
 import { formatBusinessDate, formatStoredQuantity } from "@/domain/sales";
 import { methodLabel } from "@/lib/receipts";
 
 export const dynamic = "force-dynamic";
+export const metadata = {
+  robots: { index: false, follow: false },
+  referrer: "no-referrer" as const,
+};
 
 type PublicBusiness = {
   name?: string;
   address?: string;
   phone?: string;
-  logo_url?: string;
 };
 
 type PublicReceiptItem = {
@@ -91,16 +93,6 @@ export default async function VerifyPage({
 
       {business?.name && (
         <section aria-label="Business details" className="space-y-1">
-          {business.logo_url && (
-            <Image
-              unoptimized
-              src={business.logo_url}
-              width={72}
-              height={72}
-              alt={`${business.name} logo`}
-              className="mb-3 h-18 w-18 object-contain"
-            />
-          )}
           <h2 className="text-2xl font-bold">{business.name}</h2>
           {business.address && (
             <p className="whitespace-pre-line text-stone-700">
