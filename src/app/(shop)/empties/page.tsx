@@ -11,7 +11,7 @@ type Customer = {
 type CrateOwed = {
   customer_id: string;
   crate_type_id: string;
-  crate_type: string;
+  crate_type: string | null;
   quantity: number;
 };
 type BottleOwed = {
