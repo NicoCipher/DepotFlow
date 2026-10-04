@@ -109,10 +109,10 @@ export default async function VerifyPage({
         </section>
       ) : (
         <section className="rounded-xl border border-stone-200 bg-stone-50 p-4">
-          <p className="font-semibold">Business details not captured</p>
+          <p className="font-semibold">Business details not saved</p>
           <p className="mt-1 text-sm text-stone-600">
-            This is an older receipt. DepotFlow will not replace missing
-            historical business details with the shop&apos;s current details.
+            Business details were not set when this receipt was saved. DepotFlow
+            does not replace them later with the shop&apos;s current details.
           </p>
         </section>
       )}
