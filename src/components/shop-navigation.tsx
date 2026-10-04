@@ -11,6 +11,32 @@ const sections = [
   { href: "/stock", label: "Stock" },
 ] as const;
 
+const moreGroups = [
+  {
+    label: "Daily work",
+    links: [
+      { href: "/activity", label: "Activity" },
+      { href: "/sales", label: "Sales" },
+      { href: "/empties", label: "Empties" },
+    ],
+  },
+  {
+    label: "Stock & drinks",
+    links: [
+      { href: "/products", label: "Drinks" },
+      { href: "/empty-crates", label: "Empty crates" },
+    ],
+  },
+  {
+    label: "Setup",
+    links: [
+      { href: "/business", label: "Business details" },
+      { href: "/crate-types", label: "Crate types" },
+      { href: "/empties-rules", label: "Empties rules" },
+    ],
+  },
+] as const;
+
 function NavigationIcon({
   kind,
 }: {
@@ -70,18 +96,11 @@ export function ShopNavigation() {
   const pathname = usePathname();
   const active = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
-  const moreLinks = [
-    { href: "/activity", label: "Activity" },
-    { href: "/business", label: "Business details" },
-    { href: "/sales", label: "Sales History" },
-    { href: "/products", label: "Products" },
-    { href: "/empty-crates", label: "Empty Crates" },
-    { href: "/empties-rules", label: "Empties Rules" },
-  ];
+  const moreLinks = moreGroups.flatMap((group) => group.links);
   const moreActive =
     moreLinks.some(({ href }) => active(href)) ||
-    pathname.startsWith("/crate-types") ||
     pathname.startsWith("/receipts");
+
   return (
     <>
       <nav
@@ -104,23 +123,33 @@ export function ShopNavigation() {
           <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm font-medium text-emerald-900">
             More
           </summary>
-          <div className="grid grid-cols-2 gap-x-4 border-t border-stone-200 pb-2 pt-1">
-            {moreLinks.map(({ href, label }) => (
-              <Link
-                key={href}
-                className="quiet-link"
-                href={href}
-                aria-current={active(href) ? "page" : undefined}
-              >
-                {label}
-              </Link>
+          <div className="grid gap-5 border-t border-stone-200 pb-3 pt-4 md:grid-cols-3">
+            {moreGroups.map((group) => (
+              <section key={group.label}>
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-stone-500">
+                  {group.label}
+                </p>
+                <div className="grid">
+                  {group.links.map(({ href, label }) => (
+                    <Link
+                      key={href}
+                      className={`quiet-link ${active(href) ? "font-semibold text-emerald-950" : ""}`}
+                      href={href}
+                      aria-current={active(href) ? "page" : undefined}
+                    >
+                      {label}
+                    </Link>
+                  ))}
+                </div>
+              </section>
             ))}
-            <form action={signOut}>
-              <button className="quiet-link">Sign out</button>
+            <form action={signOut} className="md:col-span-3">
+              <button className="quiet-link text-stone-700">Sign out</button>
             </form>
           </div>
         </details>
       </nav>
+
       <nav
         aria-label="Mobile shop"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-stone-200 bg-white shadow-[0_-4px_24px_rgba(0,0,0,0.08)] sm:hidden"
@@ -162,19 +191,23 @@ export function ShopNavigation() {
               </span>
               <span>More</span>
             </summary>
-            <div className="absolute bottom-full right-0 mb-2 max-h-[70dvh] w-[min(19rem,90vw)] overflow-y-auto overscroll-contain rounded-xl border border-stone-200 bg-white p-3 shadow-xl">
-              <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
-                More pages
-              </p>
-              {moreLinks.map(({ href, label }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  aria-current={active(href) ? "page" : undefined}
-                  className={`block min-h-12 rounded-lg px-3 py-3 font-medium ${active(href) ? "bg-emerald-50 text-emerald-900" : "text-stone-800"}`}
-                >
-                  {label}
-                </Link>
+            <div className="absolute bottom-full right-0 mb-2 max-h-[72dvh] w-[min(21rem,94vw)] overflow-y-auto overscroll-contain rounded-xl border border-stone-200 bg-white p-3 shadow-xl">
+              {moreGroups.map((group) => (
+                <section key={group.label} className="mb-3 last:mb-0">
+                  <p className="px-2 pb-1 pt-1 text-xs font-semibold uppercase tracking-wide text-stone-500">
+                    {group.label}
+                  </p>
+                  {group.links.map(({ href, label }) => (
+                    <Link
+                      key={href}
+                      href={href}
+                      aria-current={active(href) ? "page" : undefined}
+                      className={`block min-h-12 rounded-lg px-3 py-3 font-medium ${active(href) ? "bg-emerald-50 text-emerald-900" : "text-stone-800"}`}
+                    >
+                      {label}
+                    </Link>
+                  ))}
+                </section>
               ))}
               <form action={signOut} className="border-t border-stone-200 pt-2">
                 <button className="w-full rounded-lg px-3 py-3 text-left text-stone-700">
