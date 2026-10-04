@@ -75,7 +75,7 @@ export default async function CustomersPage({
           </p>
         </div>
       ) : (
-        <ul className="space-y-3">
+        <ul className="grid gap-3 md:grid-cols-2">
           {data.map((customer) => (
             <li
               key={customer.id}
