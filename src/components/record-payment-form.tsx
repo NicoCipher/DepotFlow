@@ -24,7 +24,7 @@ export function RecordPaymentForm({
     recordPayment.bind(null, customerId, submissionId),
     { amount: "", businessDate: "", method: "" },
   );
-  const validAmount = /^\d+$/.test(amount);
+  const validAmount = /^\d+$/.test(amount) && Number(amount) > 0;
   const numericAmount = validAmount ? Number(amount) : 0;
   const exceedsBalance = validAmount && numericAmount > owed;
   const remaining = validAmount && !exceedsBalance ? owed - numericAmount : null;
