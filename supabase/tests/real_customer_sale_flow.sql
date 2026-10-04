@@ -67,7 +67,7 @@ begin
   raise exception 'Forged type settlement accepted';
  exception when invalid_parameter_value then null; end;
  perform pg_temp.ok((select total_bottles=before_stock from public.stock where product_id='10000000-0000-4000-8000-000000001001'),'Rejected choices changed stock');
-end$;
+end$$;
 reset role;
 update public.sales set receipt_business=null where request_id='40000000-0000-4000-8000-000000001001';
 set local role authenticated;
