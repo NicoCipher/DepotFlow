@@ -98,7 +98,9 @@ function NavigationIcon({
 export function ShopNavigation() {
   const pathname = usePathname();
   const active = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href);
+    href === "/"
+      ? pathname === "/"
+      : pathname === href || pathname.startsWith(`${href}/`);
   const moreLinks = moreGroups.flatMap((group) => group.links);
   const moreActive =
     moreLinks.some(({ href }) => active(href)) ||
