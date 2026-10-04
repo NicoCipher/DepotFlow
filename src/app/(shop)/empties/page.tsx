@@ -31,46 +31,93 @@ type Held = {
 
 export default async function EmptiesPage() {
   const db = await requireOwner();
-  const [customersResult, cratesResult, bottlesResult, heldResult, crateTypesResult] =
-    await Promise.all([
-      db.from("customers")
+
+  async function loadCustomers() {
+    const rows: Customer[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const result = await db
+        .from("customers")
         .select("id,name,business_name,archived_at")
         .order("name")
-        .limit(1000),
-      db.from("crate_obligations")
+        .order("id")
+        .range(offset, offset + 999);
+      if (result.error) throw new Error("Could not load customers.");
+      rows.push(...result.data);
+      if (result.data.length < 1000) return rows;
+    }
+  }
+
+  async function loadCratesOwed() {
+    const rows: CrateOwed[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const result = await db
+        .from("crate_obligations")
         .select("customer_id,crate_type_id,crate_type,quantity")
         .gt("quantity", 0)
         .order("customer_id")
-        .limit(1000),
-      db.from("bottle_obligations")
+        .order("crate_type_id")
+        .range(offset, offset + 999);
+      if (result.error) throw new Error("Could not load crates owed.");
+      rows.push(...result.data);
+      if (result.data.length < 1000) return rows;
+    }
+  }
+
+  async function loadBottlesOwed() {
+    const rows: BottleOwed[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const result = await db
+        .from("bottle_obligations")
         .select("customer_id,bottle_type,quantity")
         .gt("quantity", 0)
         .order("customer_id")
-        .limit(1000),
-      db.from("sale_empty_decisions")
+        .order("bottle_type")
+        .range(offset, offset + 999);
+      if (result.error) throw new Error("Could not load bottles owed.");
+      rows.push(...result.data);
+      if (result.data.length < 1000) return rows;
+    }
+  }
+
+  async function loadHeld() {
+    const rows: Held[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const result = await db
+        .from("sale_empty_decisions")
         .select("id,customer_id,product_name,kind,returned_name,owed_name,quantity")
         .eq("decision", "hold")
         .is("released_at", null)
         .order("customer_id")
-        .limit(1000),
-      db.from("crate_types").select("id,name").limit(1000),
-    ]);
-
-  if (
-    customersResult.error ||
-    cratesResult.error ||
-    bottlesResult.error ||
-    heldResult.error ||
-    crateTypesResult.error
-  ) {
-    throw new Error("Could not load customer empties.");
+        .order("id")
+        .range(offset, offset + 999);
+      if (result.error) throw new Error("Could not load held empties.");
+      rows.push(...result.data);
+      if (result.data.length < 1000) return rows;
+    }
   }
 
-  const customers = customersResult.data as Customer[];
-  const crates = cratesResult.data as CrateOwed[];
-  const bottles = bottlesResult.data as BottleOwed[];
-  const held = heldResult.data as Held[];
-  const crateNames = new Map(crateTypesResult.data.map((row) => [row.id, row.name]));
+  async function loadCrateNames() {
+    const rows: { id: string; name: string }[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const result = await db
+        .from("crate_types")
+        .select("id,name")
+        .order("id")
+        .range(offset, offset + 999);
+      if (result.error) throw new Error("Could not load crate types.");
+      rows.push(...result.data);
+      if (result.data.length < 1000) return rows;
+    }
+  }
+
+  const [customers, crates, bottles, held, crateTypes] = await Promise.all([
+    loadCustomers(),
+    loadCratesOwed(),
+    loadBottlesOwed(),
+    loadHeld(),
+    loadCrateNames(),
+  ]);
+  const crateNames = new Map(crateTypes.map((row) => [row.id, row.name]));
 
   const actionIds = new Set([
     ...crates.map((row) => row.customer_id),
@@ -80,7 +127,13 @@ export default async function EmptiesPage() {
   const actionCustomers = customers.filter((customer) => actionIds.has(customer.id));
   const totalCrates = crates.reduce((sum, row) => sum + row.quantity, 0);
   const totalBottles = bottles.reduce((sum, row) => sum + row.quantity, 0);
-  const totalHeld = held.reduce((sum, row) => sum + row.quantity, 0);
+  const heldCrates = held
+    .filter((row) => row.kind === "crate")
+    .reduce((sum, row) => sum + row.quantity, 0);
+  const heldBottles = held
+    .filter((row) => row.kind === "bottle")
+    .reduce((sum, row) => sum + row.quantity, 0);
+  const hasHeld = heldCrates > 0 || heldBottles > 0;
 
   return (
     <>
@@ -107,9 +160,20 @@ export default async function EmptiesPage() {
           <p className="text-sm text-stone-600">Bottles owed</p>
           <p className="mt-1 text-2xl font-semibold">{totalBottles}</p>
         </div>
-        <div className={`rounded-xl border p-4 ${totalHeld ? "border-amber-200 bg-amber-50" : "border-stone-200 bg-white"}`}>
+        <div className={`rounded-xl border p-4 ${hasHeld ? "border-amber-200 bg-amber-50" : "border-stone-200 bg-white"}`}>
           <p className="text-sm text-stone-600">Different empties held</p>
-          <p className="mt-1 text-2xl font-semibold">{totalHeld}</p>
+          {hasHeld ? (
+            <div className="mt-1 space-y-1 font-semibold">
+              {heldCrates > 0 && (
+                <p>{heldCrates} {heldCrates === 1 ? "crate" : "crates"}</p>
+              )}
+              {heldBottles > 0 && (
+                <p>{heldBottles} {heldBottles === 1 ? "bottle" : "bottles"}</p>
+              )}
+            </div>
+          ) : (
+            <p className="mt-1 text-2xl font-semibold">0</p>
+          )}
         </div>
       </section>
 
