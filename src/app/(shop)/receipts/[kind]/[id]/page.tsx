@@ -29,6 +29,8 @@ type Receipt = {
   kind: "payment" | "sale";
   total?: number;
   receipt_business?: Business | null;
+  receipt_customer_name: string;
+  receipt_customer_name_source: "captured" | "legacy_backfill";
 };
 export default async function ReceiptPage({
   params,
@@ -46,7 +48,7 @@ export default async function ReceiptPage({
     const { data, error } = await db
       .from("customer_payments")
       .select(
-        "id,customer_id,amount,business_date,created_at,method,owed_after,receipt_number,verification_token,receipt_status,receipt_business",
+        "id,customer_id,amount,business_date,created_at,method,owed_after,receipt_number,verification_token,receipt_status,receipt_business,receipt_customer_name,receipt_customer_name_source",
       )
       .or(`id.eq.${id},request_id.eq.${id}`)
       .maybeSingle();
@@ -61,7 +63,7 @@ export default async function ReceiptPage({
     const { data, error } = await db
       .from("sales")
       .select(
-        "id,customer_id,total_amount,paid_amount,business_date,created_at,payment_method,receipt_number,verification_token,receipt_status,receipt_business",
+        "id,customer_id,total_amount,paid_amount,business_date,created_at,payment_method,receipt_number,verification_token,receipt_status,receipt_business,receipt_customer_name,receipt_customer_name_source",
       )
       .eq("id", id)
       .maybeSingle();
@@ -81,34 +83,25 @@ export default async function ReceiptPage({
         kind: "sale",
         total: data.total_amount,
         receipt_business: data.receipt_business as Business | null,
+        receipt_customer_name: data.receipt_customer_name,
+        receipt_customer_name_source: data.receipt_customer_name_source as
+          | "captured"
+          | "legacy_backfill",
       };
   }
   if (!receipt) notFound();
-  const customer = await db
-    .from("customers")
-    .select("name")
-    .eq("id", receipt.customer_id)
-    .single();
-  if (customer.error) throw new Error("Could not load receipt customer.");
-  const [itemsResult, profileResult] = await Promise.all([
+  const itemsResult =
     kind === "sale"
-      ? db
+      ? await db
           .from("sale_items")
           .select(
             "id,product_name,total_bottles,bottles_per_crate,whole_crates,line_total",
           )
           .eq("sale_id", receipt.id)
           .order("id")
-      : Promise.resolve({ data: [], error: null }),
-    db
-      .from("shop_profile")
-      .select("name,address,phone,logo_url")
-      .eq("id", true)
-      .maybeSingle(),
-  ]);
-  if (itemsResult.error || profileResult.error)
-    throw new Error("Could not load receipt details.");
-  const business = receipt.receipt_business ?? profileResult.data;
+      : { data: [], error: null };
+  if (itemsResult.error) throw new Error("Could not load receipt details.");
+  const business = receipt.receipt_business;
   const items = itemsResult.data ?? [];
   const url = receiptUrl(receipt.verification_token);
   const qr = await QRCode.toDataURL(url, {
@@ -151,9 +144,16 @@ export default async function ReceiptPage({
           {business.phone && <p>{business.phone}</p>}
         </section>
       ) : (
-        <Link className="secondary" href="/business">
-          Add your shop details to receipts
-        </Link>
+        <section className="rounded-xl border border-stone-200 bg-stone-50 p-4">
+          <p className="font-semibold">Business details not captured</p>
+          <p className="mt-1 text-sm text-stone-600">
+            This older receipt did not save a business snapshot. Current shop
+            details are not substituted into historical receipts.
+          </p>
+          <Link className="quiet-link mt-2 inline-block" href="/business">
+            Set details for future receipts
+          </Link>
+        </section>
       )}
       <header>
         <p className="text-sm font-semibold uppercase tracking-wide text-emerald-800">
@@ -214,7 +214,7 @@ export default async function ReceiptPage({
           {[
             [
               "Customer",
-              `${customer.data.name} · ${receipt.customer_id.slice(-6)}`,
+              `${receipt.receipt_customer_name} · ${receipt.customer_id.slice(-6)}`,
             ],
             ["Business date", formatBusinessDate(receipt.business_date)],
             ["Method", methodLabel(receipt.method)],
@@ -243,6 +243,12 @@ export default async function ReceiptPage({
             </div>
           ))}
         </dl>
+        {receipt.receipt_customer_name_source === "legacy_backfill" && (
+          <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
+            Older receipt: the customer name was frozen during the receipt
+            history upgrade and will no longer change if the customer is renamed.
+          </p>
+        )}
       </section>
       <section className="flex flex-col items-center rounded-2xl border border-stone-200 bg-white p-5 text-center">
         <h2 className="font-semibold">Verify this receipt</h2>
@@ -266,12 +272,12 @@ export default async function ReceiptPage({
         number={receipt.receipt_number}
         qrDataUrl={qr}
         receipt={{
-          businessName: business?.name ?? "Shop",
+          businessName: business?.name ?? "Business details not captured",
           businessAddress: business?.address ?? "",
           businessPhone: business?.phone ?? "",
           title:
             kind === "sale" ? "Sale Receipt" : "Balance Payment Receipt",
-          customer: customer.data.name,
+          customer: receipt.receipt_customer_name,
           date: formatBusinessDate(receipt.business_date),
           method: methodLabel(receipt.method),
           amount: formatNaira(receipt.amount),
