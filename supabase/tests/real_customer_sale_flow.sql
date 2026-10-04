@@ -51,8 +51,6 @@ begin
  perform pg_temp.ok((select quantity=1 from public.crate_obligations where customer_id='20000000-0000-4000-8000-000000001001' and crate_type_id='50000000-0000-4000-8000-000000001001'),'Held collection settled debt');
  perform public.save_business_details('Updated shop','Abuja','','');
  perform pg_temp.ok((select receipt_business->>'name'='My drinks shop' from public.sales where id=sid),'Later settings rewrote historical receipt');
- update public.sales set receipt_business=null where id=sid;
- perform pg_temp.ok((select public.verify_receipt(verification_token)->>'business_snapshot'='false' and public.verify_receipt(verification_token)->'business'='{}'::jsonb from public.sales where id=sid),'Legacy sale receipt used current shop details');
  -- Accept wrong crates and bottles independently for this sale only.
  choice:='[{"productId":"10000000-0000-4000-8000-000000001001","kind":"crate","returnedType":"50000000-0000-4000-8000-000000001002","quantity":"1","decision":"accept"},{"productId":"10000000-0000-4000-8000-000000001001","kind":"bottle","returnedType":"Trophy Test bottle","quantity":"12","decision":"accept"}]';
  lines:=jsonb_build_array(pg_temp.line('10000000-0000-4000-8000-000000001001',1,0,1,12,choice));
@@ -69,7 +67,12 @@ begin
   raise exception 'Forged type settlement accepted';
  exception when invalid_parameter_value then null; end;
  perform pg_temp.ok((select total_bottles=before_stock from public.stock where product_id='10000000-0000-4000-8000-000000001001'),'Rejected choices changed stock');
-end$$;
+end$;
+reset role;
+update public.sales set receipt_business=null where request_id='40000000-0000-4000-8000-000000001001';
+set local role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000001001',true);
+select pg_temp.ok((select public.verify_receipt(verification_token)->>'business_snapshot'='false' and public.verify_receipt(verification_token)->'business'='{}'::jsonb from public.sales where request_id='40000000-0000-4000-8000-000000001001'),'Legacy sale receipt used current shop details');
 -- 3 and 9 bottles use full-crate proportions even with no bottle price.
 do $$declare result jsonb; q int; sid uuid;
 begin
