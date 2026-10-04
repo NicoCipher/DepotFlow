@@ -31,6 +31,12 @@ begin
  perform pg_temp.ok((select quantity=1 from public.empty_crate_stock where crate_type_id='50000000-0000-4000-8000-000000001002'),'Held property entered usable stock');
  perform pg_temp.ok((select receipt_business->>'name'='My drinks shop' from public.sales where id=sid),'Receipt shop snapshot missing');
  perform pg_temp.ok((select count(*)=2 from public.sale_items where sale_id=sid),'Receipt line facts missing');
+ perform pg_temp.ok((select public.verify_receipt(verification_token)->>'customer'='Real shop test' from public.sales where id=sid),'Public sale receipt customer missing');
+ perform pg_temp.ok((select public.verify_receipt(verification_token)->'business'->>'name'='My drinks shop' from public.sales where id=sid),'Public sale receipt business missing');
+ perform pg_temp.ok((select (public.verify_receipt(verification_token)->>'total')::int=24000 and (public.verify_receipt(verification_token)->>'balance')::int=4000 from public.sales where id=sid),'Public sale receipt totals missing');
+ perform pg_temp.ok((select public.verify_receipt(verification_token)->>'method'='cash' from public.sales where id=sid),'Public sale receipt method missing');
+ perform pg_temp.ok((select jsonb_array_length(public.verify_receipt(verification_token)->'items')=2 from public.sales where id=sid),'Public sale receipt items missing');
+ perform pg_temp.ok((select public.verify_receipt(verification_token) ? 'customer_id' = false from public.sales where id=sid),'Public sale receipt leaked customer ID');
  perform public.save_sale_v2('40000000-0000-4000-8000-000000001001','20000000-0000-4000-8000-000000001001','2026-10-01',20000,lines,'[{"crateTypeId":"50000000-0000-4000-8000-000000001002","quantity":2}]','[{"bottleType":"NB Test bottle","quantity":12},{"bottleType":"Trophy Test bottle","quantity":12}]','cash');
  perform pg_temp.ok((select count(*)=1 from public.sale_empty_decisions where sale_id=sid),'Retry duplicated held property');
  select id into held_id from public.sale_empty_decisions where sale_id=sid;

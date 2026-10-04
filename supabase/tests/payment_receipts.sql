@@ -6,6 +6,7 @@ insert into public.money_owed(customer_id,amount) values ('10000000-0000-4000-80
 create function pg_temp.ok(v boolean,m text) returns void language plpgsql as $$begin if v is distinct from true then raise exception '%',m; end if; end$$;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000009201',true);
+select public.save_business_details('Ada Drinks','Lagos','08010000000','');
 do $$begin
   begin
     perform public.record_payment('20000000-0000-4000-8000-000000009201','10000000-0000-4000-8000-000000009201',7000,'2026-09-28','cash');
@@ -24,7 +25,14 @@ do $$begin
   exception when invalid_parameter_value then null; end;
 end$$;
 select pg_temp.ok((select (public.verify_receipt(verification_token)->>'amount')::int=3000 from public.customer_payments limit 1),'Verification amount differs');
-select pg_temp.ok((select public.verify_receipt(verification_token) ? 'phone' = false from public.customer_payments limit 1),'Phone leaked');
+select pg_temp.ok((select public.verify_receipt(verification_token)->>'customer'='Ada Test' from public.customer_payments limit 1),'Verification customer missing');
+select pg_temp.ok((select public.verify_receipt(verification_token)->>'method'='transfer' from public.customer_payments limit 1),'Verification method missing');
+select pg_temp.ok((select (public.verify_receipt(verification_token)->>'balance')::int=2000 from public.customer_payments limit 1),'Verification balance missing');
+select pg_temp.ok((select public.verify_receipt(verification_token)->'business'->>'name'='Ada Drinks' from public.customer_payments limit 1),'Verification business missing');
+select pg_temp.ok((select jsonb_array_length(public.verify_receipt(verification_token)->'items')=0 from public.customer_payments limit 1),'Payment verification exposed sale items');
+select pg_temp.ok((select public.verify_receipt(verification_token) ? 'phone' = false from public.customer_payments limit 1),'Customer phone leaked');
+select pg_temp.ok((select public.verify_receipt(verification_token) ? 'customer_id' = false from public.customer_payments limit 1),'Customer ID leaked');
+select pg_temp.ok((select public.verify_receipt(verification_token) ? 'request_id' = false from public.customer_payments limit 1),'Request ID leaked');
 select pg_temp.ok(public.verify_receipt('00000000-0000-4000-8000-000000009209') is null,'Unknown token resolved');
 select pg_temp.ok((public.manager_snapshot('2026-09-28')->>'received')::int=3000,'Received total is incorrect');
 select pg_temp.ok((public.store_activity('2026-09-28','2026-09-28',null,'payment',30,0)->>'received')::int=3000,'Activity total is incorrect');
