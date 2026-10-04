@@ -28,11 +28,13 @@ type PublicReceipt = {
   amount: number;
   date: string;
   customer: string;
+  customer_snapshot_source?: "captured" | "legacy_backfill";
   status: string;
   kind: string;
   method?: string;
   total?: number | null;
   balance?: number;
+  business_snapshot?: boolean;
   business?: PublicBusiness | null;
   items?: PublicReceiptItem[];
 };
@@ -80,6 +82,10 @@ export default async function VerifyPage({
   const items = Array.isArray(result.items) ? result.items : [];
   const business = result.business ?? null;
   const hasBalance = typeof result.balance === "number";
+  const legacyCustomer =
+    result.customer_snapshot_source === "legacy_backfill";
+  const hasBusinessSnapshot =
+    result.business_snapshot ?? Boolean(business?.name);
 
   return (
     <div className="space-y-5">
@@ -91,7 +97,7 @@ export default async function VerifyPage({
         <p className="mt-1 text-stone-600">{result.number}</p>
       </header>
 
-      {business?.name && (
+      {hasBusinessSnapshot && business?.name ? (
         <section aria-label="Business details" className="space-y-1">
           <h2 className="text-2xl font-bold">{business.name}</h2>
           {business.address && (
@@ -100,6 +106,14 @@ export default async function VerifyPage({
             </p>
           )}
           {business.phone && <p>{business.phone}</p>}
+        </section>
+      ) : (
+        <section className="rounded-xl border border-stone-200 bg-stone-50 p-4">
+          <p className="font-semibold">Business details not captured</p>
+          <p className="mt-1 text-sm text-stone-600">
+            This is an older receipt. DepotFlow will not replace missing
+            historical business details with the shop&apos;s current details.
+          </p>
         </section>
       )}
 
@@ -180,15 +194,24 @@ export default async function VerifyPage({
             </div>
           ))}
         </dl>
+
+        {legacyCustomer && (
+          <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
+            This older receipt predates customer-name snapshots. The displayed
+            name was frozen from the customer record during the upgrade and will
+            no longer change if the customer is renamed.
+          </p>
+        )}
       </section>
 
       <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
         <p className="font-semibold text-emerald-950">
-          Verified against DepotFlow's saved record
+          Verified against DepotFlow&apos;s saved record
         </p>
         <p className="mt-1 text-sm text-emerald-900">
-          This public copy shows receipt details only. Private account and
-          internal ledger information are not exposed.
+          Saved money, item, date, payment and status details are verified.
+          Identity details marked as older snapshots are shown honestly rather
+          than replaced with current records.
         </p>
       </section>
     </div>
