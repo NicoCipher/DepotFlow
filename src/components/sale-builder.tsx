@@ -895,14 +895,31 @@ export function SaleBuilder({
                 <option value="">Choose method</option><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="pos">POS</option>
               </select>
             </div>}
-            <p className="rounded-lg bg-stone-100 p-4 font-semibold">
-              They will owe:{" "}
-              {total !== undefined &&
-              /^\d+$/.test(draft.paid) &&
-              Number(draft.paid) <= total
-                ? formatNaira(total - Number(draft.paid))
-                : "—"}
-            </p>
+            <div className="rounded-xl border border-stone-200 bg-stone-50 p-4" aria-live="polite">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-stone-600">Paying now</span>
+                <strong>
+                  {/^d+$/.test(draft.paid) ? formatNaira(Number(draft.paid)) : "—"}
+                </strong>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-3 border-t border-stone-200 pt-2">
+                <span className="font-medium">Still owing after this sale</span>
+                <strong className={
+                  total !== undefined &&
+                  /^\d+$/.test(draft.paid) &&
+                  Number(draft.paid) <= total &&
+                  total - Number(draft.paid) > 0
+                    ? "text-amber-900"
+                    : "text-emerald-900"
+                }>
+                  {total !== undefined &&
+                  /^\d+$/.test(draft.paid) &&
+                  Number(draft.paid) <= total
+                    ? formatNaira(total - Number(draft.paid))
+                    : "—"}
+                </strong>
+              </div>
+            </div>
             <div className="sale-sticky-actions sticky z-10 -mx-4 flex items-center gap-3 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
             <button
               className="min-h-12 shrink-0 px-2 font-semibold text-emerald-900 underline underline-offset-4"
@@ -965,7 +982,11 @@ export function SaleBuilder({
                 })
               }
             >
-              {pending ? "Checking…" : "Continue to review"}
+              {pending
+                ? "Checking…"
+                : Number(draft.paid) > 0
+                  ? `Review sale · ${formatNaira(Number(draft.paid))} paid`
+                  : "Review sale · pay later"}
             </button>
             </div>
           </>
