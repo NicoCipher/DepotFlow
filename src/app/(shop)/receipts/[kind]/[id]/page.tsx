@@ -264,7 +264,43 @@ export default async function ReceiptPage({
       <ShareReceipt
         url={url}
         number={receipt.receipt_number}
-        summary={`${business?.name ?? "Shop"} receipt ${receipt.receipt_number} · ${customer.data.name} · ${formatNaira(receipt.amount)} · ${formatBusinessDate(receipt.business_date)} · ${methodLabel(receipt.method)} · ${kind === "sale" ? items.map((item) => `${item.product_name}: ${formatStoredQuantity(item)} · ${formatNaira(item.line_total)}`).join("; ") + ` · Sale total ${formatNaira(receipt.total ?? 0)}` : "Customer balance payment"} · ${receipt.owed_after > 0 ? "Partial payment" : "Paid in full"} · Balance ${formatNaira(receipt.owed_after)}`}
+        qrDataUrl={qr}
+        receipt={{
+          businessName: business?.name ?? "Shop",
+          businessAddress: business?.address ?? "",
+          businessPhone: business?.phone ?? "",
+          title:
+            kind === "sale" ? "Sale Receipt" : "Balance Payment Receipt",
+          customer: customer.data.name,
+          date: formatBusinessDate(receipt.business_date),
+          method: methodLabel(receipt.method),
+          amount: formatNaira(receipt.amount),
+          total:
+            kind === "sale" ? formatNaira(receipt.total ?? 0) : undefined,
+          balanceLabel:
+            kind === "sale"
+              ? "Balance on this sale"
+              : "Customer balance after",
+          balance: formatNaira(receipt.owed_after),
+          status:
+            receipt.receipt_status === "voided"
+              ? "voided"
+              : receipt.owed_after > 0
+                ? "partial"
+                : "paid",
+          note:
+            kind === "payment"
+              ? "Payment towards money already owed."
+              : undefined,
+          items:
+            kind === "sale"
+              ? items.map((item) => ({
+                  name: item.product_name,
+                  quantity: formatStoredQuantity(item),
+                  amount: formatNaira(item.line_total),
+                }))
+              : [],
+        }}
       />
     </div>
   );
