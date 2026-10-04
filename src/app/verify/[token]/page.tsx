@@ -61,7 +61,7 @@ export default async function VerifyPage({
 
   if (!result) {
     return (
-      <div className="space-y-5">
+      <div className="mx-auto w-full max-w-xl space-y-5">
         <header>
           <p className="text-sm font-semibold uppercase tracking-wide text-emerald-800">
             DepotFlow verification
@@ -88,7 +88,7 @@ export default async function VerifyPage({
     result.business_snapshot ?? Boolean(business?.name);
 
   return (
-    <div className="space-y-5">
+    <div className="mx-auto w-full max-w-xl space-y-5">
       <header>
         <p className="text-sm font-semibold uppercase tracking-wide text-emerald-800">
           DepotFlow verification
