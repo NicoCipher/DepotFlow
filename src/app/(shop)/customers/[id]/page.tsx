@@ -25,8 +25,10 @@ export default async function CustomerPage({
         .maybeSingle(),
       supabase
         .from("crate_obligations")
-        .select("quantity")
-        .eq("customer_id", id),
+        .select("crate_type_id,crate_type,quantity")
+        .eq("customer_id", id)
+        .gt("quantity", 0)
+        .order("crate_type_id"),
       supabase
         .from("bottle_obligations")
         .select("bottle_type,quantity")
@@ -45,6 +47,22 @@ export default async function CustomerPage({
   );
   if ([money, crates, bottles, deposits, held].some((result) => result.error))
     throw new Error("Could not load customer totals.");
+
+  const crateTypeIds = [
+    ...new Set((crates.data ?? []).map((row) => row.crate_type_id).filter(Boolean)),
+  ];
+  const crateTypeNames = new Map<string, string>();
+  if (crateTypeIds.length > 0) {
+    const crateTypes = await supabase
+      .from("crate_types")
+      .select("id,name")
+      .in("id", crateTypeIds);
+    if (crateTypes.error) throw new Error("Could not load crate type names.");
+    for (const crateType of crateTypes.data ?? []) {
+      crateTypeNames.set(crateType.id, crateType.name);
+    }
+  }
+
   const { saved } = await searchParams;
   const naira = (value: number) => `₦${value.toLocaleString("en-NG")}`;
   return (
@@ -125,6 +143,20 @@ export default async function CustomerPage({
           </dd>
         </div>
       </dl>
+      {(crates.data?.length ?? 0) > 0 && (
+        <section className="mt-3 rounded-xl border border-stone-200 bg-white px-4 py-3" aria-labelledby="crates-owed-breakdown">
+          <h2 id="crates-owed-breakdown" className="text-sm font-semibold">Crates owed by exact type</h2>
+          <dl className="mt-2 divide-y divide-stone-100">
+            {crates.data?.map((crate) => (
+              <div key={crate.crate_type_id} className="flex items-center justify-between gap-4 py-2 text-sm">
+                <dt className="min-w-0 break-words text-stone-600">{crate.crate_type ?? crateTypeNames.get(crate.crate_type_id) ?? "Unknown crate type"}</dt>
+                <dd className="shrink-0 font-semibold tabular-nums">{crate.quantity} {crate.quantity === 1 ? "crate" : "crates"}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-2 text-xs leading-5 text-stone-500">Exact crate types stay separate unless a swap rule says otherwise.</p>
+        </section>
+      )}
       {(bottles.data?.length ?? 0) > 0 && (
         <section className="mt-3 rounded-xl border border-stone-200 bg-white px-4 py-3" aria-labelledby="bottles-owed-breakdown">
           <h2 id="bottles-owed-breakdown" className="text-sm font-semibold">Bottles owed by type</h2>

@@ -13,12 +13,12 @@ export default async function SignInPage({
   const { allowed } = await ownerSession();
   if (allowed) redirect(returnTo);
   return (
-    <>
+    <div className="mx-auto w-full max-w-xl">
       <h1>Sign in</h1>
       <p className="mb-5 mt-2 text-stone-600">
         Use the shop owner’s email and password.
       </p>
       <SignInForm returnTo={returnTo} />
-    </>
+    </div>
   );
 }

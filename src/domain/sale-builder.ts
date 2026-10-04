@@ -408,7 +408,9 @@ export function readSaleDraft(raw: string | null): SaleDraft {
       step:
         legacyNeedsReentry && (d.step === "payment" || d.step === "review")
           ? "empties"
-          : d.step,
+          : d.step === "check"
+            ? "drinks"
+            : d.step,
       businessDate: typeof d.businessDate === "string" ? d.businessDate : "",
       paid: typeof d.paid === "string" ? d.paid : "0",
       paymentMethod: typeof d.paymentMethod === "string" ? d.paymentMethod : "",

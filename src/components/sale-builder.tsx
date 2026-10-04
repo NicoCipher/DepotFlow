@@ -229,6 +229,17 @@ export function SaleBuilder({
   }
   const step = customer ? draft.step : "customer";
   const displayedTotal = step === "review" ? reviewTotal : total;
+  const progressStep =
+    step === "customer"
+      ? 0
+      : step === "drinks" || step === "quantity"
+        ? 1
+        : step === "empties"
+          ? 2
+          : step === "payment"
+            ? 3
+            : 4;
+  const progressLabels = ["Customer", "Drinks", "Empties", "Payment", "Review"] as const;
   useEffect(() => {
     if (previousStep.current !== null && previousStep.current !== step) {
       stepHeading.current?.focus({ preventScroll: true });
@@ -344,44 +355,32 @@ export function SaleBuilder({
               ? "Add Drinks"
               : step === "quantity"
                 ? "Choose quantity"
-                : step === "check"
-                  ? "Your drinks"
-                  : step === "empties"
-                    ? "Check Empties"
-                    : step === "payment"
-                      ? "Payment"
-                      : "Review"}
+                : step === "empties"
+                  ? "Check Empties"
+                  : step === "payment"
+                    ? "Payment"
+                    : "Review"}
         </h1>
-        {step !== "customer" && (
-          <nav aria-label="Sale progress" className="grid grid-cols-4 gap-1 text-center text-xs text-stone-600 sm:text-sm">
-            <span className="sr-only">Record Sale: </span>
-            {(["Drinks", "Empties", "Payment", "Review"] as const).map(
-              (label, index) => {
-                const current =
-                  step === "drinks" || step === "quantity" || step === "check"
-                    ? 0
-                    : step === "empties"
-                      ? 1
-                      : step === "payment"
-                        ? 2
-                        : 3;
-                return (
-                  <span
-                    key={label}
-                    className={`min-w-0 border-t-2 pt-2 ${index <= current ? "border-emerald-800" : "border-stone-200"}`}
-                  >
-                    <span
-                      aria-current={index === current ? "step" : undefined}
-                      className={index === current ? "font-semibold text-emerald-950" : ""}
-                    >
-                      {label}
-                    </span>
-                  </span>
-                );
-              },
-            )}
-          </nav>
-        )}
+        <nav aria-label="Sale progress">
+          <p className="text-sm font-semibold text-stone-700">
+            Step {progressStep + 1} of 5 · {progressLabels[progressStep]}
+          </p>
+          <div className="mt-2 grid grid-cols-5 gap-1" aria-hidden="true">
+            {progressLabels.map((label, index) => (
+              <span
+                key={label}
+                className={`h-1.5 rounded-full ${index <= progressStep ? "bg-emerald-800" : "bg-stone-200"}`}
+              />
+            ))}
+          </div>
+          <ol className="sr-only">
+            {progressLabels.map((label, index) => (
+              <li key={label} aria-current={index === progressStep ? "step" : undefined}>
+                {label}
+              </li>
+            ))}
+          </ol>
+        </nav>
         {customer && step !== "customer" && (
           <section aria-label="Current sale" className="border-b border-stone-200 pb-4">
             <div className="flex items-start justify-between gap-3">
@@ -706,7 +705,7 @@ export function SaleBuilder({
               </div>
               <fieldset>
                 <legend className="mb-2 font-semibold">
-                  Plus bottles from an opened crate
+                  Part of a crate
                 </legend>
                 <div className="grid grid-cols-2 gap-2 min-[360px]:grid-cols-4">
                   {(product.bottles_per_crate === 24 ? [0, 1, 2, 3, 4, 5, 6, 7] : [0, 1, 2, 3]).map((part) => {
@@ -761,7 +760,7 @@ export function SaleBuilder({
               </fieldset>
               <div>
                 <label htmlFor="sale-bottles">
-                  Exact bottles
+                  Extra loose bottles
                   {product.bottle_price === null
                     ? " · Price not set"
                     : ` · ${formatNaira(product.bottle_price)} each`}
@@ -837,88 +836,6 @@ export function SaleBuilder({
             </button>
           </>
         )}
-        {step === "check" && (
-          <>
-            {!customer && (
-              <p role="alert" className="text-red-800">
-                Choose a customer to continue.
-              </p>
-            )}
-            {!draft.lines.length && <p>No drinks added yet.</p>}
-            <ul className="divide-y divide-stone-300">
-              {draft.lines.map((line) => {
-                const p = catalog.products.find((p) => p.id === line.productId);
-                let lineTotal: number | undefined;
-                let error = "";
-                try {
-                  if (!p) throw new Error("Drink no longer available.");
-                  lineTotal = priceQuantity(p, line.quantity).lineTotal;
-                } catch (e) {
-                  error = (e as Error).message;
-                }
-                return (
-                  <li key={line.productId} className="space-y-2 py-5">
-                    <h2 className="break-words text-lg font-semibold">
-                      {p ? `${p.name} ${p.size ?? ""}` : "Unavailable drink"}
-                    </h2>
-                    <p>{saleQuantityLabel(line.quantity)}</p>
-                    {p && (
-                      <p className="text-sm text-stone-600">{available(p)}</p>
-                    )}
-                    {error ? (
-                      <p role="alert" className="text-red-800">
-                        {error}
-                      </p>
-                    ) : (
-                      <p className="font-semibold">{formatNaira(lineTotal!)}</p>
-                    )}
-                    <div className="flex gap-6">
-                      {p && (
-                        <button className="quiet-link" onClick={() => edit(p)}>
-                          Edit quantity
-                        </button>
-                      )}
-                      <button
-                        className="quiet-link"
-                        onClick={() =>
-                          update({
-                            lines: removeSaleLine(draft.lines, line.productId),
-                          })
-                        }
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-            <p className="text-2xl font-semibold">
-              Grand total:{" "}
-              {total === undefined
-                ? "Check quantities above"
-                : formatNaira(total)}
-            </p>
-            <button
-              className="primary w-full"
-              disabled={
-                !customer ||
-                !draft.lines.length ||
-                total === undefined ||
-                revalidateSaleDraft(draft, catalog).warnings.length > 0
-              }
-              onClick={() => update({ step: "empties" })}
-            >
-              Continue to Empties
-            </button>
-            <div className="flex flex-wrap justify-between gap-x-4">
-              <button className="quiet-link" onClick={() => update({ step: "drinks" })}>Keep adding drinks</button>
-              <button className="quiet-link" disabled={pending} onClick={quickCheck}>
-                {pending ? "Checking…" : "Refresh prices & stock"}
-              </button>
-            </div>
-          </>
-        )}
         {step === "empties" && (
           <SaleEmptiesStep
             draft={draft}
@@ -978,14 +895,31 @@ export function SaleBuilder({
                 <option value="">Choose method</option><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="pos">POS</option>
               </select>
             </div>}
-            <p className="rounded-lg bg-stone-100 p-4 font-semibold">
-              They will owe:{" "}
-              {total !== undefined &&
-              /^\d+$/.test(draft.paid) &&
-              Number(draft.paid) <= total
-                ? formatNaira(total - Number(draft.paid))
-                : "—"}
-            </p>
+            <div className="rounded-xl border border-stone-200 bg-stone-50 p-4" aria-live="polite">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-stone-600">Paying now</span>
+                <strong>
+                  {/^\d+$/.test(draft.paid) ? formatNaira(Number(draft.paid)) : "—"}
+                </strong>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-3 border-t border-stone-200 pt-2">
+                <span className="font-medium">Still owing after this sale</span>
+                <strong className={
+                  total !== undefined &&
+                  /^\d+$/.test(draft.paid) &&
+                  Number(draft.paid) <= total &&
+                  total - Number(draft.paid) > 0
+                    ? "text-amber-900"
+                    : "text-emerald-900"
+                }>
+                  {total !== undefined &&
+                  /^\d+$/.test(draft.paid) &&
+                  Number(draft.paid) <= total
+                    ? formatNaira(total - Number(draft.paid))
+                    : "—"}
+                </strong>
+              </div>
+            </div>
             <div className="sale-sticky-actions sticky z-10 -mx-4 flex items-center gap-3 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
             <button
               className="min-h-12 shrink-0 px-2 font-semibold text-emerald-900 underline underline-offset-4"
@@ -1048,7 +982,11 @@ export function SaleBuilder({
                 })
               }
             >
-              {pending ? "Checking…" : "Continue to review"}
+              {pending
+                ? "Checking…"
+                : Number(draft.paid) > 0
+                  ? `Review sale · ${formatNaira(Number(draft.paid))} paid`
+                  : "Review sale · pay later"}
             </button>
             </div>
           </>

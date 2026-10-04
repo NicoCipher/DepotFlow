@@ -54,13 +54,13 @@ export default async function CataloguePage({
 
   return (
     <>
-      <Link href="/products" className="quiet-link">← Products</Link>
+      <Link href="/products" className="quiet-link">← Drinks</Link>
       <div className="mt-7">
-        <PageIntro eyebrow="Product catalogue" title="Choose a drink"
+        <PageIntro eyebrow="Drink catalogue" title="Choose a drink"
           description="Choose a drink, check its selling price and complete its crate details to add it to your shop." />
       </div>
       <p className="text-sm text-stone-600">
-        Crate details are completed during setup. Cost Price is what you pay to buy the drink; Selling Price is what you charge.
+        Crate details are completed during setup. Buying cost is what you pay for the drink; selling price is what you charge.
       </p>
       <form action="/products/catalogue" role="search" className="mt-6">
         <label htmlFor="catalogue-search">Find a drink</label>
@@ -84,17 +84,17 @@ export default async function CataloguePage({
                 <h2 className="mb-3 text-xl font-semibold">
                   {group === "NB" ? "Nigerian Breweries" : group === "GN" ? "Guinness Nigeria" : "Other drinks"}
                 </h2>
-                <ul className="space-y-3">
+                <ul className="grid gap-4 md:grid-cols-2">
                   {items.map((item) => {
                     const product = configured.get(item.id);
                     const cost = currentCosts.get(item.id);
                     const selling = sellingPrices.get(item.id);
                     return (
-                      <li key={item.id} className="rounded-2xl border border-stone-200 bg-white p-4">
+                      <li key={item.id} className={`rounded-2xl border bg-white p-4 ${product ? "border-emerald-200" : "border-stone-200"}`}>
                         <h3 className="break-words text-lg font-semibold">{item.name}</h3>
-                        <p className="mt-1 text-sm text-stone-600">
-                          {product ? "Added to your shop" : "Not added to your shop yet"}
-                        </p>
+                        <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${product ? "bg-emerald-50 text-emerald-900" : "bg-stone-100 text-stone-700"}`}>
+                          {product ? "In your shop" : "Not added yet"}
+                        </span>
                         <dl className="mt-4 space-y-3 border-t border-stone-200 pt-3">
                           <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                             <dt className="text-sm text-stone-600">Selling price</dt>

@@ -59,7 +59,7 @@ export default async function StockPage({
       </div>
       <div className="mb-3 flex items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">Available drinks</h2>
-        <span className="text-sm text-stone-500">{count ?? 0} products</span>
+        <span className="text-sm text-stone-500">{count ?? 0} drinks</span>
       </div>
       {!data?.length ? (
         <div className="rounded-xl border border-dashed border-stone-300 p-6">
@@ -69,16 +69,16 @@ export default async function StockPage({
           <p className="mt-2 text-sm text-stone-600">
             {page > 1
               ? "Return to the previous page."
-              : "Add a product, then count its stock to start selling."}
+              : "Add a drink, then count its stock to start selling."}
           </p>
           {page === 1 && (
             <Link className="primary mt-4" href="/products/new">
-              Add product
+              Add drink
             </Link>
           )}
         </div>
       ) : (
-        <ul className="space-y-3">
+        <ul className="grid gap-4 md:grid-cols-2">
           {data.map((product) => (
             <li key={product.id}>
               <StockCard
