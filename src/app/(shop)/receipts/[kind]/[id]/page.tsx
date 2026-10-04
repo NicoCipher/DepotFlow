@@ -57,6 +57,9 @@ export default async function ReceiptPage({
       receipt = {
         ...data,
         receipt_business: data.receipt_business as Business | null,
+        receipt_customer_name_source: data.receipt_customer_name_source as
+          | "captured"
+          | "legacy_backfill",
         kind: "payment",
       };
   } else {
