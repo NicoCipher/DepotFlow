@@ -73,7 +73,7 @@ export default async function StockPage({
           </p>
           {page === 1 && (
             <Link className="primary mt-4" href="/products/new">
-              Add product
+              Add drink
             </Link>
           )}
         </div>
