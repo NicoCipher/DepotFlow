@@ -17,40 +17,92 @@ export default async function Home() {
   const { user, supabase } = await requireOwnerSession();
   const day = todayLagos();
 
-  const [snapshotResult, cratesResult, bottlesResult, heldResult, productsResult] =
-    await Promise.all([
-      supabase.rpc("manager_snapshot", { p_day: day }),
-      supabase
+  async function loadCrateCustomers() {
+    const ids: string[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const result = await supabase
         .from("crate_obligations")
         .select("customer_id")
         .gt("quantity", 0)
-        .limit(1000),
-      supabase
+        .order("customer_id")
+        .range(offset, offset + 999);
+      if (result.error) throw new Error("Could not load customer empties.");
+      ids.push(...result.data.map((row) => row.customer_id));
+      if (result.data.length < 1000) return ids;
+    }
+  }
+
+  async function loadBottleCustomers() {
+    const ids: string[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const result = await supabase
         .from("bottle_obligations")
         .select("customer_id")
         .gt("quantity", 0)
-        .limit(1000),
-      supabase
+        .order("customer_id")
+        .range(offset, offset + 999);
+      if (result.error) throw new Error("Could not load customer empties.");
+      ids.push(...result.data.map((row) => row.customer_id));
+      if (result.data.length < 1000) return ids;
+    }
+  }
+
+  async function loadHeldEmpties() {
+    const rows: { customer_id: string; kind: string; quantity: number }[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const result = await supabase
         .from("sale_empty_decisions")
-        .select("customer_id,quantity")
+        .select("customer_id,kind,quantity")
         .eq("decision", "hold")
         .is("released_at", null)
-        .limit(1000),
-      supabase
+        .order("customer_id")
+        .order("id")
+        .range(offset, offset + 999);
+      if (result.error) throw new Error("Could not load held empties.");
+      rows.push(...result.data);
+      if (result.data.length < 1000) return rows;
+    }
+  }
+
+  async function loadProductsForSetup() {
+    const rows: {
+      id: string;
+      bottles_per_crate: number;
+      crate_types: {
+        is_legacy: boolean;
+        pocket_count: number | null;
+        empty_family: string | null;
+      } | null;
+    }[] = [];
+    for (let offset = 0; ; offset += 1000) {
+      const result = await supabase
         .from("products")
         .select(
           "id,bottles_per_crate,crate_types(is_legacy,pocket_count,empty_family)",
         )
-        .limit(1000),
-    ]);
+        .order("id")
+        .range(offset, offset + 999);
+      if (result.error) throw new Error("Could not load drink setup.");
+      rows.push(...result.data);
+      if (result.data.length < 1000) return rows;
+    }
+  }
 
-  if (
-    snapshotResult.error ||
-    cratesResult.error ||
-    bottlesResult.error ||
-    heldResult.error ||
-    productsResult.error
-  ) {
+  const [
+    snapshotResult,
+    crateCustomerIds,
+    bottleCustomerIds,
+    heldRows,
+    productsForSetup,
+  ] = await Promise.all([
+    supabase.rpc("manager_snapshot", { p_day: day }),
+    loadCrateCustomers(),
+    loadBottleCustomers(),
+    loadHeldEmpties(),
+    loadProductsForSetup(),
+  ]);
+
+  if (snapshotResult.error) {
     throw new Error("Could not load today’s shop snapshot.");
   }
 
@@ -65,15 +117,17 @@ export default async function Home() {
   };
 
   const emptiesCustomers = new Set([
-    ...cratesResult.data.map((row) => row.customer_id),
-    ...bottlesResult.data.map((row) => row.customer_id),
-    ...heldResult.data.map((row) => row.customer_id),
+    ...crateCustomerIds,
+    ...bottleCustomerIds,
   ]).size;
-  const heldEmpties = heldResult.data.reduce(
-    (sum, row) => sum + row.quantity,
-    0,
-  );
-  const drinksNeedingSetup = productsResult.data.filter((product) => {
+  const heldCrates = heldRows
+    .filter((row) => row.kind === "crate")
+    .reduce((sum, row) => sum + row.quantity, 0);
+  const heldBottles = heldRows
+    .filter((row) => row.kind === "bottle")
+    .reduce((sum, row) => sum + row.quantity, 0);
+  const hasHeldEmpties = heldCrates > 0 || heldBottles > 0;
+  const drinksNeedingSetup = productsForSetup.filter((product) => {
     const crate = product.crate_types;
     return (
       !crate ||
@@ -92,7 +146,7 @@ export default async function Home() {
   const attentionCount =
     (snapshot.customers_owing > 0 ? 1 : 0) +
     (emptiesCustomers > 0 ? 1 : 0) +
-    (heldEmpties > 0 ? 1 : 0) +
+    (hasHeldEmpties ? 1 : 0) +
     (lowStockOnly > 0 ? 1 : 0) +
     (snapshot.missing_counts > 0 ? 1 : 0) +
     (drinksNeedingSetup > 0 ? 1 : 0);
@@ -200,7 +254,7 @@ export default async function Home() {
               </Link>
             )}
 
-            {heldEmpties > 0 && (
+            {hasHeldEmpties && (
               <Link
                 href="/empties"
                 className="flex min-h-20 items-center justify-between gap-3 bg-amber-50 p-4"
@@ -211,8 +265,18 @@ export default async function Home() {
                     Kept for customers; correct types may still be owed
                   </small>
                 </span>
-                <strong className="shrink-0 text-amber-950">
-                  {heldEmpties} →
+                <strong className="shrink-0 text-right text-amber-950">
+                  {heldCrates > 0 && (
+                    <span className="block">
+                      {heldCrates} {heldCrates === 1 ? "crate" : "crates"}
+                    </span>
+                  )}
+                  {heldBottles > 0 && (
+                    <span className="block">
+                      {heldBottles} {heldBottles === 1 ? "bottle" : "bottles"} →
+                    </span>
+                  )}
+                  {heldBottles === 0 && <span aria-hidden="true">→</span>}
                 </strong>
               </Link>
             )}
