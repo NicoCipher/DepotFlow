@@ -2,6 +2,7 @@
 import { SessionRecoveryLink } from "./session-recovery-link";
 import { useActionState, useState } from "react";
 import { recordPayment } from "@/app/(shop)/customers/[id]/pay/actions";
+import { formatNaira } from "@/domain/products";
 
 export function RecordPaymentForm({
   customerId,
@@ -23,9 +24,21 @@ export function RecordPaymentForm({
     recordPayment.bind(null, customerId, submissionId),
     { amount: "", businessDate: "", method: "" },
   );
-  const exceedsBalance = /^\d+$/.test(amount) && Number(amount) > owed;
+  const validAmount = /^\d+$/.test(amount);
+  const numericAmount = validAmount ? Number(amount) : 0;
+  const exceedsBalance = validAmount && numericAmount > owed;
+  const remaining = validAmount && !exceedsBalance ? owed - numericAmount : null;
   return (
     <form action={action} className="mt-5 space-y-5">
+      <button
+        type="button"
+        className="secondary w-full"
+        aria-pressed={amount === String(owed)}
+        disabled={pending || state.retryable}
+        onClick={() => setAmount(String(owed))}
+      >
+        Pay full balance · {formatNaira(owed)}
+      </button>
       <div>
         <label htmlFor="amount">Amount paid now (₦)</label>
         <input
@@ -41,7 +54,21 @@ export function RecordPaymentForm({
           onChange={(event) => setAmount(event.target.value)}
         />
       </div>
-      {(state.field === "amount" || exceedsBalance) && <p id="payment-amount-error" role="alert" className="text-sm text-red-800">{exceedsBalance ? `This customer owes ₦${owed.toLocaleString("en-NG")}. Enter that amount or less.` : state.message}</p>}
+      {(state.field === "amount" || exceedsBalance) && <p id="payment-amount-error" role="alert" className="text-sm text-red-800">{exceedsBalance ? `This customer owes ${formatNaira(owed)}. Enter that amount or less.` : state.message}</p>}
+      {remaining !== null && (
+        <div className="rounded-xl border border-stone-200 bg-stone-50 p-4" aria-live="polite">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-stone-600">Paying now</span>
+            <strong>{formatNaira(numericAmount)}</strong>
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-3 border-t border-stone-200 pt-2">
+            <span className="font-medium">Still owing after</span>
+            <strong className={remaining > 0 ? "text-amber-900" : "text-emerald-900"}>
+              {formatNaira(remaining)}
+            </strong>
+          </div>
+        </div>
+      )}
       <div>
         <label htmlFor="businessDate">Business date</label>
         <input
@@ -76,7 +103,13 @@ export function RecordPaymentForm({
       )}
       <SessionRecoveryLink message={state.message} />
       <button className="primary w-full" disabled={pending || exceedsBalance}>
-        {pending ? "Saving…" : state.retryable ? "Retry same payment" : "Save payment"}
+        {pending
+          ? "Saving…"
+          : state.retryable
+            ? "Retry same payment"
+            : validAmount
+              ? `Save ${formatNaira(numericAmount)} payment`
+              : "Save payment"}
       </button>
     </form>
   );
