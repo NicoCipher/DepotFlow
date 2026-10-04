@@ -11,7 +11,10 @@ const sections = [
   { href: "/stock", label: "Stock" },
 ] as const;
 
-const moreGroups = [
+type MoreLink = { href: string; label: string };
+type MoreGroup = { label: string; links: MoreLink[] };
+
+const moreGroups: MoreGroup[] = [
   {
     label: "Daily work",
     links: [
@@ -35,7 +38,7 @@ const moreGroups = [
       { href: "/empties-rules", label: "Empties rules" },
     ],
   },
-] as const;
+];
 
 function NavigationIcon({
   kind,
