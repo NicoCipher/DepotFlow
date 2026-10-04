@@ -29,14 +29,14 @@ export default async function ProductsPage({
     .range((page - 1) * 30, page * 30 - 1);
   if (query) request = request.or(productSearchFilter(query));
   const { data, error, count } = await request;
-  if (error) throw new Error("Could not load products.");
+  if (error) throw new Error("Could not load drinks.");
   const pageUrl = (value: number) =>
     `/products?${new URLSearchParams({ q: query, page: String(value) })}`;
   return (
     <>
       <div className="flex items-center justify-between gap-3">
-        <h1>Products</h1>
-        <Link className="primary shrink-0" href="/products/catalogue">Add product</Link>
+        <h1>Drinks</h1>
+        <Link className="primary shrink-0" href="/products/catalogue">Add drink</Link>
       </div>
       <form action="/products" role="search" className="mb-4 mt-5">
         <label htmlFor="search">Search by name or size</label>
@@ -67,7 +67,7 @@ export default async function ProductsPage({
       {!data?.length ? (
         <div className="border-t border-stone-300 py-8">
           <h2 className="text-xl font-semibold">
-            {query ? "No matching products" : "No products yet"}
+            {query ? "No matching drinks" : "No drinks yet"}
           </h2>
           <p className="mt-2 text-stone-600">
             {query
@@ -76,7 +76,7 @@ export default async function ProductsPage({
           </p>
         </div>
       ) : (
-        <ul className="space-y-3">
+        <ul className="grid gap-4 md:grid-cols-2">
           {data.map((product) => {
             const crate = product.crate_types;
             const needsSetup =
@@ -103,7 +103,7 @@ export default async function ProductsPage({
           })}
         </ul>
       )}
-      <nav aria-label="Product pages" className="mt-4 flex justify-between">
+      <nav aria-label="Drink pages" className="mt-4 flex justify-between">
         {page > 1 && (
           <Link className="quiet-link" href={pageUrl(page - 1)}>
             Previous
