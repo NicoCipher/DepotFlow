@@ -148,10 +148,10 @@ export default async function ReceiptPage({
         </section>
       ) : (
         <section className="rounded-xl border border-stone-200 bg-stone-50 p-4">
-          <p className="font-semibold">Business details not captured</p>
+          <p className="font-semibold">Business details not saved</p>
           <p className="mt-1 text-sm text-stone-600">
-            This older receipt did not save a business snapshot. Current shop
-            details are not substituted into historical receipts.
+            Business details were not set when this receipt was saved. Current
+            shop details are not substituted into the receipt later.
           </p>
           <Link className="quiet-link mt-2 inline-block" href="/business">
             Set details for future receipts
@@ -275,7 +275,7 @@ export default async function ReceiptPage({
         number={receipt.receipt_number}
         qrDataUrl={qr}
         receipt={{
-          businessName: business?.name ?? "Business details not captured",
+          businessName: business?.name ?? "Business details not saved",
           businessAddress: business?.address ?? "",
           businessPhone: business?.phone ?? "",
           title:
