@@ -29,6 +29,15 @@ select pg_temp.ok((select public.verify_receipt(verification_token)->>'customer'
 select pg_temp.ok((select public.verify_receipt(verification_token)->>'method'='transfer' from public.customer_payments limit 1),'Verification method missing');
 select pg_temp.ok((select (public.verify_receipt(verification_token)->>'balance')::int=2000 from public.customer_payments limit 1),'Verification balance missing');
 select pg_temp.ok((select public.verify_receipt(verification_token)->'business'->>'name'='Ada Drinks' from public.customer_payments limit 1),'Verification business missing');
+select pg_temp.ok((select public.verify_receipt(verification_token)->>'customer_snapshot_source'='captured' from public.customer_payments limit 1),'Payment customer snapshot was not captured at save');
+update public.customers set name='Ada Renamed' where id='10000000-0000-4000-8000-000000009201';
+select pg_temp.ok((select public.verify_receipt(verification_token)->>'customer'='Ada Test' from public.customer_payments limit 1),'Customer edit rewrote historical payment receipt');
+reset role;
+update public.customer_payments set receipt_business=null where request_id='20000000-0000-4000-8000-000000009201';
+set local role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000009201',true);
+select public.save_business_details('New Shop Name','Abuja','08019999999','');
+select pg_temp.ok((select public.verify_receipt(verification_token)->>'business_snapshot'='false' and public.verify_receipt(verification_token)->'business'='{}'::jsonb from public.customer_payments limit 1),'Legacy payment receipt used current shop details');
 select pg_temp.ok((select jsonb_array_length(public.verify_receipt(verification_token)->'items')=0 from public.customer_payments limit 1),'Payment verification exposed sale items');
 select pg_temp.ok((select public.verify_receipt(verification_token) ? 'phone' = false from public.customer_payments limit 1),'Customer phone leaked');
 select pg_temp.ok((select public.verify_receipt(verification_token) ? 'customer_id' = false from public.customer_payments limit 1),'Customer ID leaked');

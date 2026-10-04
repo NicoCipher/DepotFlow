@@ -233,6 +233,8 @@ export type Database = {
           receipt_number: string
           verification_token: string
           receipt_business: Json | null
+          receipt_customer_name: string
+          receipt_customer_name_source: string
           receipt_status: string
         }
         Insert: {
@@ -247,6 +249,8 @@ export type Database = {
           receipt_number?: string
           verification_token?: string
           receipt_business?: Json | null
+          receipt_customer_name?: string
+          receipt_customer_name_source?: string
           receipt_status?: string
         }
         Update: {
@@ -261,6 +265,8 @@ export type Database = {
           receipt_number?: string
           verification_token?: string
           receipt_business?: Json | null
+          receipt_customer_name?: string
+          receipt_customer_name_source?: string
           receipt_status?: string
         }
         Relationships: [
@@ -799,6 +805,8 @@ export type Database = {
           receipt_number: string
           verification_token: string
           receipt_business: Json | null
+          receipt_customer_name: string
+          receipt_customer_name_source: string
           receipt_status: string
         }
         Insert: {
@@ -814,6 +822,8 @@ export type Database = {
           receipt_number?: string
           verification_token?: string
           receipt_business?: Json | null
+          receipt_customer_name?: string
+          receipt_customer_name_source?: string
           receipt_status?: string
         }
         Update: {
@@ -829,6 +839,8 @@ export type Database = {
           receipt_number?: string
           verification_token?: string
           receipt_business?: Json | null
+          receipt_customer_name?: string
+          receipt_customer_name_source?: string
           receipt_status?: string
         }
         Relationships: [

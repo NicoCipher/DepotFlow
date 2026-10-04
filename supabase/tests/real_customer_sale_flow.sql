@@ -32,6 +32,10 @@ begin
  perform pg_temp.ok((select receipt_business->>'name'='My drinks shop' from public.sales where id=sid),'Receipt shop snapshot missing');
  perform pg_temp.ok((select count(*)=2 from public.sale_items where sale_id=sid),'Receipt line facts missing');
  perform pg_temp.ok((select public.verify_receipt(verification_token)->>'customer'='Real shop test' from public.sales where id=sid),'Public sale receipt customer missing');
+ perform pg_temp.ok((select public.verify_receipt(verification_token)->>'customer_snapshot_source'='captured' from public.sales where id=sid),'Sale customer snapshot was not captured at save');
+ update public.customers set name='Real shop renamed' where id='20000000-0000-4000-8000-000000001001';
+ perform pg_temp.ok((select public.verify_receipt(verification_token)->>'customer'='Real shop test' from public.sales where id=sid),'Customer edit rewrote historical sale receipt');
+ update public.customers set name='Real shop test' where id='20000000-0000-4000-8000-000000001001';
  perform pg_temp.ok((select public.verify_receipt(verification_token)->'business'->>'name'='My drinks shop' from public.sales where id=sid),'Public sale receipt business missing');
  perform pg_temp.ok((select (public.verify_receipt(verification_token)->>'total')::int=24000 and (public.verify_receipt(verification_token)->>'balance')::int=4000 from public.sales where id=sid),'Public sale receipt totals missing');
  perform pg_temp.ok((select public.verify_receipt(verification_token)->>'method'='cash' from public.sales where id=sid),'Public sale receipt method missing');
@@ -64,6 +68,11 @@ begin
  exception when invalid_parameter_value then null; end;
  perform pg_temp.ok((select total_bottles=before_stock from public.stock where product_id='10000000-0000-4000-8000-000000001001'),'Rejected choices changed stock');
 end$$;
+reset role;
+update public.sales set receipt_business=null where request_id='40000000-0000-4000-8000-000000001001';
+set local role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000001001',true);
+select pg_temp.ok((select public.verify_receipt(verification_token)->>'business_snapshot'='false' and public.verify_receipt(verification_token)->'business'='{}'::jsonb from public.sales where request_id='40000000-0000-4000-8000-000000001001'),'Legacy sale receipt used current shop details');
 -- 3 and 9 bottles use full-crate proportions even with no bottle price.
 do $$declare result jsonb; q int; sid uuid;
 begin
