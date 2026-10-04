@@ -47,6 +47,22 @@ export default async function CustomerPage({
   );
   if ([money, crates, bottles, deposits, held].some((result) => result.error))
     throw new Error("Could not load customer totals.");
+
+  const crateTypeIds = [
+    ...new Set((crates.data ?? []).map((row) => row.crate_type_id).filter(Boolean)),
+  ];
+  const crateTypeNames = new Map<string, string>();
+  if (crateTypeIds.length > 0) {
+    const crateTypes = await supabase
+      .from("crate_types")
+      .select("id,name")
+      .in("id", crateTypeIds);
+    if (crateTypes.error) throw new Error("Could not load crate type names.");
+    for (const crateType of crateTypes.data ?? []) {
+      crateTypeNames.set(crateType.id, crateType.name);
+    }
+  }
+
   const { saved } = await searchParams;
   const naira = (value: number) => `₦${value.toLocaleString("en-NG")}`;
   return (
@@ -133,7 +149,7 @@ export default async function CustomerPage({
           <dl className="mt-2 divide-y divide-stone-100">
             {crates.data?.map((crate) => (
               <div key={crate.crate_type_id} className="flex items-center justify-between gap-4 py-2 text-sm">
-                <dt className="min-w-0 break-words text-stone-600">{crate.crate_type}</dt>
+                <dt className="min-w-0 break-words text-stone-600">{crate.crate_type ?? crateTypeNames.get(crate.crate_type_id) ?? "Unknown crate type"}</dt>
                 <dd className="shrink-0 font-semibold tabular-nums">{crate.quantity} {crate.quantity === 1 ? "crate" : "crates"}</dd>
               </div>
             ))}
