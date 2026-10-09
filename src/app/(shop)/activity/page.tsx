@@ -2,14 +2,15 @@ import Link from "next/link";
 import { requireOwner } from "@/lib/auth/owner";
 import { formatNaira } from "@/domain/products";
 import { formatBusinessDate } from "@/domain/sales";
+import { activityEventLabel } from "@/domain/activity";
 
 type Item = {
   id: string;
   day: string;
   created_at: string;
   kind: string;
-  title: string;
-  description: string;
+  title: string | null;
+  description: string | null;
   detail: string;
   sale_value: number;
   received: number;
@@ -25,17 +26,6 @@ function shiftDay(day: string, amount: number) {
   const date = new Date(`${day}T12:00:00Z`);
   date.setUTCDate(date.getUTCDate() + amount);
   return date.toISOString().slice(0, 10);
-}
-
-function eventLabel(item: Item) {
-  if (item.kind === "sale") return "Sale";
-  if (item.kind === "payment") return "Payment";
-  if (item.kind === "stock")
-    return item.description.startsWith("Received stock") ? "Stock received" : "Stock count";
-  if (item.kind === "opening") return "Opening balance";
-  return item.description.startsWith("Empty crate count")
-    ? "Empty crate count"
-    : "Empties returned";
 }
 
 function eventTime(createdAt: string) {
@@ -240,7 +230,7 @@ export default async function Activity({
                           >
                             <span className="min-w-0">
                               <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold uppercase tracking-wide text-emerald-800">
-                                <span>{eventLabel(item)}</span>
+                                <span>{activityEventLabel(item.kind, item.description)}</span>
                                 <time
                                   dateTime={item.created_at}
                                   className="font-medium normal-case tracking-normal text-stone-500"
@@ -249,7 +239,7 @@ export default async function Activity({
                                 </time>
                               </span>
                               <strong className="mt-1 block break-words">
-                                {item.title}
+                                {item.title?.trim() || activityEventLabel(item.kind, item.description)}
                               </strong>
                               {item.sale_value > 0 && (
                                 <small className="text-stone-600">
