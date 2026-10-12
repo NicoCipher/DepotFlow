@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { stockCountInputField, stockCountPreview, stockCountSaveError, validateBusinessDate } from "./stock-count.ts";
+import { businessTodayInLagos, stockCountInputField, stockCountPreview, stockCountSaveError, validateBusinessDate } from "./stock-count.ts";
 
 test("stock count input identifies the field to correct", () => {
   assert.equal(stockCountInputField("-1", "0", "2026-09-28"), "crates");
@@ -64,4 +64,9 @@ test("business dates are explicit calendar dates, including leap years", () => {
   ])
     assert.throws(() => validateBusinessDate(bad), /valid business date/);
   assert.throws(() => stockCountPreview("1", "0", "2026-02-29", 0, 12));
+});
+
+test("the suggested stock business date follows Lagos time, not device or UTC date", () => {
+  assert.equal(businessTodayInLagos(new Date("2026-10-12T22:59:00Z")), "2026-10-12");
+  assert.equal(businessTodayInLagos(new Date("2026-10-12T23:01:00Z")), "2026-10-13");
 });
