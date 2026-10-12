@@ -22,6 +22,10 @@ export function CataloguePhotoUpload({ id, hasPhoto }: { id: string; hasPhoto: b
           disabled={pending} className="block w-full text-sm"
         />
         <p className="text-xs text-stone-600">JPG, PNG, or WebP. Maximum 1 MB. Prefer a plain background.</p>
+        <label className="flex items-start gap-2 text-sm text-stone-700">
+          <input name="rights" value="yes" type="checkbox" required disabled={pending} className="mt-1" />
+          I took this picture or have permission to use it.
+        </label>
         <button type="submit" className="secondary w-full" disabled={pending}>
           {pending ? "Saving picture…" : "Save picture"}
         </button>
