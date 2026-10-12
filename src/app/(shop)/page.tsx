@@ -176,27 +176,26 @@ export default async function Home() {
         <PausedSalesLink ownerId={user.id} prominent />
       </section>
 
-      <section aria-labelledby="today-heading">
-        <h2 id="today-heading" className="mb-3 text-lg font-semibold">
-          Today
-        </h2>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-2xl border border-stone-200 bg-white p-4">
-            <p className="text-sm text-stone-600">Sales value</p>
-            <p className="mt-1 text-2xl font-bold">
-              {formatNaira(snapshot.sales_value)}
-            </p>
-            <p className="mt-1 text-xs text-stone-500">
-              {snapshot.sales_count} {snapshot.sales_count === 1 ? "sale" : "sales"} · includes credit
-            </p>
-          </div>
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-            <p className="text-sm text-emerald-900">Money received</p>
-            <p className="mt-1 text-2xl font-bold text-emerald-950">
+      <section aria-labelledby="money-heading">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 id="money-heading" className="text-lg font-bold">Today’s money</h2>
+          <Link href="/sales" className="text-sm font-semibold text-emerald-800 underline underline-offset-4">View sales →</Link>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="min-w-0 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+            <p className="text-sm font-semibold text-emerald-950">Money received</p>
+            <p className="mt-2 break-words text-[clamp(1.65rem,5vw,2.5rem)] font-extrabold leading-tight tracking-tight text-emerald-950">
               {formatNaira(snapshot.received)}
             </p>
-            <p className="mt-1 text-xs text-emerald-800">
-              Sale payments + collections
+            <p className="mt-3 text-sm text-emerald-900">Payments from sales and old debts</p>
+          </div>
+          <div className="min-w-0 rounded-2xl border border-stone-200 bg-white p-5">
+            <p className="text-sm font-semibold text-stone-800">Sales value</p>
+            <p className="mt-2 break-words text-[clamp(1.65rem,5vw,2.5rem)] font-extrabold leading-tight tracking-tight text-stone-950">
+              {formatNaira(snapshot.sales_value)}
+            </p>
+            <p className="mt-3 text-sm text-stone-600">
+              {snapshot.sales_count} {snapshot.sales_count === 1 ? "sale" : "sales"} recorded · Includes unpaid sales
             </p>
           </div>
         </div>
