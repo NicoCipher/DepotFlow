@@ -16,6 +16,9 @@ function todayLagos() {
 export default async function Home() {
   const { user, supabase } = await requireOwnerSession();
   const day = todayLagos();
+  const dayLabel = new Intl.DateTimeFormat("en-NG", {
+    timeZone: "Africa/Lagos", weekday: "long", day: "numeric", month: "long",
+  }).format(new Date());
 
   async function loadCrateCustomers() {
     const ids: string[] = [];
@@ -154,12 +157,10 @@ export default async function Home() {
   return (
     <div className="space-y-7">
       <header>
-        <p className="text-sm font-semibold uppercase tracking-wide text-emerald-800">
-          Manager snapshot · {day}
-        </p>
-        <h1>Your shop today</h1>
-        <p className="mt-1 text-stone-600">
-          Today’s sales, cash and what needs attention.
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-800">{dayLabel}</p>
+        <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Your shop today</h1>
+        <p className="mt-2 max-w-xl text-sm leading-6 text-stone-600 sm:text-base">
+          Make a sale, check your money and see what needs attention.
         </p>
       </header>
 
