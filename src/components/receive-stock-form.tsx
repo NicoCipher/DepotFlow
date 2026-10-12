@@ -118,7 +118,8 @@ export function ReceiveStockForm({
     state.message && state.crates === crates && state.businessDate === businessDate,
   );
   const enteredNumber = /^\d+$/.test(crates) ? Number(crates) : null;
-  const tooManyCrates = enteredNumber !== null && enteredNumber > availableEmpties;
+  // The count shown when this page loaded may be stale. Let the server recheck.
+  const aboveShownCount = enteredNumber !== null && enteredNumber > availableEmpties;
   let preview: ReturnType<typeof receivingPreview> | null = null;
   try {
     preview = receivingPreview(crates, {
@@ -150,20 +151,22 @@ export function ReceiveStockForm({
           required
           value={crates}
           readOnly={pending}
-          aria-invalid={tooManyCrates || (showServerError && state.field === "crates")}
-          aria-describedby={tooManyCrates || (showServerError && state.field === "crates") ? "receive-crates-error" : undefined}
+          aria-invalid={showServerError && state.field === "crates"}
+          aria-describedby={showServerError && state.field === "crates" ? "receive-crates-error" : aboveShownCount ? "receive-crates-hint" : undefined}
           onChange={(event) => setCrates(event.target.value)}
         />
         <p className="mt-1 text-xs text-stone-600">
           Up to {availableEmpties} matching empty {availableEmpties === 1 ? "crate" : "crates"} available.
         </p>
-        {tooManyCrates ? (
-          <p id="receive-crates-error" role="alert" className="mt-1 text-sm text-red-800">
-            Only {availableEmpties} matching empty {availableEmpties === 1 ? "crate is" : "crates are"} recorded. Receive fewer crates or update empty crate counts.
+        {aboveShownCount && (
+          <p id="receive-crates-hint" className="mt-1 text-sm text-amber-900">
+            This exceeds the count shown when the page opened. Continue to review;
+            we will check the latest empty-crate count before saving.
           </p>
-        ) : showServerError && state.field === "crates" ? (
+        )}
+        {showServerError && state.field === "crates" && (
           <p id="receive-crates-error" role="alert" className="mt-1 text-sm text-red-800">{state.message}</p>
-        ) : null}
+        )}
       </div>
       <div>
         <label htmlFor="businessDate">Business date</label>
@@ -200,7 +203,7 @@ export function ReceiveStockForm({
         <p role="alert" className="rounded-lg bg-red-50 p-3 text-red-900">{state.message}</p>
       )}
       {showServerError && <SessionRecoveryLink message={state.message} />}
-      <button className="primary w-full" disabled={pending || tooManyCrates}>
+      <button className="primary w-full" disabled={pending}>
         {pending ? "Checking…" : "Next: Review received stock"}
       </button>
     </form>
