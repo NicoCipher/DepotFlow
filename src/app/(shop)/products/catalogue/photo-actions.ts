@@ -36,32 +36,23 @@ export async function uploadCataloguePhoto(
       });
     if (uploadError) return invalid("Photo upload failed. Please try again.");
 
-    // Prevent stale simultaneous updates from silently replacing another photo.
-    let update = supabase.from("product_catalogue")
-      .update({ image_path: path }).eq("id", catalogueId);
-    update = catalogue.data.image_path
-      ? update.eq("image_path", catalogue.data.image_path)
-      : update.is("image_path", null);
-    const changed = await update.select("id").maybeSingle();
-    if (changed.error || !changed.data) {
+    const { data: publicUrl } = supabase.storage.from(PRODUCT_IMAGE_BUCKET).getPublicUrl(path);
+    const committed = await supabase.rpc("set_catalogue_product_image", {
+      p_catalogue_id: catalogueId,
+      p_expected_path: catalogue.data.image_path,
+      p_new_path: path,
+      p_new_url: publicUrl.publicUrl,
+    });
+    if (committed.error || committed.data !== true) {
       await supabase.storage.from(PRODUCT_IMAGE_BUCKET).remove([path]);
-      return invalid("Another photo was saved first. Refresh before uploading again.");
+      return invalid("Picture could not be saved or another picture was saved first. Refresh and try again.");
     }
-
-    const { data } = supabase.storage.from(PRODUCT_IMAGE_BUCKET).getPublicUrl(path);
-    const sync = await supabase.from("products")
-      .update({ image_url: data.publicUrl })
-      .eq("catalogue_product_id", catalogueId);
     revalidatePath("/products/catalogue");
     revalidatePath("/products");
     revalidatePath("/stock");
     revalidatePath("/stock/count");
     revalidatePath("/stock/receive");
     revalidatePath("/record-sale");
-    if (sync.error) {
-      // The catalogue image is saved; never delete the live object on a partial failure.
-      return invalid("Photo saved in the catalogue, but the shop picture could not update. Please contact support.");
-    }
     return { message: "Photo saved. It will appear in your shop and sales.", saved: true };
   } catch {
     return invalid("Could not finish uploading. Refresh to check before trying again.");
