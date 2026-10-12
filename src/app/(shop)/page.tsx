@@ -234,31 +234,31 @@ export default async function Home() {
       <section aria-labelledby="attention-heading">
         <div className="mb-3 flex items-end justify-between gap-3">
           <h2 id="attention-heading" className="text-lg font-semibold">
-            Needs attention
+            Things to check
           </h2>
           {attentionCount > 0 && (
             <span className="text-sm text-stone-500">
-              {attentionCount} {attentionCount === 1 ? "area" : "areas"}
+              {attentionCount} {attentionCount === 1 ? "item" : "items"}
             </span>
           )}
         </div>
 
         {attentionCount === 0 ? (
           <div className="rounded-2xl border border-stone-200 bg-white p-5">
-            <p className="font-semibold">Nothing needs attention right now</p>
+            <p className="font-semibold">All caught up</p>
             <p className="mt-1 text-sm text-stone-600">
-              New debts, missing empties, low stock and setup issues will appear here.
+              Stock, customer balances and setup checks will appear here when needed.
             </p>
           </div>
         ) : (
-          <div className="grid overflow-hidden rounded-2xl border border-stone-200 bg-stone-200 md:grid-cols-2">
+          <div className="divide-y divide-stone-200 overflow-hidden rounded-2xl border border-stone-200 bg-white">
             {snapshot.customers_owing > 0 && (
               <Link
                 href="/customers"
-                className="flex min-h-20 items-center justify-between gap-3 bg-white p-4"
+                className="flex min-h-20 flex-wrap items-center justify-between gap-3 bg-white p-4 hover:bg-stone-50"
               >
                 <span>
-                  <strong className="block">Outstanding balances</strong>
+                  <strong className="block">Customer money owed</strong>
                   <small className="text-stone-600">
                     {snapshot.customers_owing} {snapshot.customers_owing === 1 ? "customer owes" : "customers owe"} money
                   </small>
@@ -272,10 +272,10 @@ export default async function Home() {
             {emptiesCustomers > 0 && (
               <Link
                 href="/empties"
-                className="flex min-h-20 items-center justify-between gap-3 bg-white p-4"
+                className="flex min-h-20 flex-wrap items-center justify-between gap-3 bg-white p-4 hover:bg-stone-50"
               >
                 <span>
-                  <strong className="block">Customer empties owed</strong>
+                  <strong className="block">Empties customers owe</strong>
                   <small className="text-stone-600">
                     Exact crates and bottles still outstanding
                   </small>
@@ -289,7 +289,7 @@ export default async function Home() {
             {hasHeldEmpties && (
               <Link
                 href="/empties"
-                className="flex min-h-20 items-center justify-between gap-3 bg-amber-50 p-4"
+                className="flex min-h-20 flex-wrap items-center justify-between gap-3 bg-amber-50 p-4 hover:bg-amber-100"
               >
                 <span>
                   <strong className="block text-amber-950">Different empties held</strong>
@@ -316,7 +316,7 @@ export default async function Home() {
             {lowStockOnly > 0 && (
               <Link
                 href="/stock"
-                className="flex min-h-20 items-center justify-between gap-3 bg-white p-4"
+                className="flex min-h-20 flex-wrap items-center justify-between gap-3 bg-white p-4 hover:bg-stone-50"
               >
                 <span>
                   <strong className="block">Low stock</strong>
@@ -333,7 +333,7 @@ export default async function Home() {
             {snapshot.missing_counts > 0 && (
               <Link
                 href="/stock/count"
-                className="flex min-h-20 items-center justify-between gap-3 bg-white p-4"
+                className="flex min-h-20 flex-wrap items-center justify-between gap-3 bg-white p-4 hover:bg-stone-50"
               >
                 <span>
                   <strong className="block">Stock not counted</strong>
@@ -350,12 +350,12 @@ export default async function Home() {
             {drinksNeedingSetup > 0 && (
               <Link
                 href="/products"
-                className="flex min-h-20 items-center justify-between gap-3 bg-white p-4"
+                className="flex min-h-20 flex-wrap items-center justify-between gap-3 bg-white p-4 hover:bg-stone-50"
               >
                 <span>
                   <strong className="block">Drinks need setup</strong>
                   <small className="text-stone-600">
-                    Finish crate details before selling
+                    Add missing crate details before selling
                   </small>
                 </span>
                 <strong className="shrink-0">
