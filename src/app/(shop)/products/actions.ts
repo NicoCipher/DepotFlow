@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { catalogueImageUrl } from "@/domain/product-images";
 import { revalidatePath } from "next/cache";
 import { requireOwner } from "@/lib/auth/owner";
 import {
@@ -24,7 +25,9 @@ async function save(
       String(formData.get(field) ?? ""),
     ]),
   ) as ProductValues;
-  const checked = validateProduct(values);
+  // Photo references are managed only by the owner-only Storage upload action.
+  // Ignore even forged image_url form fields.
+  const checked = validateProduct({ ...values, image_url: "" });
   if (!checked.valid)
     return {
       values,
@@ -59,22 +62,26 @@ async function save(
       message: "Finish the physical crate details.",
     };
   const catalogueId = editing ? "" : String(formData.get("catalogue_product_id") ?? "");
+  let catalogueImage: string | null = null;
   if (catalogueId) {
     if (!isProductId(catalogueId)) return { values, errors: {}, message: "Choose the drink again from the catalogue." };
-    const drink = await supabase.from("product_catalogue").select("id").eq("id", catalogueId).maybeSingle();
+    const drink = await supabase.from("product_catalogue").select("id,image_path").eq("id", catalogueId).maybeSingle();
     if (drink.error || !drink.data) return { values, errors: {}, message: "Could not find this catalogue drink. Your details are still here. Please try again." };
+    catalogueImage = catalogueImageUrl(drink.data.image_path);
   }
+  // Do not overwrite a managed photo when editing prices, crates, or names.
+  const { image_url: _untrustedImageUrl, ...safeDetails } = checked.data;
   try {
     const result = editing
       ? await supabase
           .from("products")
-          .update(checked.data)
+          .update(safeDetails)
           .eq("id", id)
           .select("id")
           .maybeSingle()
       : await supabase
           .from("products")
-          .insert({ id, ...checked.data, ...(catalogueId ? { catalogue_product_id: catalogueId } : {}) })
+          .insert({ id, ...safeDetails, image_url: catalogueImage, ...(catalogueId ? { catalogue_product_id: catalogueId } : {}) })
           .select("id")
           .single();
     if (result.error || !result.data) {
@@ -89,7 +96,7 @@ async function save(
         if (
           existing.error ||
           !existing.data ||
-          !sameProductDetails(existing.data, checked.data) ||
+          !sameProductDetails(existing.data, { ...safeDetails, image_url: catalogueImage }) ||
           existing.data.catalogue_product_id !== (catalogueId || null)
         ) {
           return {
