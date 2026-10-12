@@ -67,7 +67,7 @@ export function ProductForm({
     setClientErrors((current) => ({ ...current, crate_type_id: undefined, bottles_per_crate: undefined }));
   }
   const optionalDetails = useRef<HTMLDetailsElement>(null);
-  const optionalFields = ["size", "image_url", "half_crate_price", "quarter_crate_price", "bottle_price"] as const;
+  const optionalFields = ["size", "half_crate_price", "quarter_crate_price", "bottle_price"] as const;
   const [optionalOpen, setOptionalOpen] = useState(() =>
     optionalFields.some((key) => Boolean(initialValues[key])),
   );
@@ -94,7 +94,7 @@ export function ProductForm({
         <input
           id={name}
           name={name}
-          type={name === "image_url" ? "url" : "text"}
+          type="text"
           inputMode={numeric ? "numeric" : undefined}
           pattern={numeric ? "[0-9]+" : undefined}
           maxLength={maxLength}
@@ -246,7 +246,6 @@ export function ProductForm({
         <div className="mt-4 space-y-5">
           <p className="text-sm text-stone-600">Leave half and quarter prices blank to calculate them from the full crate price. Bottle price is separate.</p>
           {field("size", "Size (optional)", 80)}
-          {field("image_url", "Image URL (optional)", 2048)}
         {field(
           "half_crate_price",
           "Half-crate selling price (₦, optional)",
