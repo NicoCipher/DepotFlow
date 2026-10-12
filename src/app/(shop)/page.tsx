@@ -157,7 +157,7 @@ export default async function Home() {
         <p className="text-sm font-semibold uppercase tracking-wide text-emerald-800">
           Manager snapshot · {day}
         </p>
-        <h1>Home</h1>
+        <h1>Your shop today</h1>
         <p className="mt-1 text-stone-600">
           Today’s sales, cash and what needs attention.
         </p>
