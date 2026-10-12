@@ -38,13 +38,16 @@ export async function reviewCount(
   try {
     return {
       ...values,
-      review: stockCountPreview(
-        values.crates,
-        values.bottles,
-        values.businessDate,
-        data.stock?.total_bottles ?? 0,
-        data.bottles_per_crate,
-      ),
+      review: {
+        ...stockCountPreview(
+          values.crates,
+          values.bottles,
+          values.businessDate,
+          data.stock?.total_bottles ?? 0,
+          data.bottles_per_crate,
+        ),
+        previouslyCounted: Boolean(data.stock),
+      },
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Check your stock count.";
