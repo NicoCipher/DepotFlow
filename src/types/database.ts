@@ -975,6 +975,10 @@ export type Database = {
       }
     }
     Functions: {
+      set_catalogue_product_image: {
+        Args: { p_catalogue_id: string; p_expected_path: string | null; p_new_path: string; p_new_url: string }
+        Returns: boolean
+      }
       record_customer_empty_return: { Args: { p_request_id: string; p_customer_id: string; p_crates: Json; p_bottles: Json; p_release_ids: string[] }; Returns: undefined }
       save_business_details: { Args: { p_name: string; p_address: string; p_phone: string; p_logo_url: string }; Returns: undefined }
       release_held_empties: { Args: { p_id: string }; Returns: undefined }
