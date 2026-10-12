@@ -201,6 +201,36 @@ export default async function Home() {
         </div>
       </section>
 
+      <section aria-labelledby="quick-actions-heading">
+        <h2 id="quick-actions-heading" className="mb-3 text-lg font-bold">What do you want to do?</h2>
+        <div className="grid grid-cols-2 gap-3">
+          <Link href="/stock/receive" className="flex min-h-28 flex-col justify-between gap-3 rounded-2xl border border-stone-200 bg-white p-4 hover:border-emerald-400 hover:bg-emerald-50">
+            <span className="text-base font-bold leading-snug text-stone-900">Receive stock</span>
+            <span className="flex items-end justify-between gap-1 text-xs text-stone-600">
+              Add new drinks <span aria-hidden="true" className="text-lg font-bold text-emerald-900">→</span>
+            </span>
+          </Link>
+          <Link href="/customers" className="flex min-h-28 flex-col justify-between gap-3 rounded-2xl border border-stone-200 bg-white p-4 hover:border-emerald-400 hover:bg-emerald-50">
+            <span className="text-base font-bold leading-snug text-stone-900">Record payment</span>
+            <span className="flex items-end justify-between gap-1 text-xs text-stone-600">
+              Choose customer <span aria-hidden="true" className="text-lg font-bold text-emerald-900">→</span>
+            </span>
+          </Link>
+          <Link href="/stock/count" className="flex min-h-28 flex-col justify-between gap-3 rounded-2xl border border-stone-200 bg-white p-4 hover:border-emerald-400 hover:bg-emerald-50">
+            <span className="text-base font-bold leading-snug text-stone-900">Count stock</span>
+            <span className="flex items-end justify-between gap-1 text-xs text-stone-600">
+              Check quantities <span aria-hidden="true" className="text-lg font-bold text-emerald-900">→</span>
+            </span>
+          </Link>
+          <Link href="/empties" className="flex min-h-28 flex-col justify-between gap-3 rounded-2xl border border-stone-200 bg-white p-4 hover:border-emerald-400 hover:bg-emerald-50">
+            <span className="text-base font-bold leading-snug text-stone-900">Check empties</span>
+            <span className="flex items-end justify-between gap-1 text-xs text-stone-600">
+              Crates and bottles <span aria-hidden="true" className="text-lg font-bold text-emerald-900">→</span>
+            </span>
+          </Link>
+        </div>
+      </section>
+
       <section aria-labelledby="attention-heading">
         <div className="mb-3 flex items-end justify-between gap-3">
           <h2 id="attention-heading" className="text-lg font-semibold">
