@@ -25,7 +25,14 @@ export async function uploadCataloguePhoto(
   if (!(file instanceof File) || file.size === 0 || file.size > MAX_PRODUCT_IMAGE_BYTES)
     return invalid("Choose a JPG, PNG, or WebP picture smaller than 1 MB.");
 
-  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (form.get("rights") !== "yes")
+    return invalid("Confirm that you have permission to use this picture.");
+  let bytes: Uint8Array;
+  try {
+    bytes = new Uint8Array(await file.arrayBuffer());
+  } catch {
+    return invalid("Could not read this picture. Please try another file.");
+  }
   const extension = sniffProductImage(bytes, file.type);
   if (!extension) return invalid("This file is not a valid JPG, PNG, or WebP picture.");
   const catalogue = await supabase.from("product_catalogue")
