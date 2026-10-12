@@ -155,7 +155,7 @@ export default async function Home() {
     (drinksNeedingSetup > 0 ? 1 : 0);
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-8 pb-4">
       <header>
         <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-800">{dayLabel}</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Your shop today</h1>
@@ -164,15 +164,17 @@ export default async function Home() {
         </p>
       </header>
 
-      <div className="grid gap-3 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-        <Link
-          href="/record-sale"
-          className="flex min-h-20 items-center justify-between rounded-2xl bg-emerald-900 px-5 text-xl font-semibold text-white shadow-sm"
-        >
-          Record Sale <span aria-hidden="true">→</span>
+      <section aria-label="Start working" className="space-y-3">
+        <Link href="/record-sale" className="group flex min-h-36 items-center justify-between gap-4 rounded-3xl bg-emerald-900 px-5 py-6 text-white shadow-sm hover:bg-emerald-800 sm:px-7">
+          <span className="min-w-0">
+            <span className="block text-xs font-bold uppercase tracking-[0.14em] text-emerald-200">Start here</span>
+            <span className="mt-1 block text-2xl font-bold tracking-tight sm:text-3xl">Record a sale</span>
+            <span className="mt-2 block text-sm leading-5 text-emerald-100">Choose customer, add drinks and take payment</span>
+          </span>
+          <span aria-hidden="true" className="grid size-12 shrink-0 place-items-center rounded-full bg-white/15 text-2xl">→</span>
         </Link>
         <PausedSalesLink ownerId={user.id} prominent />
-      </div>
+      </section>
 
       <section aria-labelledby="today-heading">
         <h2 id="today-heading" className="mb-3 text-lg font-semibold">
