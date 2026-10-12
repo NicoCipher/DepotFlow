@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { receivingPreview, receivingSaveError } from "./receiving.ts";
 test("receiving handles changed empties and ambiguous saves without leaking database text", () => {
@@ -56,5 +57,26 @@ test("overflow and corrupt counts cannot become a review", () => {
   assert.throws(() => receivingPreview("1", { ...snapshot, stock: -1 }));
   assert.throws(() =>
     receivingPreview("1", { ...snapshot, bottlesPerCrate: 0 }),
+  );
+});
+
+test("the receiving form never blocks server review using an old empty-crate count", () => {
+  const source = readFileSync(
+    new URL("../components/receive-stock-form.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /const aboveShownCount/);
+  assert.match(source, /<button className="primary w-full" disabled=\{pending\}>/);
+  assert.doesNotMatch(source, /disabled=\{[^}]*aboveShownCount[^}]*\}/);
+});
+
+test("receiving validation can succeed after the matching empty-crate count increases", () => {
+  assert.throws(
+    () => receivingPreview("3", { ...snapshot, empties: 2 }),
+    /Not enough/,
+  );
+  assert.equal(
+    receivingPreview("3", { ...snapshot, empties: 4 }).emptiesAfter,
+    1,
   );
 });
