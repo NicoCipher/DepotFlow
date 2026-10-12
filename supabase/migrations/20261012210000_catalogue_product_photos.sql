@@ -23,7 +23,7 @@ declare
 begin
   if p_new_path is null
      or p_new_path !~* ('^catalogue/' || p_catalogue_id::text ||
-        '/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\.(webp|png|jpg|jpeg)$')
+        '/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\.(webp|png|jpg|jpeg)$')
      or p_new_url is null
      or p_new_url !~ '^https://[a-z0-9-]+\.supabase\.co/storage/v1/object/public/product-images/'
      or right(p_new_url, length(p_new_path)) <> p_new_path
