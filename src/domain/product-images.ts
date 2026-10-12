@@ -2,11 +2,8 @@
 export const PRODUCT_IMAGE_BUCKET = "product-images";
 export const MAX_PRODUCT_IMAGE_BYTES = 1024 * 1024;
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
-const PATH = new RegExp(`^(catalogue|products)/${UUID}/${UUID}\\.(webp|png|jpg|jpeg)/** Product photos are stored in DepotFlow's own image bucket, never hotlinked. */
-export const PRODUCT_IMAGE_BUCKET = "product-images";
-export const MAX_PRODUCT_IMAGE_BYTES = 1024 * 1024;
-const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
-, "i");
+const PATH = new RegExp("^(catalogue|products)/" + UUID + "/" + UUID + "\\.(webp|png|jpg|jpeg)$", "i");
+
 const PUBLIC_PREFIX = "/storage/v1/object/public/product-images/";
 
 export function validCatalogueImagePath(path: string | null): path is string {
