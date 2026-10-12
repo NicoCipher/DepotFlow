@@ -2,11 +2,13 @@
 
 import { useActionState } from "react";
 import { uploadCataloguePhoto, type PhotoState } from "@/app/(shop)/products/catalogue/photo-actions";
+import { uploadCustomProductPhoto } from "@/app/(shop)/products/[id]/photo-actions";
 
 const initial: PhotoState = { message: "", saved: false };
 
-export function CataloguePhotoUpload({ id, hasPhoto }: { id: string; hasPhoto: boolean }) {
-  const [state, action, pending] = useActionState(uploadCataloguePhoto.bind(null, id), initial);
+export function DrinkPhotoUpload({ id, hasPhoto, kind = "catalogue" }: { id: string; hasPhoto: boolean; kind?: "catalogue" | "product" }) {
+  const submit = kind === "catalogue" ? uploadCataloguePhoto : uploadCustomProductPhoto;
+  const [state, action, pending] = useActionState(submit.bind(null, id), initial);
   return (
     <details className="mt-3 border-t border-stone-200 pt-3">
       <summary className="cursor-pointer font-semibold text-sm text-stone-700">
