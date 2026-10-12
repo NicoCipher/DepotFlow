@@ -15,6 +15,7 @@ test("only bucket-managed catalogue photos can be displayed", () => {
   assert.equal(validCatalogueImagePath(path), true);
   assert.equal(catalogueImageUrl(path), `https://my-project.supabase.co/storage/v1/object/public/product-images/${path}`);
   assert.equal(trustedProductImageUrl(catalogueImageUrl(path)), true);
+  assert.equal(trustedProductImageUrl(`https://my-project.supabase.co/storage/v1/object/public/product-images/products/${uuid}/${uuid}.png`), true);
   assert.equal(trustedProductImageUrl("https://example.com/image.png"), false);
   assert.equal(trustedProductImageUrl("https://my-project.supabase.co/storage/v1/object/public/other/private.png"), false);
   assert.equal(validCatalogueImagePath("../private.png"), false);
