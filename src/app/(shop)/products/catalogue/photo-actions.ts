@@ -4,11 +4,8 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { requireOwner } from "@/lib/auth/owner";
 import { isProductId } from "@/domain/products";
-import {
-  MAX_PRODUCT_IMAGE_BYTES,
-  PRODUCT_IMAGE_BUCKET,
-  sniffProductImage,
-} from "@/domain/product-images";
+import { PRODUCT_IMAGE_BUCKET } from "@/domain/product-images";
+import { checkOwnerPhoto } from "@/lib/product-photo-upload";
 
 export type PhotoState = { message: string; saved: boolean };
 
@@ -21,31 +18,19 @@ export async function uploadCataloguePhoto(
   const supabase = await requireOwner();
   const invalid = (message: string): PhotoState => ({ message, saved: false });
   if (!isProductId(catalogueId)) return invalid("Choose this drink again.");
-  const file = form.get("photo");
-  if (!(file instanceof File) || file.size === 0 || file.size > MAX_PRODUCT_IMAGE_BYTES)
-    return invalid("Choose a JPG, PNG, or WebP picture smaller than 1 MB.");
-
-  if (form.get("rights") !== "yes")
-    return invalid("Confirm that you have permission to use this picture.");
-  let bytes: Uint8Array;
-  try {
-    bytes = new Uint8Array(await file.arrayBuffer());
-  } catch {
-    return invalid("Could not read this picture. Please try another file.");
-  }
-  const extension = sniffProductImage(bytes, file.type);
-  if (!extension) return invalid("This file is not a valid JPG, PNG, or WebP picture.");
+  const checked = await checkOwnerPhoto(form);
+  if ("error" in checked) return invalid(checked.error);
   const catalogue = await supabase.from("product_catalogue")
     .select("id,image_path").eq("id", catalogueId).maybeSingle();
   if (catalogue.error || !catalogue.data)
     return invalid("This drink could not be found. Refresh and try again.");
 
-  const path = `catalogue/${catalogueId}/${randomUUID()}.${extension}`;
+  const path = `catalogue/${catalogueId}/${randomUUID()}.${checked.extension}`;
   try {
     const { error: uploadError } = await supabase.storage
       .from(PRODUCT_IMAGE_BUCKET)
-      .upload(path, bytes, {
-        contentType: file.type,
+      .upload(path, checked.bytes, {
+        contentType: checked.mime,
         cacheControl: "31536000",
         upsert: false,
       });
