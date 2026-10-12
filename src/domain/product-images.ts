@@ -2,11 +2,15 @@
 export const PRODUCT_IMAGE_BUCKET = "product-images";
 export const MAX_PRODUCT_IMAGE_BYTES = 1024 * 1024;
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
-const PATH = new RegExp(`^catalogue/${UUID}/${UUID}\\.(webp|png|jpg|jpeg)$`, "i");
+const PATH = new RegExp(`^(catalogue|products)/${UUID}/${UUID}\\.(webp|png|jpg|jpeg)/** Product photos are stored in DepotFlow's own image bucket, never hotlinked. */
+export const PRODUCT_IMAGE_BUCKET = "product-images";
+export const MAX_PRODUCT_IMAGE_BYTES = 1024 * 1024;
+const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+, "i");
 const PUBLIC_PREFIX = "/storage/v1/object/public/product-images/";
 
 export function validCatalogueImagePath(path: string | null): path is string {
-  return typeof path === "string" && PATH.test(path);
+  return typeof path === "string" && path.startsWith("catalogue/") && PATH.test(path);
 }
 
 export function catalogueImageUrl(path: string | null): string | null {
@@ -33,7 +37,7 @@ export function trustedProductImageUrl(value: string | null): boolean {
       image.protocol === project.protocol &&
       !image.username && !image.password && !image.search && !image.hash &&
       image.pathname.startsWith(PUBLIC_PREFIX) &&
-      validCatalogueImagePath(image.pathname.slice(PUBLIC_PREFIX.length));
+      PATH.test(image.pathname.slice(PUBLIC_PREFIX.length));
   } catch {
     return false;
   }
