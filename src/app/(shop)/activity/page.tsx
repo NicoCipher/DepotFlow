@@ -248,7 +248,12 @@ export default async function Activity({
                               )}
                             </span>
                             <span className="shrink-0 text-right font-semibold">
-                              {item.received > 0 ? formatNaira(item.received) : "→"}
+                              {item.received > 0 && (
+                                <span className="block">{formatNaira(item.received)}</span>
+                              )}
+                              <span className="block text-sm text-emerald-800">
+                                View details →
+                              </span>
                             </span>
                           </Link>
                         </li>
