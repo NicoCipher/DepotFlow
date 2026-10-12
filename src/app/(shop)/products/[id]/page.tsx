@@ -76,7 +76,7 @@ export default async function ProductPage({
         </Link>
       ) : (
         <DrinkPhotoUpload id={product.id} hasPhoto={Boolean(product.image_url)} kind="product" />
-      )
+      )}
       {saved === "added" && !crateNeedsAttention && (
         <section className="mt-6 border-y border-stone-300 py-5">
           <h2 className="text-lg font-semibold">Next: record the stock in your shop</h2>
