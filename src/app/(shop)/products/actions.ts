@@ -71,6 +71,7 @@ async function save(
   }
   // Do not overwrite a managed photo when editing prices, crates, or names.
   const { image_url: _untrustedImageUrl, ...safeDetails } = checked.data;
+  void _untrustedImageUrl;
   try {
     const result = editing
       ? await supabase
