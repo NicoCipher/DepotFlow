@@ -6,7 +6,11 @@ import {
   reviewCount,
   confirmCount,
 } from "@/app/(shop)/stock/count/[id]/actions";
-import type { StockCountState } from "@/domain/stock-count";
+import {
+  businessTodayInLagos,
+  stockCountPreview,
+  type StockCountState,
+} from "@/domain/stock-count";
 import { formatQuantity } from "@/domain/quantity";
 
 function ConfirmCount({
@@ -24,8 +28,10 @@ function ConfirmCount({
     confirmCount.bind(null, productId, requestId, review),
     { message: "" },
   );
+  const difference = review.stockAfter - review.stock;
   return (
     <form action={action} className="mt-6 space-y-5">
+      <p className="text-sm font-semibold uppercase tracking-wide text-emerald-800">Step 2 of 2 · Review</p>
       <h2 className="text-xl font-semibold">Check the current count</h2>
       <dl className="review-list">
         <div>
@@ -34,7 +40,7 @@ function ConfirmCount({
         </div>
         <div>
           <dt>Previously recorded</dt>
-          <dd>{formatQuantity(review.stock, review.bottlesPerCrate)}</dd>
+          <dd>{review.previouslyCounted === false ? "Not counted yet" : formatQuantity(review.stock, review.bottlesPerCrate)}</dd>
         </div>
         <div>
           <dt>Counted in the shop</dt>
@@ -42,28 +48,47 @@ function ConfirmCount({
             {formatQuantity(review.stockAfter, review.bottlesPerCrate)}
           </dd>
         </div>
+        <div>
+          <dt>Change in stock</dt>
+          <dd className="font-semibold">
+            {difference === 0
+              ? "No change"
+              : `${difference > 0 ? "+" : "−"}${Math.abs(difference)} bottles`}
+          </dd>
+        </div>
       </dl>
-      <p>
-        This replaces the recorded drinks stock. Empty crates stay unchanged.
+      <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-950">
+        Save will replace the recorded drinks stock with this count. Empty crates
+        stay unchanged.
       </p>
-      <ReviewSaveActions message={state.message} pending={pending} retryable={state.retryable}
-        saveLabel="Save Current Stock" retryLabel="Retry same count" changeLabel="Change count" onBack={onBack} />
+      <ReviewSaveActions
+        message={state.message}
+        pending={pending}
+        retryable={state.retryable}
+        saveLabel="Save Current Stock"
+        retryLabel="Retry same count"
+        changeLabel="Change count"
+        onBack={onBack}
+      />
     </form>
   );
 }
+
 export function StockCountForm({
   productId,
   requestId,
+  bottlesPerCrate,
 }: {
   productId: string;
   requestId: string;
+  bottlesPerCrate: number;
 }) {
   const [submissionId, setSubmissionId] = useState(requestId);
   const [editing, setEditing] = useState(false);
   const [values, setValues] = useState({
     crates: "",
     bottles: "0",
-    businessDate: new Date().toLocaleDateString("sv-SE"),
+    businessDate: businessTodayInLagos(),
   });
   const [state, action, pending] = useActionState(
     reviewCount.bind(null, productId),
@@ -75,15 +100,39 @@ export function StockCountForm({
         productId={productId}
         requestId={submissionId}
         review={state.review}
-        onBack={() => { setSubmissionId(crypto.randomUUID()); setEditing(true); }}
+        onBack={() => {
+          setSubmissionId(crypto.randomUUID());
+          setEditing(true);
+        }}
       />
     );
+
+  const showServerError = Boolean(
+    state.message &&
+      state.crates === values.crates &&
+      state.bottles === values.bottles &&
+      state.businessDate === values.businessDate,
+  );
+  const tooManyLooseBottles =
+    /^\d+$/.test(values.bottles) &&
+    Number(values.bottles) >= bottlesPerCrate;
+  let enteredCount: string | null = null;
+  try {
+    const preview = stockCountPreview(
+      values.crates, values.bottles, values.businessDate, 0, bottlesPerCrate,
+    );
+    enteredCount = formatQuantity(preview.stockAfter, bottlesPerCrate);
+  } catch {
+    // The server validates the real stock snapshot on the next step.
+  }
+
   return (
     <form
       action={action}
       className="mt-6 space-y-5"
       onSubmit={() => setEditing(false)}
     >
+      <p className="text-sm font-semibold uppercase tracking-wide text-emerald-800">Step 1 of 2 · Enter count</p>
       <div>
         <label htmlFor="crates">Whole crates in the shop</label>
         <input
@@ -95,9 +144,14 @@ export function StockCountForm({
           required
           value={values.crates}
           readOnly={pending}
-          aria-invalid={state.field === "crates"}
+          aria-invalid={showServerError && state.field === "crates"}
+          aria-describedby={showServerError && state.field === "crates" ? "count-crates-error" : undefined}
           onChange={(e) => setValues({ ...values, crates: e.target.value })}
         />
+        <p className="mt-1 text-xs text-stone-600">Enter 0 if there are no full crates.</p>
+        {showServerError && state.field === "crates" && (
+          <p id="count-crates-error" role="alert" className="mt-1 text-sm text-red-800">{state.message}</p>
+        )}
       </div>
       <div>
         <label htmlFor="bottles">Loose bottles</label>
@@ -110,9 +164,18 @@ export function StockCountForm({
           required
           value={values.bottles}
           readOnly={pending}
-          aria-invalid={state.field === "bottles"}
+          aria-invalid={tooManyLooseBottles || (showServerError && state.field === "bottles")}
+          aria-describedby={tooManyLooseBottles || (showServerError && state.field === "bottles") ? "count-bottles-error" : undefined}
           onChange={(e) => setValues({ ...values, bottles: e.target.value })}
         />
+        <p className="mt-1 text-xs text-stone-600">0 to {bottlesPerCrate - 1} bottles. A full crate belongs in the field above.</p>
+        {tooManyLooseBottles ? (
+          <p id="count-bottles-error" role="alert" className="mt-1 text-sm text-red-800">
+            Enter fewer than {bottlesPerCrate} loose bottles.
+          </p>
+        ) : showServerError && state.field === "bottles" ? (
+          <p id="count-bottles-error" role="alert" className="mt-1 text-sm text-red-800">{state.message}</p>
+        ) : null}
       </div>
       <div>
         <label htmlFor="businessDate">Business date</label>
@@ -125,19 +188,26 @@ export function StockCountForm({
           required
           value={values.businessDate}
           readOnly={pending}
-          aria-invalid={state.field === "businessDate"}
-          onChange={(e) =>
-            setValues({ ...values, businessDate: e.target.value })
-          }
+          aria-invalid={showServerError && state.field === "businessDate"}
+          aria-describedby={showServerError && state.field === "businessDate" ? "count-date-error" : undefined}
+          onChange={(e) => setValues({ ...values, businessDate: e.target.value })}
         />
+        {showServerError && state.field === "businessDate" && (
+          <p id="count-date-error" role="alert" className="mt-1 text-sm text-red-800">{state.message}</p>
+        )}
       </div>
-      {state.message && (
-        <p role="alert" className="text-red-800">
-          {state.message}
-        </p>
+      {enteredCount && (
+        <div aria-live="polite" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+          <p className="text-sm text-emerald-900">You entered</p>
+          <p className="mt-1 text-xl font-semibold text-emerald-950">{enteredCount}</p>
+          <p className="mt-1 text-xs text-emerald-900">This replaces the current stock after you review and save.</p>
+        </div>
       )}
-      <SessionRecoveryLink message={state.message} />
-      <button className="primary w-full" disabled={pending}>
+      {showServerError && !state.field && (
+        <p role="alert" className="rounded-lg bg-red-50 p-3 text-red-900">{state.message}</p>
+      )}
+      {showServerError && <SessionRecoveryLink message={state.message} />}
+      <button className="primary w-full" disabled={pending || tooManyLooseBottles}>
         {pending ? "Checking…" : "Next: Review stock count"}
       </button>
     </form>
