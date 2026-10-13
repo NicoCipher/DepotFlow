@@ -9,7 +9,7 @@ from pathlib import Path
 import requests
 from PIL import Image, ImageChops, ImageFilter, ImageOps
 
-SOURCE = "https://products.contact/170-large_default/goldberg-premium-lager-beer-bottle-60cl.jpg"
+SOURCE = "https://static.wixstatic.com/media/523975_afcdee2b0a6844c48caadeea907cee8d~mv2.jpg/v1/fit/w_500%2Ch_500%2Cq_90/file.jpg"
 DEST = Path("public/catalogue-photos/goldberg-60cl.webp")
 
 response = requests.get(SOURCE, headers={"User-Agent": "Mozilla/5.0 DepotFlowPhotoReference/1.0"}, timeout=25)
