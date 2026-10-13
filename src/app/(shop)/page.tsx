@@ -131,10 +131,17 @@ export default async function Home() {
       !crateFitsProduct(crate.pocket_count, product.bottles_per_crate)
     );
   }).length;
+  const refreshedAt = new Intl.DateTimeFormat("en-NG", {
+    timeZone: "Africa/Lagos",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date());
+
   return (
     <HomeDashboard
       ownerId={user.id}
       dayLabel={dayLabel}
+      refreshedAt={refreshedAt}
       snapshot={snapshot}
       emptiesCustomers={emptiesCustomers}
       heldCrates={heldCrates}
