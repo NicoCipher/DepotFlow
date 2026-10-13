@@ -49,7 +49,7 @@ const quickActions: { href: string; icon: IconName; title: string; description: 
   { href: "/stock/receive", icon: "receive", title: "Receive stock", description: "Add a delivery", colour: "bg-emerald-50 text-emerald-800" },
   { href: "/customers", icon: "payment", title: "Record payment", description: "Choose a customer", colour: "bg-blue-50 text-blue-800" },
   { href: "/stock/count", icon: "count", title: "Count stock", description: "Check what is here", colour: "bg-amber-50 text-amber-800" },
-  { href: "/empties", icon: "empties", title: "Empty crates", description: "See what is owed", colour: "bg-violet-50 text-violet-800" },
+  { href: "/empties", icon: "empties", title: "Customer empties", description: "Crates & bottles owed", colour: "bg-violet-50 text-violet-800" },
 ];
 
 function QuickAction({ action }: { action: (typeof quickActions)[number] }) {
