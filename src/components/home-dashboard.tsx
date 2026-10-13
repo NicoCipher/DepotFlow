@@ -130,36 +130,45 @@ export function HomeDashboard({
         </Link>
       </header>
 
-      <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)] md:items-stretch md:gap-5">
+      <div className="grid min-w-0 gap-7 md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] md:items-start md:gap-5 lg:gap-7">
+        <div className="min-w-0 space-y-7">
         <section aria-label="Start a sale" className="flex min-w-0 flex-col gap-3">
           <Link href="/record-sale"
-            className="group relative isolate flex min-h-[280px] flex-1 flex-col justify-between overflow-hidden rounded-[1.5rem] bg-[#084b39] p-5 text-white shadow-[0_12px_28px_rgba(5,54,40,0.14)] transition-[box-shadow,transform] motion-safe:hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(5,54,40,0.2)] sm:min-h-[310px] sm:p-7 md:min-h-[340px] xl:p-8">
-            <span aria-hidden="true" className="pointer-events-none absolute -right-24 -top-24 -z-10 size-72 rounded-full border-[46px] border-white/[0.045] sm:size-96" />
-            <span aria-hidden="true" className="pointer-events-none absolute -bottom-44 right-2 -z-10 size-80 rounded-full bg-emerald-300/[0.075] blur-2xl" />
+            className="group relative isolate flex min-h-[208px] flex-1 flex-col justify-between overflow-hidden rounded-[1.5rem] bg-[#084b39] p-5 text-white shadow-[0_12px_28px_rgba(5,54,40,0.14)] transition-[box-shadow,transform] motion-safe:hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(5,54,40,0.2)] sm:min-h-[225px] sm:p-6 md:min-h-[255px] xl:p-7">
             <span className="relative">
               <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.13em] text-emerald-100">
-                <HomeIcon name="cart" size={16}/> Daily work
+                <HomeIcon name="cart" size={16}/> Start here
               </span>
-              <span className="mt-5 block max-w-[20ch] text-[clamp(1.95rem,4.2vw,3.1rem)] font-extrabold leading-[1.07] tracking-[-0.04em] text-white">
-                Ready for your next sale?
+              <span className="mt-4 block max-w-[20ch] text-[clamp(1.9rem,3.8vw,2.65rem)] font-extrabold leading-[1.07] tracking-[-0.04em] text-white">
+                Record a sale
               </span>
               <span className="mt-3 block max-w-md text-sm leading-6 text-emerald-100/90 sm:text-base">
-                Choose a customer, add their drinks and take payment.
+                Choose a customer, add drinks, check empties and take payment.
               </span>
             </span>
-            <span className="relative mt-7 flex flex-wrap items-center justify-between gap-4">
+            <span className="relative mt-5 flex flex-wrap items-center justify-between gap-4">
               <span className="inline-flex min-h-12 items-center gap-3 rounded-xl bg-white px-5 py-3 text-sm font-extrabold text-emerald-950 transition-colors group-hover:bg-emerald-50 sm:text-base">
-                Record a sale <HomeIcon name="arrow" size={19}/>
+                Start sale <HomeIcon name="arrow" size={19}/>
               </span>
-              <span className="hidden text-right text-xs font-medium text-emerald-100/75 sm:block">Customer → Drinks → Payment</span>
+              <span className="hidden text-right text-xs font-medium text-emerald-100/75 sm:block">Customer → Drinks → Empties → Payment</span>
             </span>
           </Link>
           <PausedSalesLink ownerId={ownerId} prominent />
         </section>
-
+        <section aria-labelledby="quick-heading" className="min-w-0">
+          <div className="mb-4">
+            <h2 id="quick-heading" className="text-lg font-extrabold tracking-tight text-stone-950 sm:text-xl">What would you like to do?</h2>
+            <p className="mt-1 text-sm text-stone-600">The most common jobs, one tap away.</p>
+          </div>
+          <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-2 xl:grid-cols-4">
+            {quickActions.map((action) => <QuickAction key={action.href} action={action}/>)}
+          </div>
+        </section>
+        </div>
+        <div className="min-w-0 space-y-7">
         <section aria-labelledby="money-heading" className="min-w-0">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 lg:mb-4">
-            <h2 id="money-heading" className="text-lg font-extrabold tracking-tight text-stone-950">Today&apos;s money</h2>
+            <h2 id="money-heading" className="text-lg font-extrabold tracking-tight text-stone-950">Money today</h2>
             <Link href="/sales" className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-bold text-emerald-800 hover:bg-emerald-50">
               View sales <HomeIcon name="arrow" size={17}/>
             </Link>
@@ -185,24 +194,11 @@ export function HomeDashboard({
             </div>
           </div>
         </section>
-      </div>
-
-      <div className="grid min-w-0 gap-7 md:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)] md:items-start md:gap-5">
-        <section aria-labelledby="quick-heading" className="min-w-0">
-          <div className="mb-4">
-            <h2 id="quick-heading" className="text-lg font-extrabold tracking-tight text-stone-950 sm:text-xl">What would you like to do?</h2>
-            <p className="mt-1 text-sm text-stone-600">The most common jobs, one tap away.</p>
-          </div>
-          <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-2 xl:grid-cols-4">
-            {quickActions.map((action) => <QuickAction key={action.href} action={action}/>)}
-          </div>
-        </section>
-
         <section aria-labelledby="attention-heading" className="min-w-0">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 id="attention-heading" className="text-lg font-extrabold tracking-tight text-stone-950 sm:text-xl">Things to check</h2>
-              <p className="mt-1 text-sm text-stone-600">Follow up whenever you are ready.</p>
+              <h2 id="attention-heading" className="text-lg font-extrabold tracking-tight text-stone-950 sm:text-xl">Needs attention</h2>
+              <p className="mt-1 text-sm text-stone-600">Open an item to see the related records.</p>
             </div>
             {attentionCount > 0 && (
               <span className="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-extrabold text-amber-900">
@@ -214,8 +210,8 @@ export function HomeDashboard({
             <div className="flex min-h-48 items-center gap-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-5">
               <span className="grid size-12 shrink-0 place-items-center rounded-full bg-white text-emerald-800"><HomeIcon name="check" size={24}/></span>
               <span>
-                <strong className="block text-base font-bold text-emerald-950">All caught up</strong>
-                <span className="mt-1 block text-sm leading-6 text-emerald-900">Stock, customer balances and setup items will appear here when they need attention.</span>
+                <strong className="block text-base font-bold text-emerald-950">No issues flagged</strong>
+                <span className="mt-1 block text-sm leading-6 text-emerald-900">Customer debts, stock counts and setup issues will appear here when recorded.</span>
               </span>
             </div>
           ) : (
@@ -250,14 +246,9 @@ export function HomeDashboard({
             </div>
           )}
         </section>
+        </div>
       </div>
 
-      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-stone-200 pt-5 text-sm text-stone-600">
-        <p>Every sale, payment and stock change stays in your records.</p>
-        <Link href="/activity" className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 font-bold text-emerald-900 hover:bg-emerald-50">
-          View store activity <HomeIcon name="arrow" size={17}/>
-        </Link>
-      </footer>
     </div>
   );
 }
