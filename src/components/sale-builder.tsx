@@ -682,8 +682,8 @@ export function SaleBuilder({
                     update({ crates: "0", fraction: 0, eighths: 0, bottles: "0" });
                   }}>Retail · bottles</button>
                 </div>
-                <p className="mt-2 text-sm text-stone-600">Changing the price type resets this drink's quantity. Enter it again below.</p>
-                {product.bottle_price === null && <p className="mt-2 text-sm text-amber-900">Set this drink's bottle price to enable Retail.</p>}
+                <p className="mt-2 text-sm text-stone-600">Changing the price type resets this drink&apos;s quantity. Enter it again below.</p>
+                {product.bottle_price === null && <p className="mt-2 text-sm text-amber-900">Set this drink&apos;s bottle price to enable Retail.</p>}
               </fieldset>
               {pricingMode === "wholesale" && (
                 <>
@@ -787,7 +787,7 @@ export function SaleBuilder({
               </fieldset>
                 </>
               )}
-              {pricingMode === "retail" && <p className="text-sm text-stone-700">Each bottle is charged at its configured bottle price. For a 12-bottle crate, 6 bottles cost 6 × the bottle price — not the wholesale half-crate price.</p>}
+              {pricingMode === "retail" && <p className="text-sm text-stone-700">Each bottle is charged at its configured bottle price. {product.bottles_per_crate % 2 === 0 ? `Half of this ${product.bottles_per_crate}-bottle crate is ${product.bottles_per_crate / 2} bottles.` : `This crate holds ${product.bottles_per_crate} bottles.`} Retail does not use the wholesale fraction price.</p>}
               <div>
                 <label htmlFor="sale-bottles">
                   {pricingMode === "retail" ? "Bottles" : "Extra loose bottles"}
