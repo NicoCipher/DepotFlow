@@ -120,7 +120,7 @@ export default async function CataloguePage({
                         {!product && selling && <p className="text-xs text-stone-600">Selling price from {selling.effective_on}</p>}
                         {product ? <Link href={`/products/${product.id}/edit`} className="secondary mt-4 w-full">Edit drink</Link>
                           : <Link href={`/products/new?catalogue=${item.id}`} className="primary mt-4 w-full">Add this drink</Link>}
-                        <DrinkPhotoUpload id={item.id} name={item.name} hasPhoto={Boolean(item.image_path)} />
+                        <DrinkPhotoUpload id={item.id} hasPhoto={Boolean(item.image_path)} />
                       </li>
                     );
                   })}
