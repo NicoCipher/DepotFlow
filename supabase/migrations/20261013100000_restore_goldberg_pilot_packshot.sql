@@ -1,13 +1,11 @@
 begin;
 
--- Restore the original, optimised Goldberg 60cl bottle file for the owner-requested pilot.
--- Never overwrite an owner-selected image. Only fill the exact linked shop product
--- when its own image is also unset.
+-- Restore the existing Goldberg 60cl first-party photo without changing owner-selected images.
+-- The master catalogue uses a unique Goldberg identity across deployments.
 with saved_catalogue as (
   update public.product_catalogue
   set image_path = 'first-party/goldberg-60cl.webp'
-  where id = 'a5a88718-5fb3-488f-aea4-5271e535607e'
-    and name = 'Goldberg'
+  where name = 'Goldberg'
     and image_path is null
   returning id
 )
