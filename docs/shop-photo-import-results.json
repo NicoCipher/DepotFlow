@@ -1,0 +1,138 @@
+{
+  "source_manifest": "docs/shop-photo-source-manifest.json",
+  "items": [
+    {
+      "slug": "33-export-60cl",
+      "result": "already-present",
+      "bytes": 28596
+    },
+    {
+      "slug": "amstel-malta-33cl",
+      "result": "ok",
+      "bytes": 40472,
+      "sha256": "ffb99f5448c28f31b2963facbd992aabfb02bd0b2ef0b65147afe7abe724c34f",
+      "source_final_url": "https://spiceeupp.co.uk/3316-large_default/amstel-malta-drink-330ml.jpg",
+      "cropped_source_dimensions": [
+        800,
+        800
+      ]
+    },
+    {
+      "slug": "guinness-stout-big-60cl",
+      "result": "already-present",
+      "bytes": 21478
+    },
+    {
+      "slug": "budweiser-60cl",
+      "result": "already-present",
+      "bytes": 14682
+    },
+    {
+      "slug": "desperados-45cl",
+      "result": "already-present",
+      "bytes": 24652
+    },
+    {
+      "slug": "gulder-60cl",
+      "result": "ok",
+      "bytes": 24320,
+      "sha256": "b5b2b5c171cfcb0684d12d47c3f2654b7baa5cfc0be3f418de922fb534240336",
+      "source_final_url": "https://www.a2zdrinks.com/media/catalog/product/cache/207e23213cf636ccdef205098cf3c8a3/g/u/gulder.jpg",
+      "cropped_source_dimensions": [
+        158,
+        539
+      ]
+    },
+    {
+      "slug": "heineken-big-60cl",
+      "result": "failed",
+      "reason": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "slug": "legend-60cl",
+      "result": "already-present",
+      "bytes": 28110
+    },
+    {
+      "slug": "life-60cl",
+      "result": "already-present",
+      "bytes": 19130
+    },
+    {
+      "slug": "malta-guinness-33cl",
+      "result": "ok",
+      "bytes": 22554,
+      "sha256": "b42ae2deac0b49b1a45e976a858cc19c85fecc30c1b90014827cee4e97e4fd68",
+      "source_final_url": "https://www.kmiimpex.com/media/catalog/product/cache/0ee050c3ffc3555709b9bb6062f4d7e9/m/a/malta-guiness-png-bottle-new.png",
+      "cropped_source_dimensions": [
+        179,
+        599
+      ]
+    },
+    {
+      "slug": "guinness-stout-small-33cl",
+      "result": "already-present",
+      "bytes": 18142
+    },
+    {
+      "slug": "smirnoff-ice-small-33cl",
+      "result": "already-present",
+      "bytes": 22856
+    },
+    {
+      "slug": "star-60cl",
+      "result": "ok",
+      "bytes": 44182,
+      "sha256": "258711bfc23e06322392de46fcdfc6f24467f7485f07228d707b435d8e74aba1",
+      "source_final_url": "https://afrobuy.co.uk/cdn/shop/products/star-finest-lager-beer-bottle-12x600ml-322_1024x1024_bfe1be83-a154-4e48-9f81-0741f69a44ea.png",
+      "cropped_source_dimensions": [
+        185,
+        578
+      ]
+    },
+    {
+      "slug": "star-radler-citrus-45cl",
+      "result": "already-present",
+      "bytes": 29664
+    },
+    {
+      "slug": "tiger-45cl",
+      "result": "already-present",
+      "bytes": 8658
+    },
+    {
+      "slug": "trophy-lager-60cl",
+      "result": "already-present",
+      "bytes": 20306
+    },
+    {
+      "slug": "trophy-stout-60cl",
+      "result": "rejected_visual_review",
+      "bytes": 4326,
+      "sha256": "8e6b0d650060617bad6b5efd1e08e5042db56985f0ae55bb79b4722c9cffa914",
+      "source_final_url": "https://www.biez-tech.com/web/image/product.template/2898/image_1920?unique=6549e71",
+      "cropped_source_dimensions": [
+        309,
+        204
+      ],
+      "reason": "Actual file is a generic missing-image icon, NOT a drink bottle photograph. File removed; never link in live database.",
+      "manual_checked": "2026-10-14"
+    },
+    {
+      "slug": "turbo-king-big-60cl",
+      "result": "failed",
+      "reason": "<urlopen error [Errno -3] Temporary failure in name resolution>"
+    },
+    {
+      "slug": "smirnoff-ice-big-60cl",
+      "result": "failed",
+      "reason": "HTTP Error 429: Too Many Requests"
+    }
+  ],
+  "visual_review": {
+    "date": "2026-10-14",
+    "accepted_count": 15,
+    "rejected_count": 1,
+    "notes": "Every accepted bottle photograph manually inspected. Existing Goldberg separately live. The listed failed sources have no usable photo. 33 Export is old branding; Smirnoff Ice Small uses an alternate regional label. Correct local variants before commercial launch."
+  }
+}
