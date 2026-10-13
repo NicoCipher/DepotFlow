@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { PausedSalesLink } from "@/components/paused-sales-link";
 import { formatNaira } from "@/domain/products";
 
@@ -18,7 +19,7 @@ type IconName =
   | "check" | "box" | "settings";
 
 function HomeIcon({ name, size = 22 }: { name: IconName; size?: number }) {
-  const shapes: Record<IconName, React.ReactNode> = {
+  const shapes: Record<IconName, ReactNode> = {
     arrow: <path d="M5 12h14m-6-6 6 6-6 6" />,
     cart: <><circle cx="9" cy="20" r="1" /><circle cx="19" cy="20" r="1" /><path d="M2 3h2l2.5 12.5a2 2 0 0 0 2 1.5h10a2 2 0 0 0 2-1.5L22 7H5" /></>,
     wallet: <><rect x="3" y="5" width="18" height="15" rx="3" /><path d="M3 9h18m-5 5h2" /></>,
@@ -54,7 +55,7 @@ const quickActions: { href: string; icon: IconName; title: string; description: 
 function QuickAction({ action }: { action: (typeof quickActions)[number] }) {
   return (
     <Link href={action.href}
-      className="group flex min-h-36 min-w-0 flex-col justify-between rounded-2xl border border-stone-200/90 bg-white p-4 shadow-[0_2px_8px_rgba(22,40,30,0.025)] transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md focus-visible:outline-emerald-700 sm:min-h-40 sm:p-5">
+      className="group flex min-h-36 min-w-0 flex-col justify-between rounded-2xl border border-stone-200/90 bg-white p-4 shadow-[0_2px_8px_rgba(22,40,30,0.025)] transition-[border-color,box-shadow,transform] motion-safe:hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md focus-visible:outline-emerald-700 sm:min-h-40 sm:p-5">
       <span className={`inline-grid size-11 place-items-center rounded-xl ${action.colour}`}>
         <HomeIcon name={action.icon} size={23} />
       </span>
@@ -129,10 +130,10 @@ export function HomeDashboard({
         </Link>
       </header>
 
-      <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)] lg:items-stretch lg:gap-5">
+      <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)] md:items-stretch md:gap-5">
         <section aria-label="Start a sale" className="flex min-w-0 flex-col gap-3">
           <Link href="/record-sale"
-            className="group relative isolate flex min-h-[280px] flex-1 flex-col justify-between overflow-hidden rounded-[1.5rem] bg-[#084b39] p-5 text-white shadow-[0_12px_28px_rgba(5,54,40,0.14)] transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(5,54,40,0.2)] sm:min-h-[310px] sm:p-7 lg:min-h-[340px] xl:p-8">
+            className="group relative isolate flex min-h-[280px] flex-1 flex-col justify-between overflow-hidden rounded-[1.5rem] bg-[#084b39] p-5 text-white shadow-[0_12px_28px_rgba(5,54,40,0.14)] transition-[box-shadow,transform] motion-safe:hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(5,54,40,0.2)] sm:min-h-[310px] sm:p-7 md:min-h-[340px] xl:p-8">
             <span aria-hidden="true" className="pointer-events-none absolute -right-24 -top-24 -z-10 size-72 rounded-full border-[46px] border-white/[0.045] sm:size-96" />
             <span aria-hidden="true" className="pointer-events-none absolute -bottom-44 right-2 -z-10 size-80 rounded-full bg-emerald-300/[0.075] blur-2xl" />
             <span className="relative">
@@ -163,7 +164,7 @@ export function HomeDashboard({
               View sales <HomeIcon name="arrow" size={17}/>
             </Link>
           </div>
-          <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:h-[calc(100%-3.75rem)] lg:grid-cols-1">
+          <div className="grid min-w-0 gap-3 sm:grid-cols-2 md:grid-cols-1">
             <div className="flex min-w-0 flex-col justify-between rounded-2xl border border-emerald-200 bg-[#E7F3E9] p-5 sm:p-6">
               <span className="flex items-center justify-between gap-3">
                 <span className="text-sm font-semibold text-emerald-950">Money received</span>
@@ -186,13 +187,13 @@ export function HomeDashboard({
         </section>
       </div>
 
-      <div className="grid min-w-0 gap-7 lg:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)] lg:items-start lg:gap-5">
+      <div className="grid min-w-0 gap-7 md:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)] md:items-start md:gap-5">
         <section aria-labelledby="quick-heading" className="min-w-0">
           <div className="mb-4">
             <h2 id="quick-heading" className="text-lg font-extrabold tracking-tight text-stone-950 sm:text-xl">What would you like to do?</h2>
             <p className="mt-1 text-sm text-stone-600">The most common jobs, one tap away.</p>
           </div>
-          <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
+          <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-2 xl:grid-cols-4">
             {quickActions.map((action) => <QuickAction key={action.href} action={action}/>)}
           </div>
         </section>
