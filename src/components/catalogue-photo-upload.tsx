@@ -29,18 +29,13 @@ export function DrinkPhotoUpload({
   const [error, setError] = useState("");
   const busy = pending || preparing;
 
-  useEffect(() => {
-    if (!selected) return;
-    const next = URL.createObjectURL(selected);
-    setPreview(next);
-    return () => {
-      URL.revokeObjectURL(next);
-      setPreview(null);
-    };
-  }, [selected]);
+  useEffect(() => () => {
+    if (preview) URL.revokeObjectURL(preview);
+  }, [preview]);
 
   const choose = (file: File | undefined) => {
     setSelected(file ?? null);
+    setPreview(file ? URL.createObjectURL(file) : null);
     setError("");
   };
 
@@ -86,7 +81,7 @@ export function DrinkPhotoUpload({
           <input
             id={`camera-${fileId}`} type="file" accept="image/*" capture="environment"
             className="sr-only" disabled={busy}
-            onChange={(event) => choose(event.currentTarget.files?.[0])}
+            onChange={(event) => { choose(event.currentTarget.files?.[0]); event.currentTarget.value = ""; }}
           />
           <label htmlFor={`gallery-${fileId}`} className="secondary flex min-h-12 cursor-pointer items-center justify-center text-center">
             Choose a picture
@@ -94,7 +89,7 @@ export function DrinkPhotoUpload({
           <input
             id={`gallery-${fileId}`} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
             className="sr-only" disabled={busy}
-            onChange={(event) => choose(event.currentTarget.files?.[0])}
+            onChange={(event) => { choose(event.currentTarget.files?.[0]); event.currentTarget.value = ""; }}
           />
         </div>
         {preview && (
