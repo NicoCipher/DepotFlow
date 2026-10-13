@@ -61,7 +61,7 @@ export function SaleBuilder({
     draftId: string | null;
   } | null>(null);
   const [customerQuery, setCustomerQuery] = useState("");
-  const [pricingMode, setPricingMode] = useState<"wholesale" | "retail">("wholesale");
+  const pricingMode = draft.sellingMode === "retail" ? "retail" : "wholesale";
   const [catalog, setCatalog] = useState(initialCatalog);
   const [message, setMessage] = useState("");
   const [sessionExpired, setSessionExpired] = useState(false);
@@ -137,8 +137,8 @@ export function SaleBuilder({
       return;
     }
     const q = draft.lines.find((line) => line.productId === p.id)?.quantity;
-    setPricingMode(q && q.crates === 0 && q.fraction === 0 && !q.eighths && q.bottles > 0 ? "retail" : "wholesale");
     update({
+      sellingMode: q && q.crates === 0 && q.fraction === 0 && !q.eighths && q.bottles > 0 ? "retail" : "wholesale",
       step: "quantity",
       editingId: p.id,
       crates: String(q?.crates ?? 0),
@@ -673,13 +673,11 @@ export function SaleBuilder({
                 <div className="grid grid-cols-2 gap-2">
                   <button type="button" aria-pressed={pricingMode === "wholesale"} className={pricingMode === "wholesale" ? "primary" : "secondary"} onClick={() => {
                     if (pricingMode === "wholesale") return;
-                    setPricingMode("wholesale");
-                    update({ crates: "0", fraction: 0, eighths: 0, bottles: "0" });
+                    update({ sellingMode: "wholesale", crates: "0", fraction: 0, eighths: 0, bottles: "0" });
                   }}>Wholesale · crates</button>
                   <button type="button" aria-pressed={pricingMode === "retail"} className={pricingMode === "retail" ? "primary" : "secondary"} disabled={product.bottle_price === null} onClick={() => {
                     if (pricingMode === "retail") return;
-                    setPricingMode("retail");
-                    update({ crates: "0", fraction: 0, eighths: 0, bottles: "0" });
+                    update({ sellingMode: "retail", crates: "0", fraction: 0, eighths: 0, bottles: "0" });
                   }}>Retail · bottles</button>
                 </div>
                 <p className="mt-2 text-sm text-stone-600">Changing the price type resets this drink&apos;s quantity. Enter it again below.</p>

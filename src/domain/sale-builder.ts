@@ -298,6 +298,7 @@ export type SaleDraft = {
     returnedBottles: Record<string, string>;
   };
   editingId: string;
+  sellingMode?: "wholesale" | "retail";
   crates: string;
   fraction: 0 | 1 | 2 | 3;
   eighths?: 0 | 1 | 3 | 5 | 7;
@@ -322,6 +323,7 @@ export const emptySaleDraft: SaleDraft = {
     returnedBottles: {},
   },
   editingId: "",
+  sellingMode: "wholesale",
   crates: "0",
   fraction: 0,
   eighths: 0,
@@ -414,6 +416,7 @@ export function readSaleDraft(raw: string | null): SaleDraft {
       businessDate: typeof d.businessDate === "string" ? d.businessDate : "",
       paid: typeof d.paid === "string" ? d.paid : "0",
       paymentMethod: typeof d.paymentMethod === "string" ? d.paymentMethod : "",
+      sellingMode: d.sellingMode === "retail" ? "retail" : "wholesale",
       allEmpties: typeof d.allEmpties === "boolean" ? d.allEmpties : true,
       returns,
       emptiesV2: {
