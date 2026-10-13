@@ -64,7 +64,7 @@ function QuickAction({ action }: { action: (typeof quickActions)[number] }) {
           <strong className="block text-[15px] font-bold leading-5 text-stone-950 sm:text-base">{action.title}</strong>
           <span className="mt-1 block text-xs leading-4 text-stone-600 sm:text-sm">{action.description}</span>
         </span>
-        <span className="shrink-0 text-emerald-800 transition-transform group-hover:translate-x-1"><HomeIcon name="arrow" size={18}/></span>
+        <span className="shrink-0 text-emerald-800 motion-safe:transition-transform motion-safe:group-hover:translate-x-1"><HomeIcon name="arrow" size={18}/></span>
       </span>
     </Link>
   );
