@@ -30,3 +30,4 @@ jobs:
           git add public/catalogue-photos/goldberg-60cl.webp
           git commit -m "assets: add optimized real Goldberg 60cl bottle photograph"
           git push origin HEAD:assets/real-goldberg-photo
+# Retry with checked alternate source.
