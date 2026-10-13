@@ -20,7 +20,7 @@ export function ShopPageFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const wide = widePages.has(pathname);
   return (
-    <div className={`mx-auto w-full ${wide ? "max-w-5xl" : "max-w-xl"}`}>
+    <div className={`mx-auto w-full ${wide ? "max-w-6xl" : "max-w-xl"}`}>
       {children}
     </div>
   );
