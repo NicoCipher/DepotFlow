@@ -30,3 +30,24 @@ test("file signature must match the allowed MIME type", () => {
   assert.equal(sniffProductImage(new TextEncoder().encode("<svg></svg>"), "image/png"), null);
   assert.equal(sniffProductImage(new TextEncoder().encode("<html></html>"), "image/webp"), null);
 });
+
+
+test("only same-site bundled packshots are accepted, never third-party URLs", () => {
+  assert.equal(trustedProductImageUrl("/catalogue-photos/goldberg-60cl.webp"), true);
+  assert.equal(trustedProductImageUrl("/catalogue-photos/33-export.webp"), true);
+  assert.equal(trustedProductImageUrl("https://products.contact/photo.jpg"), false);
+  assert.equal(trustedProductImageUrl("//evil.com/catalogue-photos/goldberg-60cl.webp"), false);
+  assert.equal(trustedProductImageUrl("/catalogue-photos/../../secret.webp"), false);
+  assert.equal(trustedProductImageUrl("/catalogue-photos/goldberg-60cl.webp?redirect=evil"), false);
+  assert.equal(trustedProductImageUrl("/catalogue-photos/goldberg-60cl.webp#fragment"), false);
+  assert.equal(trustedProductImageUrl("/some-other-file.webp"), false);
+});
+
+test("a first-party catalogue photo resolves locally and never hotlinks the source", () => {
+  const imagePath = "first-party/goldberg-60cl.webp";
+  assert.equal(validCatalogueImagePath(imagePath), true);
+  assert.equal(catalogueImageUrl(imagePath), "/catalogue-photos/goldberg-60cl.webp");
+  assert.equal(validCatalogueImagePath("first-party/../secret.webp"), false);
+  assert.equal(validCatalogueImagePath("first-party/goldberg-60cl.svg"), false);
+  assert.equal(validCatalogueImagePath("https://retailer.com/goldberg.webp"), false);
+});

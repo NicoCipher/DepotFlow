@@ -21,7 +21,7 @@ export default async function CataloguePage({
   }).format(new Date());
   const [catalogue, assortment, history] = await Promise.all([
     supabase.from("product_catalogue").select("id,name,manufacturer,image_path").order("name").limit(1000),
-    supabase.from("products").select("id,catalogue_product_id,full_crate_price").not("catalogue_product_id", "is", null).limit(1000),
+    supabase.from("products").select("id,catalogue_product_id,full_crate_price,image_url").not("catalogue_product_id", "is", null).limit(1000),
     supabase.from("product_cost_history")
       .select("catalogue_product_id,cost_price,effective_on,recorded_at")
       .lte("effective_on", today)
@@ -96,7 +96,7 @@ export default async function CataloguePage({
                       <li key={item.id} className={`rounded-2xl border bg-white p-4 ${product ? "border-emerald-200" : "border-stone-200"}`}>
                         <div className="mb-3 flex items-start gap-4">
                           <div className="h-28 w-20 shrink-0 overflow-hidden rounded-xl bg-stone-100">
-                            <ProductImage src={catalogueImageUrl(item.image_path)} name={item.name} />
+                            <ProductImage src={catalogueImageUrl(item.image_path) ?? product?.image_url ?? null} name={item.name} />
                           </div>
                           <h3 className="min-w-0 break-words text-lg font-semibold">{item.name}</h3>
                         </div>
