@@ -499,7 +499,15 @@ export function matchSaleEmpties(
     }
   }
   const decisions = state.mode === "actual" ? (state.decisions ?? []) : [];
-  if (!decisions.length) applyConfiguredSwaps(results);
+  const crateDecisions = decisions.filter((choice) => choice.kind === "crate");
+  const bottleDecisions = decisions.filter((choice) => choice.kind === "bottle");
+  const explicitCrateProducts = new Set(
+    crateDecisions.map((choice) => choice.productId),
+  );
+  // If there are no explicit crate choices, settle complete compatible
+  // crates *before* deciding how to handle extra loose bottles. Otherwise a
+  // bottle decision could claim bottles already needed by an accepted swap.
+  if (!crateDecisions.length) applyConfiguredSwaps(results);
 
   // 3. An exact physical crate can still settle the crate even when its
   // bottles are incomplete or mixed.
@@ -530,7 +538,8 @@ export function matchSaleEmpties(
 
   const assigned = new Map<string, number>();
   if (decisions.length > 1000) throw new Error("Check the empties choices.");
-  for (const choice of decisions) {
+  function processDecisions(choices: typeof decisions) {
+    for (const choice of choices) {
     const row = results.find((item) => item.productId === choice.productId);
     const quantity = whole(choice.quantity);
     if (
@@ -577,21 +586,18 @@ export function matchSaleEmpties(
         row.bottlesOwed -= quantity;
       }
     } else assigned.set(key, (assigned.get(key) ?? 0) + quantity);
+    }
   }
 
-  if (decisions.length)
+  // Respect manual crate Accept/Hold choices first, then settle any unrelated
+  // compatible crate swaps. Bottle decisions are checked last, against the
+  // true remaining bottle obligation after those crates have been accounted for.
+  processDecisions(crateDecisions);
+  if (crateDecisions.length)
     applyConfiguredSwaps(
-      results.filter(
-        (row) =>
-          // A bottle-only Accept/Hold choice must not cancel an unrelated
-          // configured *crate* swap for the same drink. Explicit crate
-          // decisions still take precedence over automatic swaps.
-          !decisions.some(
-            (choice) =>
-              choice.productId === row.productId && choice.kind === "crate",
-          ),
-      ),
+      results.filter((row) => !explicitCrateProducts.has(row.productId)),
     );
+  processDecisions(bottleDecisions);
 
   return {
     decisions,
