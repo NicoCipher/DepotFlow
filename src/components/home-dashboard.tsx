@@ -171,10 +171,12 @@ export function HomeDashboard({
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 lg:mb-4">
             <div>
               <h2 id="money-heading" className="text-lg font-extrabold tracking-tight text-stone-950">Money today</h2>
-              <p className="mt-0.5 text-xs text-stone-600">Checked at {refreshedAt} (Nigeria time)</p>
+              <p className="mt-0.5 text-xs text-stone-600">Loaded at {refreshedAt} (Nigeria time)</p>
             </div>
             <div className="flex items-center gap-1">
-              <a href="/" aria-label="Refresh today's shop numbers" className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-bold text-emerald-800 hover:bg-emerald-50">Refresh</a>
+              <form method="get" action="/">
+                <button type="submit" className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-bold text-emerald-800 hover:bg-emerald-50">Refresh</button>
+              </form>
               <Link href="/sales" className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-bold text-emerald-800 hover:bg-emerald-50">
               View sales <HomeIcon name="arrow" size={17}/>
             </Link>
