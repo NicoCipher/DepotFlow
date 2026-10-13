@@ -1,0 +1,36 @@
+name: One-time real shop drink photo import
+on:
+  push:
+    branches:
+      - assets/bulk-shop-drink-photos
+    paths:
+      - scripts/import-shop-photos.py
+      - docs/shop-photo-source-manifest.json
+      - .github/workflows/one-time-photo-import.yml
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned processing library
+        run: python -m pip install --disable-pip-version-check --no-cache-dir Pillow==11.3.0
+      - name: Fetch and re-encode approved real photographs
+        run: python scripts/import-shop-photos.py
+      - name: Commit photos and source import results to this feature branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/catalogue-photos/ docs/shop-photo-import-results.json
+          git diff --cached --quiet && exit 0
+          git commit -m "assets(photos): import optimized genuine shop bottle photographs"
+          git push origin HEAD:assets/bulk-shop-drink-photos

@@ -1,0 +1,169 @@
+{
+  "version": 1,
+  "scope": "Existing 22 configured shop drinks only. Goldberg already done; Big Smirnoff Ice, Castle Lite and Flying Fish pending exact-variant verification.",
+  "rights": "Sources are third-party; reproduction rights not verified. Pilot only. Do not imply licensed use or manufacturer endorsement.",
+  "items": [
+    {
+      "slug": "33-export-60cl",
+      "catalogue_name": "33",
+      "shop_name": "\"33\" Export",
+      "variant": "60cl green bottle",
+      "source_page": "https://chomart.com/product/33-export-premium-larger-beer-60-cl-pBxUu",
+      "source_image": "https://chomart.com/storage/images/33-export-premium-larger-beer-60-cl-pbxuu90298.webp",
+      "notes": "Legacy label candidate; brand refreshed in 2026. Verify label with shop stock."
+    },
+    {
+      "slug": "amstel-malta-33cl",
+      "catalogue_name": "Amstel",
+      "shop_name": "Amstel Malta",
+      "variant": "33cl glass bottle",
+      "source_page": "https://allinonestore.ng/product/amstel-malta-33cl-can-ojpo8-8",
+      "source_image": "https://allinonestore.ng/public/uploads/all/DzkmKsKcmTuM7EoEOZlo7yeLSvahLr2PqGL9VoQv.jpg",
+      "notes": "Source image shows bottle even though listing URL says can; validate before commercial use."
+    },
+    {
+      "slug": "guinness-stout-big-60cl",
+      "catalogue_name": "Big Stout",
+      "shop_name": "Big Guinness Stout",
+      "variant": "60cl Nigerian Foreign Extra Stout bottle",
+      "source_page": "https://africancaribbeanfoods.com/products/guinness-nigerian-foreign-extra-stout-600ml",
+      "source_image": "https://africancaribbeanfoods.com/cdn/shop/files/b1fceffa-d238-4410-bf4a-f2b921f23bbb_892243694.png?v=1718445075",
+      "notes": "Nigeria brewed"
+    },
+    {
+      "slug": "budweiser-60cl",
+      "catalogue_name": "Budweiser",
+      "shop_name": "Budweiser",
+      "variant": "60cl beer bottle",
+      "source_page": "https://www.supermart.ng/products/budweiser-lager-beer-bottle-60-cl",
+      "source_image": "https://www.supermart.ng/cdn/shop/files/sptocr425_b4063e31-be92-4710-ac36-f8e88c6c9669.jpg?v=1711999660",
+      "notes": ""
+    },
+    {
+      "slug": "desperados-45cl",
+      "catalogue_name": "Desperados",
+      "shop_name": "Desperados",
+      "variant": "45cl tequila-flavoured beer bottle",
+      "source_page": "https://www.supermart.ng/products/desperados-tequila-flavoured-beer-bottle-45-cl-x3",
+      "source_image": "https://www.supermart.ng/cdn/shop/files/spmt3275_770d007d-c893-4e7a-bae7-245413273ba0.jpg?v=1689899905",
+      "notes": ""
+    },
+    {
+      "slug": "gulder-60cl",
+      "catalogue_name": "Gulder",
+      "shop_name": "Gulder",
+      "variant": "60cl extra matured lager bottle",
+      "source_page": "https://www.tesco.com/groceries/en-GB/products/271330494",
+      "source_image": "https://digitalcontent.api.tesco.com/v2/media/ghs/4763daa0-f08e-4fae-8fa7-6c6301728314/68f0a573-9ce5-4e68-85d7-8dca349659d5_282304103.jpeg?h=960&w=960",
+      "notes": ""
+    },
+    {
+      "slug": "heineken-big-60cl",
+      "catalogue_name": "Heineken",
+      "shop_name": "Heineken Big",
+      "variant": "60cl original green glass bottle",
+      "source_page": "https://www.savegnago.com.br/cerveja-heineken-600ml/p",
+      "source_image": "https://savegnagoio.vtexassets.com/arquivos/ids/468465/CervejaHeineken600ml1.jpg?v=638802537042700000",
+      "notes": "Heineken 600ml reference; source retailer outside Nigeria."
+    },
+    {
+      "slug": "legend-60cl",
+      "catalogue_name": "Legend",
+      "shop_name": "Legend",
+      "variant": "60cl Extra Stout bottle",
+      "source_page": "https://mama-t.de/en/products/legend-extra-stout-beer",
+      "source_image": "https://mama-t.de/cdn/shop/files/MJ9A8113_1.jpg?v=1720101436",
+      "notes": "Nigeria-specific Legend product"
+    },
+    {
+      "slug": "life-60cl",
+      "catalogue_name": "Life",
+      "shop_name": "Life",
+      "variant": "60cl Continental lager bottle",
+      "source_page": "https://www.shoppersgatestores.com/products/life-60cl-bottle",
+      "source_image": "https://www.shoppersgatestores.com/storage/life-beer-bottle-removebg-preview-1-600x600.webp",
+      "notes": ""
+    },
+    {
+      "slug": "malta-guinness-33cl",
+      "catalogue_name": "Malta",
+      "shop_name": "Malta Guinness",
+      "variant": "33cl malt glass bottle",
+      "source_page": "https://gloxmart.com/products/malta-guinness-non-alcoholic-malt-drink-330-ml-24-count",
+      "source_image": "https://gloxmart.com/cdn/shop/files/malta-guinness-non-alcoholic-malt-drink-330-ml-651802.jpg?v=1742761067",
+      "notes": ""
+    },
+    {
+      "slug": "guinness-stout-small-33cl",
+      "catalogue_name": "Small Stout",
+      "shop_name": "Small Guinness Stout",
+      "variant": "33cl Foreign Extra Stout glass bottle",
+      "source_page": "https://www.supermart.ng/products/guinness-foreign-extra-stout-bottle-33-cl",
+      "source_image": "https://www.supermart.ng/cdn/shop/files/spspbe693.png?v=1690412717",
+      "notes": ""
+    },
+    {
+      "slug": "smirnoff-ice-small-33cl",
+      "catalogue_name": "Small Ice",
+      "shop_name": "Small Smirnoff Ice",
+      "variant": "33cl original clear glass bottle",
+      "source_page": "https://www.nepstores.com/product/smirnoff-ice-original----ml",
+      "source_image": "https://www.nepstores.com/assets/images/1729656567smirnoff-ice-original.png",
+      "notes": ""
+    },
+    {
+      "slug": "star-60cl",
+      "catalogue_name": "Star",
+      "shop_name": "Star",
+      "variant": "60cl finest lager bottle",
+      "source_page": "https://www.tesco.com/groceries/en-GB/products/271233678",
+      "source_image": "https://digitalcontent.api.tesco.com/v2/media/ghs/b520a831-bf36-498b-aeb0-298a37cb6429/2edc6170-59f2-4293-ab3c-5378e43cdea6_350994888.jpeg",
+      "notes": ""
+    },
+    {
+      "slug": "star-radler-citrus-45cl",
+      "catalogue_name": "Radler",
+      "shop_name": "Star Radler Citrus",
+      "variant": "45cl citrus bottle",
+      "source_page": "https://www.shoppersgatestores.com/products/star-radler-citrus-45cl-bottle",
+      "source_image": "https://www.shoppersgatestores.com/storage/radler-citruc-min-600x600.png",
+      "notes": "Citrus only; verify stocked flavour if there are others"
+    },
+    {
+      "slug": "tiger-45cl",
+      "catalogue_name": "Tiger",
+      "shop_name": "Tiger",
+      "variant": "45cl lager bottle",
+      "source_page": "https://www.supermart.ng/products/tiger-lager-beer-45-cl",
+      "source_image": "https://www.supermart.ng/cdn/shop/files/sptocr427_3bf3f0e7-4329-42b8-b82a-cab4a5a1a7c2.jpg?v=1711999664",
+      "notes": ""
+    },
+    {
+      "slug": "trophy-lager-60cl",
+      "catalogue_name": "Trophy",
+      "shop_name": "Trophy",
+      "variant": "60cl premium lager bottle",
+      "source_page": "https://addide.com/products/trophy-lager-beer-60cl-bottle",
+      "source_image": "https://cdn.shopify.com/s/files/1/0399/6136/2595/products/10018_trophypremiumlargerbeer600ml_1024x1024_fab1407d-c69c-4148-aeaf-caf4edea2131_1600x.png?v=1625500970",
+      "notes": ""
+    },
+    {
+      "slug": "trophy-stout-60cl",
+      "catalogue_name": "Trophy Stout",
+      "shop_name": "Trophy Stout",
+      "variant": "60cl Trophy Extra Special stout bottle",
+      "source_page": "https://products.contact/supplier/15-international-breweries-plc",
+      "source_image": "https://products.contact/202-large_default/trophy-extra-special-stout-600ml.jpg",
+      "notes": ""
+    },
+    {
+      "slug": "turbo-king-big-60cl",
+      "catalogue_name": "Turbo",
+      "shop_name": "Turbo King",
+      "variant": "60cl stout bottle",
+      "source_page": "https://allinonestore.ng/product/derok-rum-liqueur-lshei",
+      "source_image": "https://allinonestore.ng/public/uploads/all/4R6cuK7euyYPHsCmQmDnbp3ryttAo0OxcJYmbNxi.jpg",
+      "notes": "Source image/product page has mismatched URL slug; check packaging"
+    }
+  ]
+}
