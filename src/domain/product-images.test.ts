@@ -42,3 +42,12 @@ test("only same-site bundled packshots are accepted, never third-party URLs", ()
   assert.equal(trustedProductImageUrl("/catalogue-photos/goldberg-60cl.webp#fragment"), false);
   assert.equal(trustedProductImageUrl("/some-other-file.webp"), false);
 });
+
+test("a first-party catalogue photo resolves locally and never hotlinks the source", () => {
+  const imagePath = "first-party/goldberg-60cl.webp";
+  assert.equal(validCatalogueImagePath(imagePath), true);
+  assert.equal(catalogueImageUrl(imagePath), "/catalogue-photos/goldberg-60cl.webp");
+  assert.equal(validCatalogueImagePath("first-party/../secret.webp"), false);
+  assert.equal(validCatalogueImagePath("first-party/goldberg-60cl.svg"), false);
+  assert.equal(validCatalogueImagePath("https://retailer.com/goldberg.webp"), false);
+});
