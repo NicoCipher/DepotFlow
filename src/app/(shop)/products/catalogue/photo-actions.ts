@@ -49,6 +49,7 @@ export async function uploadCataloguePhoto(
     }
     revalidatePath("/products/catalogue");
     revalidatePath("/products");
+    revalidatePath("/products/[id]", "page");
     revalidatePath("/stock");
     revalidatePath("/stock/count");
     revalidatePath("/stock/receive");
