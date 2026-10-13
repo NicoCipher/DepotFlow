@@ -2,6 +2,9 @@ import Link from "next/link";
 import { requireOwner } from "@/lib/auth/owner";
 import { formatNaira } from "@/domain/products";
 import { PageIntro } from "@/components/page-intro";
+import { ProductImage } from "@/components/product-image";
+import { catalogueImageUrl } from "@/domain/product-images";
+import { DrinkPhotoUpload } from "@/components/catalogue-photo-upload";
 
 export default async function CataloguePage({
   searchParams,
@@ -17,7 +20,7 @@ export default async function CataloguePage({
     timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit",
   }).format(new Date());
   const [catalogue, assortment, history] = await Promise.all([
-    supabase.from("product_catalogue").select("id,name,manufacturer").order("name").limit(1000),
+    supabase.from("product_catalogue").select("id,name,manufacturer,image_path").order("name").limit(1000),
     supabase.from("products").select("id,catalogue_product_id,full_crate_price").not("catalogue_product_id", "is", null).limit(1000),
     supabase.from("product_cost_history")
       .select("catalogue_product_id,cost_price,effective_on,recorded_at")
@@ -91,7 +94,12 @@ export default async function CataloguePage({
                     const selling = sellingPrices.get(item.id);
                     return (
                       <li key={item.id} className={`rounded-2xl border bg-white p-4 ${product ? "border-emerald-200" : "border-stone-200"}`}>
-                        <h3 className="break-words text-lg font-semibold">{item.name}</h3>
+                        <div className="mb-3 flex items-start gap-4">
+                          <div className="h-28 w-20 shrink-0 overflow-hidden rounded-xl bg-stone-100">
+                            <ProductImage src={catalogueImageUrl(item.image_path)} name={item.name} />
+                          </div>
+                          <h3 className="min-w-0 break-words text-lg font-semibold">{item.name}</h3>
+                        </div>
                         <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${product ? "bg-emerald-50 text-emerald-900" : "bg-stone-100 text-stone-700"}`}>
                           {product ? "In your shop" : "Not added yet"}
                         </span>
@@ -112,6 +120,7 @@ export default async function CataloguePage({
                         {!product && selling && <p className="text-xs text-stone-600">Selling price from {selling.effective_on}</p>}
                         {product ? <Link href={`/products/${product.id}/edit`} className="secondary mt-4 w-full">Edit drink</Link>
                           : <Link href={`/products/new?catalogue=${item.id}`} className="primary mt-4 w-full">Add this drink</Link>}
+                        <DrinkPhotoUpload id={item.id} hasPhoto={Boolean(item.image_path)} />
                       </li>
                     );
                   })}

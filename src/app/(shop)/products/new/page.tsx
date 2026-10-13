@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { requireOwner } from "@/lib/auth/owner";
 import { ProductForm } from "@/components/product-form";
 import { emptyProduct, isProductId } from "@/domain/products";
+import { catalogueImageUrl } from "@/domain/product-images";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 
@@ -15,7 +16,7 @@ export default async function NewProductPage({ searchParams }: {
   if (catalogue) {
     if (!isProductId(catalogue)) notFound();
     const [drink, existing] = await Promise.all([
-      supabase.from("product_catalogue").select("name").eq("id", catalogue).maybeSingle(),
+      supabase.from("product_catalogue").select("name,image_path").eq("id", catalogue).maybeSingle(),
       supabase.from("products").select("id").eq("catalogue_product_id", catalogue).maybeSingle(),
     ]);
     if (drink.error || existing.error) throw new Error("Could not load this drink. Please try again.");
@@ -31,6 +32,7 @@ export default async function NewProductPage({ searchParams }: {
       .limit(1).maybeSingle();
     if (price.error) throw new Error("Could not load the selling price. Please try again.");
     initialValues.name = drink.data.name;
+    initialValues.image_url = catalogueImageUrl(drink.data.image_path) ?? "";
     initialValues.full_crate_price = price.data ? String(price.data.selling_price) : "";
   }
   const crateTypes = await getCrateTypes();

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getProduct } from "@/lib/products/data";
 import { formatNaira } from "@/domain/products";
 import { ProductImage } from "@/components/product-image";
+import { DrinkPhotoUpload } from "@/components/catalogue-photo-upload";
 import { crateFitsProduct, crateNeedsSetup } from "@/domain/crate-types";
 export default async function ProductPage({
   params,
@@ -69,6 +70,13 @@ export default async function ProductPage({
       <div className="mt-5 h-48 w-48 self-center overflow-hidden rounded bg-white">
         <ProductImage src={product.image_url} name={product.name} />
       </div>
+      {product.catalogue_product_id ? (
+        <Link href={`/products/catalogue?q=${encodeURIComponent(product.name)}`} className="quiet-link mt-3 inline-flex">
+          Change picture in catalogue
+        </Link>
+      ) : (
+        <DrinkPhotoUpload id={product.id} hasPhoto={Boolean(product.image_url)} kind="product" />
+      )}
       {saved === "added" && !crateNeedsAttention && (
         <section className="mt-6 border-y border-stone-300 py-5">
           <h2 className="text-lg font-semibold">Next: record the stock in your shop</h2>
