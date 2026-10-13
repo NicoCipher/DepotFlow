@@ -46,6 +46,7 @@ export function DrinkPhotoUpload({
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const target = event.currentTarget;
     if (busy) return;
     if (!selected) {
       setError("Take a photo or choose one first.");
@@ -55,7 +56,7 @@ export function DrinkPhotoUpload({
     setError("");
     try {
       const safePhoto = await prepareOwnerPhoto(selected);
-      const form = new FormData(event.currentTarget);
+      const form = new FormData(target);
       form.set("photo", safePhoto);
       // Server repeats MIME/byte/ownership/rights validation before saving.
       startTransition(() => action(form));
