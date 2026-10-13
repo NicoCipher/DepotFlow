@@ -2,7 +2,7 @@
  * Prepare a photograph taken by the owner for our 1 MiB Supabase photo bucket.
  * Runs entirely on-device; never sends an original camera image to a third party.
  */
-import { MAX_PRODUCT_IMAGE_BYTES } from "@/domain/product-images";
+import { MAX_PRODUCT_IMAGE_BYTES } from "../domain/product-images.ts";
 
 const MAX_LOCAL_CAMERA_FILE = 30 * 1024 * 1024;
 const ACCEPTED_INPUTS = new Set([
