@@ -3,6 +3,7 @@
  * Runs entirely on-device; never sends an original camera image to a third party.
  */
 import { MAX_PRODUCT_IMAGE_BYTES } from "../domain/product-images.ts";
+import { readPhotoDimensions } from "../domain/photo-dimensions.ts";
 
 const MAX_LOCAL_CAMERA_FILE = 30 * 1024 * 1024;
 const ACCEPTED_INPUTS = new Set([
@@ -21,15 +22,36 @@ export async function prepareOwnerPhoto(file: File): Promise<File> {
   // Always re-encode camera photos to remove hidden EXIF/GPS metadata.
   // The storage bucket is publicly readable; never publish original phone metadata.
 
+  const dimensions = await readPhotoDimensions(file);
+  let decodeOptions: ImageBitmapOptions;
+  if (dimensions) {
+    const { width, height } = dimensions;
+    if (width * height > 80_000_000 ||
+        Math.max(width, height) / Math.min(width, height) > 8) {
+      throw new Error("This photo is unusually large or wide. Take a normal bottle picture instead.");
+    }
+    // Request a *small bitmap from the decoder*, not a full-resolution
+    // 48-megapixel phone image allocated in memory before canvas resizing.
+    const ratio = Math.min(1, 1400 / Math.max(width, height));
+    decodeOptions = {
+      resizeWidth: Math.max(1, Math.round(width * ratio)),
+      resizeHeight: Math.max(1, Math.round(height * ratio)),
+      resizeQuality: "high",
+    };
+  } else {
+    // HEIC/HEIF and unusual headers must also use constrained decoding.
+    decodeOptions = { resizeWidth: 1000, resizeQuality: "medium" };
+  }
+
   let bitmap: ImageBitmap;
   try {
-    bitmap = await createImageBitmap(file);
+    bitmap = await createImageBitmap(file, decodeOptions);
   } catch {
-    throw new Error("This camera photo could not be opened. Try JPG or PNG instead.");
+    throw new Error("Could not safely open this picture. Try a normal JPG camera photo.");
   }
 
   try {
-    if (!bitmap.width || !bitmap.height || bitmap.width > 15000 || bitmap.height > 15000) {
+    if (!bitmap.width || !bitmap.height || bitmap.width * bitmap.height > 6_000_000) {
       throw new Error("This photo is too large to process. Try another picture.");
     }
     const sizes = [1400, 1100, 850, 650];
