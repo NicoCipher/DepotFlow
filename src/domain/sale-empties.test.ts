@@ -225,6 +225,49 @@ test("a different loose bottle decision keeps the already valid complete crate s
   }
 });
 
+test("cannot hold or accept more wrong bottles than remain owed after a crate swap", () => {
+  for (const decision of ["hold", "accept"] as const) {
+    const draft = sale("goldberg");
+    draft.lines[0].quantity = { crates: 1, fraction: 0, bottles: 1 };
+    draft.emptiesV2.returnedCrates["trophy-crate"] = "1";
+    // A permitted crate swap uses 12 of the 14 returned Trophy bottles.
+    // Only *one* Goldberg bottle is still owed, so a choice of two is invalid.
+    draft.emptiesV2.returnedBottles["Trophy bottle"] = "14";
+    const before = matchSaleEmpties(draft, catalog);
+    assert.equal(before.lines[0].bottlesOwed, 1);
+    draft.emptiesV2.decisions = [{
+      productId: "goldberg",
+      kind: "bottle",
+      returnedType: "Trophy bottle",
+      quantity: "2",
+      decision,
+    }];
+    assert.throws(
+      () => matchSaleEmpties(draft, catalog),
+      /only for what is still owed/,
+    );
+  }
+});
+
+test("a held extra bottle does not make an additional returned bottle disappear", () => {
+  const draft = sale("goldberg");
+  draft.lines[0].quantity = { crates: 1, fraction: 0, bottles: 1 };
+  draft.emptiesV2.returnedCrates["trophy-crate"] = "1";
+  draft.emptiesV2.returnedBottles["Trophy bottle"] = "14";
+  draft.emptiesV2.decisions = [{
+    productId: "goldberg",
+    kind: "bottle",
+    returnedType: "Trophy bottle",
+    quantity: "1",
+    decision: "hold",
+  }];
+  const result = matchSaleEmpties(draft, catalog);
+  assert.equal(result.swaps.length, 1);
+  assert.equal(result.lines[0].bottlesOwed, 1);
+  assert.deepEqual(result.unmatchedBottles, { "Trophy bottle": 1 });
+  assert.throws(() => assertSaleEmptiesResolved(result), /Accept or Hold/);
+});
+
 test("bottle decision does not undo automatic crate swap in a multi-drink sale", () => {
   const draft = sale("goldberg");
   draft.lines[0].quantity = { crates: 1, fraction: 0, bottles: 1 };
