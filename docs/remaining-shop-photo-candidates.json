@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "rights": "Third-party photo reproduction rights unverified. Owner-requested personal pilot only; no licensing claimed.",
+  "items": [
+    {
+      "slug": "heineken-big-60cl",
+      "catalogue_name": "Heineken",
+      "shop_name": "Heineken Big",
+      "source_page": "https://shoppersgatestores.com/products/heineken-60cl-bottle",
+      "variant": "600ml original lager glass bottle"
+    },
+    {
+      "slug": "castle-lite-60cl",
+      "catalogue_name": "Castle Lite",
+      "shop_name": "Castle Lite",
+      "source_page": "https://shoppersgatestores.com/products/castle-lite-beer-600ml",
+      "variant": "600ml lager glass bottle"
+    },
+    {
+      "slug": "flying-fish-45cl",
+      "catalogue_name": "Flying Fish",
+      "shop_name": "Flying Fish",
+      "source_page": "https://shoppersgatestores.com/products/flying-fish-45cl-larger-beer",
+      "variant": "450ml Flying Fish lager bottle, shop 20-pocket crate"
+    },
+    {
+      "slug": "trophy-stout-60cl",
+      "catalogue_name": "Trophy Stout",
+      "shop_name": "Trophy Stout",
+      "source_page": "https://shoppersgatestores.com/products/trophy-extra-stout-60cl",
+      "variant": "600ml Trophy Extra Special Stout bottle"
+    },
+    {
+      "slug": "smirnoff-ice-big-60cl",
+      "catalogue_name": "Big Ice",
+      "shop_name": "Big Smirnoff Ice",
+      "source_page": "https://www.supermart.ng/products/smirnoff-ice-bottle-60-cl",
+      "variant": "600ml Smirnoff Ice original bottle"
+    },
+    {
+      "slug": "desperados-original-45cl",
+      "catalogue_name": "Desperados",
+      "shop_name": "Desperados",
+      "source_page": "https://addide.com/products/desperados-original-beer-45cl",
+      "variant": "450ml original tequila beer glass bottle (must see 450ml on photo)"
+    },
+    {
+      "slug": "turbo-king-big-60cl",
+      "catalogue_name": "Turbo",
+      "shop_name": "Turbo King Big",
+      "source_page": "https://wigmorewholesale.com/product/nigeria/turbo-king-beer-per-crate-60cl",
+      "variant": "600ml Turbo King bottle only, not crate collage"
+    },
+    {
+      "slug": "tiger-45cl-closecrop",
+      "catalogue_name": "Tiger",
+      "shop_name": "Tiger",
+      "source_page": "https://www.supermart.ng/products/tiger-lager-beer-45-cl",
+      "source_image": "https://raw.githubusercontent.com/NicoCipher/DepotFlow/3d2e1fe74feba3bbe7208e17b1e8774347c72742/public/catalogue-photos/tiger-45cl.webp",
+      "variant": "450ml Tiger beer glass bottle (mechanical recrop of earlier authentic photo)"
+    }
+  ]
+}
