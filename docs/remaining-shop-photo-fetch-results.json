@@ -1,0 +1,80 @@
+{
+  "items": [
+    {
+      "slug": "heineken-big-60cl",
+      "result": "downloaded_needs_visual_review",
+      "source_image": "https://shoppersgatestores.com/storage/drinks/martking-heineken-bottle-drink.jpg",
+      "actual_url": "https://shoppersgatestores.com/storage/drinks/martking-heineken-bottle-drink.jpg",
+      "bytes": 13614,
+      "source_crop": [
+        104,
+        227
+      ],
+      "sha256": "bfbcbdf53348c8674772995a4929ad21dfc24633dca87a5791ad6bdac4429259"
+    },
+    {
+      "slug": "castle-lite-60cl",
+      "result": "downloaded_needs_visual_review",
+      "source_image": "https://shoppersgatestores.com/storage/castlelite.webp",
+      "actual_url": "https://shoppersgatestores.com/storage/castlelite.webp",
+      "bytes": 12996,
+      "source_crop": [
+        715,
+        1073
+      ],
+      "sha256": "9bcb18353cb239812c87a6fb2b2acb508e44a9cafbd74ad4ee7f8e8703836726"
+    },
+    {
+      "slug": "flying-fish-45cl",
+      "result": "downloaded_needs_visual_review",
+      "source_image": "https://shoppersgatestores.com/storage/1-13.png",
+      "actual_url": "https://shoppersgatestores.com/storage/1-13.png",
+      "bytes": 13048,
+      "source_crop": [
+        132,
+        283
+      ],
+      "sha256": "f0fa89e46d7f477c3835994f53c6b0071f376531e532024ddbf82b0f8c2380f0"
+    },
+    {
+      "slug": "trophy-stout-60cl",
+      "result": "downloaded_needs_visual_review",
+      "source_image": "https://shoppersgatestores.com/storage/spmt3276.webp",
+      "actual_url": "https://shoppersgatestores.com/storage/spmt3276.webp",
+      "bytes": 11550,
+      "source_crop": [
+        101,
+        368
+      ],
+      "sha256": "34e90fc06d2cbb5b4b936e02923f478c0739c07c1afe4590182be3fcd605c254"
+    },
+    {
+      "slug": "smirnoff-ice-big-60cl",
+      "result": "failed",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "slug": "desperados-original-45cl",
+      "result": "failed",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "slug": "turbo-king-big-60cl",
+      "result": "failed",
+      "error": "<urlopen error _ssl.c:993: The handshake operation timed out>"
+    },
+    {
+      "slug": "tiger-45cl-closecrop",
+      "result": "downloaded_needs_visual_review",
+      "source_image": "https://raw.githubusercontent.com/NicoCipher/DepotFlow/3d2e1fe74feba3bbe7208e17b1e8774347c72742/public/catalogue-photos/tiger-45cl.webp",
+      "actual_url": "https://raw.githubusercontent.com/NicoCipher/DepotFlow/3d2e1fe74feba3bbe7208e17b1e8774347c72742/public/catalogue-photos/tiger-45cl.webp",
+      "bytes": 13392,
+      "source_crop": [
+        110,
+        428
+      ],
+      "sha256": "be26a1df0eed03d494eca6e0079b1c04de66ca6103d436de842df870981f1c3f"
+    }
+  ],
+  "warning": "Download is not variant validation or permission."
+}
