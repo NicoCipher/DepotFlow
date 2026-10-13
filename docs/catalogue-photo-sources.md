@@ -15,12 +15,12 @@ Only authentic photographs of physical products belong in DepotFlow. Do not subs
 
 First-party packshot URLs remain restricted to DepotFlow's own domain. This record tracks provenance and does not grant reproduction rights.
 
-## Curated 15-shop-drink real photo pilot (October 2026)
+## Curated 13-shop-drink real photo pilot (October 2026)
 
 - All assets below were fetched as **real product photographs**, mechanically resized and metadata-stripped to 640 × 800 WebP, then **manually visually inspected** before proposing publication. They are served from DepotFlow's first-party `/catalogue-photos/` path, not remotely hotlinked.
 - The source manifest records the exact individual source page, image URL, drink name, variant and notes: [shop-photo-source-manifest.json](./shop-photo-source-manifest.json).
 - **The third-party photos are not certified licensed for redistribution.** This personal pilot's owner's request does not grant a legal licence. Replace or obtain permissions for commercial use, and take down a photograph if an owner objects. Do not claim brand endorsement.
-- Only the 15 photographs shown below should be linked; failed or ambiguous variants have no DB reference. Original shop and master names sometimes differ; match them by the configured master catalogue name only.
+- Only the 13 photographs shown below should be linked; failed or ambiguous variants have no DB reference. Original shop and master names sometimes differ; match them by the configured master catalogue name only.
 
 | Shop drink | Filename | Source page |
 |---|---|---|
@@ -28,7 +28,6 @@ First-party packshot URLs remain restricted to DepotFlow's own domain. This reco
 | Amstel Malta | `amstel-malta-33cl.webp` | [Retailer product listing](https://spiceeupp.co.uk/drinks/1444-amstel-malta-drink-330ml.html) |
 | Big Guinness Stout | `guinness-stout-big-60cl.webp` | [Retailer product listing](https://africancaribbeanfoods.com/products/guinness-nigerian-foreign-extra-stout-600ml) |
 | Budweiser | `budweiser-60cl.webp` | [Retailer product listing](https://www.supermart.ng/products/budweiser-lager-beer-bottle-60-cl) |
-| Desperados | `desperados-45cl.webp` | [Retailer product listing](https://www.supermart.ng/products/desperados-tequila-flavoured-beer-bottle-45-cl-x3) |
 | Gulder | `gulder-60cl.webp` | [Retailer product listing](https://www.a2zdrinks.com/gulder-extra-matured-lager-600ml-case-of-12.html) |
 | Legend | `legend-60cl.webp` | [Retailer product listing](https://mama-t.de/en/products/legend-extra-stout-beer) |
 | Life | `life-60cl.webp` | [Retailer product listing](https://www.shoppersgatestores.com/products/life-60cl-bottle) |
@@ -37,9 +36,8 @@ First-party packshot URLs remain restricted to DepotFlow's own domain. This reco
 | Small Smirnoff Ice | `smirnoff-ice-small-33cl.webp` | [Retailer product listing](https://www.nepstores.com/product/smirnoff-ice-original----ml) |
 | Star | `star-60cl.webp` | [Retailer product listing](https://afrobuy.co.uk/products/star-lager) |
 | Star Radler Citrus | `star-radler-citrus-45cl.webp` | [Retailer product listing](https://www.shoppersgatestores.com/products/star-radler-citrus-45cl-bottle) |
-| Tiger | `tiger-45cl.webp` | [Retailer product listing](https://www.supermart.ng/products/tiger-lager-beer-45-cl) |
 | Trophy | `trophy-lager-60cl.webp` | [Retailer product listing](https://addide.com/products/trophy-lager-beer-60cl-bottle) |
 
-**Hold:** Trophy Stout photo import returned a generic missing-image icon, not a product photograph; the placeholder asset was deleted and the drink has no assigned image. Heineken Big, Big Smirnoff Ice, Turbo King, Castle Lite and Flying Fish await reliable exact product references. The 33 Export packshot may show an older design (2026 relaunch); the Small Smirnoff Ice packshot has a regional label; replace these with local-match photographs when confirmed.
+**Hold:** Desperados source bottle visibly says **33cl**, not the shop’s 45cl variant (Codex P1), so we removed its file and DB mapping. Tiger source photo shows a bottle too tiny to recognize on mobile (Codex P2), so we removed its file and mapping pending a better crop. Trophy Stout photo import returned a generic missing-image icon, not a product photograph; the placeholder asset was deleted and the drink has no assigned image. Heineken Big, Big Smirnoff Ice, Turbo King, Castle Lite and Flying Fish await reliable exact product references. The 33 Export packshot may show an older design (2026 relaunch); the Small Smirnoff Ice packshot has a regional label; replace these with local-match photographs when confirmed.
 
 See [shop-photo-import-results.json](./shop-photo-import-results.json) for HTTP failures and explicit visual rejection.

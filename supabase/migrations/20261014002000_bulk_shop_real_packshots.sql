@@ -1,6 +1,6 @@
 begin;
 
--- Genuine bottle photographs verified and stored first-party for 15 configured shop drinks.
+-- Genuine bottle photographs verified and stored first-party for 13 configured shop drinks.
 -- Never overwrite an owner's previously chosen image or alter any sale, price, or stock.
 -- Source and rights record: docs/shop-photo-source-manifest.json.
 with chosen(catalogue_name, photo_slug) as (
@@ -9,7 +9,6 @@ with chosen(catalogue_name, photo_slug) as (
     ('Amstel', 'amstel-malta-33cl'),
     ('Big Stout', 'guinness-stout-big-60cl'),
     ('Budweiser', 'budweiser-60cl'),
-    ('Desperados', 'desperados-45cl'),
     ('Gulder', 'gulder-60cl'),
     ('Legend', 'legend-60cl'),
     ('Life', 'life-60cl'),
@@ -18,7 +17,6 @@ with chosen(catalogue_name, photo_slug) as (
     ('Small Ice', 'smirnoff-ice-small-33cl'),
     ('Star', 'star-60cl'),
     ('Radler', 'star-radler-citrus-45cl'),
-    ('Tiger', 'tiger-45cl'),
     ('Trophy', 'trophy-lager-60cl')
 ),
 linked_catalogue as (

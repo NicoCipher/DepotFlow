@@ -29,8 +29,10 @@
     },
     {
       "slug": "desperados-45cl",
-      "result": "already-present",
-      "bytes": 24652
+      "result": "rejected_variant_mismatch",
+      "bytes": 24652,
+      "reason": "Codex confirmed bottle label says 33cl while shop configured product is 45cl. Do not assign image.",
+      "manual_checked": "2026-10-14"
     },
     {
       "slug": "gulder-60cl",
@@ -97,8 +99,10 @@
     },
     {
       "slug": "tiger-45cl",
-      "result": "already-present",
-      "bytes": 8658
+      "result": "rejected_unusable_crop",
+      "bytes": 8658,
+      "reason": "Bottle only about 15% of image width, illegible on mobile product cards. Crop and verify before assigning.",
+      "manual_checked": "2026-10-14"
     },
     {
       "slug": "trophy-lager-60cl",
@@ -131,8 +135,8 @@
   ],
   "visual_review": {
     "date": "2026-10-14",
-    "accepted_count": 15,
-    "rejected_count": 1,
-    "notes": "Every accepted bottle photograph manually inspected. Existing Goldberg separately live. The listed failed sources have no usable photo. 33 Export is old branding; Smirnoff Ice Small uses an alternate regional label. Correct local variants before commercial launch."
+    "accepted_count": 13,
+    "rejected_count": 3,
+    "notes": "Every accepted bottle photograph manually inspected. Existing Goldberg separately live. The listed failed sources have no usable photo. 33 Export is old branding; Smirnoff Ice Small uses an alternate regional label. Correct local variants before commercial launch. Codex post-merge visual review found Desperados 33cl label mismatch and unusably tiny Tiger bottle; both excluded before database link."
   }
 }
