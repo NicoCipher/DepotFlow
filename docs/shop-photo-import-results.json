@@ -107,14 +107,16 @@
     },
     {
       "slug": "trophy-stout-60cl",
-      "result": "ok",
+      "result": "rejected_visual_review",
       "bytes": 4326,
       "sha256": "8e6b0d650060617bad6b5efd1e08e5042db56985f0ae55bb79b4722c9cffa914",
       "source_final_url": "https://www.biez-tech.com/web/image/product.template/2898/image_1920?unique=6549e71",
       "cropped_source_dimensions": [
         309,
         204
-      ]
+      ],
+      "reason": "Actual file is a generic missing-image icon, NOT a drink bottle photograph. File removed; never link in live database.",
+      "manual_checked": "2026-10-14"
     },
     {
       "slug": "turbo-king-big-60cl",
@@ -126,5 +128,11 @@
       "result": "failed",
       "reason": "HTTP Error 429: Too Many Requests"
     }
-  ]
+  ],
+  "visual_review": {
+    "date": "2026-10-14",
+    "accepted_count": 15,
+    "rejected_count": 1,
+    "notes": "Every accepted bottle photograph manually inspected. Existing Goldberg separately live. The listed failed sources have no usable photo. 33 Export is old branding; Smirnoff Ice Small uses an alternate regional label. Correct local variants before commercial launch."
+  }
 }
