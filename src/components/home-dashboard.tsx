@@ -55,7 +55,7 @@ const quickActions: { href: string; icon: IconName; title: string; description: 
 function QuickAction({ action }: { action: (typeof quickActions)[number] }) {
   return (
     <Link href={action.href}
-      className="group flex min-h-36 min-w-0 flex-col justify-between rounded-2xl border border-stone-200/90 bg-white p-4 shadow-[0_2px_8px_rgba(22,40,30,0.025)] transition-[border-color,box-shadow,transform] motion-safe:hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md focus-visible:outline-emerald-700 sm:min-h-40 sm:p-5">
+      className="group flex min-h-[124px] min-w-0 flex-col justify-between rounded-2xl border border-stone-200/90 bg-white p-4 shadow-[0_2px_8px_rgba(22,40,30,0.025)] transition-[border-color,box-shadow,transform] motion-safe:hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md focus-visible:outline-emerald-700 sm:min-h-[132px] sm:p-4">
       <span className={`inline-grid size-11 place-items-center rounded-xl ${action.colour}`}>
         <HomeIcon name={action.icon} size={23} />
       </span>
@@ -93,10 +93,11 @@ function AttentionRow({
 }
 
 export function HomeDashboard({
-  ownerId, dayLabel, snapshot, emptiesCustomers, heldCrates, heldBottles, drinksNeedingSetup,
+  ownerId, dayLabel, refreshedAt, snapshot, emptiesCustomers, heldCrates, heldBottles, drinksNeedingSetup,
 }: {
   ownerId: string;
   dayLabel: string;
+  refreshedAt: string;
   snapshot: HomeSnapshot;
   emptiesCustomers: number;
   heldCrates: number;
@@ -122,7 +123,7 @@ export function HomeDashboard({
             Your shop today
           </h1>
           <p className="mt-1 max-w-xl text-sm leading-6 text-stone-600 sm:text-base">
-            Start your next job, see your money, and follow up on what matters.
+            Record sales, manage stock and check what needs your attention.
           </p>
         </div>
         <Link href="/activity" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-2 text-sm font-bold text-emerald-900 hover:border-emerald-300 hover:bg-emerald-50">
@@ -168,10 +169,16 @@ export function HomeDashboard({
         <div className="min-w-0 space-y-7">
         <section aria-labelledby="money-heading" className="min-w-0">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 lg:mb-4">
-            <h2 id="money-heading" className="text-lg font-extrabold tracking-tight text-stone-950">Money today</h2>
-            <Link href="/sales" className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-bold text-emerald-800 hover:bg-emerald-50">
+            <div>
+              <h2 id="money-heading" className="text-lg font-extrabold tracking-tight text-stone-950">Money today</h2>
+              <p className="mt-0.5 text-xs text-stone-600">Checked at {refreshedAt} (Nigeria time)</p>
+            </div>
+            <div className="flex items-center gap-1">
+              <a href="/" aria-label="Refresh today's shop numbers" className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-bold text-emerald-800 hover:bg-emerald-50">Refresh</a>
+              <Link href="/sales" className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-bold text-emerald-800 hover:bg-emerald-50">
               View sales <HomeIcon name="arrow" size={17}/>
             </Link>
+            </div>
           </div>
           <div className="grid min-w-0 gap-3 sm:grid-cols-2 md:grid-cols-1">
             <div className="flex min-w-0 flex-col justify-between rounded-2xl border border-emerald-200 bg-[#E7F3E9] p-5 sm:p-6">
@@ -189,7 +196,7 @@ export function HomeDashboard({
               </span>
               <span className="mt-3 block min-w-0 break-words text-[clamp(1.65rem,3.15vw,2.45rem)] font-extrabold leading-tight tracking-[-0.045em] text-stone-950 [overflow-wrap:anywhere]">{formatNaira(snapshot.sales_value)}</span>
               <span className="mt-2 text-xs leading-5 text-stone-600 sm:text-sm">
-                {snapshot.sales_count} {snapshot.sales_count === 1 ? "sale" : "sales"} recorded today · Includes unpaid sales
+                {snapshot.sales_count === 0 ? "No sales recorded today" : `${snapshot.sales_count} ${snapshot.sales_count === 1 ? "sale" : "sales"} recorded today`} · Includes unpaid sales
               </span>
             </div>
           </div>
