@@ -583,7 +583,13 @@ export function matchSaleEmpties(
     applyConfiguredSwaps(
       results.filter(
         (row) =>
-          !decisions.some((choice) => choice.productId === row.productId),
+          // A bottle-only Accept/Hold choice must not cancel an unrelated
+          // configured *crate* swap for the same drink. Explicit crate
+          // decisions still take precedence over automatic swaps.
+          !decisions.some(
+            (choice) =>
+              choice.productId === row.productId && choice.kind === "crate",
+          ),
       ),
     );
 
