@@ -18,11 +18,8 @@ export async function prepareOwnerPhoto(file: File): Promise<File> {
     throw new Error("Choose a photo from your camera, or a JPG, PNG, or WebP file.");
   }
 
-  // Keep valid small originals unchanged to avoid unnecessary recompression.
-  if (file.size <= MAX_PRODUCT_IMAGE_BYTES &&
-    (file.type === "image/jpeg" || file.type === "image/png" || file.type === "image/webp")) {
-    return file;
-  }
+  // Always re-encode camera photos to remove hidden EXIF/GPS metadata.
+  // The storage bucket is publicly readable; never publish original phone metadata.
 
   let bitmap: ImageBitmap;
   try {
