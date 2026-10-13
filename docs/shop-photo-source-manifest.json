@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "scope": "Existing 22 configured shop drinks only. Goldberg already done; Big Smirnoff Ice, Castle Lite and Flying Fish pending exact-variant verification.",
+  "scope": "19 curated bottle-photo candidates; existing Goldberg already live. Castle Lite and Flying Fish remain on variant hold.",
   "rights": "Sources are third-party; reproduction rights not verified. Pilot only. Do not imply licensed use or manufacturer endorsement.",
   "items": [
     {
@@ -17,9 +17,9 @@
       "catalogue_name": "Amstel",
       "shop_name": "Amstel Malta",
       "variant": "33cl glass bottle",
-      "source_page": "https://allinonestore.ng/product/amstel-malta-33cl-can-ojpo8-8",
-      "source_image": "https://allinonestore.ng/public/uploads/all/DzkmKsKcmTuM7EoEOZlo7yeLSvahLr2PqGL9VoQv.jpg",
-      "notes": "Source image shows bottle even though listing URL says can; validate before commercial use."
+      "source_page": "https://spiceeupp.co.uk/drinks/1444-amstel-malta-drink-330ml.html",
+      "source_image": "https://spiceeupp.co.uk/3316-large_default/amstel-malta-drink-330ml.jpg",
+      "notes": "Source image shows bottle even though listing URL says can; validate before commercial use. Retry: verified alternate retailer product image."
     },
     {
       "slug": "guinness-stout-big-60cl",
@@ -53,18 +53,18 @@
       "catalogue_name": "Gulder",
       "shop_name": "Gulder",
       "variant": "60cl extra matured lager bottle",
-      "source_page": "https://www.tesco.com/groceries/en-GB/products/271330494",
-      "source_image": "https://digitalcontent.api.tesco.com/v2/media/ghs/4763daa0-f08e-4fae-8fa7-6c6301728314/68f0a573-9ce5-4e68-85d7-8dca349659d5_282304103.jpeg?h=960&w=960",
-      "notes": ""
+      "source_page": "https://www.a2zdrinks.com/gulder-extra-matured-lager-600ml-case-of-12.html",
+      "source_image": "https://www.a2zdrinks.com/media/catalog/product/cache/207e23213cf636ccdef205098cf3c8a3/g/u/gulder.jpg",
+      "notes": " Retry: verified alternate retailer product image."
     },
     {
       "slug": "heineken-big-60cl",
       "catalogue_name": "Heineken",
       "shop_name": "Heineken Big",
       "variant": "60cl original green glass bottle",
-      "source_page": "https://www.savegnago.com.br/cerveja-heineken-600ml/p",
-      "source_image": "https://savegnagoio.vtexassets.com/arquivos/ids/468465/CervejaHeineken600ml1.jpg?v=638802537042700000",
-      "notes": "Heineken 600ml reference; source retailer outside Nigeria."
+      "source_page": "https://www.citymarketng.com/products/heineken-bottle-60cl",
+      "source_image": "https://www.citymarketng.com/products/heineken-bottle-60cl.js",
+      "notes": "Heineken 600ml reference; source retailer outside Nigeria. Retry: verified alternate retailer product image."
     },
     {
       "slug": "legend-60cl",
@@ -89,9 +89,9 @@
       "catalogue_name": "Malta",
       "shop_name": "Malta Guinness",
       "variant": "33cl malt glass bottle",
-      "source_page": "https://gloxmart.com/products/malta-guinness-non-alcoholic-malt-drink-330-ml-24-count",
-      "source_image": "https://gloxmart.com/cdn/shop/files/malta-guinness-non-alcoholic-malt-drink-330-ml-651802.jpg?v=1742761067",
-      "notes": ""
+      "source_page": "https://www.kmiimpex.com/malta-guinness-non-alcoholic-malt-drink-330-ml.html",
+      "source_image": "https://www.kmiimpex.com/media/catalog/product/cache/0ee050c3ffc3555709b9bb6062f4d7e9/m/a/malta-guiness-png-bottle-new.png",
+      "notes": " Retry: verified alternate retailer product image."
     },
     {
       "slug": "guinness-stout-small-33cl",
@@ -116,9 +116,9 @@
       "catalogue_name": "Star",
       "shop_name": "Star",
       "variant": "60cl finest lager bottle",
-      "source_page": "https://www.tesco.com/groceries/en-GB/products/271233678",
-      "source_image": "https://digitalcontent.api.tesco.com/v2/media/ghs/b520a831-bf36-498b-aeb0-298a37cb6429/2edc6170-59f2-4293-ab3c-5378e43cdea6_350994888.jpeg",
-      "notes": ""
+      "source_page": "https://afrobuy.co.uk/products/star-lager",
+      "source_image": "https://afrobuy.co.uk/cdn/shop/products/star-finest-lager-beer-bottle-12x600ml-322_1024x1024_bfe1be83-a154-4e48-9f81-0741f69a44ea.png",
+      "notes": " Retry: verified alternate retailer product image."
     },
     {
       "slug": "star-radler-citrus-45cl",
@@ -152,9 +152,9 @@
       "catalogue_name": "Trophy Stout",
       "shop_name": "Trophy Stout",
       "variant": "60cl Trophy Extra Special stout bottle",
-      "source_page": "https://products.contact/supplier/15-international-breweries-plc",
-      "source_image": "https://products.contact/202-large_default/trophy-extra-special-stout-600ml.jpg",
-      "notes": ""
+      "source_page": "https://www.biez-tech.com/en_GB/shop/trophy-extra-special-stout-60cl-bottle-2898",
+      "source_image": "https://www.biez-tech.com/web/image/product.template/2898/image_1920?unique=6549e71",
+      "notes": " Retry: verified alternate retailer product image."
     },
     {
       "slug": "turbo-king-big-60cl",
@@ -164,6 +164,15 @@
       "source_page": "https://allinonestore.ng/product/derok-rum-liqueur-lshei",
       "source_image": "https://allinonestore.ng/public/uploads/all/4R6cuK7euyYPHsCmQmDnbp3ryttAo0OxcJYmbNxi.jpg",
       "notes": "Source image/product page has mismatched URL slug; check packaging"
+    },
+    {
+      "slug": "smirnoff-ice-big-60cl",
+      "catalogue_name": "Big Ice",
+      "shop_name": "Big Smirnoff Ice",
+      "variant": "60cl original bottle, 12 per crate",
+      "source_page": "https://addide.com/products/smirnoff-ice-bottle-60cl",
+      "source_image": "https://addide.com/products/smirnoff-ice-bottle-60cl.js",
+      "notes": "Shopify product JSON from exact retailer 60cl listing. Confirm packaging once fetched."
     }
   ]
 }

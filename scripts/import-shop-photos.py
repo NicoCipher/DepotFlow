@@ -18,6 +18,22 @@ Image.MAX_IMAGE_PIXELS = 12_000_000
 
 def fetch(url):
     parsed = urllib.parse.urlsplit(url)
+    # A retailer's public Shopify product JSON can provide its own exact-SKU
+    # photo URL. Only use this for explicitly curated, variant-specific items.
+    if parsed.path.endswith(".js"):
+        if parsed.scheme != "https":
+            raise ValueError("Only HTTPS Shopify product URLs allowed")
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=25, context=ssl.create_default_context()) as res:
+            info = json.loads(res.read(400000))
+        imgs = info.get("images", [])
+        if not imgs:
+            raise ValueError("Shopify product listing has no photograph")
+        src = imgs[0].get("src") if isinstance(imgs[0], dict) else imgs[0]
+        if not isinstance(src, str):
+            raise ValueError("Unexpected Shopify photograph reference")
+        src = "https:" + src if src.startswith("//") else src
+        return fetch(src)
     if parsed.scheme != "https" or not parsed.hostname:
         raise ValueError("Only HTTPS source URLs are supported")
     request = urllib.request.Request(url, headers={
