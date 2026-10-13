@@ -8,6 +8,7 @@ import {
   matchSaleEmpties,
   hasUnmatchedSaleEmpties,
   missingEmptiesMessage,
+  simpleBottleReturnChoice,
   type EmptiesMatchResult,
 } from "@/domain/sale-empties";
 import type { SaleCatalog, SaleDraft } from "@/domain/sale-builder";
@@ -23,6 +24,10 @@ type Props = {
 function add(map: Record<string, string>, key: string, amount: number) {
   if (!amount) return;
   map[key] = String(Number(map[key] ?? "0") + amount);
+}
+
+function selectDefaultZero(event: { currentTarget: HTMLInputElement }) {
+  if (event.currentTarget.value === "0") event.currentTarget.select();
 }
 
 export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
@@ -187,6 +192,33 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
   const missingDepositSetup =
     depositBlocked && result ? depositSetupIssues(result, catalog) : [];
 
+  // One wrong loose bottle type should require a decision, not another round
+  // of selecting its type and re-entering the same count.
+  const simpleBottleReturn = state.mode === "actual" && result
+    ? simpleBottleReturnChoice(result)
+    : null;
+
+  function decideSimpleBottleReturn(decision: "accept" | "hold") {
+    if (!simpleBottleReturn) return;
+    const next = {
+      ...state,
+      decisions: [...(state.decisions ?? []), {
+        productId: simpleBottleReturn.productId,
+        kind: "bottle" as const,
+        returnedType: simpleBottleReturn.returnedType,
+        quantity: String(simpleBottleReturn.quantity),
+        decision,
+      }],
+    };
+    try {
+      matchSaleEmpties({ ...draft, emptiesV2: next }, catalog);
+      update({ emptiesV2: next });
+      setChoiceError("");
+    } catch (cause) {
+      setChoiceError(cause instanceof Error ? cause.message : "Check this choice.");
+    }
+  }
+
   return (
     <>
       <div>
@@ -254,6 +286,8 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                   </label>
                   <input
                     id={`crates-taken-${line.productId}`}
+                      onFocus={selectDefaultZero}
+                      onClick={selectDefaultZero}
                     className="mt-2"
                     inputMode="numeric"
                     pattern="[0-9]+"
@@ -327,6 +361,8 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                     </label>
                     <input
                       id={`returned-crate-${crate.id}`}
+                      onFocus={selectDefaultZero}
+                      onClick={selectDefaultZero}
                       className="mt-2"
                       inputMode="numeric"
                       pattern="[0-9]+"
@@ -414,6 +450,8 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                     </label>
                     <input
                       id={`returned-bottle-${bottleTypes.indexOf(bottleType)}`}
+                      onFocus={selectDefaultZero}
+                      onClick={selectDefaultZero}
                       className="mt-2"
                       inputMode="numeric"
                       pattern="[0-9]+"
@@ -479,9 +517,22 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
       )}
 
       {state.mode === "actual" && (
-        <details
+        <>
+          {simpleBottleReturn && <section aria-label="Different bottle returned" className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <h3 className="text-lg font-semibold">Different bottle returned</h3>
+            <p className="mt-2">{simpleBottleReturn.quantity} {simpleBottleReturn.returnedType} {simpleBottleReturn.quantity === 1 ? "bottle" : "bottles"} came back instead of {simpleBottleReturn.expectedType} for {productName.get(simpleBottleReturn.productId)}.</p>
+            <p className="mt-2 text-sm">What should happen to {simpleBottleReturn.quantity === 1 ? "this bottle" : "these bottles"}?</p>
+            <div className="mt-3 grid gap-2">
+              <button type="button" className="primary w-full" onClick={() => decideSimpleBottleReturn("accept")}>Accept instead · reduce what is owed</button>
+              <button type="button" className="secondary w-full" onClick={() => decideSimpleBottleReturn("hold")}>Hold · correct bottle still owed</button>
+            </div>
+            {choiceError && <p role="alert" className="mt-2 text-red-800">{choiceError}</p>}
+          </section>}
+          {(state.decisions?.length ?? 0) > 0 && <div aria-live="polite" className="space-y-1 rounded-lg bg-stone-50 p-3 text-sm">
+            {(state.decisions ?? []).map((entry, index) => <p key={index}>{entry.quantity} {entry.returnedType} {entry.kind === "bottle" ? "bottles" : "crates"}: {entry.decision === "accept" ? "Accepted for this sale; correct type reduced" : "Held; correct type still owed"}</p>)}
+          </div>}
+          {!simpleBottleReturn && <details
           className="rounded-xl border border-stone-200 bg-white p-4"
-          open={Boolean(state.decisions?.length)}
         >
           <summary className="min-h-12 cursor-pointer py-3 font-semibold">
             Wrong empties? Accept or hold them
@@ -552,6 +603,8 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
               How many {choice.kind === "crate" ? "crates" : "bottles"}?
               <input
                 inputMode="numeric"
+                onFocus={(event) => event.currentTarget.select()}
+                onClick={(event) => event.currentTarget.select()}
                 value={choice.quantity}
                 onChange={(event) =>
                   setChoice({ ...choice, quantity: event.target.value })
@@ -637,7 +690,8 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
               </button>
             </div>
           ))}
-        </details>
+        </details>}
+        </>
       )}
 
       {hasFieldErrors && (

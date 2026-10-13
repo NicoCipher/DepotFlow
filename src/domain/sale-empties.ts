@@ -49,6 +49,25 @@ export type EmptiesMatchResult = {
   hasShortage: boolean;
 };
 
+/**
+ * Suggest a one-tap decision only when exactly one owed bottle type and one
+ * different physical type remain unmatched. Never guess across customers or
+ * multiple outstanding drinks.
+ */
+export function simpleBottleReturnChoice(result: EmptiesMatchResult) {
+  if (result.decisions.length || Object.values(result.unmatchedCrates).some((n) => n > 0))
+    return null;
+  const owed = result.lines.filter((line) => line.bottlesOwed > 0);
+  if (owed.length !== 1) return null;
+  const line = owed[0];
+  if (!line.bottleType || line.cratesOwed > 0) return null;
+  const other = Object.entries(result.unmatchedBottles).filter(([, n]) => n > 0);
+  if (other.length !== 1) return null;
+  const [returnedType, quantity] = other[0];
+  if (quantity > line.bottlesOwed || returnedType === line.bottleType) return null;
+  return { productId: line.productId, expectedType: line.bottleType, returnedType, quantity };
+}
+
 export function hasUnmatchedSaleEmpties(result: EmptiesMatchResult) {
   return Object.values(result.unmatchedCrates).some(quantity => quantity > 0) || Object.values(result.unmatchedBottles).some(quantity => quantity > 0);
 }
@@ -480,7 +499,15 @@ export function matchSaleEmpties(
     }
   }
   const decisions = state.mode === "actual" ? (state.decisions ?? []) : [];
-  if (!decisions.length) applyConfiguredSwaps(results);
+  const crateDecisions = decisions.filter((choice) => choice.kind === "crate");
+  const bottleDecisions = decisions.filter((choice) => choice.kind === "bottle");
+  const explicitCrateProducts = new Set(
+    crateDecisions.map((choice) => choice.productId),
+  );
+  // If there are no explicit crate choices, settle complete compatible
+  // crates *before* deciding how to handle extra loose bottles. Otherwise a
+  // bottle decision could claim bottles already needed by an accepted swap.
+  if (!crateDecisions.length) applyConfiguredSwaps(results);
 
   // 3. An exact physical crate can still settle the crate even when its
   // bottles are incomplete or mixed.
@@ -511,7 +538,8 @@ export function matchSaleEmpties(
 
   const assigned = new Map<string, number>();
   if (decisions.length > 1000) throw new Error("Check the empties choices.");
-  for (const choice of decisions) {
+  function processDecisions(choices: typeof decisions) {
+    for (const choice of choices) {
     const row = results.find((item) => item.productId === choice.productId);
     const quantity = whole(choice.quantity);
     if (
@@ -558,15 +586,18 @@ export function matchSaleEmpties(
         row.bottlesOwed -= quantity;
       }
     } else assigned.set(key, (assigned.get(key) ?? 0) + quantity);
+    }
   }
 
-  if (decisions.length)
+  // Respect manual crate Accept/Hold choices first, then settle any unrelated
+  // compatible crate swaps. Bottle decisions are checked last, against the
+  // true remaining bottle obligation after those crates have been accounted for.
+  processDecisions(crateDecisions);
+  if (crateDecisions.length)
     applyConfiguredSwaps(
-      results.filter(
-        (row) =>
-          !decisions.some((choice) => choice.productId === row.productId),
-      ),
+      results.filter((row) => !explicitCrateProducts.has(row.productId)),
     );
+  processDecisions(bottleDecisions);
 
   return {
     decisions,

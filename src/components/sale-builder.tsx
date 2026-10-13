@@ -43,6 +43,10 @@ import {
   type SaleProduct,
   type SaleQuantity,
 } from "@/domain/sale-builder";
+function selectDefaultZero(event: { currentTarget: HTMLInputElement }) {
+  if (event.currentTarget.value === "0") event.currentTarget.select();
+}
+
 export function SaleBuilder({
   ownerId,
   initialCatalog,
@@ -57,6 +61,7 @@ export function SaleBuilder({
     draftId: string | null;
   } | null>(null);
   const [customerQuery, setCustomerQuery] = useState("");
+  const pricingMode = draft.sellingMode === "retail" ? "retail" : "wholesale";
   const [catalog, setCatalog] = useState(initialCatalog);
   const [message, setMessage] = useState("");
   const [sessionExpired, setSessionExpired] = useState(false);
@@ -133,6 +138,7 @@ export function SaleBuilder({
     }
     const q = draft.lines.find((line) => line.productId === p.id)?.quantity;
     update({
+      sellingMode: q && q.crates === 0 && q.fraction === 0 && !q.eighths && q.bottles > 0 ? "retail" : "wholesale",
       step: "quantity",
       editingId: p.id,
       crates: String(q?.crates ?? 0),
@@ -636,7 +642,7 @@ export function SaleBuilder({
         )}
         {step === "quantity" && product && (
           <>
-            <p className="text-stone-700">Enter the crates and bottles they are buying.</p>
+            <p className="text-stone-700">Choose how to price this drink, then enter the quantity.</p>
             <h2 className="text-xl font-semibold">
               {product.name} {product.size}
             </h2>
@@ -662,6 +668,23 @@ export function SaleBuilder({
                 }
               }}
             >
+              <fieldset className="rounded-xl border border-stone-200 p-3">
+                <legend className="px-1 font-semibold">Selling by</legend>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" aria-pressed={pricingMode === "wholesale"} className={pricingMode === "wholesale" ? "primary" : "secondary"} onClick={() => {
+                    if (pricingMode === "wholesale") return;
+                    update({ sellingMode: "wholesale", crates: "0", fraction: 0, eighths: 0, bottles: "0" });
+                  }}>Wholesale · crates</button>
+                  <button type="button" aria-pressed={pricingMode === "retail"} className={pricingMode === "retail" ? "primary" : "secondary"} disabled={product.bottle_price === null} onClick={() => {
+                    if (pricingMode === "retail") return;
+                    update({ sellingMode: "retail", crates: "0", fraction: 0, eighths: 0, bottles: "0" });
+                  }}>Retail · bottles</button>
+                </div>
+                <p className="mt-2 text-sm text-stone-600">Changing the price type resets this drink&apos;s quantity. Enter it again below.</p>
+                {product.bottle_price === null && <p className="mt-2 text-sm text-amber-900">Set this drink&apos;s bottle price to enable Retail.</p>}
+              </fieldset>
+              {pricingMode === "wholesale" && (
+                <>
               <div>
                 <label htmlFor="sale-crates">
                   Whole crates ·{" "}
@@ -671,6 +694,8 @@ export function SaleBuilder({
                 </label>
                 <input
                   id="sale-crates"
+                  onFocus={selectDefaultZero}
+                  onClick={selectDefaultZero}
                   disabled={product.full_crate_price === null}
                   inputMode="numeric"
                   pattern="[0-9]+"
@@ -758,15 +783,20 @@ export function SaleBuilder({
                   })()}</p>
                 </details>
               </fieldset>
+                </>
+              )}
+              {pricingMode === "retail" && <p className="text-sm text-stone-700">Each bottle is charged at its configured bottle price. {product.bottles_per_crate % 2 === 0 ? `Half of this ${product.bottles_per_crate}-bottle crate is ${product.bottles_per_crate / 2} bottles.` : `This crate holds ${product.bottles_per_crate} bottles.`} Retail does not use the wholesale fraction price.</p>}
               <div>
                 <label htmlFor="sale-bottles">
-                  Extra loose bottles
+                  {pricingMode === "retail" ? "Bottles" : "Extra loose bottles"}
                   {product.bottle_price === null
                     ? " · Price not set"
                     : ` · ${formatNaira(product.bottle_price)} each`}
                 </label>
                 <input
                   id="sale-bottles"
+                  onFocus={selectDefaultZero}
+                  onClick={selectDefaultZero}
                   disabled={product.bottle_price === null}
                   inputMode="numeric"
                   pattern="[0-9]+"
@@ -800,7 +830,7 @@ export function SaleBuilder({
               </div>
               {preview ? (
                 <p role="status" className="text-xl font-semibold">
-                  {saleQuantityLabel(quantity())} ·{" "}
+                  {pricingMode === "retail" ? `${quantity().bottles} bottles at retail price` : saleQuantityLabel(quantity())} ·{" "}
                   {formatNaira(preview.lineTotal)}
                 </p>
               ) : quantityError ? (

@@ -89,6 +89,26 @@ test("exact bottles retain the explicit bottle price even when they make a crate
   });
   assert.equal(saleQuantityLabel(q(1, 3, 2)), "1¾ crates + 2 bottles");
 });
+test("retail half a 12-bottle crate charges six bottle prices, not the wholesale half price", () => {
+  assert.deepEqual(priceQuantity(product, q(0, 0, 6)), {
+    totalBottles: 6,
+    lineTotal: 9000,
+  });
+  assert.deepEqual(priceQuantity(product, q(0, 2)), {
+    totalBottles: 6,
+    lineTotal: 6500,
+  });
+});
+
+test("retail quantity mode survives a parked draft and older drafts default to wholesale", () => {
+  const raw = JSON.stringify({ ...emptySaleDraft, step: "quantity", sellingMode: "retail", crates: "0", bottles: "6" });
+  const restored = readSaleDraft(raw);
+  assert.equal(restored.sellingMode, "retail");
+  assert.equal(restored.bottles, "6");
+  assert.equal(readSaleDraft(JSON.stringify({ ...emptySaleDraft, sellingMode: undefined })).sellingMode, "wholesale");
+  assert.equal(readSaleDraft(JSON.stringify({ ...emptySaleDraft, sellingMode: "invalid" })).sellingMode, "wholesale");
+});
+
 test("price change message shows the previous and current payable amount", () => {
   const line = putSaleLine(
     [],
