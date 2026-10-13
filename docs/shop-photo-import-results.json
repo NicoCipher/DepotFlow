@@ -1,0 +1,161 @@
+{
+  "source_manifest": "docs/shop-photo-source-manifest.json",
+  "items": [
+    {
+      "slug": "33-export-60cl",
+      "result": "ok",
+      "bytes": 28596,
+      "sha256": "ddd728a4421c6ac008c4cb04ca098fad91e26268cc5ebf9c535cb67349af2967",
+      "source_final_url": "https://chomart.com/storage/images/33-export-premium-larger-beer-60-cl-pbxuu90298.webp",
+      "cropped_source_dimensions": [
+        184,
+        675
+      ]
+    },
+    {
+      "slug": "amstel-malta-33cl",
+      "result": "failed",
+      "reason": "<urlopen error [Errno -3] Temporary failure in name resolution>"
+    },
+    {
+      "slug": "guinness-stout-big-60cl",
+      "result": "ok",
+      "bytes": 21478,
+      "sha256": "bf255a207b158cac9afed6e1808d54331c822f0af98f5daf5ad51077b98fa370",
+      "source_final_url": "https://africancaribbeanfoods.com/cdn/shop/files/b1fceffa-d238-4410-bf4a-f2b921f23bbb_892243694.png?v=1718445075",
+      "cropped_source_dimensions": [
+        283,
+        960
+      ]
+    },
+    {
+      "slug": "budweiser-60cl",
+      "result": "ok",
+      "bytes": 14682,
+      "sha256": "74b5f4187463b6af903bf07f990519c3c7ca7616fcae202d30fa2f6bb242dd0f",
+      "source_final_url": "https://www.supermart.ng/cdn/shop/files/sptocr425_b4063e31-be92-4710-ac36-f8e88c6c9669.jpg?v=1711999660",
+      "cropped_source_dimensions": [
+        111,
+        400
+      ]
+    },
+    {
+      "slug": "desperados-45cl",
+      "result": "ok",
+      "bytes": 24652,
+      "sha256": "967fc393b0528767f2e4e9fdb1ecd359b55b3f1267db593fb9143dd29d7f2bec",
+      "source_final_url": "https://www.supermart.ng/cdn/shop/files/spmt3275_770d007d-c893-4e7a-bae7-245413273ba0.jpg?v=1689899905",
+      "cropped_source_dimensions": [
+        111,
+        400
+      ]
+    },
+    {
+      "slug": "gulder-60cl",
+      "result": "failed",
+      "reason": "HTTP Error 404: Not Found"
+    },
+    {
+      "slug": "heineken-big-60cl",
+      "result": "failed",
+      "reason": "HTTP Error 404: Not Found"
+    },
+    {
+      "slug": "legend-60cl",
+      "result": "ok",
+      "bytes": 28110,
+      "sha256": "9d43a3a41ecb3d1ccafdaa232b8748959ef74055847f92f28c03b4e753746fa7",
+      "source_final_url": "https://mama-t.de/cdn/shop/files/MJ9A8113_1.jpg?v=1720101436",
+      "cropped_source_dimensions": [
+        1800,
+        1800
+      ]
+    },
+    {
+      "slug": "life-60cl",
+      "result": "ok",
+      "bytes": 19130,
+      "sha256": "d34e3c028f9cb7f2adfcc295a4c91da1ed8e8f4654cdc010e7633c21e680c3b4",
+      "source_final_url": "https://www.shoppersgatestores.com/storage/life-beer-bottle-removebg-preview-1-600x600.webp",
+      "cropped_source_dimensions": [
+        179,
+        600
+      ]
+    },
+    {
+      "slug": "malta-guinness-33cl",
+      "result": "failed",
+      "reason": "HTTP Error 404: Not Found"
+    },
+    {
+      "slug": "guinness-stout-small-33cl",
+      "result": "ok",
+      "bytes": 18142,
+      "sha256": "904f451101eaf6676545b5298aad4dc4a99d129f1a029baf8f1d9874b332c6a1",
+      "source_final_url": "https://www.supermart.ng/cdn/shop/files/spspbe693.png?v=1690412717",
+      "cropped_source_dimensions": [
+        114,
+        400
+      ]
+    },
+    {
+      "slug": "smirnoff-ice-small-33cl",
+      "result": "ok",
+      "bytes": 22856,
+      "sha256": "b0973187b958553362ce433b81d4a1533b2752937d9b079c4c752a39d9fbd2aa",
+      "source_final_url": "https://www.nepstores.com/assets/images/1729656567smirnoff-ice-original.png",
+      "cropped_source_dimensions": [
+        255,
+        970
+      ]
+    },
+    {
+      "slug": "star-60cl",
+      "result": "failed",
+      "reason": "HTTP Error 404: Not Found"
+    },
+    {
+      "slug": "star-radler-citrus-45cl",
+      "result": "ok",
+      "bytes": 29664,
+      "sha256": "6388cadfe47196dc50f226ae069f7a23538d2c1802352f898d362c862dce9f7a",
+      "source_final_url": "https://www.shoppersgatestores.com/storage/radler-citruc-min-600x600.png",
+      "cropped_source_dimensions": [
+        185,
+        600
+      ]
+    },
+    {
+      "slug": "tiger-45cl",
+      "result": "ok",
+      "bytes": 8658,
+      "sha256": "bc9a3dcdc77c5621b780be6d29b45af2ae6ed545727e399652267ebeaeba66ce",
+      "source_final_url": "https://www.supermart.ng/cdn/shop/files/sptocr427_3bf3f0e7-4329-42b8-b82a-cab4a5a1a7c2.jpg?v=1711999664",
+      "cropped_source_dimensions": [
+        500,
+        500
+      ]
+    },
+    {
+      "slug": "trophy-lager-60cl",
+      "result": "ok",
+      "bytes": 20306,
+      "sha256": "03f7cc8bf0fdef377e701ac3d6f393e66d0ee34429b3483603550002a19b82ef",
+      "source_final_url": "https://cdn.shopify.com/s/files/1/0399/6136/2595/products/10018_trophypremiumlargerbeer600ml_1024x1024_fab1407d-c69c-4148-aeaf-caf4edea2131_1600x.png?v=1625500970",
+      "cropped_source_dimensions": [
+        164,
+        588
+      ]
+    },
+    {
+      "slug": "trophy-stout-60cl",
+      "result": "failed",
+      "reason": "HTTP Error 403: Forbidden"
+    },
+    {
+      "slug": "turbo-king-big-60cl",
+      "result": "failed",
+      "reason": "<urlopen error [Errno -3] Temporary failure in name resolution>"
+    }
+  ]
+}
