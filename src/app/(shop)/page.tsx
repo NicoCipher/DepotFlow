@@ -179,7 +179,7 @@ export default async function Home() {
       <section aria-labelledby="money-heading">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 id="money-heading" className="text-lg font-bold">Today’s money</h2>
-          <Link href="/sales" className="text-sm font-semibold text-emerald-800 underline underline-offset-4">View sales →</Link>
+          <Link href="/sales" className="inline-flex min-h-11 shrink-0 items-center rounded-lg px-3 py-2 text-sm font-semibold text-emerald-800 underline underline-offset-4 transition-colors hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-800">View sales →</Link>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="min-w-0 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
