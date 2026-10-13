@@ -220,7 +220,7 @@ export function HomeDashboard({
               <span className="grid size-12 shrink-0 place-items-center rounded-full bg-white text-emerald-800"><HomeIcon name="check" size={24}/></span>
               <span>
                 <strong className="block text-base font-bold text-emerald-950">No issues flagged</strong>
-                <span className="mt-1 block text-sm leading-6 text-emerald-900">Customer debts, stock counts and setup issues will appear here when recorded.</span>
+                <span className="mt-1 block text-sm leading-6 text-emerald-900">Customer debts, empties owed, low stock, missing counts and setup problems appear here when found.</span>
               </span>
             </div>
           ) : (
