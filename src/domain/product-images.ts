@@ -23,8 +23,13 @@ export function catalogueImageUrl(path: string | null): string | null {
   }
 }
 
+// First-party, build-bundled product packshots live on DepotFlow's own origin.
+// This accepts no external host, query string, fragment or user-supplied path.
+const OWNED_PACKSHOT = /^\/catalogue-photos\/[a-z0-9][a-z0-9-]*\.(webp|png|jpg)$/;
+
 export function trustedProductImageUrl(value: string | null): boolean {
   if (!value) return false;
+  if (OWNED_PACKSHOT.test(value)) return true;
   const projectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!projectUrl) return false;
   try {
