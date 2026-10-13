@@ -8,6 +8,7 @@ import {
   matchSaleEmpties,
   hasUnmatchedSaleEmpties,
   missingEmptiesMessage,
+  simpleBottleReturnChoice,
   type EmptiesMatchResult,
 } from "@/domain/sale-empties";
 import type { SaleCatalog, SaleDraft } from "@/domain/sale-builder";
@@ -193,18 +194,9 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
 
   // One wrong loose bottle type should require a decision, not another round
   // of selecting its type and re-entering the same count.
-  const simpleBottleReturn = (() => {
-    if (state.mode !== "actual" || !result || (state.decisions?.length ?? 0) > 0 || result.lines.length !== 1)
-      return null;
-    const line = result.lines[0];
-    if (line.cratesOwed || !line.bottleType || !line.bottlesOwed || Object.values(result.unmatchedCrates).some((qty) => qty > 0))
-      return null;
-    const extra = Object.entries(result.unmatchedBottles).filter(([, qty]) => qty > 0);
-    if (extra.length !== 1) return null;
-    const [returnedType, qty] = extra[0];
-    if (qty > line.bottlesOwed) return null;
-    return { productId: line.productId, expectedType: line.bottleType, returnedType, quantity: qty };
-  })();
+  const simpleBottleReturn = state.mode === "actual" && result
+    ? simpleBottleReturnChoice(result)
+    : null;
 
   function decideSimpleBottleReturn(decision: "accept" | "hold") {
     if (!simpleBottleReturn) return;

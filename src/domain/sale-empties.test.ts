@@ -8,6 +8,7 @@ import {
   emptyEmptiesV2,
   matchSaleEmpties,
   missingEmptiesMessage,
+  simpleBottleReturnChoice,
 } from "./sale-empties.ts";
 import {
   emptySaleDraft,
@@ -108,6 +109,39 @@ test("exact complete return settles crate and bottles", () => {
   assert.equal(result.hasShortage, false);
   assert.equal(result.lines[0].cratesOwed, 0);
   assert.equal(result.lines[0].bottlesOwed, 0);
+});
+
+test("single wrong bottle choice stays simple inside a multi-drink sale", () => {
+  const draft = sale("goldberg", 0);
+  draft.lines[0].quantity = { crates: 0, fraction: 0, bottles: 1 };
+  draft.lines.push({ productId: "trophy", quantity: { crates: 0, fraction: 0, bottles: 2 } });
+  draft.emptiesV2.returnedBottles["Trophy bottle"] = "3";
+  const result = matchSaleEmpties(draft, catalog);
+  const suggestion = simpleBottleReturnChoice(result);
+  assert.deepEqual(suggestion, {
+    productId: "goldberg",
+    expectedType: "Goldberg bottle",
+    returnedType: "Trophy bottle",
+    quantity: 1,
+  });
+  draft.emptiesV2.decisions = [{
+    productId: suggestion!.productId,
+    kind: "bottle",
+    returnedType: suggestion!.returnedType,
+    quantity: String(suggestion!.quantity),
+    decision: "accept",
+  }];
+  const settled = matchSaleEmpties(draft, catalog);
+  assert.equal(settled.lines.find((line) => line.productId === "goldberg")?.bottlesOwed, 0);
+  assert.equal(settled.unmatchedBottles["Trophy bottle"], undefined);
+});
+
+test("never guess which drink a different bottle replaces when multiple types are owed", () => {
+  const draft = sale("goldberg", 0);
+  draft.lines[0].quantity = { crates: 0, fraction: 0, bottles: 1 };
+  draft.lines.push({ productId: "big", quantity: { crates: 0, fraction: 0, bottles: 1 } });
+  draft.emptiesV2.returnedBottles["Trophy bottle"] = "1";
+  assert.equal(simpleBottleReturnChoice(matchSaleEmpties(draft, catalog)), null);
 });
 
 test("cleared visible empties count stays invalid instead of silently becoming zero", () => {

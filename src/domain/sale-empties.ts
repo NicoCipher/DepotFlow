@@ -49,6 +49,25 @@ export type EmptiesMatchResult = {
   hasShortage: boolean;
 };
 
+/**
+ * Suggest a one-tap decision only when exactly one owed bottle type and one
+ * different physical type remain unmatched. Never guess across customers or
+ * multiple outstanding drinks.
+ */
+export function simpleBottleReturnChoice(result: EmptiesMatchResult) {
+  if (result.decisions.length || Object.values(result.unmatchedCrates).some((n) => n > 0))
+    return null;
+  const owed = result.lines.filter((line) => line.bottlesOwed > 0);
+  if (owed.length !== 1) return null;
+  const line = owed[0];
+  if (!line.bottleType || line.cratesOwed > 0) return null;
+  const other = Object.entries(result.unmatchedBottles).filter(([, n]) => n > 0);
+  if (other.length !== 1) return null;
+  const [returnedType, quantity] = other[0];
+  if (quantity > line.bottlesOwed || returnedType === line.bottleType) return null;
+  return { productId: line.productId, expectedType: line.bottleType, returnedType, quantity };
+}
+
 export function hasUnmatchedSaleEmpties(result: EmptiesMatchResult) {
   return Object.values(result.unmatchedCrates).some(quantity => quantity > 0) || Object.values(result.unmatchedBottles).some(quantity => quantity > 0);
 }
