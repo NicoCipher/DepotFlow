@@ -4,14 +4,13 @@ Only authentic photographs of physical products belong in DepotFlow. Do not subs
 
 ## Goldberg Premium Lager Beer — 60cl bottle
 
-> **Goldberg status: withdrawn from public asset bundle pending permission.** The Omnia Trading photograph has no established reuse license and the listing says all rights reserved. This file remains a **reference only**, and its catalogue/shop image references have been conditionally cleared. Do not re-host it in production without the rights holder's authorization or a verified freely licensed alternative.
-
-
-- Product identity: Goldberg Premium Lager Beer, green 600 ml/60 cl bottle, black/gold/red packaging.
+- Product identity: Goldberg Premium Lager Beer, green 600 ml/60 cl glass bottle, black/gold/red packaging.
 - Actual photograph source: https://www.omnia-trading.com/product-page/goldberg-premium-lager
-- Source image URL: https://static.wixstatic.com/media/523975_afcdee2b0a6844c48caadeea907cee8d~mv2.jpg/v1/fit/w_500%2Ch_500%2Cq_90/file.jpg
-- Previous optimized candidate was **removed** from public assets pending reuse authorization.
-- Preparation: retain original bottle and label; trim near-white outer margin, center on white 640×800 background, use Lanczos resizing and subtle sharpening, encode as WebP. No AI recreation, no modifications to the actual packaging or text.
-- License: the listing is publicly viewable but does **not** establish a reuse license. Reuse rights remain unconfirmed; avoid claiming manufacturer endorsement or permission. Review photography rights before wider commercial distribution.
+- Original image URL: https://static.wixstatic.com/media/523975_afcdee2b0a6844c48caadeea907cee8d~mv2.jpg/v1/fit/w_500%2Ch_500%2Cq_90/file.jpg
+- Local asset path: `public/catalogue-photos/goldberg-60cl.webp` (21,554 bytes).
+- Processing: cropped outer white margins; centre on 640 × 800 white background; Lanczos resize and mild sharpening; metadata removed. Actual product packaging and label preserved.
+- Catalogue reference: `first-party/goldberg-60cl.webp`; shop image URL: `/catalogue-photos/goldberg-60cl.webp`.
+- Current usage: restored on the owner's express instruction for the personal DepotFlow pilot. The file is hosted by DepotFlow, not hotlinked.
+- **Reuse rights remain unconfirmed.** Omnia marks its website content all rights reserved. Personal/noncommercial use does not automatically authorize public redistribution. This source is **not rights-cleared**, and displaying it publicly carries copyright risk. Seek permission or substitute a verified licensed image before commercial distribution. Do not imply endorsement.
 
-Future approved first-party packshots will be served by DepotFlow itself, with controlled catalogue references. This document tracks provenance and review status; it does not grant licensing.
+First-party packshot URLs remain restricted to DepotFlow's own domain. This record tracks provenance and does not grant reproduction rights.
