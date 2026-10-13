@@ -70,13 +70,13 @@ export default async function ProductPage({
       <div className="mt-5 h-48 w-48 self-center overflow-hidden rounded bg-white">
         <ProductImage src={product.image_url} name={product.name} />
       </div>
-      {product.catalogue_product_id ? (
-        <Link href={`/products/catalogue?q=${encodeURIComponent(product.name)}`} className="quiet-link mt-3 inline-flex">
-          Change picture in catalogue
-        </Link>
-      ) : (
-        <DrinkPhotoUpload id={product.id} hasPhoto={Boolean(product.image_url)} kind="product" />
-      )}
+      <DrinkPhotoUpload
+        id={product.catalogue_product_id ?? product.id}
+        name={product.name}
+        hasPhoto={Boolean(product.image_url)}
+        kind={product.catalogue_product_id ? "catalogue" : "product"}
+        openByDefault
+      />
       {saved === "added" && !crateNeedsAttention && (
         <section className="mt-6 border-y border-stone-300 py-5">
           <h2 className="text-lg font-semibold">Next: record the stock in your shop</h2>
