@@ -159,7 +159,7 @@ export function HomeDashboard({
 
         <section aria-labelledby="money-heading" className="min-w-0">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 lg:mb-4">
-            <h2 id="money-heading" className="text-lg font-extrabold tracking-tight text-stone-950">Today's money</h2>
+            <h2 id="money-heading" className="text-lg font-extrabold tracking-tight text-stone-950">Today&apos;s money</h2>
             <Link href="/sales" className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-bold text-emerald-800 hover:bg-emerald-50">
               View sales <HomeIcon name="arrow" size={17}/>
             </Link>
