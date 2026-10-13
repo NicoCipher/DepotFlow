@@ -3,7 +3,6 @@ import Link from "next/link";
 import { getProduct } from "@/lib/products/data";
 import { formatNaira } from "@/domain/products";
 import { ProductImage } from "@/components/product-image";
-import { requireOwner } from "@/lib/auth/owner";
 import { DrinkPhotoUpload } from "@/components/catalogue-photo-upload";
 import { crateFitsProduct, crateNeedsSetup } from "@/domain/crate-types";
 export default async function ProductPage({
@@ -15,15 +14,6 @@ export default async function ProductPage({
 }) {
   const product = await getProduct((await params).id);
   const { saved } = await searchParams;
-  // A shop's editable display name must not be used as the photo's master identity.
-  const master = product.catalogue_product_id
-    ? await (await requireOwner()).from("product_catalogue")
-        .select("id,name").eq("id", product.catalogue_product_id).maybeSingle()
-    : null;
-  if (master?.error || (product.catalogue_product_id && !master?.data)) {
-    throw new Error("Could not confirm this drink's catalogue identity.");
-  }
-  const photoTargetName = master?.data?.name ?? product.name;
   const crateNeedsAttention =
     !product.crate_types ||
     crateNeedsSetup(product.crate_types) ||
@@ -80,19 +70,13 @@ export default async function ProductPage({
       <div className="mt-5 h-48 w-48 self-center overflow-hidden rounded bg-white">
         <ProductImage src={product.image_url} name={product.name} />
       </div>
-      {product.catalogue_product_id && photoTargetName !== product.name && (
-        <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
-          Your shop calls this drink <strong>{product.name}</strong>, but its catalogue entry is <strong>{photoTargetName}</strong>.
-          The photo will update the catalogue entry and every shop drink connected to it. Check that these are the same bottle before saving.
-        </p>
+      {product.catalogue_product_id ? (
+        <Link href={`/products/catalogue?q=${encodeURIComponent(product.name)}`} className="quiet-link mt-3 inline-flex">
+          Change picture in catalogue
+        </Link>
+      ) : (
+        <DrinkPhotoUpload id={product.id} hasPhoto={Boolean(product.image_url)} kind="product" />
       )}
-      <DrinkPhotoUpload
-        id={product.catalogue_product_id ?? product.id}
-        name={photoTargetName}
-        hasPhoto={Boolean(product.image_url)}
-        kind={product.catalogue_product_id ? "catalogue" : "product"}
-        openByDefault
-      />
       {saved === "added" && !crateNeedsAttention && (
         <section className="mt-6 border-y border-stone-300 py-5">
           <h2 className="text-lg font-semibold">Next: record the stock in your shop</h2>
