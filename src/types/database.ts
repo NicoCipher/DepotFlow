@@ -978,6 +978,11 @@ export type Database = {
       }
     }
     Functions: {
+      customer_recent_activity: { Args: { p_customer: string }; Returns: Json }
+      customer_account_snapshot: {
+        Args: { p_customer_ids: string[] }
+        Returns: { customer_id: string; crates_owed: number; bottles_owed: number; held_entries: number }[]
+      }
       set_catalogue_product_image: {
         Args: { p_catalogue_id: string; p_expected_path: string | null; p_new_path: string; p_new_url: string }
         Returns: boolean
