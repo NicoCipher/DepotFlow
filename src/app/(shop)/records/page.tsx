@@ -32,6 +32,8 @@ function RecordRow({ item }: { item: CustomerRecord }) {
   const sale = item.kind === "sale";
   const payment = item.kind === "payment";
   const empties = item.kind === "empties";
+  const heldOnly = empties && item.crates === 0 && item.bottles === 0
+    && (item.held_crates > 0 || item.held_bottles > 0);
   const unpaid = sale && item.remaining > 0;
   const visual = item.status === "voided" ? "bg-red-50 text-red-800"
     : payment ? "bg-emerald-100 text-emerald-800"
@@ -46,7 +48,7 @@ function RecordRow({ item }: { item: CustomerRecord }) {
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-[11px] font-bold uppercase tracking-[.08em] text-stone-500">{recordTypeName(item.kind)}</span>
+            <span className="text-[11px] font-bold uppercase tracking-[.08em] text-stone-500">{heldOnly ? "Held empties collected" : recordTypeName(item.kind)}</span>
             <span className="text-xs text-stone-400">·</span>
             <time dateTime={item.created_at} className="text-xs text-stone-500">{eventTime(item.created_at)}</time>
           </div>
@@ -62,7 +64,7 @@ function RecordRow({ item }: { item: CustomerRecord }) {
                 {unpaid && <span className="font-semibold text-amber-800"> · {formatNaira(item.remaining)} still unpaid</span>}
               </>
             ) : payment ? `${methodLabel(item.method ?? "not_recorded")} · Balance after: ${formatNaira(item.remaining)}`
-              : empties ? `${item.crates || item.bottles ? `${item.crates} ${item.crates === 1 ? "crate" : "crates"} and ${item.bottles} ${item.bottles === 1 ? "bottle" : "bottles"} returned` : "Held empties collected"}${(item.held_crates || item.held_bottles) ? ` · ${item.held_crates} held crates, ${item.held_bottles} held bottles collected` : ""}`
+              : empties ? `${item.crates || item.bottles ? `Returned: ${item.crates} ${item.crates === 1 ? "crate" : "crates"} and ${item.bottles} ${item.bottles === 1 ? "bottle" : "bottles"}` : ""}${(item.held_crates || item.held_bottles) ? `${item.crates || item.bottles ? " · " : ""}Customer collected ${item.held_crates} held crates and ${item.held_bottles} held bottles` : ""}`
                 : `${formatNaira(item.remaining)} starting money owed · ${item.crates} crates, ${item.bottles} bottles`}
           </p>
           {item.receipt_number && <p className="mt-1.5 break-all text-[11px] tracking-wide text-stone-400">{item.receipt_number}</p>}
