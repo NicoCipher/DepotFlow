@@ -979,7 +979,7 @@ export type Database = {
     }
     Functions: {
       customer_records: {
-        Args: { p_from: string; p_to: string; p_kind: string; p_method: string; p_search: string; p_limit: number; p_offset: number }
+        Args: { p_from: string; p_to: string; p_kind: string; p_method: string; p_search: string; p_limit: number; p_offset: number; p_snapshot?: string | null }
         Returns: Json
       }
       customer_return_record: { Args: { p_id: string }; Returns: Json }
