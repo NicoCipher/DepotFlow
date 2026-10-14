@@ -41,8 +41,11 @@ begin
 end $$;
 
 -- Test the originally provisioned owner can still use the legacy login gate.
-select set_config('request.jwt.claim.sub',
-  (select user_id::text from private.shop_owner),true);
+do $
+begin
+  perform set_config('request.jwt.claim.sub',
+    (select user_id::text from private.shop_owner), true);
+end $;
 set local role authenticated;
 do $$
 begin
