@@ -29,10 +29,11 @@ export function recordListView(item: CustomerRecord) {
 
   const status = voided ? "Voided"
     : linkedPaymentVoided ? "Payment voided"
-    : combined && item.checkout_balance === 0 ? "All settled"
+    : combined && item.checkout_balance === 0 ? "Settled at checkout"
     : combined && item.checkout_balance !== null ? "Balance owing"
     : combined ? "Checkout saved"
-    : item.kind === "sale" && item.status === "unpaid" ? "Unpaid"
+    : item.kind === "sale" && item.status === "unpaid" ? "Unpaid when sold"
+    : item.kind === "sale" && item.status === "partial" ? "Partly paid when sold"
     : item.kind === "sale" ? recordStatus(item.kind, item.status)
     : payment ? "Received"
     : "Recorded";
