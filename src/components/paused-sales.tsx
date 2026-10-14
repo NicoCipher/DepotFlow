@@ -1,5 +1,5 @@
 "use client";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { SaleIcon } from "@/components/sale-icon";
@@ -23,6 +23,7 @@ export function PausedSales({
   const [catalog, setCatalog] = useState(initialCatalog);
   const [message, setMessage] = useState("");
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
+  const cancelTriggers = useRef<Record<string, HTMLButtonElement | null>>({});
   const [sessionExpired, setSessionExpired] = useState(false);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
@@ -126,6 +127,7 @@ export function PausedSales({
                   type="button"
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-stone-300 bg-white px-4 py-3 font-semibold text-red-800 hover:border-red-300 hover:bg-red-50"
                   aria-expanded={confirm}
+                  ref={(button) => { cancelTriggers.current[entry.id] = button; }}
                   aria-controls={"paused-cancel-" + entry.id}
                   onClick={() => setConfirmCancelId(confirm ? null : entry.id)}
                 >
@@ -137,7 +139,10 @@ export function PausedSales({
                   <p className="font-bold text-red-950">Discard this paused sale?</p>
                   <p className="mt-1 text-sm text-red-900">All details saved in this unfinished sale will be lost.</p>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                    <button type="button" className="secondary w-full" onClick={() => setConfirmCancelId(null)}>Keep sale</button>
+                    <button type="button" className="secondary w-full" onClick={() => {
+                      cancelTriggers.current[entry.id]?.focus();
+                      setConfirmCancelId(null);
+                    }}>Keep sale</button>
                     <button type="button" className="min-h-12 rounded-lg bg-red-800 px-3 font-semibold text-white hover:bg-red-900" onClick={() => startTransition(async () => {
                       if (await sales.cancel(entry.id)) setConfirmCancelId(null);
                     })}>Yes, cancel sale</button>
