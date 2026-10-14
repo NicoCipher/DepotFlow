@@ -139,11 +139,6 @@ export default async function RecordsPage({
               ))}
             </div>
           )}
-          <div className="border-t border-stone-200 pt-3">
-            <Link href="/activity" className="inline-flex min-h-10 items-center gap-2 text-xs font-semibold text-emerald-800 hover:underline">
-              Looking for stock movements? Shop activity <span aria-hidden="true">↗</span>
-            </Link>
-          </div>
           {(page > 1 || feed!.has_more) && feed!.items.length > 0 && (
             <nav aria-label="Record pages" className="flex items-center justify-between gap-3 pt-2">
               {page > 1
@@ -159,6 +154,11 @@ export default async function RecordsPage({
                 : <span/>}
             </nav>
           )}
+          <div className="border-t border-stone-200 pt-3">
+            <Link href="/activity" className="inline-flex min-h-10 items-center gap-2 text-xs font-semibold text-emerald-800 hover:underline">
+              Looking for stock movements? Shop activity <span aria-hidden="true">↗</span>
+            </Link>
+          </div>
         </section>
       )}
     </div>
