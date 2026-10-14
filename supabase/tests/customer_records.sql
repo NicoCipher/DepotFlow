@@ -101,7 +101,7 @@ select pg_temp.ensure(
   (public.customer_records('2026-10-14','2026-10-14','all','all','',30,0,
      current_setting('test.records_snapshot')::timestamptz)->>'count')::integer=5,
   'Record pagination did not exclude entries created after its snapshot');
-do $ begin
+do $$ begin
   begin
     perform public.customer_records('2026-10-14','2026-10-14','nonsense','all','',30,0);
     raise exception 'Accepted invalid record kind';
