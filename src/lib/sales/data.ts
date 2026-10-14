@@ -60,7 +60,7 @@ export async function getSale(id: string) {
   const { data, error } = await supabase
     .from("sales")
     .select(
-      "id,customer_id,business_date,created_at,total_amount,paid_amount,customer:customers(name),sale_items(id,product_name,total_bottles,bottles_per_crate,line_total,bottles_returnable,crate_type,bottle_type,whole_crates,crates_out,crates_returned,returnable_bottles_out,bottles_returned)",
+      "id,customer_id,business_date,created_at,total_amount,paid_amount,receipt_status,customer:customers(name),sale_items(id,product_name,total_bottles,bottles_per_crate,line_total,bottles_returnable,crate_type,bottle_type,whole_crates,crates_out,crates_returned,returnable_bottles_out,bottles_returned)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -77,6 +77,7 @@ export async function getSale(id: string) {
     createdAt: data.created_at,
     total: data.total_amount,
     paid: data.paid_amount,
+    receiptStatus: data.receipt_status,
     owing: saleOwing(data.total_amount, data.paid_amount),
     items: data.sale_items.map(storedSaleItemHistory),
   };
