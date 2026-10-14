@@ -7,7 +7,9 @@ As of 2026-10-14, **production Supabase has 45 master catalogue rows**: 20 with 
 ## Already assigned (20)
 33, Amstel, Big Ice, Big Stout, Budweiser, Castle Lite, Flying Fish, Goldberg, Gulder, Heineken, Legend, Life, Malta, Radler, Small Ice, Small Stout, Star, Tiger, Trophy, Trophy Stout.
 
-## Not yet assigned (25 live catalogue rows; 26 identities in the migration-defined catalogue)
+## Not assigned in the pre-release snapshot (25 live rows; 26 migration-defined identities)
+
+Once this PR's migration is applied, `Maltina` and `Maltina Can` leave this missing list (23 live missing; 24 fresh-schema missing). Keep the pre-release list for traceability.
 4th Street; Amstel Can; Chamdor; Desperado [migration-defined identity, absent from live catalogue]; Desperados; Desperados Can; Fayrouz; Fayrouz Can; Goldberg Black; Goldberg Can; Guinness Smooth; Heineken Can; Ice Black; Malta Can; Maltina; Maltina Can; Maltina PET 25cl; Maltina PET 33cl; Maltina PET 50cl; Medium Heineken; Medium Legend; Medium Stout; Origin; Small Turbo; Stout Can; Turbo.
 
 ## Count reconciliation (required before saying "complete")
@@ -15,7 +17,9 @@ As of 2026-10-14, **production Supabase has 45 master catalogue rows**: 20 with 
 | Scope | Total | Photos assigned | Missing |
 |---|---:|---:|---:|
 | Production Supabase snapshot (14 Oct 2026) | 45 | 20 | 25 |
-| Fresh migration-defined identities | 46 | 20 presumed from the live image inventory; confirm after migrating | 26 presumed |
+| Fresh environment after every migration in this PR | 46 | 22 projected; verify after migrating | 24 projected |
+
+**The projections include the two Maltina images assigned by this PR's migration.** The live snapshot above is intentionally pre-release; after the new migration, the expected production count is **22/45 with images and 23 missing**, provided no other images or catalogue identities changed. Verify the real post-deployment count instead of assuming a migration result. Any shop product configured before the deployment receives the photo only when its own `image_url` is still NULL; owner-selected images are preserved.
 
 The **live coverage metric must come from a current Supabase count**, while the planning checklist must also include `Desperado` until the singular/plural identity decision is made. Only add an image when the exact product variant is confirmed. This PR does not change, insert, or remove either identity.
 
