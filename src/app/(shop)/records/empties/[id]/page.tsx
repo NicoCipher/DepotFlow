@@ -54,6 +54,9 @@ export default async function EmptiesRecordPage({ params }: { params: Promise<{ 
   const bottles = saved.bottles.reduce((sum, row) => sum + row.quantity, 0);
   const heldCrates = saved.released.filter(row => row.kind === "crate").reduce((sum, row) => sum + row.quantity, 0);
   const heldBottles = saved.released.filter(row => row.kind === "bottle").reduce((sum, row) => sum + row.quantity, 0);
+  const hasReturns = crates > 0 || bottles > 0;
+  const hasCollections = heldCrates > 0 || heldBottles > 0;
+  const heldOnly = !hasReturns && hasCollections;
   const date = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit",
   }).format(new Date(saved.created_at));
@@ -72,23 +75,42 @@ export default async function EmptiesRecordPage({ params }: { params: Promise<{ 
         </Link>
       </nav>
       <header className="overflow-hidden rounded-3xl bg-emerald-950 p-5 text-white shadow-[0_12px_35px_rgba(6,78,59,.14)] sm:p-7">
-        <div className="flex items-center justify-between gap-3">
-          <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold">Empties received</span>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold">
+            {heldOnly ? "Held empties collected" : hasCollections ? "Returns and collections" : "Empties returned"}
+          </span>
           <span className="text-xs text-emerald-100">{formatBusinessDate(date)} · {time}</span>
         </div>
-        <h1 className="mt-5 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Return recorded</h1>
+        <h1 className="mt-5 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
+          {heldOnly ? "Customer collected held empties" : hasCollections ? "Empties recorded" : "Return recorded"}
+        </h1>
         <p className="mt-2 break-words text-lg font-semibold text-emerald-50">{saved.customer_name}</p>
-        {saved.business_name && saved.business_name !== saved.customer_name && <p className="mt-1 text-sm text-emerald-100">{saved.business_name}</p>}
-        <div className="mt-6 grid grid-cols-2 gap-3 border-t border-white/20 pt-5">
-          <div>
-            <p className="text-xs text-emerald-100">Crates returned</p>
-            <p className="mt-1 text-3xl font-extrabold tabular-nums text-white">{crates}</p>
+        {saved.business_name && saved.business_name !== saved.customer_name &&
+          <p className="mt-1 text-sm text-emerald-100">{saved.business_name}</p>}
+        {hasReturns && (
+          <div className="mt-6 grid grid-cols-2 gap-3 border-t border-white/20 pt-5" aria-label="Empties returned to shop">
+            <div>
+              <p className="text-xs text-emerald-100">Crates returned</p>
+              <p className="mt-1 text-3xl font-extrabold tabular-nums text-white">{crates}</p>
+            </div>
+            <div>
+              <p className="text-xs text-emerald-100">Bottles returned</p>
+              <p className="mt-1 text-3xl font-extrabold tabular-nums text-white">{bottles}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs text-emerald-100">Bottles returned</p>
-            <p className="mt-1 text-3xl font-extrabold tabular-nums text-white">{bottles}</p>
+        )}
+        {hasCollections && (
+          <div className="mt-5 grid grid-cols-2 gap-3 border-t border-white/20 pt-5" aria-label="Held empties collected by customer">
+            <div>
+              <p className="text-xs text-emerald-100">Held crates collected</p>
+              <p className="mt-1 text-3xl font-extrabold tabular-nums text-white">{heldCrates}</p>
+            </div>
+            <div>
+              <p className="text-xs text-emerald-100">Held bottles collected</p>
+              <p className="mt-1 text-3xl font-extrabold tabular-nums text-white">{heldBottles}</p>
+            </div>
           </div>
-        </div>
+        )}
       </header>
       <Link href={`/customers/${saved.customer_id}`}
         className="flex min-h-14 items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-bold text-emerald-950 transition hover:bg-emerald-100">
