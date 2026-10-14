@@ -22,6 +22,7 @@ export type CustomerRecord = {
   checkout_received: number;
   checkout_balance: number | null;
   linked_sale_id: string | null;
+  linked_payment_voided: boolean;
   remaining: number;
   crates: number;
   bottles: number;
