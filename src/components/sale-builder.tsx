@@ -502,15 +502,11 @@ export function SaleBuilder({
           </section>
         )}
         {saleHasWork && (
-          <section aria-label="Unfinished sale actions" className="rounded-xl border border-stone-200 bg-white p-3 sm:p-4">
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="text-sm font-bold text-stone-800">Need to stop for now?</h2>
-              <span className="text-xs font-medium text-stone-500">This sale is not saved yet</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2 sm:gap-3">
+          <section aria-label="Unfinished sale actions" className="border-b border-stone-200 pb-4">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                className="flex min-h-20 items-start gap-2 rounded-lg border-2 border-emerald-200 bg-emerald-50 px-3 py-3 text-left text-emerald-950 hover:border-emerald-700 hover:bg-emerald-100 sm:items-center sm:gap-3"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-950 hover:border-emerald-700 hover:bg-emerald-100"
                 disabled={saveUncertain}
                 onClick={() => {
                   setConfirmCancel(false);
@@ -518,32 +514,27 @@ export function SaleBuilder({
                     if (await sales.park()) {
                       setCustomerQuery("");
                       setMessage("");
-                      setNotice("Sale parked safely on this device. Open Paused sales to continue later.");
+                      setNotice("Sale parked on this device. Open Paused sales to continue later.");
                     }
                   });
                 }}
               >
-                <span className="mt-0.5 shrink-0 sm:mt-0"><SaleIcon name="pause" /></span>
-                <span className="min-w-0">
-                  <strong className="block text-sm sm:text-base">Park sale</strong>
-                  <span className="mt-1 block text-xs leading-4">Keep it for later</span>
-                </span>
+                <SaleIcon name="pause" className="h-5 w-5 shrink-0" />
+                Park for later
               </button>
               <button
                 type="button"
-                className="flex min-h-20 items-start gap-2 rounded-lg border border-stone-300 bg-white px-3 py-3 text-left text-stone-800 hover:border-red-300 hover:bg-red-50 sm:items-center sm:gap-3"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-bold text-stone-800 hover:border-red-300 hover:bg-red-50"
                 disabled={saveUncertain}
                 aria-expanded={confirmCancel}
                 aria-controls="cancel-sale-panel"
                 onClick={() => setConfirmCancel(true)}
               >
-                <span className="mt-0.5 shrink-0 text-red-700 sm:mt-0"><SaleIcon name="trash" /></span>
-                <span className="min-w-0">
-                  <strong className="block text-sm sm:text-base">Cancel sale</strong>
-                  <span className="mt-1 block text-xs leading-4">Discard unfinished work</span>
-                </span>
+                <SaleIcon name="trash" className="h-5 w-5 shrink-0 text-red-700" />
+                Cancel sale
               </button>
             </div>
+            <p className="mt-2 text-xs leading-5 text-stone-600">Park keeps the unfinished sale on this device. Cancel discards it.</p>
             {saveUncertain && (
               <p className="mt-3 text-sm font-medium text-amber-900">The save may have completed. Use Check Sale before parking or cancelling.</p>
             )}
