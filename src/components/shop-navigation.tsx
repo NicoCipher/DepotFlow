@@ -7,6 +7,7 @@ import { signOut } from "@/app/sign-in/actions";
 const sections = [
   { href: "/", label: "Home" },
   { href: "/record-sale", label: "Record Sale" },
+  { href: "/records", label: "Records" },
   { href: "/customers", label: "Customers" },
   { href: "/stock", label: "Stock" },
 ] as const;
@@ -43,7 +44,7 @@ const moreGroups: MoreGroup[] = [
 function NavigationIcon({
   kind,
 }: {
-  kind: "Home" | "Record Sale" | "Customers" | "Stock" | "More";
+  kind: "Home" | "Record Sale" | "Records" | "Customers" | "Stock" | "More";
 }) {
   const paths = {
     Home: (
@@ -56,6 +57,12 @@ function NavigationIcon({
       <>
         <path d="M4 4h16v16H4z" />
         <path d="M8 9h8M8 13h8M8 17h4" />
+      </>
+    ),
+    Records: (
+      <>
+        <rect x="6" y="3" width="14" height="18" rx="2" />
+        <path d="M9 8h8M9 12h8M9 16h5M3 7v11" />
       </>
     ),
     Customers: (
@@ -100,11 +107,9 @@ export function ShopNavigation() {
   const active = (href: string) =>
     href === "/"
       ? pathname === "/"
-      : pathname === href || pathname.startsWith(`${href}/`);
+      : pathname === href || pathname.startsWith(`${href}/`) || (href === "/records" && pathname.startsWith("/receipts/"));
   const moreLinks = moreGroups.flatMap((group) => group.links);
-  const moreActive =
-    moreLinks.some(({ href }) => active(href)) ||
-    pathname.startsWith("/receipts");
+  const moreActive = moreLinks.some(({ href }) => active(href));
 
   return (
     <>
@@ -165,14 +170,14 @@ export function ShopNavigation() {
               key={href}
               href={href}
               aria-current={active(href) ? "page" : undefined}
-              className={`flex min-h-16 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 text-center text-[11px] font-semibold leading-tight ${active(href) ? "text-emerald-900" : "text-stone-600"}`}
+              className={`flex min-h-16 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-0.5 text-center text-[10px] font-semibold leading-tight ${active(href) ? "text-emerald-900" : "text-stone-600"}`}
             >
               <span
-                className={`flex h-8 w-14 items-center justify-center rounded-full ${active(href) ? "bg-emerald-100" : ""}`}
+                className={`flex h-8 w-10 items-center justify-center rounded-full ${active(href) ? "bg-emerald-100" : ""}`}
               >
                 <NavigationIcon kind={label} />
               </span>
-              <span>{label}</span>
+              <span>{label === "Record Sale" ? "Sale" : label}</span>
             </Link>
           ))}
           <details
@@ -186,11 +191,11 @@ export function ShopNavigation() {
             }}
           >
             <summary
-              className={`flex min-h-16 w-full cursor-pointer list-none flex-col items-center justify-center gap-1 px-1 text-center text-[11px] font-semibold leading-tight [&::-webkit-details-marker]:hidden ${moreActive ? "text-emerald-900" : "text-stone-600"}`}
+              className={`flex min-h-16 w-full cursor-pointer list-none flex-col items-center justify-center gap-1 px-1 text-center text-[10px] font-semibold leading-tight [&::-webkit-details-marker]:hidden ${moreActive ? "text-emerald-900" : "text-stone-600"}`}
               aria-label="More shop pages"
             >
               <span
-                className={`flex h-8 w-14 items-center justify-center rounded-full ${moreActive ? "bg-emerald-100" : ""}`}
+                className={`flex h-8 w-10 items-center justify-center rounded-full ${moreActive ? "bg-emerald-100" : ""}`}
               >
                 <NavigationIcon kind="More" />
               </span>

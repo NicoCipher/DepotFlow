@@ -111,11 +111,16 @@ export default async function Activity({
         <p className="text-sm font-semibold uppercase tracking-wide text-emerald-800">
           Store history
         </p>
-        <h1>Activity</h1>
+        <h1>Shop activity</h1>
         <p className="mt-1 text-stone-600">
-          See what happened, when it happened and where money came from.
+          Review stock receiving, stock counts and other shop events. Customer sales and payments are easier to find under Records.
         </p>
       </header>
+
+      <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+        <p className="text-sm font-medium text-emerald-950">Looking for a customer sale, payment or receipt?</p>
+        <Link href="/records" className="quiet-link inline-flex min-h-11 items-center text-sm font-semibold">Open Records →</Link>
+      </section>
 
       <nav aria-label="Quick activity periods" className="flex flex-wrap gap-2">
         {[

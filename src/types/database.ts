@@ -978,6 +978,11 @@ export type Database = {
       }
     }
     Functions: {
+      customer_records: {
+        Args: { p_from: string; p_to: string; p_kind: string; p_method: string; p_search: string; p_limit: number; p_cursor?: Json | null; p_before?: boolean }
+        Returns: Json
+      }
+      customer_return_record: { Args: { p_id: string }; Returns: Json }
       customer_recent_activity: { Args: { p_customer: string }; Returns: Json }
       customer_account_snapshot: {
         Args: { p_customer_ids: string[] }
