@@ -194,7 +194,7 @@ begin
         select id,day,created_at,kind,customer_id,customer_name,business_name,
           receipt_number,method,sale_total,received,remaining,crates,bottles,
           held_crates,held_bottles,status,detail,old_debt_paid,
-          checkout_received,checkout_balance,linked_sale_id
+          checkout_received,checkout_balance,linked_sale_id,linked_payment_voided
         from picked
         order by day desc,created_at desc,kind desc,id desc
         limit p_limit
