@@ -8,6 +8,7 @@ import { formatBusinessDate, formatStoredQuantity } from "@/domain/sales";
 import { methodLabel, receiptUrl } from "@/lib/receipts";
 import { SuccessToast } from "@/components/success-toast";
 import { ShareReceipt } from "@/components/share-receipt";
+import { readAccountReceipt, type AccountReceipt } from "@/domain/account-receipt";
 
 type Business = {
   name: string;
@@ -28,6 +29,7 @@ type Receipt = {
   receipt_status: string;
   kind: "payment" | "sale";
   total?: number;
+  accountReceipt?: AccountReceipt | null;
   receipt_business?: Business | null;
   receipt_customer_name: string;
   receipt_customer_name_source: "captured" | "legacy_backfill";
@@ -66,12 +68,12 @@ export default async function ReceiptPage({
     const { data, error } = await db
       .from("sales")
       .select(
-        "id,customer_id,total_amount,paid_amount,business_date,created_at,payment_method,receipt_number,verification_token,receipt_status,receipt_business,receipt_customer_name,receipt_customer_name_source",
+        "id,customer_id,total_amount,paid_amount,business_date,created_at,payment_method,receipt_number,verification_token,receipt_status,receipt_business,receipt_customer_name,receipt_customer_name_source,account_receipt",
       )
       .eq("id", id)
       .maybeSingle();
     if (error) throw new Error("Could not load receipt.");
-    if (data && data.paid_amount > 0)
+    if (data)
       receipt = {
         id: data.id,
         customer_id: data.customer_id,
@@ -85,6 +87,7 @@ export default async function ReceiptPage({
         receipt_status: data.receipt_status,
         kind: "sale",
         total: data.total_amount,
+        accountReceipt: readAccountReceipt(data.account_receipt),
         receipt_business: data.receipt_business as Business | null,
         receipt_customer_name: data.receipt_customer_name,
         receipt_customer_name_source: data.receipt_customer_name_source as
@@ -105,6 +108,9 @@ export default async function ReceiptPage({
       : { data: [], error: null };
   if (itemsResult.error) throw new Error("Could not load receipt details.");
   const business = receipt.receipt_business;
+  const account = receipt.kind === "sale" ? receipt.accountReceipt ?? null : null;
+  const accountUnpaid = account ? account.cd > 0 : receipt.owed_after > 0;
+  const accountCollected = account ? account.collected : receipt.amount;
   const items = itemsResult.data ?? [];
   const url = receiptUrl(receipt.verification_token);
   const qr = await QRCode.toDataURL(url, {
@@ -160,9 +166,9 @@ export default async function ReceiptPage({
       )}
       <header>
         <p className="text-sm font-semibold uppercase tracking-wide text-emerald-800">
-          Confirmed payment
+          {account && account.collected === 0 ? "Recorded sale · payment pending" : "Confirmed payment"}
         </p>
-        <h1>{kind === "sale" ? "Sale Receipt" : "Balance Payment Receipt"}</h1>
+        <h1>{account ? "Sale & Customer Account Receipt" : kind === "sale" ? "Sale Receipt" : "Balance Payment Receipt"}</h1>
         <p className="mt-1 text-stone-600">{receipt.receipt_number}</p>
       </header>
       {receipt.receipt_status === "voided" && (
@@ -198,19 +204,52 @@ export default async function ReceiptPage({
             new sale.
           </p>
         )}
-        {kind === "sale" && (
-          <p className="mb-3 flex justify-between font-semibold">
-            <span>Sale total</span>
-            <span>{formatNaira(receipt.total ?? 0)}</span>
-          </p>
+        {account ? (
+          <section aria-label="Balance brought down and carried down" className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+            <h2 className="font-bold text-emerald-950">Customer account for this transaction</h2>
+            <dl className="divide-y divide-emerald-100 text-sm">
+              {[
+                ["Previous balance (B/D)", formatNaira(account.bd)],
+                ["Today's sale", formatNaira(account.saleTotal)],
+                ["Total amount due", formatNaira(account.bd + account.saleTotal)],
+                ["Paid toward previous debt", "−" + formatNaira(account.paidOld)],
+                ["Paid toward today's sale", "−" + formatNaira(account.paidSale)],
+              ].map(([label, value]) => (
+                <div key={label} className="flex items-center justify-between gap-3 py-2">
+                  <dt className="text-emerald-950">{label}</dt>
+                  <dd className="font-semibold tabular-nums text-emerald-950">{value}</dd>
+                </div>
+              ))}
+            </dl>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-emerald-200 pt-3">
+              <span className="font-semibold text-emerald-950">Total collected now</span>
+              <strong className="text-2xl font-bold tabular-nums text-emerald-950">{formatNaira(account.collected)}</strong>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-emerald-200 pt-3">
+              <span className="font-bold text-emerald-950">Balance carried down (C/D)</span>
+              <strong className="text-2xl font-bold tabular-nums text-emerald-950">{formatNaira(account.cd)}</strong>
+            </div>
+            <p className="text-xs text-emerald-900">
+              B/D is what was owed before this sale. C/D is what remained immediately after this transaction.
+            </p>
+            {account.debtPaymentReference && (
+              <p className="text-xs text-emerald-900">Old-debt payment reference: {account.debtPaymentReference}</p>
+            )}
+          </section>
+        ) : (
+          <>
+            {kind === "sale" && (
+              <p className="mb-3 flex justify-between font-semibold">
+                <span>Sale total</span><span>{formatNaira(receipt.total ?? 0)}</span>
+              </p>
+            )}
+            <p className="text-sm text-stone-600">{receipt.amount === 0 ? "No payment recorded" : "Amount received"}</p>
+            <p className="text-3xl font-bold text-emerald-950">{formatNaira(receipt.amount)}</p>
+          </>
         )}
-        <p className="text-sm text-stone-600">Amount received</p>
-        <p className="text-3xl font-bold text-emerald-950">
-          {formatNaira(receipt.amount)}
-        </p>
-        {receipt.owed_after > 0 && (
-          <p className="mt-2 inline-block rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-950">
-            Partial payment
+        {accountUnpaid && (
+          <p className="mt-3 inline-block rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-950">
+            {accountCollected === 0 ? "Payment pending" : "Balance outstanding"}
           </p>
         )}
         <dl className="mt-5 divide-y divide-stone-100">
@@ -228,12 +267,10 @@ export default async function ReceiptPage({
                 ? `Sale ${receipt.id.slice(0, 8)} · total ${formatNaira(receipt.total ?? 0)}`
                 : "Outstanding customer balance",
             ],
-            [
-              kind === "sale"
-                ? "Unpaid on this sale"
-                : "Customer balance after",
+            ...(account ? [] : [[
+              kind === "sale" ? "Unpaid on this sale" : "Customer balance after",
               formatNaira(receipt.owed_after),
-            ],
+            ]]),
           ].map(([label, value]) => (
             <div
               key={label}
@@ -283,7 +320,17 @@ export default async function ReceiptPage({
           customer: receipt.receipt_customer_name,
           date: formatBusinessDate(receipt.business_date),
           method: methodLabel(receipt.method),
-          amount: formatNaira(receipt.amount),
+          amount: formatNaira(accountCollected),
+          account: account ? {
+            bd: formatNaira(account.bd),
+            saleTotal: formatNaira(account.saleTotal),
+            due: formatNaira(account.bd + account.saleTotal),
+            paidOld: formatNaira(account.paidOld),
+            paidSale: formatNaira(account.paidSale),
+            collected: formatNaira(account.collected),
+            cd: formatNaira(account.cd),
+            debtPaymentReference: account.debtPaymentReference,
+          } : undefined,
           total:
             kind === "sale" ? formatNaira(receipt.total ?? 0) : undefined,
           balanceLabel:
@@ -294,9 +341,11 @@ export default async function ReceiptPage({
           status:
             receipt.receipt_status === "voided"
               ? "voided"
-              : receipt.owed_after > 0
-                ? "partial"
-                : "paid",
+              : accountCollected === 0
+                ? "unpaid"
+                : accountUnpaid
+                  ? "partial"
+                  : "paid",
           note:
             kind === "payment"
               ? "Payment towards money already owed."
