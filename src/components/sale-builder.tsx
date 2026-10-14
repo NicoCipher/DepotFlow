@@ -707,9 +707,15 @@ export function SaleBuilder({
                           </p>
                           <p className="mt-0.5 text-sm text-stone-700">{saleQuantityLabel(line.quantity)}</p>
                           <p className="mt-1 font-bold tabular-nums text-stone-950">{item ? linePriceLabel(item, line.quantity) : "Check drink"}</p>
-                          <div className="flex flex-wrap gap-x-5">
-                            {item && <button type="button" className="quiet-link text-sm" onClick={() => edit(item)}>Change</button>}
-                            <button type="button" className="quiet-link text-sm" onClick={() => update({ lines: removeSaleLine(draft.lines, line.productId) })}>Remove</button>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {item && (
+                              <button type="button" className="secondary min-h-10 gap-1.5 px-3 py-2 text-sm" onClick={() => edit(item)}>
+                                <SaleIcon name="edit" className="h-4 w-4" /> Change quantity
+                              </button>
+                            )}
+                            <button type="button" className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-red-800 hover:border-red-300 hover:bg-red-50" onClick={() => update({ lines: removeSaleLine(draft.lines, line.productId) })}>
+                              <SaleIcon name="trash" className="h-4 w-4" /> Remove
+                            </button>
                           </div>
                         </div>
                       </li>
@@ -765,8 +771,10 @@ export function SaleBuilder({
                               {p.full_crate_price === null ? "Crate price not set" : formatNaira(p.full_crate_price) + " / crate"}
                             </span>
                             {p.bottle_price !== null && <span className="block text-xs text-stone-600">{formatNaira(p.bottle_price)} / bottle</span>}
-                            <span className={line ? "mt-2 block text-sm font-bold text-emerald-900" : "mt-2 block text-sm font-bold text-emerald-800"}>
-                              {setupIssue ? "Setup needed" : !p.available ? "Cannot add" : line ? "✓ In this sale · Change" : "Select drink →"}
+                            <span className={line ? "mt-2 flex items-center gap-1 text-sm font-bold text-emerald-900" : "mt-2 flex items-center gap-1 text-sm font-bold text-emerald-800"}>
+                              {setupIssue ? "Setup needed" : !p.available ? "Cannot add" : line
+                                ? <><SaleIcon name="check" className="h-4 w-4" /> In this sale · Change</>
+                                : <><SaleIcon name="plus" className="h-4 w-4" /> Add this drink</>}
                             </span>
                           </span>
                         </button>
@@ -827,13 +835,26 @@ export function SaleBuilder({
               className="space-y-5"
               onSubmit={(e) => {
                 e.preventDefault();
+                if (sessionExpired || saveUncertain) {
+                  setMessage(sessionExpired ? saleSessionExpiredMessage : saleSaveUncertainMessage);
+                  return;
+                }
                 try {
+                  const selected = quantity();
                   const lines = putSaleLine(
                     draft.lines,
-                    { productId: product.id, quantity: quantity() },
+                    { productId: product.id, quantity: selected },
                     product,
                   );
-                  update({ lines, step: "drinks" });
+                  const editing = draft.lines.some((line) => line.productId === product.id);
+                  const amount = formatNaira(priceQuantity(product, selected).lineTotal);
+                  startTransition(async () => {
+                    if (await sales.update({ lines, step: "drinks" })) {
+                      setMessage("");
+                      setConfirmCancel(false);
+                      setNotice(product.name + " " + saleQuantityLabel(selected) + (editing ? " updated" : " added to this sale") + " · " + amount);
+                    }
+                  });
                 } catch (error) {
                   setMessage((error as Error).message);
                 }
