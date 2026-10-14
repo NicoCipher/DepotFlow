@@ -26,10 +26,15 @@ export type CustomerRecord = {
   status: "paid" | "partial" | "unpaid" | "received" | "recorded" | "voided";
   detail: string;
 };
-export type CustomerRecordsFeed = { count: number; items: CustomerRecord[] };
+export type CustomerRecordsFeed = { count: number; snapshot: string; items: CustomerRecord[] };
 
 export function recordFilter<T extends string>(value: unknown, choices: readonly T[], fallback: T): T {
   return typeof value === "string" && choices.includes(value as T) ? value as T : fallback;
+}
+export function recordSnapshot(value: unknown): string | null {
+  if (typeof value !== "string" || value.length > 48 || !/^\\d{4}-\\d{2}-\\d{2}T/.test(value)) return null;
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
 }
 export function recordPage(value: unknown): number {
   if (typeof value !== "string" || !/^[0-9]{1,6}$/.test(value)) return 1;
