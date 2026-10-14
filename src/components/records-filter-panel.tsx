@@ -51,13 +51,13 @@ export function RecordsFilterPanel({
   return (
     <details ref={root} className="group relative shrink-0">
       <summary aria-label={advancedCount ? `Filter records, ${advancedCount} active filters` : "Filter records"}
-        className="flex min-h-12 cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-3 text-sm font-bold text-emerald-950 shadow-sm transition hover:border-emerald-700 hover:bg-emerald-50 sm:px-4 [&::-webkit-details-marker]:hidden">
+        title="Filter records"
+        className="flex min-h-12 cursor-pointer list-none items-center justify-center gap-1 rounded-xl border border-stone-200 bg-white px-3 text-sm font-bold text-emerald-950 shadow-sm transition hover:border-emerald-700 hover:bg-emerald-50 [&::-webkit-details-marker]:hidden">
         <svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
           <path d="M4 7h16M7 12h10M10 17h4" />
           <circle cx="7" cy="7" r="2" fill="white" stroke="currentColor"/>
         </svg>
-        <span className="hidden sm:inline">Filters</span>
         {advancedCount > 0 && (
           <span className="grid size-5 place-items-center rounded-full bg-emerald-800 text-[11px] text-white" aria-hidden="true">{advancedCount}</span>
         )}
