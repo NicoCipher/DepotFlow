@@ -21,6 +21,7 @@ Status: **proposed product defaults, not live authorization**. Confirm these def
 | View full customer debt/payment history | ✓ | ✓ | ○ | — | ✓ |
 | Add/edit customer contact details | ✓ | ✓ | ✓ | — | ○ |
 | Archive/restore customers | ✓ | ○ | — | — | — |
+| Waive a customer's mandatory empties deposit requirement | ✓† | ○† | — | — | — |
 | Record new sale, including permitted returns | ✓ | ✓ | ✓ | — | — |
 | Record payment for **new sale** during checkout | ✓ | ✓ | ✓ | — | — |
 | Record **old-debt payment in same checkout** | ✓ | ✓ | ✓ | — | ✓* |
@@ -54,6 +55,8 @@ Status: **proposed product defaults, not live authorization**. Confirm these def
 
 **Empty-crate counts are equally sensitive:** The current `confirmEmptyCrateCount` invokes `set_empty_crate_count`, which immediately modifies `empty_crate_stock` and writes a movement. Introduce persisted `pending_empty_crate_counts` and an independent `empties.count_submit` RPC that cannot modify stock, then a separate `empties.finalize_variance` finalization RPC with active membership, permissions, fresh stock validation and audit. The existing direct adjustment remains owner-only before conversion.
 
+**Empties deposit-waiver safeguard:** The existing `allowCustomerToOweEmpties` and `requireCustomerEmptiesDeposit` actions update `customers.empties_deposit_required`. This changes financial exposure, so `empties.deposit_waive_customer` (for waiving the deposit) and `empties.deposit_require_customer` (for requiring/restoring it) are separate from `customers.manage` and depot-wide `empties.change_rules`. Owner can waive by default with confirmation, reason and audit; Manager only with explicit opt-in; Sales/Stock/Accounts never by default. Staff direct column updates must be revoked or protected by equivalent RLS/trigger enforcement. A salesperson's customer-edit permission must not permit this override.
+
 **Opening-balances safeguard:** `recordOpeningBalances` invokes `record_opening_balances` and directly changes money owed and physical crate/bottle obligations. `balances.create_opening` is a distinct, high-risk operation with exact role defaults shown above; it is never implied by `customers.manage`, `sales.create`, `payments.collect_old_debt_standalone`, or any other generic role.
 
 **Important:** a salesperson who can receive a customer payment is **not** automatically allowed to change debt directly, refund cash, void a sale, alter past receipts or modify pricing. Future corrections are separate operations with distinct approvals and audit.
@@ -71,10 +74,20 @@ These keys are proposed names for the server and SQL layers; do not implement ra
 | Money | `payments.collect_at_checkout`, `payments.collect_old_debt_at_checkout`, `payments.collect_old_debt_standalone`, `payments.view_all` | Every checkout always requires `sales.create`; if `p_paid > 0`, additionally require `payments.collect_at_checkout`; if `p_old_debt_paid > 0`, additionally require `payments.collect_old_debt_at_checkout`. Both positive means **all three**. No separate permission for saving a zero-paid sale. Enforce inside the atomic DB RPC, including direct calls. |
 | Historical opening balances | `balances.create_opening`, `balances.view_opening` | Recording opening debt/empties is **not** the same as accepting a payment or editing a customer. Separate, high-risk permission granted to Owner by default; optional Manager/Accounts delegation only with reason, confirmation, actor audit, scoped customer and amount/type revalidation. Existing `record_opening_balances` must check this permission at the database layer before staff rollout. Do not grant to Sales or Stock automatically. |
 | Stock | `stock.view`, `stock.receive`, `stock.count_submit`, `stock.finalize_variance` | **Not true today.** Current `confirmCount` calls `set_current_stock`, immediately changing stock. Before stockkeeper grants, add a business-scoped `pending_stock_counts` record/submit RPC that writes *only* the observed physical quantity, reason, actor, date, expected book quantity and immutable request ID. Separate, explicitly authorized finalization checks fresh quantities/version, calculates variance, atomically posts adjustment, and marks the request finalized. No count-submission RPC may call `set_current_stock` or modify `stock`. |
-| Empties | `empties.view`, `empties.return`, `empties.release_held`, `empties.count_submit`, `empties.finalize_variance`, `empties.adjust_stock`, `empties.change_rules` | Physical empty-crate **count submission** cannot call `set_empty_crate_count` or change booked empties; it writes an idempotent pending observation. An independently authorized finalization revalidates exact crate type, book quantity/version, business, actor and approvals before changing empty stock. Keep `set_empty_crate_count` owner-only until converted; crate and bottle obligations never merge by family. |
+| Empties | `empties.view`, `empties.return`, `empties.release_held`, `empties.count_submit`, `empties.finalize_variance`, `empties.adjust_stock`, `empties.change_rules`, `empties.deposit_waive_customer`, `empties.deposit_require_customer` | Physical empty-crate **count submission** cannot call `set_empty_crate_count` or change booked empties; it writes an idempotent pending observation. An independently authorized finalization revalidates exact crate type, book quantity/version, business, actor and approvals before changing empty stock. Keep `set_empty_crate_count` owner-only until converted; crate and bottle obligations never merge by family. |
 | Products and prices | `products.manage`, `pricing.selling_edit`, `pricing.cost_view`, `pricing.cost_edit` | Separate selling-price work from private purchase costs/profit |
 | Records | `records.view_own`, `records.view_all`, `records.export`, `records.audit_view` | **Actor IDs must be persisted before staff access.** New sale/payment/receiving/count/empties transactions store verified actor and business at database write time (never caller-supplied). Existing legacy history has no trustworthy actor: only Owner and `records.view_all` users may see it; it must **not** be inferred as belonging to the signed-in staff user. Staff `records.view_own` sees only records whose stored actor equals `auth.uid()`. |
 | Platform catalogue | `platform.catalogue_manage` | Not grantable by ordinary business owner/manager |
+
+## Payment entry-point separation (mandatory before staff)
+
+The current `save_sale_with_old_debt_payment` invokes `public.record_payment`, which will be unsafe if we simply add a standalone debt-payment permission to that wrapper. Split the authorization contracts:
+
+- Direct call to **`public.record_payment`** is *only* for standalone debt collection and requires `payments.collect_old_debt_standalone`. Possessing `payments.collect_old_debt_at_checkout` must never authorize calling this public endpoint.
+- **`public.save_sale_with_old_debt_payment`** requires `sales.create`, conditional `payments.collect_at_checkout` for `p_paid>0`, and `payments.collect_old_debt_at_checkout` for `p_old_debt_paid>0`.
+- Both permitted paths execute a **private, non-API internal payment application** (or independently implemented equivalent) within a single database transaction *after* their own entry-point business, active-membership and capability checks. Keep the helper outside exposed schemas, revoke unneeded `EXECUTE` grants, protect its definer/invoker context, and prevent a staff user from calling it via another exposed wrapper.
+- Preserve the existing payment idempotency key, receipt snapshots, balance lock/revalidation and atomic all-or-nothing sale save. Do not call the public standalone payment API from the checkout path, and never give a checkout-only employee the standalone permission simply to make mixed checkout work.
+- Negative tests: checkout-only can pay old debt **only inside a valid sale**; cannot directly call standalone payment RPC; standalone-only cannot perform a sale/combined checkout; forged customer/business or cross-business payment denied; retry never duplicates cash receipts.
 
 ## Transaction attribution and legacy-record visibility
 
@@ -89,6 +102,7 @@ Historical rows with no verified actor must remain `legacy/unattributed`, not as
 - A Stock-role user with only `empties.count_submit` can submit a dated physical empty-crate count without altering `empty_crate_stock` or creating stock movements. The user cannot execute `set_empty_crate_count` or finalize `empties.finalize_variance`.
 - Finalizing a pending empty-crate count checks exact crate type, current book quantity/version and permissions, then records one atomic movement with immutable actor. Duplicate or stale requests do not overwrite stock.
 - Owner or separately authorized Manager can finalize a pending count only when current book stock/metadata are revalidated; no stale count silently overwrites sales or recent receipts. A variance that needs another approver is held until one is granted.
+- A Sales user with `customers.manage` cannot directly update `customers.empties_deposit_required` to waive a deposit, invoke a waiver RPC, or forge a permission flag. A Manager without explicit `empties.deposit_waive_customer` is also denied. A waived requirement requires actor/reason, current business/customer verification and pre/post audit in the same transaction.
 - An unprivileged Sales, Stock or ordinary customer-editor account cannot invoke `record_opening_balances` directly, even with a valid customer ID, guessed business ID or edited payload.
 - A Manager/Accounts user **without** explicit `balances.create_opening` cannot add historical debt/empty obligations; an enabled delegate still needs a reason, exact business match and an audit entry.
 - An opening-balance retry uses its idempotency key; a failed transaction must not partially change money owed or crate/bottle obligations. A user revoked during a session is denied on their next operation.
@@ -105,11 +119,15 @@ Historical rows with no verified actor must remain `legacy/unattributed`, not as
 
 A task can be handled by one person, two people or a larger team.
 
-1. **Ordinary work** (recording sales, approved payments, receiving correctly ordered stock, recording empties): no unnecessary approval. Log `actor_user_id`, `business_id`, `occurred_at`, source record and request ID.
+1. **Ordinary work** (recording sales, approved payments, receiving correctly ordered stock, recording empties): no unnecessary approval. Log `actor_user_id`, `business_id`, `occurred_at`, source record and request ID. **Before enabling staff**, make a minimal immutable mutation-audit event available for all delegated write actions, including who changed customers, pricing, product setup, packaging/deposits, shop identity and team permissions. The audit uses safe field-level changes or redaction rather than exposing unnecessary customer PII.
 2. **Sensitive, reversible settings** (selling prices, business identity, crate/deposit rules, staff permissions): require re-confirmation, reason where appropriate, log before/after change. Optionally require owner approval for manager/staff changes.
 3. **High-impact transactions** (voiding money records, finalizing stock variances, creating historical opening balances, ownership transfer): explicit separately granted permission, a reason, audit and step-up authentication. For multi-person teams, optionally require another qualified approver.
 4. **One-person depot**: never block core operation due to absent second employee. Owner can perform sensitive actions with step-up confirmation, documented reason and tamper-resistant audit. This is *not* automatic permission for non-owner staff to self-approve.
 5. **No approval through editable UI state**: check approval status, actor permission and target business in the same database transaction as the change. Record both requester and approver where a two-person approval is used.
+
+### Audit precondition for delegation
+
+Operational actor attribution alone is not enough. By the M3→M4 gate, install an append-only, business-scoped mutation log recording database-derived actor, time, action, affected resource, request ID, reason when required and safe before/after values. Clients cannot INSERT an event while spoofing its actor, edit/delete events, or bypass the log by calling a privileged RPC directly. The audit of permission grants, disabling users, waiver changes and pricing changes must occur atomically with the mutation. If any operation lacks enforceable audit, **keep that specific operation owner-only** until its audit contract is delivered. M5 enhances searches, retention and dual approvals; it does not introduce the first audit events.
 
 ## Invite and account lifecycle
 
