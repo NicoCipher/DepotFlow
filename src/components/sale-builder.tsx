@@ -862,7 +862,7 @@ export function SaleBuilder({
               {pricingMode === "retail" && (
                 <div className="space-y-3">
                   <p className="text-sm text-stone-700">
-                    {formatNaira(product.bottle_price ?? 0)} per bottle. Even half a crate is charged by the bottle, not at the wholesale half-crate price.
+                    {product.bottle_price === null ? "Bottle price not set." : formatNaira(product.bottle_price) + " per bottle."} Even half a crate is charged by the bottle, not at the wholesale half-crate price.
                   </p>
                   <fieldset>
                     <legend className="mb-2 text-sm font-bold">Quick quantities</legend>
