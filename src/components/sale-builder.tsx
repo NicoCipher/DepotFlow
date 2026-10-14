@@ -387,7 +387,7 @@ export function SaleBuilder({
             <summary className="cursor-pointer font-semibold text-stone-700">
               Separate old-debt payment record
             </summary>
-            <p className="mt-2 text-stone-600">This accounting receipt records the old-debt payment separately from today's sale.</p>
+            <p className="mt-2 text-stone-600">This accounting receipt records the old-debt payment separately from today&apos;s sale.</p>
             <a className="secondary mt-3 flex w-full gap-2" href={"/receipts/payment/" + saved.oldDebtReceiptRequestId}>
               <SaleIcon name="receipt" /> View old-debt payment record
             </a>
