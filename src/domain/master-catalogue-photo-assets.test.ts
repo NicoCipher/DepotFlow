@@ -7,11 +7,10 @@ const root = new URL("../../", import.meta.url);
 // Hashes are from the manually inspected, approved real product packshots.
 const approved = [
   ["maltina-classic-can-33cl", "e2889c9945e58b0a0b11690b32971ad492d55cb11fc0dfef2fe996ea08a03ee5"],
-  ["maltina-classic-glass-33cl", "344ac6ba9af3f4989eaf7fd23f37a85aea3744d6b3ec8a7968bc712dc19d960a"],
 ] as const;
-const rejected = ["maltina-classic-pet-33cl", "fayrouz-pineapple-can-33cl", "chamdor-red-75cl"] as const;
+const rejected = ["maltina-classic-pet-33cl", "maltina-classic-glass-33cl", "fayrouz-pineapple-can-33cl", "chamdor-red-75cl"] as const;
 
-test("new full-master catalogue bottle and can photographs are genuine optimized first-party WebPs", () => {
+test("new approved Maltina Can photograph is an exact hash-verified first-party WebP", () => {
   for (const [slug, approvedSha256] of approved) {
     const path = new URL(`public/catalogue-photos/${slug}.webp`, root);
     const data = readFileSync(path);
@@ -25,4 +24,12 @@ test("new full-master catalogue bottle and can photographs are genuine optimized
 test("reject watermarks, multipack advertising and fake pharmacy artwork", () => {
   for (const slug of rejected)
     assert.ok(!existsSync(new URL(`public/catalogue-photos/${slug}.webp`, root)), `Rejected ${slug} should not ship`);
+});
+
+test("unqualified Maltina glass variant remains unassigned", () => {
+  const sql = readFileSync(new URL("../../supabase/migrations/20261014082000_master_maltina_photos.sql", import.meta.url), "utf8");
+  assert.match(sql, /name\s*=\s*'Maltina Can'/);
+  assert.doesNotMatch(sql, /name\s*=\s*'Maltina'/);
+  const held = readFileSync(new URL("../../docs/held-catalogue-images/maltina-classic-glass-33cl.webp", import.meta.url));
+  assert.equal(createHash("sha256").update(held).digest("hex"), "344ac6ba9af3f4989eaf7fd23f37a85aea3744d6b3ec8a7968bc712dc19d960a");
 });

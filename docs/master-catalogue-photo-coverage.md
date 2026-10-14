@@ -9,7 +9,7 @@ As of 2026-10-14, **production Supabase has 45 master catalogue rows**: 20 with 
 
 ## Not assigned in the pre-release snapshot (25 live rows; 26 migration-defined identities)
 
-Once this PR's migration is applied, `Maltina` and `Maltina Can` leave this missing list (23 live missing; 24 fresh-schema missing). Keep the pre-release list for traceability.
+Once this PR's migration is applied, **only `Maltina Can`** leaves this missing list (24 live missing; 25 fresh-schema missing). **`Maltina` stays unassigned** until its exact glass/PET packaging and volume are confirmed by the owner. Keep the pre-release list for traceability.
 4th Street; Amstel Can; Chamdor; Desperado [migration-defined identity, absent from live catalogue]; Desperados; Desperados Can; Fayrouz; Fayrouz Can; Goldberg Black; Goldberg Can; Guinness Smooth; Heineken Can; Ice Black; Malta Can; Maltina; Maltina Can; Maltina PET 25cl; Maltina PET 33cl; Maltina PET 50cl; Medium Heineken; Medium Legend; Medium Stout; Origin; Small Turbo; Stout Can; Turbo.
 
 ## Count reconciliation (required before saying "complete")
@@ -17,9 +17,9 @@ Once this PR's migration is applied, `Maltina` and `Maltina Can` leave this miss
 | Scope | Total | Photos assigned | Missing |
 |---|---:|---:|---:|
 | Production Supabase snapshot (14 Oct 2026) | 45 | 20 | 25 |
-| Fresh environment after every migration in this PR | 46 | 22 projected; verify after migrating | 24 projected |
+| Fresh environment after every migration in this PR | 46 | 21 projected; verify after migrating | 25 projected |
 
-**The projections include the two Maltina images assigned by this PR's migration.** The live snapshot above is intentionally pre-release; after the new migration, the expected production count is **22/45 with images and 23 missing**, provided no other images or catalogue identities changed. Verify the real post-deployment count instead of assuming a migration result. Any shop product configured before the deployment receives the photo only when its own `image_url` is still NULL; owner-selected images are preserved.
+**The projections include only the verified Maltina Can image assigned by this PR's migration.** The live snapshot above is intentionally pre-release; after the new migration, the expected production count is **21/45 with images and 24 missing**, provided no other images or catalogue identities changed. Verify the real post-deployment count instead of assuming a migration result. Any shop product configured before the deployment receives the photo only when its own `image_url` is still NULL; owner-selected images are preserved.
 
 The **live coverage metric must come from a current Supabase count**, while the planning checklist must also include `Desperado` until the singular/plural identity decision is made. Only add an image when the exact product variant is confirmed. This PR does not change, insert, or remove either identity.
 
@@ -35,12 +35,12 @@ Staging the eight exact-packaging retailer listings in [master-photo-candidates.
 - Publish only after manual review, CI, Codex, Vercel exact deployment check and conditional DB update
 - Underlying image rights from third-party retailers are not confirmed; personal pilot does not grant commercial reuse rights
 
-## Batch 1: first two formerly unconfigured master products (14 Oct 2026)
+## Batch 1: one verified master catalogue product (14 Oct 2026)
 
-Two real, manually inspected single-product photographs are ready in this branch; **do not claim live coverage has changed before deployment and DB linking**:
-- **Maltina Can** — original 33cl Classic can packshot, source https://shoppersgatestores.com/products/maltina-33cl-classic-can ; image https://shoppersgatestores.com/storage/drinks/mmm.png
-- **Maltina** — original 33cl Classic glass bottle, source https://shoppersgatestores.com/products/maltina-classic-33cl-bottle ; image https://shoppersgatestores.com/storage/drinks/maltina.jpg ; the master catalogue separately lists Maltina Can and three PET sizes, so the unqualified Maltina entry is treated as the glass-bottle line
+Only the exact **Maltina Can** identity is approved for database linking in this PR; **do not claim live coverage has changed before deployment and DB linking**:
+- **Maltina Can** — original 33cl Classic aluminium can, source https://shoppersgatestores.com/products/maltina-33cl-classic-can ; original photo https://shoppersgatestores.com/storage/drinks/mmm.png. Clean white-background first-party WebP, manually reviewed and SHA-256 pinned.
+- **Maltina (unqualified catalogue name) — HOLD.** Found a real 33cl Classic glass bottle photograph from https://shoppersgatestores.com/products/maltina-classic-33cl-bottle ; however the bare catalogue name alone does **not** confirm that the product's packaging is glass 33cl. The candidate has been moved to `docs/held-catalogue-images/maltina-classic-glass-33cl.webp` for later review, **not** deployed as a public asset and **not** assigned in the database. Do not infer from the existence of separate PET/can records.
 
-Both are actual packshots on white, resized and metadata-stripped. Do **not** show stock availability for either — these are catalogue-only entries with no shop configuration. Unverified third-party photo rights remain a commercial-use concern.
+Photo identity is independent of stock: no inventory rows are created for Maltina Can. Unverified third-party photo reproduction rights remain a concern for public or commercial use.
 
 **Rejected during this batch:** Fayrouz was a generic pharmacy icon, Chamdor a watermarked source, Maltina PET a 12-pack advertisement; images withheld. Initial other sources returned HTTP 429/403 or timed out. See `docs/master-photo-review-results.json` for individual attempts. Alternative sources and correctly specified flavours/sizes remain for later batches.

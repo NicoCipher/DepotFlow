@@ -1,5 +1,5 @@
 {
-  "status": "MANUAL_VISUAL_REVIEW_COMPLETED_ONLY_TWO_APPROVED",
+  "status": "MANUAL_VISUAL_REVIEW_COMPLETED_ONE_APPROVED_ONE_HELD",
   "items": [
     {
       "slug": "amstel-malta-can-33cl",
@@ -45,12 +45,12 @@
     {
       "slug": "maltina-classic-glass-33cl",
       "catalogue_name": "Maltina",
-      "status": "accepted_real_packshot",
+      "status": "held_unqualified_catalogue_identity",
       "source_page": "https://shoppersgatestores.com/products/maltina-classic-33cl-bottle",
       "source_image": "https://shoppersgatestores.com/storage/drinks/maltina.jpg",
       "bytes": 14750,
       "sha256": "344ac6ba9af3f4989eaf7fd23f37a85aea3744d6b3ec8a7968bc712dc19d960a",
-      "review": "33cl Maltina Classic glass bottle; master Maltina is unqualified and separate can/PET catalogue variants are listed; white backdrop"
+      "review": "Authentic 33cl glass bottle, but the master catalogue entry 'Maltina' has no confirmed packaging or size. Not assigned. Candidate kept outside public/ under docs/held-catalogue-images pending owner verification."
     },
     {
       "slug": "chamdor-red-75cl",
