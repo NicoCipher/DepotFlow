@@ -131,6 +131,32 @@ test("uncertain save state survives persistence and keeps the same request ID", 
   assert.equal(cleared.active?.saveUncertain, false);
 });
 
+test("pre-upgrade active and parked sale drafts receive a zero old-debt payment", () => {
+  const savedDraft = { ...draft };
+  const legacyDraft = { ...savedDraft } as Partial<typeof savedDraft>;
+  delete legacyDraft.oldDebtPaid;
+  const legacy = {
+    version: 2,
+    active: {
+      id: "40000000-0000-4000-8000-000000008810",
+      pausedAt: null,
+      saveUncertain: true,
+      draft: legacyDraft,
+    },
+    paused: [{
+      id: "40000000-0000-4000-8000-000000008811",
+      pausedAt: now,
+      draft: legacyDraft,
+    }],
+  };
+  const restored = readSaleDrafts(JSON.stringify(legacy));
+  assert.equal(restored.active?.saveUncertain, true);
+  assert.equal(restored.active?.draft.oldDebtPaid, "0");
+  assert.equal(restored.paused[0].draft.oldDebtPaid, "0");
+  assert.equal(restored.active?.draft.customerId, savedDraft.customerId);
+  assert.deepEqual(restored.active?.draft.lines, savedDraft.lines);
+});
+
 test("editing a stored draft preserves its uncertain-save marker", () => {
   const requestId = "40000000-0000-4000-8000-000000000997";
   let state = updateActiveSale(emptySaleDrafts, null, draft, requestId);
