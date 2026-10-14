@@ -28,7 +28,7 @@ begin
   -- the underlying private saver acquires it again (reentrant).
   perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_request_id::text, 0));
   -- Customer -> money_owed -> product/stock for every sale entry point.
-  perform 1 from public.customers where id = p_customer_id for share;
+  perform 1 from public.customers where id = p_customer_id for update;
   perform 1 from public.money_owed where customer_id = p_customer_id for update;
   v_result := private.save_sale_v2(
     p_request_id,p_customer_id,p_business_date,p_paid,
@@ -92,7 +92,7 @@ begin
   -- customer -> current money owed -> product/stock. Without this, one sale
   -- might hold money_owed and wait for stock while another holds stock and
   -- waits for money_owed, aborting a checkout on a deadlock.
-  perform 1 from public.customers where id = p_customer_id for share;
+  perform 1 from public.customers where id = p_customer_id for update;
   select amount into v_old_debt from public.money_owed
     where customer_id = p_customer_id for update;
   v_old_debt := coalesce(v_old_debt, 0);
