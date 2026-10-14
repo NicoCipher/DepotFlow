@@ -31,7 +31,7 @@ function RecordIcon({ kind }: { kind: CustomerRecord["kind"] }) {
 function RecordRow({ item }: { item: CustomerRecord }) {
   const sale = item.kind === "sale";
   const payment = item.kind === "payment";
-  const combinedCheckout = sale && item.old_debt_paid > 0;
+  const combinedCheckout = sale && item.old_debt_paid > 0 && !item.linked_payment_voided && item.status !== 'voided';
   const paymentDuringSale = payment && Boolean(item.linked_sale_id);
   const empties = item.kind === "empties";
   const heldOnly = empties && item.crates === 0 && item.bottles === 0
