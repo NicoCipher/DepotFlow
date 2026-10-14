@@ -35,6 +35,12 @@ begin
   -- The original sale request ID is never reused as a payment request ID.
   v_payment_request_id := md5('depotflow:old-debt:' || p_request_id::text)::uuid;
   perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_request_id::text, 0));
+  -- Consistent lock order for all combined checkouts (debt and no-debt):
+  -- customer -> current money owed -> product/stock. Without this, one sale
+  -- might hold money_owed and wait for stock while another holds stock and
+  -- waits for money_owed, aborting a checkout on a deadlock.
+  perform 1 from public.customers where id = p_customer_id for share;
+  perform 1 from public.money_owed where customer_id = p_customer_id for update;
 
   if p_old_debt_paid > 0 then
     -- Never add a debt payment to an already-committed sale that originally had none.
