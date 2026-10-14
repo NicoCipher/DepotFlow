@@ -644,22 +644,41 @@ export function SaleBuilder({
         )}
         {step === "drinks" && (
           <div className="space-y-6">
-            {draft.lines.length > 0 && (
-              <section aria-label="Drinks in this sale" className="overflow-hidden rounded-xl border border-emerald-300 bg-emerald-50/70">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-200 px-4 py-3">
-                  <h2 className="text-lg font-bold text-emerald-950">
-                    In this sale · {draft.lines.length} {draft.lines.length === 1 ? "drink" : "drinks"}
-                  </h2>
-                  <strong className="text-xl tabular-nums text-emerald-950">
-                    {total === undefined ? "Check prices" : formatNaira(total)}
-                  </strong>
-                </div>
+            <section aria-labelledby="sale-choose-drink">
+              <div className="mb-3">
+                <label id="sale-choose-drink" className="text-lg font-bold text-stone-950" htmlFor="sale-drink-search">
+                  Find a drink
+                </label>
+                <input
+                  id="sale-drink-search"
+                  type="search"
+                  placeholder="Search drinks by name or size"
+                  maxLength={120}
+                  value={draft.productQuery}
+                  onChange={(e) => update({ productQuery: e.target.value })}
+                />
+                <p className="mt-1.5 text-xs text-stone-600">
+                  {visibleProducts.length} {visibleProducts.length === 1 ? "drink" : "drinks"} found
+                </p>
+              </div>
+              {draft.lines.length > 0 && (
+                <details className="mb-3 overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50/70">
+                  <summary className="flex min-h-12 cursor-pointer list-none flex-wrap items-center justify-between gap-2 px-3 py-2 [&::-webkit-details-marker]:hidden">
+                    <span className="flex min-w-0 items-center gap-2 font-bold text-emerald-950">
+                      <SaleIcon name="bag" className="h-4 w-4 shrink-0" />
+                      In this sale · {draft.lines.length} {draft.lines.length === 1 ? "drink" : "drinks"}
+                    </span>
+                    <span className="flex shrink-0 items-center gap-2 text-sm text-emerald-900">
+                      <strong className="tabular-nums">{total === undefined ? "Check prices" : formatNaira(total)}</strong>
+                      <span className="font-semibold underline underline-offset-4">View / edit</span>
+                    </span>
+                  </summary>
                 <ul className="divide-y divide-emerald-200 px-4">
                   {draft.lines.map((line) => {
                     const item = catalog.products.find((p) => p.id === line.productId);
                     return (
                       <li key={line.productId} className="flex min-w-0 items-start gap-3 py-3">
-                        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-emerald-100 bg-white">
+                        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-emerald-100 bg-white">
                           {item ? <ProductImage src={item.image_url} name={item.name} /> : <span className="block p-2 text-xs">Drink unavailable</span>}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -683,27 +702,8 @@ export function SaleBuilder({
                     );
                   })}
                 </ul>
-              </section>
-            )}
-            <section aria-labelledby="sale-choose-drink">
-              <div className="mb-4">
-                <h2 id="sale-choose-drink" className="text-xl font-bold text-stone-950">
-                  {draft.lines.length ? "Add another drink" : "Find a drink"}
-                </h2>
-                <p className="mt-1 text-sm text-stone-600">Choose a picture or name to enter its quantity.</p>
-                <label className="mt-4" htmlFor="sale-drink-search">Search drinks</label>
-                <input
-                  id="sale-drink-search"
-                  type="search"
-                  placeholder="Type a drink name or size"
-                  maxLength={120}
-                  value={draft.productQuery}
-                  onChange={(e) => update({ productQuery: e.target.value })}
-                />
-                <p className="mt-2 text-sm text-stone-600">
-                  {visibleProducts.length} {visibleProducts.length === 1 ? "drink" : "drinks"} found
-                </p>
-              </div>
+                </details>
+              )}
               <ul className="grid min-w-0 gap-3 sm:grid-cols-2" aria-label="Available drinks to choose">
                 {visibleProducts.map((p) => {
                   const line = draft.lines.find((item) => item.productId === p.id);
