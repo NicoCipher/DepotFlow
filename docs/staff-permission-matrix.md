@@ -29,7 +29,9 @@ Status: **proposed product defaults, not live authorization**. Confirm these def
 | View/export full business sales history | ✓ | ✓ (view) | ○ (view) | — | ✓ (view) |
 | View operational stock quantities | ✓ | ✓ | ✓ | ✓ | ○ |
 | Receive stock and view supplier delivery | ✓ | ✓ | — | ✓ | — |
-| Submit a physical stock count **without changing stock** (future workflow) | ✓ | ✓ | — | ✓ | — |
+| Submit a physical drink-stock count **without changing stock** (future workflow) | ✓ | ✓ | — | ✓ | — |
+| Submit a physical empty-crate count **without changing empty stock** (future workflow) | ✓ | ✓ | — | ✓ | — |
+| **Finalize empty-crate variance/write-off** | ✓† | ○† | — | ○† | — |
 | **Finalize stock variance/write-off** | ✓† | ○† | — | ○† | — |
 | Create historical opening money/crate/bottle obligations | ✓† | ○† | — | — | ○† |
 | Record physical empties returns / release held empties | ✓ | ✓ | ✓ | ✓ | — |
@@ -50,6 +52,8 @@ Status: **proposed product defaults, not live authorization**. Confirm these def
 
 **Current implementation discrepancy (release blocker):** `reviewCount` only previews the entered value, while `confirmCount` immediately invokes the privileged `set_current_stock` RPC and adjusts inventory. There is **no persisted pending physical count today**. The proposed Stock role can submit a count only after the pending-count workflow exists and is tested; until then the current final stock adjustment path must remain owner-only. Merely hiding the "Confirm" button or renaming the permission would be unsafe.
 
+**Empty-crate counts are equally sensitive:** The current `confirmEmptyCrateCount` invokes `set_empty_crate_count`, which immediately modifies `empty_crate_stock` and writes a movement. Introduce persisted `pending_empty_crate_counts` and an independent `empties.count_submit` RPC that cannot modify stock, then a separate `empties.finalize_variance` finalization RPC with active membership, permissions, fresh stock validation and audit. The existing direct adjustment remains owner-only before conversion.
+
 **Opening-balances safeguard:** `recordOpeningBalances` invokes `record_opening_balances` and directly changes money owed and physical crate/bottle obligations. `balances.create_opening` is a distinct, high-risk operation with exact role defaults shown above; it is never implied by `customers.manage`, `sales.create`, `payments.collect_old_debt_standalone`, or any other generic role.
 
 **Important:** a salesperson who can receive a customer payment is **not** automatically allowed to change debt directly, refund cash, void a sale, alter past receipts or modify pricing. Future corrections are separate operations with distinct approvals and audit.
@@ -63,23 +67,39 @@ These keys are proposed names for the server and SQL layers; do not implement ra
 | Business identity | `business.view`, `business.edit`, `business.switch` | Active membership in target business; switch never grants more permission |
 | People | `team.view`, `team.invite`, `team.manage_permissions`, `team.disable` | Cannot escalate own rights, remove last owner or switch another business's staff |
 | Customers | `customers.list`, `customers.view_balance`, `customers.manage`, `customers.archive` | Sensitive history separate from minimal checkout debt amount |
-| Sales | `sales.create`, `sales.view_own`, `sales.view_all`, `sales.correct` | `sales.create` includes atomically saving sale lines/payment; corrections distinct |
-| Money | `payments.collect_at_checkout`, `payments.collect_old_debt_at_checkout`, `payments.collect_old_debt_standalone`, `payments.view_all` | Combined sale+old debt requires `sales.create` **and** `payments.collect_old_debt_at_checkout` |
+| Sales | `sales.create`, `sales.view_own`, `sales.view_all`, `sales.correct` | `sales.create` grants recording sale lines (which may be unpaid); **not** permission to collect money. Existing combined checkout remains atomic; conditional extra payment permissions enforced inside that same DB RPC. Corrections distinct. |
+| Money | `payments.collect_at_checkout`, `payments.collect_old_debt_at_checkout`, `payments.collect_old_debt_standalone`, `payments.view_all` | Every checkout always requires `sales.create`; if `p_paid > 0`, additionally require `payments.collect_at_checkout`; if `p_old_debt_paid > 0`, additionally require `payments.collect_old_debt_at_checkout`. Both positive means **all three**. No separate permission for saving a zero-paid sale. Enforce inside the atomic DB RPC, including direct calls. |
 | Historical opening balances | `balances.create_opening`, `balances.view_opening` | Recording opening debt/empties is **not** the same as accepting a payment or editing a customer. Separate, high-risk permission granted to Owner by default; optional Manager/Accounts delegation only with reason, confirmation, actor audit, scoped customer and amount/type revalidation. Existing `record_opening_balances` must check this permission at the database layer before staff rollout. Do not grant to Sales or Stock automatically. |
 | Stock | `stock.view`, `stock.receive`, `stock.count_submit`, `stock.finalize_variance` | **Not true today.** Current `confirmCount` calls `set_current_stock`, immediately changing stock. Before stockkeeper grants, add a business-scoped `pending_stock_counts` record/submit RPC that writes *only* the observed physical quantity, reason, actor, date, expected book quantity and immutable request ID. Separate, explicitly authorized finalization checks fresh quantities/version, calculates variance, atomically posts adjustment, and marks the request finalized. No count-submission RPC may call `set_current_stock` or modify `stock`. |
-| Empties | `empties.view`, `empties.return`, `empties.release_held`, `empties.adjust_stock`, `empties.change_rules` | No substitutions/merging of incompatible crate/bottle obligations |
+| Empties | `empties.view`, `empties.return`, `empties.release_held`, `empties.count_submit`, `empties.finalize_variance`, `empties.adjust_stock`, `empties.change_rules` | Physical empty-crate **count submission** cannot call `set_empty_crate_count` or change booked empties; it writes an idempotent pending observation. An independently authorized finalization revalidates exact crate type, book quantity/version, business, actor and approvals before changing empty stock. Keep `set_empty_crate_count` owner-only until converted; crate and bottle obligations never merge by family. |
 | Products and prices | `products.manage`, `pricing.selling_edit`, `pricing.cost_view`, `pricing.cost_edit` | Separate selling-price work from private purchase costs/profit |
-| Records | `records.view_own`, `records.view_all`, `records.export`, `records.audit_view` | Read rights are independently scoped; no default exports for Sales |
+| Records | `records.view_own`, `records.view_all`, `records.export`, `records.audit_view` | **Actor IDs must be persisted before staff access.** New sale/payment/receiving/count/empties transactions store verified actor and business at database write time (never caller-supplied). Existing legacy history has no trustworthy actor: only Owner and `records.view_all` users may see it; it must **not** be inferred as belonging to the signed-in staff user. Staff `records.view_own` sees only records whose stored actor equals `auth.uid()`. |
 | Platform catalogue | `platform.catalogue_manage` | Not grantable by ordinary business owner/manager |
+
+## Transaction attribution and legacy-record visibility
+
+The identity that signed in is not the business owner and is not necessarily the operator who created each record. Before staff are enabled, install DB-enforced immutable `actor_user_id` and `business_id` (or independently verifiable event actors) across sale, payment, stock receipt/count/adjustment, empties return, opening balance, audit and associated receipt. The database populates the actor from verified `auth.uid()` in the actual save transaction. Transaction groups such as sale + old-debt payment share the true actor and remain separate ledger entries. No staff role may update, forge or erase actor attribution.
+
+Historical rows with no verified actor must remain `legacy/unattributed`, not assigned to the current owner or any employee. `records.view_own` explicitly excludes such rows. `records.view_all` may include them subject to business membership. M4 (team access) is **blocked** until author fields, read filters, indexes and historical classification are implemented and tested in M2/M3.
 
 ## Stock count and opening-balance negative tests required before staff access
 
 - A Stock-role user with only `stock.count_submit` can create an immutable pending count and view it, but **cannot** change `public.stock`, call `set_current_stock`, finalize a variance, authorize themselves or mutate a finalized count.
 - Replaying the same stock-count request ID returns the original pending/final result; a different request ID must not bypass quantity/version checks.
+- A Stock-role user with only `empties.count_submit` can submit a dated physical empty-crate count without altering `empty_crate_stock` or creating stock movements. The user cannot execute `set_empty_crate_count` or finalize `empties.finalize_variance`.
+- Finalizing a pending empty-crate count checks exact crate type, current book quantity/version and permissions, then records one atomic movement with immutable actor. Duplicate or stale requests do not overwrite stock.
 - Owner or separately authorized Manager can finalize a pending count only when current book stock/metadata are revalidated; no stale count silently overwrites sales or recent receipts. A variance that needs another approver is held until one is granted.
 - An unprivileged Sales, Stock or ordinary customer-editor account cannot invoke `record_opening_balances` directly, even with a valid customer ID, guessed business ID or edited payload.
 - A Manager/Accounts user **without** explicit `balances.create_opening` cannot add historical debt/empty obligations; an enabled delegate still needs a reason, exact business match and an audit entry.
 - An opening-balance retry uses its idempotency key; a failed transaction must not partially change money owed or crate/bottle obligations. A user revoked during a session is denied on their next operation.
+
+## Conditional checkout-payment negative tests
+
+- A user with `sales.create` but no payment permission can record an unpaid sale (`p_paid=0, p_old_debt_paid=0`) but **cannot** save any sale with `p_paid>0` or `p_old_debt_paid>0`.
+- `sales.create + payments.collect_at_checkout` can record a paid new sale but **cannot** settle previous debt without `payments.collect_old_debt_at_checkout`.
+- `sales.create + payments.collect_old_debt_at_checkout` can settle earlier debt in an otherwise unpaid new sale but **cannot** accept payment for new drinks without `payments.collect_at_checkout`.
+- All three grants permit a mixed checkout. Every allowed checkout is still atomic and idempotent, with no partial stock/debt/payment writes if a permission is missing.
+- A staff user with `records.view_own` sees only business-matched records explicitly attributed to that user; legacy/unattributed records and another employee's receipts remain hidden, while authorized Owner/Manager/Accounts `records.view_all` can see them. Attribution cannot be spoofed with a JSON or RPC parameter.
 
 ## Approval and audit rules
 
