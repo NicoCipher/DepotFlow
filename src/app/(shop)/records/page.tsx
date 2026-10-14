@@ -50,7 +50,7 @@ function RecordRow({ item }: { item: CustomerRecord }) {
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-[11px] font-bold uppercase tracking-[.08em] text-stone-500">{heldOnly ? "Held empties collected" : combinedCheckout ? "Sale & debt payment" : paymentDuringSale ? "Payment during purchase" : recordTypeName(item.kind)}</span>
+            <span className="text-[11px] font-bold uppercase tracking-[.08em] text-stone-500">{heldOnly ? "Held empties collected" : sale && item.linked_payment_voided ? "Sale · old payment voided" : combinedCheckout ? "Sale & debt payment" : paymentDuringSale ? "Payment during purchase" : recordTypeName(item.kind)}</span>
             <span className="text-xs text-stone-400">·</span>
             <time dateTime={item.created_at} className="text-xs text-stone-500">{eventTime(item.created_at)}</time>
           </div>
