@@ -67,6 +67,11 @@ export function SaleBuilder({
   const [catalog, setCatalog] = useState(initialCatalog);
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState("");
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(""), 4000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
   const [cancelDraftId, setCancelDraftId] = useState<string | null>(null);
   const keepSaleButton = useRef<HTMLButtonElement>(null);
   const cancelSaleButton = useRef<HTMLButtonElement>(null);
@@ -415,133 +420,87 @@ export function SaleBuilder({
       <fieldset
         disabled={pending || !ready}
         aria-label="Sale draft"
-        className="space-y-6 pb-4"
+        className="space-y-3 pb-4"
       >
-        <header className="space-y-4 border-b border-stone-200 pb-5">
-          <div>
-            <p className="mb-1 text-sm font-semibold text-emerald-800">Record sale</p>
-            <h1 ref={stepHeading} tabIndex={-1} className="outline-none">
-              {step === "customer"
-                ? "Who is buying?"
-                : step === "drinks"
-                  ? "Choose drinks"
-                  : step === "quantity"
-                    ? "Set the quantity"
-                    : step === "empties"
-                      ? "Check the empties"
-                      : step === "payment"
-                        ? "Record payment"
-                        : "Review and save"}
-            </h1>
-            <p className="mt-2 text-sm leading-6 text-stone-600">
-              {step === "customer"
-                ? "Find the customer to begin. You can change them before saving."
-                : step === "drinks"
-                  ? "Add every drink the customer is taking. Check the order as you go."
-                  : step === "quantity"
-                    ? "Enter what they are taking. The amount updates before you add it."
-                    : step === "empties"
-                      ? "Confirm what came back, including any missing or different bottles."
-                      : step === "payment"
-                        ? "Enter what was received today. Any balance is worked out for you."
-                        : "Confirm the drinks, empties and money before saving."}
+        <header className="space-y-3 border-b border-stone-200 pb-3">
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <p className="shrink-0 text-xs font-bold uppercase tracking-wide text-emerald-800">
+              Step {progressStep + 1} of 5
             </p>
+            {saleHasWork && (
+              <div role="group" aria-label="Unfinished sale actions" className="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-sm font-semibold text-emerald-950 hover:border-emerald-700 hover:bg-emerald-100"
+                  disabled={saveUncertain}
+                  title="Park this unfinished sale on this device"
+                  onClick={() => {
+                    setCancelDraftId(null);
+                    startTransition(async () => {
+                      if (await sales.park()) {
+                        setCustomerQuery("");
+                        setMessage("");
+                        setNotice("Sale parked on this device. Open Paused sales to continue later.");
+                      }
+                    });
+                  }}
+                >
+                  <SaleIcon name="pause" className="h-4 w-4 shrink-0" /> Park
+                </button>
+                <button
+                  ref={cancelSaleButton}
+                  type="button"
+                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 text-sm font-semibold text-stone-800 hover:border-red-300 hover:bg-red-50"
+                  disabled={saveUncertain}
+                  title="Cancel and discard this unfinished sale"
+                  aria-expanded={confirmCancel}
+                  aria-controls="cancel-sale-panel"
+                  onClick={() => setCancelDraftId(sales.state.active?.id ?? null)}
+                >
+                  <SaleIcon name="trash" className="h-4 w-4 shrink-0 text-red-700" /> Cancel
+                </button>
+              </div>
+            )}
           </div>
-          <nav aria-label="Sale progress">
-            <p className="text-xs font-bold uppercase tracking-wide text-stone-600">
-              Step {progressStep + 1} of 5 · {progressLabels[progressStep]}
+          <h1 ref={stepHeading} tabIndex={-1} className="outline-none">
+            {step === "customer" ? "Who is buying?" : step === "drinks" ? "Choose drinks" : step === "quantity" ? "Set the quantity" : step === "empties" ? "Check the empties" : step === "payment" ? "Record payment" : "Review and save"}
+          </h1>
+          {step !== "drinks" && (
+            <p className="text-sm leading-5 text-stone-600">
+              {step === "customer" ? "Find the customer to begin." : step === "quantity" ? "Enter the quantity, then add it to the sale." : step === "empties" ? "Check the empty crates and bottles returned." : step === "payment" ? "Enter what the customer paid today." : "Check the sale details before saving."}
             </p>
-            <ol className="mt-3 grid grid-cols-5 gap-1.5 sm:gap-2">
+          )}
+          <nav aria-label="Sale progress">
+            <ol className="grid grid-cols-5 gap-1.5 sm:gap-2">
               {progressLabels.map((label, index) => (
-                <li key={label} aria-current={index === progressStep ? "step" : undefined} className="flex min-w-0 flex-col items-center gap-1.5 text-center">
-                  <span className={
-                    "flex h-8 w-8 items-center justify-center rounded-full border text-sm font-bold " +
-                    (index < progressStep
-                      ? "border-emerald-800 bg-emerald-800 text-white"
-                      : index === progressStep
-                        ? "border-emerald-800 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-200"
-                        : "border-stone-200 bg-white text-stone-400")
-                  }>
-                    {index < progressStep ? <SaleIcon name="check" className="h-4 w-4" /> : index + 1}
-                  </span>
-                  <span className={
-                    "text-[10px] leading-4 sm:text-xs " +
-                    (index === progressStep ? "font-bold text-emerald-900" : index < progressStep ? "font-medium text-stone-700" : "text-stone-500")
-                  }>{label}</span>
+                <li key={label} aria-current={index === progressStep ? "step" : undefined} className="min-w-0">
+                  <span aria-hidden="true" className={"block h-1.5 rounded-full " + (index < progressStep ? "bg-emerald-800" : index === progressStep ? "bg-emerald-600 ring-2 ring-emerald-100" : "bg-stone-200")} />
+                  <span className="sr-only">{label}{index === progressStep ? ", current step" : index < progressStep ? ", completed" : ""}</span>
                 </li>
               ))}
             </ol>
           </nav>
         </header>
         {customer && step !== "customer" && (
-          <section aria-label="Current sale" className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
-            <div className="flex min-w-0 items-start justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-900">
-                  <SaleIcon name="user" />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-xs font-bold uppercase tracking-wide text-stone-500">Customer</p>
-                  <p className="break-words text-lg font-bold text-stone-950 sm:text-xl">{customer.name}</p>
-                  {customer.phone && <p className="text-xs text-stone-600 sm:text-sm">{customer.phone}</p>}
-                </div>
-              </div>
-              <button type="button" className="secondary shrink-0 gap-1.5 px-3 text-sm" onClick={() => update({ step: "customer" })}>
-                <SaleIcon name="edit" className="h-4 w-4" /> Change
-              </button>
+          <section aria-label="Current customer" className="flex min-w-0 items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-900">
+              <SaleIcon name="user" className="h-4 w-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <span className="block text-xs text-stone-500">Customer</span>
+              <strong className="block truncate text-sm text-stone-950 sm:text-base" title={customer.name}>{customer.name}</strong>
             </div>
-            {draft.lines.length > 0 && (
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-stone-100 pt-3">
-                <span className="flex items-center gap-2 text-sm text-stone-600">
-                  <SaleIcon name="bag" className="h-4 w-4" />
-                  {draft.lines.length} {draft.lines.length === 1 ? "drink" : "drinks"} chosen
-                </span>
-                <strong className="text-lg font-bold tabular-nums text-stone-950">
-                  {displayedTotal === undefined ? "Check prices" : formatNaira(displayedTotal)}
-                </strong>
-              </div>
-            )}
+            <button type="button" className="secondary min-h-11 shrink-0 gap-1 px-3 py-2 text-sm" onClick={() => update({ step: "customer" })}>
+              <SaleIcon name="edit" className="h-4 w-4" /> Change
+            </button>
           </section>
         )}
-        {saleHasWork && (
-          <section aria-label="Unfinished sale actions" className="border-b border-stone-200 pb-4">
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-950 hover:border-emerald-700 hover:bg-emerald-100"
-                disabled={saveUncertain}
-                onClick={() => {
-                  setCancelDraftId(null);
-                  startTransition(async () => {
-                    if (await sales.park()) {
-                      setCustomerQuery("");
-                      setMessage("");
-                      setNotice("Sale parked on this device. Open Paused sales to continue later.");
-                    }
-                  });
-                }}
-              >
-                <SaleIcon name="pause" className="h-5 w-5 shrink-0" />
-                Park for later
-              </button>
-              <button
-                type="button"
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-bold text-stone-800 hover:border-red-300 hover:bg-red-50"
-                disabled={saveUncertain}
-                ref={cancelSaleButton}
-                aria-expanded={confirmCancel}
-                aria-controls="cancel-sale-panel"
-                onClick={() => setCancelDraftId(sales.state.active?.id ?? null)}
-              >
-                <SaleIcon name="trash" className="h-5 w-5 shrink-0 text-red-700" />
-                Cancel sale
-              </button>
-            </div>
-            <p className="mt-2 text-xs leading-5 text-stone-600">Park keeps the unfinished sale on this device. Cancel discards it.</p>
-            {saveUncertain && (
-              <p className="mt-3 text-sm font-medium text-amber-900">The save may have completed. Use Check Sale before parking or cancelling.</p>
-            )}
-            {confirmCancel && !saveUncertain && (
+        {saveUncertain && saleHasWork && (
+          <p role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            The save may have completed. Use Check Sale before parking or cancelling.
+          </p>
+        )}
+        {confirmCancel && !saveUncertain && (
               <div id="cancel-sale-panel" role="group" aria-labelledby="cancel-sale-question" className="mt-3 rounded-lg border border-red-200 bg-red-50 p-4">
                 <h3 id="cancel-sale-question" className="font-bold text-red-950">Discard this unfinished sale?</h3>
                 <p className="mt-1 text-sm leading-5 text-red-900">
@@ -580,14 +539,14 @@ export function SaleBuilder({
                 </div>
               </div>
             )}
-          </section>
-        )}
         {step === "customer" && <PausedSalesLink ownerId={ownerId} prominent />}
         {notice && (
-          <div role="status" aria-live="polite" className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
-            <span className="mt-0.5 shrink-0"><SaleIcon name="check" /></span>
-            <p className="min-w-0 flex-1 text-sm font-medium leading-6">{notice}</p>
-            <button type="button" className="min-h-10 shrink-0 rounded-md px-2 text-xs font-bold text-emerald-900 underline" onClick={() => setNotice("")}>Dismiss</button>
+          <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-3 top-3 z-50 mx-auto flex max-w-lg items-start gap-3 rounded-xl bg-emerald-950 px-4 py-3 text-sm font-semibold text-white shadow-xl sm:top-5">
+            <SaleIcon name="check" className="h-5 w-5 shrink-0" />
+            <p className="min-w-0 flex-1 leading-5">{notice}</p>
+            <button type="button" className="pointer-events-auto min-h-11 shrink-0 rounded-md px-2 font-semibold text-white underline underline-offset-4" onClick={() => setNotice("")}>
+              Dismiss
+            </button>
           </div>
         )}
         {sales.error && (
