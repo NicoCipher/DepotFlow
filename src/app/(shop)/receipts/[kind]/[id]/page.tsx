@@ -141,7 +141,7 @@ export default async function ReceiptPage({
           <span className="text-xs font-medium tracking-wide text-emerald-100">{receipt.receipt_number}</span>
         </div>
         <h1 className="mt-5 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
-          {kind === "sale" ? "Sale recorded" : "Payment received"}
+          {receipt.receipt_status === "voided" ? "Receipt voided" : kind === "sale" ? "Sale recorded" : "Payment received"}
         </h1>
         <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-emerald-100">
           {kind === "sale" && !account ? "Sale value" : account ? "Total money collected" : "Amount received"}
@@ -159,7 +159,7 @@ export default async function ReceiptPage({
             {receipt.receipt_status === "voided" ? "Voided"
               : kind === "sale" && receipt.amount === 0 && (!account || account.collected === 0)
                 ? "Payment pending"
-                : accountUnpaid ? "Partly paid / balance owing" : "Paid in full"}
+                : accountUnpaid ? kind === "payment" ? "Customer still owes" : account ? "Customer balance outstanding" : "Partly paid" : kind === "payment" ? "Payment received" : "Paid in full"}
           </span>
         </div>
       </header>
