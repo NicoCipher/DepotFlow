@@ -128,6 +128,28 @@ export async function refreshSaleCatalog() {
   return { catalog: await loadCatalog(session.supabase) };
 }
 
+export async function loadCustomerMoneyOwed(customerId: string) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(customerId))
+    return { error: "Choose a customer first." };
+  const session = await ownerSession();
+  if (!session.user || !session.allowed)
+    return { error: "Sign in again to check the customer's balance." };
+  try {
+    const { data, error } = await session.supabase
+      .from("money_owed")
+      .select("amount")
+      .eq("customer_id", customerId)
+      .maybeSingle();
+    if (error) return { error: "Could not load the current balance. Try again." };
+    const amount = data?.amount ?? 0;
+    if (!Number.isSafeInteger(amount) || amount < 0)
+      return { error: "Could not verify the customer balance. Try again." };
+    return { amount };
+  } catch {
+    return { error: "Could not load the current balance. Try again." };
+  }
+}
+
 export async function saveSale(requestId: string, draft: SaleDraft) {
   const session = await ownerSession();
   if (!session.user) {
@@ -147,12 +169,15 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
     ) ||
     !/^\d{4}-\d{2}-\d{2}$/.test(draft.businessDate) ||
     !/^\d+$/.test(draft.paid) ||
-    !Number.isSafeInteger(Number(draft.paid))
+    !Number.isSafeInteger(Number(draft.paid)) ||
+    !/^\d+$/.test(draft.oldDebtPaid) ||
+    !Number.isSafeInteger(Number(draft.oldDebtPaid)) ||
+    Number(draft.oldDebtPaid) > 2147483647
   )
     return { error: "Check the sale date and amount paid." };
 
   if (
-    Number(draft.paid) > 0 &&
+    (Number(draft.paid) > 0 || Number(draft.oldDebtPaid) > 0) &&
     !["cash", "transfer", "pos"].includes(draft.paymentMethod)
   )
     return { error: "Choose how the customer paid." };
@@ -203,13 +228,14 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
     });
 
     rpcStarted = true;
-    const { data, error } = await supabase.rpc("save_sale_v2", {
+    const { data, error } = await supabase.rpc("save_sale_with_old_debt_payment", {
       p_request_id: requestId,
       p_customer_id: draft.customerId,
       p_business_date: draft.businessDate,
       p_paid: Number(draft.paid),
       p_payment_method:
-        Number(draft.paid) > 0 ? draft.paymentMethod : "not_recorded",
+        Number(draft.paid) > 0 || Number(draft.oldDebtPaid) > 0 ? draft.paymentMethod : "not_recorded",
+      p_old_debt_paid: Number(draft.oldDebtPaid),
       p_lines: lines,
       p_returned_crates: actual.crates,
       p_returned_bottles: actual.bottles,
@@ -253,6 +279,10 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
         paid: number;
         owing: number;
         customer: string;
+        oldDebtPaid: number;
+        oldDebtPaymentId: string | null;
+        oldDebtReceiptRequestId: string | null;
+        balanceAfter: number;
       },
     };
   } catch (cause) {

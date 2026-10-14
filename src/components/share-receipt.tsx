@@ -20,7 +20,17 @@ type ReceiptImageData = {
   total?: string;
   balanceLabel: string;
   balance: string;
-  status: "paid" | "partial" | "voided";
+  account?: {
+    bd: string;
+    saleTotal: string;
+    due: string;
+    paidOld: string;
+    paidSale: string;
+    collected: string;
+    cd: string;
+    debtPaymentReference: string | null;
+  };
+  status: "paid" | "partial" | "unpaid" | "voided";
   note?: string;
   items: ReceiptShareItem[];
 };
@@ -129,7 +139,7 @@ async function createReceiptPng(
 ) {
   const staging = document.createElement("canvas");
   staging.width = receiptWidth;
-  staging.height = 1900 + data.items.length * 190;
+  staging.height = (data.account ? 2600 : 1900) + data.items.length * 190;
   const context = staging.getContext("2d");
   if (!context) throw new Error("Receipt image generation is unavailable.");
 
@@ -185,13 +195,15 @@ async function createReceiptPng(
   const statusLabel =
     data.status === "voided"
       ? "VOIDED RECEIPT"
-      : data.status === "partial"
-        ? "PARTIAL PAYMENT"
-        : "PAID IN FULL";
+      : data.status === "unpaid"
+        ? "SALE RECORDED · PAYMENT PENDING"
+        : data.status === "partial"
+          ? "BALANCE OUTSTANDING"
+          : "PAID IN FULL";
   context.fillStyle =
     data.status === "voided"
       ? "#991b1b"
-      : data.status === "partial"
+      : data.status === "partial" || data.status === "unpaid"
         ? "#92400e"
         : "#065f46";
   context.font = "700 27px Arial, sans-serif";
@@ -289,12 +301,33 @@ async function createReceiptPng(
   drawDivider(context, y);
   y += 62;
 
-  if (data.total) {
-    y = drawSummaryRow(context, "Sale total", data.total, y);
+  if (data.account) {
+    y = drawSummaryRow(context, "Previous balance (B/D)", data.account.bd, y);
+    y = drawSummaryRow(context, "Today's sale", data.account.saleTotal, y);
+    y = drawSummaryRow(context, "Total amount due", data.account.due, y);
+    y = drawSummaryRow(context, "Paid toward old debt", "−" + data.account.paidOld, y);
+    y = drawSummaryRow(context, "Paid toward today's sale", "−" + data.account.paidSale, y);
+    y += 10;
+    drawDivider(context, y);
+    y += 54;
+    y = drawSummaryRow(context, "Total collected now", data.account.collected, y, true);
+    y = drawSummaryRow(context, "Balance C/D", data.account.cd, y, true);
+    if (data.account.debtPaymentReference) {
+      context.textAlign = "left";
+      context.fillStyle = "#57534e";
+      context.font = "500 22px Arial, sans-serif";
+      context.fillText("Old-debt payment ref: " + data.account.debtPaymentReference, sidePadding, y + 4);
+      y += 50;
+    }
+    y += 14;
+  } else {
+    if (data.total) {
+      y = drawSummaryRow(context, "Sale total", data.total, y);
+    }
+    y = drawSummaryRow(context, "Amount received", data.amount, y, true);
+    y = drawSummaryRow(context, data.balanceLabel, data.balance, y);
+    y += 14;
   }
-  y = drawSummaryRow(context, "Amount received", data.amount, y, true);
-  y = drawSummaryRow(context, data.balanceLabel, data.balance, y);
-  y += 14;
 
   drawDivider(context, y);
   y += 56;

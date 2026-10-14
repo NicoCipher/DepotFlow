@@ -3,12 +3,14 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
   refreshSaleCatalog,
+  loadCustomerMoneyOwed,
   saveSale,
 } from "@/app/(shop)/record-sale/actions";
 import { CustomerForm } from "./customer-form";
 import { emptyCustomer } from "@/domain/customers";
 import { ProductImage } from "@/components/product-image";
 import { SaleIcon } from "@/components/sale-icon";
+import { salePaymentTotals, debtPaymentInputError } from "@/domain/sale-payment";
 import { useSaleDrafts } from "./sale-draft-session";
 import { hasSaleWork } from "@/domain/sale-drafts";
 import { PausedSalesLink } from "./paused-sales-link";
@@ -67,6 +69,9 @@ export function SaleBuilder({
   const [catalog, setCatalog] = useState(initialCatalog);
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState("");
+  const [oldDebt, setOldDebt] = useState<{ key: string; amount: number } | null>(null);
+  const [debtError, setDebtError] = useState<{ key: string; message: string } | null>(null);
+  const [debtRefresh, setDebtRefresh] = useState(0);
   useEffect(() => {
     if (!notice) return;
     const timer = window.setTimeout(() => setNotice(""), 4000);
@@ -82,6 +87,9 @@ export function SaleBuilder({
     paid: number;
     owing: number;
     customer: string;
+    oldDebtPaid: number;
+    oldDebtReceiptRequestId: string | null;
+    balanceAfter: number;
     name: string;
   } | null>(null);
   const [pending, startTransition] = useTransition();
@@ -270,7 +278,37 @@ export function SaleBuilder({
         : `Available: ${formatQuantity(p.available, p.bottles_per_crate)}`;
   }
   const step = customer ? draft.step : "customer";
-  const displayedTotal = step === "review" ? reviewTotal : total;
+  const customerToCheck = customer?.id ?? null;
+  const debtKey = customerToCheck && (step === "payment" || step === "review")
+    ? `${customerToCheck}:${step}:${debtRefresh}`
+    : null;
+  useEffect(() => {
+    if (!customerToCheck || !debtKey) return;
+    let current = true;
+    void loadCustomerMoneyOwed(customerToCheck)
+      .then((result) => {
+        if (!current) return;
+        if ("error" in result) {
+          setDebtError({ key: debtKey, message: result.error ?? "Could not load previous balance." });
+        } else {
+          setOldDebt({ key: debtKey, amount: result.amount });
+          setDebtError(null);
+        }
+      })
+      .catch(() => {
+        if (current) setDebtError({ key: debtKey, message: "Could not load the previous balance. Try again." });
+      });
+    return () => { current = false; };
+  }, [customerToCheck, debtKey]);
+  const debtErrorMessage = debtError?.key === debtKey ? debtError.message : "";
+  const debtChecking = Boolean(debtKey && oldDebt?.key !== debtKey && !debtErrorMessage);
+  const oldDebtAmount = debtKey && oldDebt?.key === debtKey ? oldDebt.amount : null;
+  const oldDebtInputError = debtPaymentInputError(draft.oldDebtPaid, oldDebtAmount);
+  const paymentBreakdown = (() => {
+    if (total === undefined || oldDebtAmount === null || paymentInputError || oldDebtInputError) return null;
+    try { return salePaymentTotals(total, Number(draft.paid), oldDebtAmount, Number(draft.oldDebtPaid)); }
+    catch { return null; }
+  })();
   const progressStep =
     step === "customer"
       ? 0
@@ -310,7 +348,7 @@ export function SaleBuilder({
           <p className="mt-5 text-sm font-bold uppercase tracking-wide text-emerald-800">Sale complete</p>
           <h1 id="sale-success-title" className="mt-1 text-3xl font-bold text-stone-950">Sale recorded</h1>
           <p className="mt-2 text-stone-600">
-            {saved.name}’s sale is saved. Stock and the customer’s balance have been updated.
+            {saved.name}’s sale is saved. Stock and any payment toward earlier debt have been updated.
           </p>
           <dl className="mt-6 divide-y divide-stone-200 rounded-xl border border-stone-200 bg-stone-50 px-4">
             <div className="flex items-center justify-between gap-3 py-4">
@@ -318,24 +356,42 @@ export function SaleBuilder({
               <dd className="text-xl font-bold tabular-nums">{formatNaira(saved.total)}</dd>
             </div>
             <div className="flex items-center justify-between gap-3 py-4">
-              <dt className="text-stone-600">Paid now</dt>
+              <dt className="text-stone-600">Paid toward today&apos;s sale</dt>
               <dd className="font-bold tabular-nums">{formatNaira(saved.paid)}</dd>
             </div>
             <div className="flex items-center justify-between gap-3 py-4">
-              <dt className="font-semibold">Still owing</dt>
+              <dt className="font-semibold">Today’s sale still unpaid</dt>
               <dd className={"text-xl font-bold tabular-nums " + (saved.owing > 0 ? "text-amber-900" : "text-emerald-900")}>
                 {saved.owing === 0 ? "Paid in full" : formatNaira(saved.owing)}
               </dd>
             </div>
           </dl>
+          {saved.oldDebtPaid > 0 && (
+            <p className="mt-4 text-sm font-semibold text-emerald-900">
+              {formatNaira(saved.oldDebtPaid)} paid toward previous money owed. The customer receipt shows both payments together.
+            </p>
+          )}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-emerald-50 p-4">
+            <span className="font-semibold text-emerald-950">Customer now owes in total</span>
+            <strong className="text-xl font-bold tabular-nums text-emerald-950">{formatNaira(saved.balanceAfter)}</strong>
+          </div>
         </section>
         <button type="button" className="primary flex w-full gap-2" onClick={() => { setSaved(null); setNotice(""); }}>
           <SaleIcon name="plus" /> Record another sale
         </button>
-        {saved.paid > 0 && (
-          <a className="secondary flex w-full gap-2" href={ "/receipts/sale/" + saved.id }>
-            <SaleIcon name="receipt" /> View payment receipt
-          </a>
+        <a className="secondary flex w-full gap-2" href={"/receipts/sale/" + saved.id}>
+          <SaleIcon name="receipt" /> View & share customer receipt
+        </a>
+        {saved.oldDebtReceiptRequestId && (
+          <details className="rounded-lg border border-stone-200 px-4 py-3 text-sm">
+            <summary className="cursor-pointer font-semibold text-stone-700">
+              Separate old-debt payment record
+            </summary>
+            <p className="mt-2 text-stone-600">This accounting receipt records the old-debt payment separately from today&apos;s sale.</p>
+            <a className="secondary mt-3 flex w-full gap-2" href={"/receipts/payment/" + saved.oldDebtReceiptRequestId}>
+              <SaleIcon name="receipt" /> View old-debt payment record
+            </a>
+          </details>
         )}
         <a className="secondary flex w-full gap-2" href={ "/customers/" + saved.customer }>
           <SaleIcon name="user" /> View customer
@@ -615,7 +671,7 @@ export function SaleBuilder({
                       ? "flex min-h-20 w-full items-center gap-3 rounded-xl border-2 border-emerald-700 bg-emerald-50 px-4 py-3 text-left"
                       : "flex min-h-20 w-full items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-left hover:border-emerald-500 hover:bg-emerald-50"}
                     aria-pressed={draft.customerId === c.id}
-                    onClick={() => update({ customerId: c.id, step: "drinks" })}
+                    onClick={() => update({ customerId: c.id, oldDebtPaid: c.id === draft.customerId ? draft.oldDebtPaid : "0", step: "drinks" })}
                   >
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-stone-100 text-stone-700">
                       <SaleIcon name="user" />
@@ -1076,83 +1132,120 @@ export function SaleBuilder({
         )}
         {step === "payment" && (
           <>
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-              <p className="text-sm font-semibold text-emerald-950">Total to collect</p>
-              <p className="mt-1 text-3xl font-bold tabular-nums text-emerald-950">{total === undefined ? "Check drinks" : formatNaira(total)}</p>
-            </div>
-            <p className="font-semibold text-stone-900">How much is the customer paying now?</p>
-            <div className="grid grid-cols-2 gap-2" role="group" aria-label="Quick payment amounts">
-              <button
-                className="secondary w-full"
-                aria-pressed={total !== undefined && draft.paid === String(total)}
-                disabled={total === undefined}
-                onClick={() => total !== undefined && update({ paid: String(total) })}
-              >
-                Pay full amount
-              </button>
-              <button
-                className="secondary w-full"
-                aria-pressed={draft.paid === "0"}
-                onClick={() => update({ paid: "0" })}
-              >
-                No payment yet
-              </button>
-            </div>
-            <label htmlFor="sale-paid">Amount paid now (₦)</label>
-            <input
-              id="sale-paid"
-              onFocus={selectDefaultZero}
-              onClick={selectDefaultZero}
-              inputMode="numeric"
-              pattern="[0-9]+"
-              maxLength={12}
-              value={draft.paid}
-              aria-invalid={Boolean(paymentInputError)}
-              aria-describedby={
-                paymentInputError ? "sale-paid-error" : undefined
-              }
-              onChange={(e) => update({ paid: e.target.value })}
-            />
-            {paymentInputError && (
-              <p
-                id="sale-paid-error"
-                role="alert"
-                className="mt-2 text-sm text-red-800"
-              >
-                {paymentInputError}
-              </p>
+            <section aria-label="Payment for today&apos;s drinks" className="space-y-3 rounded-xl border border-stone-200 bg-white p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-bold text-stone-950">Today&apos;s sale</h2>
+                <strong className="text-2xl font-bold tabular-nums text-emerald-950">{total === undefined ? "Check drinks" : formatNaira(total)}</strong>
+              </div>
+              <label htmlFor="sale-paid">Paying toward today&apos;s sale (₦)</label>
+              <div className="grid grid-cols-2 gap-2" role="group" aria-label="Quick payment for today&apos;s sale">
+                <button type="button" className="secondary w-full" aria-pressed={total !== undefined && draft.paid === String(total)} disabled={total === undefined} onClick={() => total !== undefined && update({ paid: String(total) })}>
+                  Pay in full
+                </button>
+                <button type="button" className="secondary w-full" aria-pressed={draft.paid === "0"} onClick={() => update({ paid: "0" })}>Pay later</button>
+              </div>
+              <input
+                id="sale-paid"
+                onFocus={selectDefaultZero}
+                onClick={selectDefaultZero}
+                inputMode="numeric"
+                pattern="[0-9]+"
+                maxLength={12}
+                value={draft.paid}
+                aria-invalid={Boolean(paymentInputError)}
+                aria-describedby={paymentInputError ? "sale-paid-error" : undefined}
+                onChange={(e) => update({ paid: e.target.value })}
+              />
+              {paymentInputError && <p id="sale-paid-error" role="alert" className="text-sm text-red-800">{paymentInputError}</p>}
+            </section>
+            <section aria-label="Previous customer debt" className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-bold text-stone-950">Previous money owed</h2>
+                <strong className="text-2xl font-bold tabular-nums text-amber-950">
+                  {oldDebtAmount === null ? "Checking…" : formatNaira(oldDebtAmount)}
+                </strong>
+              </div>
+              {debtChecking && <p role="status" className="text-sm text-amber-950">Checking the customer&apos;s current balance…</p>}
+              {debtErrorMessage && (
+                <div role="alert" className="space-y-2 text-sm text-amber-950">
+                  <p>{debtErrorMessage}</p>
+                  <button type="button" className="secondary" onClick={() => setDebtRefresh((n) => n + 1)}>Try again</button>
+                </div>
+              )}
+              {oldDebtAmount !== null && oldDebtAmount === 0 && !debtChecking && (
+                <>
+                  <p className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
+                    <SaleIcon name="check" className="h-4 w-4" /> No previous money owed.
+                  </p>
+                  {Number(draft.oldDebtPaid) > 0 && !saveUncertain && (
+                    <div role="alert" className="space-y-2">
+                      <p className="text-sm text-red-800">The previous debt has been cleared. Remove the old-debt amount before continuing.</p>
+                      <button type="button" className="secondary w-full" onClick={() => update({ oldDebtPaid: "0" })}>
+                        Clear old-debt payment
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+              {oldDebtAmount !== null && oldDebtAmount > 0 && !debtChecking && (
+                <>
+                  <p className="text-sm leading-5 text-stone-700">They can clear some or all of their old balance while buying these drinks.</p>
+                  <label htmlFor="sale-old-debt-paid">Paying toward previous debt (₦)</label>
+                  <div className="grid grid-cols-2 gap-2" role="group" aria-label="Quick previous-debt payment">
+                    <button type="button" className="secondary w-full" aria-pressed={draft.oldDebtPaid === String(oldDebtAmount)} onClick={() => update({ oldDebtPaid: String(oldDebtAmount) })}>Pay old debt in full</button>
+                    <button type="button" className="secondary w-full" aria-pressed={draft.oldDebtPaid === "0"} onClick={() => update({ oldDebtPaid: "0" })}>Not today</button>
+                  </div>
+                  <input
+                    id="sale-old-debt-paid"
+                    inputMode="numeric"
+                    pattern="[0-9]+"
+                    maxLength={12}
+                    onFocus={selectDefaultZero}
+                    onClick={selectDefaultZero}
+                    value={draft.oldDebtPaid}
+                    aria-invalid={Boolean(oldDebtInputError)}
+                    aria-describedby={oldDebtInputError ? "old-debt-payment-error" : "old-debt-payment-note"}
+                    onChange={(e) => update({ oldDebtPaid: e.target.value })}
+                  />
+                  <p id="old-debt-payment-note" className="text-xs text-stone-600">This pays down their older balance, not today&apos;s drinks.</p>
+                  {oldDebtInputError && <p id="old-debt-payment-error" role="alert" className="text-sm text-red-800">{oldDebtInputError}</p>}
+                </>
+              )}
+            </section>
+            {Number(draft.paid) + Number(draft.oldDebtPaid) > 0 && (
+              <div>
+                <label htmlFor="sale-method">How is the customer paying?</label>
+                <select id="sale-method" value={draft.paymentMethod} onChange={(e) => update({ paymentMethod: e.target.value })} required>
+                  <option value="">Choose method</option>
+                  <option value="cash">Cash</option><option value="transfer">Transfer</option><option value="pos">POS</option>
+                </select>
+                <p className="mt-1 text-xs text-stone-600">The same method applies to both amounts. The old-debt payment gets its own receipt.</p>
+              </div>
             )}
-            {Number(draft.paid) > 0 && <div className="mt-4">
-              <label htmlFor="sale-method">How did they pay?</label>
-              <select id="sale-method" value={draft.paymentMethod} onChange={(e) => update({ paymentMethod: e.target.value })} required>
-                <option value="">Choose method</option><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="pos">POS</option>
-              </select>
-            </div>}
-            <div className="rounded-xl border border-stone-200 bg-stone-50 p-4" aria-live="polite">
+            <section aria-label="Money to collect and customer balance" className="rounded-xl border border-emerald-200 bg-white p-4" aria-live="polite">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-stone-600">Paying now</span>
-                <strong>
-                  {/^\d+$/.test(draft.paid) ? formatNaira(Number(draft.paid)) : "—"}
-                </strong>
+                <span className="font-semibold text-stone-900">Collect now</span>
+                <strong className="text-2xl font-bold tabular-nums text-emerald-950">{paymentBreakdown ? formatNaira(paymentBreakdown.collectNow) : "—"}</strong>
               </div>
-              <div className="mt-2 flex items-center justify-between gap-3 border-t border-stone-200 pt-2">
-                <span className="font-medium">Still owing after this sale</span>
-                <strong className={
-                  total !== undefined &&
-                  /^\d+$/.test(draft.paid) &&
-                  Number(draft.paid) <= total &&
-                  total - Number(draft.paid) > 0
-                    ? "text-amber-900"
-                    : "text-emerald-900"
-                }>
-                  {total !== undefined &&
-                  /^\d+$/.test(draft.paid) &&
-                  Number(draft.paid) <= total
-                    ? formatNaira(total - Number(draft.paid))
-                    : "—"}
-                </strong>
-              </div>
-            </div>
+              {paymentBreakdown && (
+                <dl className="mt-3 space-y-2 border-t border-stone-200 pt-3 text-sm">
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-stone-600">Old debt left</dt>
+                    <dd className="font-semibold">{formatNaira(paymentBreakdown.oldDebtRemaining)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-stone-600">Today&apos;s sale still unpaid</dt>
+                    <dd className="font-semibold">{formatNaira(paymentBreakdown.saleRemaining)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3 border-t border-stone-200 pt-2 font-bold">
+                    <dt>Total customer will owe</dt>
+                    <dd className={paymentBreakdown.totalOwedAfter > 0 ? "text-amber-900" : "text-emerald-900"}>
+                      {formatNaira(paymentBreakdown.totalOwedAfter)}
+                    </dd>
+                  </div>
+                </dl>
+              )}
+            </section>
             <div className="sale-sticky-actions sticky z-10 -mx-4 flex items-center gap-3 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
             <button
               className="secondary min-h-12 shrink-0 px-4"
@@ -1165,7 +1258,8 @@ export function SaleBuilder({
               disabled={
                 pending ||
                 total === undefined ||
-                Boolean(paymentInputError) || (Number(draft.paid) > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))
+                Boolean(paymentInputError) || Boolean(oldDebtInputError) || !paymentBreakdown || debtChecking ||
+                (paymentBreakdown.collectNow > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))
               }
               onClick={() =>
                 startTransition(async () => {
@@ -1187,6 +1281,15 @@ export function SaleBuilder({
                     return;
                   }
                   try {
+                    const latestDebt = await loadCustomerMoneyOwed(draft.customerId);
+                    if ("error" in latestDebt) {
+                      const errorMessage = latestDebt.error ?? "Could not verify the customer's balance.";
+                      if (debtKey) setDebtError({ key: debtKey, message: errorMessage });
+                      setMessage(errorMessage);
+                      return;
+                    }
+                    if (debtKey) setOldDebt({ key: debtKey, amount: latestDebt.amount });
+                    salePaymentTotals(total!, Number(draft.paid), latestDebt.amount, Number(draft.oldDebtPaid));
                     setCatalog(fresh);
                     matchSaleEmpties(draft, fresh);
                     const lines = draft.lines.map((line) => {
@@ -1217,8 +1320,8 @@ export function SaleBuilder({
             >
               {pending
                 ? "Checking…"
-                : Number(draft.paid) > 0
-                  ? `Review sale · ${formatNaira(Number(draft.paid))} paid`
+                : paymentBreakdown && paymentBreakdown.collectNow > 0
+                  ? `Review · Collect ${formatNaira(paymentBreakdown.collectNow)}`
                   : "Review sale · pay later"}
             </button>
             </div>
@@ -1311,15 +1414,27 @@ export function SaleBuilder({
                 <dd className="font-semibold">{reviewTotal === undefined ? "Check drinks" : formatNaira(reviewTotal)}</dd>
               </div>
               <div className="flex justify-between gap-3 border-b border-stone-200 py-3">
-                <dt>Paid now</dt>
+                <dt>Paid toward today&apos;s sale</dt>
                 <dd className="font-semibold">{formatNaira(Number(draft.paid))}</dd>
               </div>
-              {Number(draft.paid) > 0 && <div className="flex justify-between gap-3 border-b border-stone-200 py-3"><dt>Method</dt><dd className="font-semibold">{{ cash: "Cash", transfer: "Bank transfer", pos: "POS" }[draft.paymentMethod as "cash" | "transfer" | "pos"] ?? "Choose a method"}</dd></div>}
+              <div className="flex justify-between gap-3 border-b border-stone-200 py-3">
+                <dt>Paid toward previous debt</dt>
+                <dd className="font-semibold">{formatNaira(Number(draft.oldDebtPaid))}</dd>
+              </div>
+              {Number(draft.paid) + Number(draft.oldDebtPaid) > 0 && <div className="flex justify-between gap-3 border-b border-stone-200 py-3"><dt>Method</dt><dd className="font-semibold">{{ cash: "Cash", transfer: "Bank transfer", pos: "POS" }[draft.paymentMethod as "cash" | "transfer" | "pos"] ?? "Choose a method"}</dd></div>}
               <div className="flex justify-between gap-3 py-3 text-lg font-semibold">
-                <dt>Still owing</dt>
-                <dd>{reviewTotal === undefined ? "Check drinks" : formatNaira(reviewTotal - Number(draft.paid))}</dd>
+                <dt>Total to collect now</dt>
+                <dd>{reviewTotal === undefined || oldDebtAmount === null ? "Check balances" : formatNaira(Number(draft.paid) + Number(draft.oldDebtPaid))}</dd>
               </div>
             </dl>
+            {paymentBreakdown && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <p className="text-sm font-semibold text-amber-950">Customer balance after this sale</p>
+                <p className="mt-1 text-2xl font-bold tabular-nums text-amber-950">{formatNaira(paymentBreakdown.totalOwedAfter)}</p>
+                <p className="mt-1 text-xs text-amber-950">Includes previous unpaid debt and any unpaid part of today&apos;s sale. Rechecked when saving.</p>
+              </div>
+            )}
+            {debtErrorMessage && <p role="alert" className="text-sm text-amber-900">{debtErrorMessage}</p>}
             <div className="sale-sticky-actions sticky z-10 -mx-4 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
             <p className="mb-1 truncate text-sm font-semibold text-emerald-950">Sale for {customer?.name}</p>
             <p className="mb-2 text-xs text-stone-600">Saving updates stock, payment and any amount owed.</p>
@@ -1332,7 +1447,10 @@ export function SaleBuilder({
                 !emptiesReview ||
                 hasUnmatchedSaleEmpties(emptiesReview) ||
                 Number(draft.paid) > reviewTotal ||
-                (Number(draft.paid) > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))
+                (!saveUncertain && (
+                  !paymentBreakdown || debtChecking || Boolean(oldDebtInputError) ||
+                  (paymentBreakdown.collectNow > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))
+                ))
               }
               onClick={() =>
                 startTransition(async () => {

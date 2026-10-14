@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { formatNaira } from "@/domain/products";
 import { formatBusinessDate, formatStoredQuantity } from "@/domain/sales";
 import { methodLabel } from "@/lib/receipts";
+import { readAccountReceipt } from "@/domain/account-receipt";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
@@ -34,6 +35,7 @@ type PublicReceipt = {
   method?: string;
   total?: number | null;
   balance?: number;
+  account?: unknown;
   business_snapshot?: boolean;
   business?: PublicBusiness | null;
   items?: PublicReceiptItem[];
@@ -86,6 +88,8 @@ export default async function VerifyPage({
     result.customer_snapshot_source === "legacy_backfill";
   const hasBusinessSnapshot =
     result.business_snapshot ?? Boolean(business?.name);
+  const account = isSale ? readAccountReceipt(result.account) : null;
+  const amountCollected = account ? account.collected : result.amount;
 
   return (
     <div className="mx-auto w-full max-w-xl space-y-5">
@@ -93,8 +97,9 @@ export default async function VerifyPage({
         <p className="text-sm font-semibold uppercase tracking-wide text-emerald-800">
           DepotFlow verification
         </p>
-        <h1>{isSale ? "Sale Receipt" : "Balance Payment Receipt"}</h1>
+        <h1>{account ? "Sale & Customer Account Receipt" : isSale ? "Sale Receipt" : "Balance Payment Receipt"}</h1>
         <p className="mt-1 text-stone-600">{result.number}</p>
+        {amountCollected === 0 && <p className="mt-1 text-sm font-semibold text-amber-900">Sale recorded · payment pending</p>}
       </header>
 
       {hasBusinessSnapshot && business?.name ? (
@@ -158,12 +163,38 @@ export default async function VerifyPage({
           </p>
         )}
 
-        <div className="mt-5 rounded-xl bg-emerald-50 p-4">
-          <p className="text-sm text-emerald-900">Amount received</p>
-          <p className="text-3xl font-bold text-emerald-950">
-            {formatNaira(result.amount)}
-          </p>
-        </div>
+        {account ? (
+          <section aria-label="Verified customer account movement" className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+            <h2 className="font-bold text-emerald-950">Customer account at this sale</h2>
+            <dl className="mt-3 divide-y divide-emerald-100 text-sm">
+              {[
+                ["Previous balance (B/D)", formatNaira(account.bd)],
+                ["Today's sale", formatNaira(account.saleTotal)],
+                ["Total amount due", formatNaira(account.bd + account.saleTotal)],
+                ["Paid toward old debt", "−" + formatNaira(account.paidOld)],
+                ["Paid toward today's sale", "−" + formatNaira(account.paidSale)],
+                ["Total collected now", formatNaira(account.collected)],
+                ["Balance carried down (C/D)", formatNaira(account.cd)],
+              ].map(([label, value]) => (
+                <div key={label} className="flex justify-between gap-3 py-2">
+                  <dt className="text-emerald-950">{label}</dt>
+                  <dd className="font-semibold tabular-nums text-emerald-950">{value}</dd>
+                </div>
+              ))}
+            </dl>
+            {account.debtPaymentReference && (
+              <p className="mt-2 text-xs text-emerald-900">Old-debt payment reference: {account.debtPaymentReference}</p>
+            )}
+            <p className="mt-2 text-xs text-emerald-900">Balances shown are frozen as of this transaction, not the customer&apos;s current balance.</p>
+          </section>
+        ) : (
+          <div className="mt-5 rounded-xl bg-emerald-50 p-4">
+            <p className="text-sm text-emerald-900">{result.amount === 0 ? "No payment recorded" : "Amount received"}</p>
+            <p className="text-3xl font-bold text-emerald-950">
+              {formatNaira(result.amount)}
+            </p>
+          </div>
+        )}
 
         <dl className="mt-5 divide-y divide-stone-100">
           {[
@@ -174,7 +205,7 @@ export default async function VerifyPage({
               result.method ? methodLabel(result.method) : "Not recorded",
             ],
             ["Reference", result.number],
-            ...(hasBalance
+            ...(!account && hasBalance
               ? [
                   [
                     isSale ? "Balance on this sale" : "Customer balance after",

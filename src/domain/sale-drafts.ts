@@ -99,7 +99,13 @@ export function readSaleDrafts(raw: string | null): SaleDrafts {
 }
 // Keep customer identity only, never a typed phone/name search or contact record.
 function cleanDraft(draft: SaleDraft): SaleDraft {
-  return { ...draft, customerQuery: "" };
+  // Preserve existing valid quantities and empties exactly; old saved drafts
+  // predate the separate previous-debt payment field.
+  return {
+    ...draft,
+    oldDebtPaid: typeof draft.oldDebtPaid === "string" ? draft.oldDebtPaid : "0",
+    customerQuery: "",
+  };
 }
 export function updateActiveSale(
   state: SaleDrafts,
@@ -176,7 +182,7 @@ export function selectSaleCustomer(
   return updateActiveSale(
     state,
     expectedId,
-    { customerId, step: "drinks" },
+    { customerId, step: "drinks", oldDebtPaid: "0" },
     newId,
   );
 }

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   emptySaleDraft,
+  readSaleDraft,
   putSaleLine,
   quantityPriceSet,
   revalidateSaleDraft,
@@ -18,6 +19,7 @@ import {
   isSaleRequestId,
   replaceActiveSaleId,
   setActiveSaleSaveUncertain,
+  selectSaleCustomer,
 } from "./sale-drafts.ts";
 const product: SaleProduct = {
   id: "p",
@@ -127,6 +129,32 @@ test("uncertain save state survives persistence and keeps the same request ID", 
 
   const cleared = setActiveSaleSaveUncertain(restored, requestId, false);
   assert.equal(cleared.active?.saveUncertain, false);
+});
+
+test("pre-upgrade active and parked sale drafts receive a zero old-debt payment", () => {
+  const savedDraft = { ...draft };
+  const legacyDraft = { ...savedDraft } as Partial<typeof savedDraft>;
+  delete legacyDraft.oldDebtPaid;
+  const legacy = {
+    version: 2,
+    active: {
+      id: "40000000-0000-4000-8000-000000008810",
+      pausedAt: null,
+      saveUncertain: true,
+      draft: legacyDraft,
+    },
+    paused: [{
+      id: "40000000-0000-4000-8000-000000008811",
+      pausedAt: now,
+      draft: legacyDraft,
+    }],
+  };
+  const restored = readSaleDrafts(JSON.stringify(legacy));
+  assert.equal(restored.active?.saveUncertain, true);
+  assert.equal(restored.active?.draft.oldDebtPaid, "0");
+  assert.equal(restored.paused[0].draft.oldDebtPaid, "0");
+  assert.equal(restored.active?.draft.customerId, savedDraft.customerId);
+  assert.deepEqual(restored.active?.draft.lines, savedDraft.lines);
 });
 
 test("editing a stored draft preserves its uncertain-save marker", () => {
@@ -299,4 +327,24 @@ test("quantity price choices allow derived partials but require independent bott
     ),
     true,
   );
+});
+
+test("selecting a newly created customer clears previous customer's debt allocation", () => {
+  const state = {
+    ...emptySaleDrafts,
+    active: {
+      id: "original",
+      pausedAt: null,
+      draft: { ...emptySaleDraft, customerId: "old", oldDebtPaid: "2500" },
+    },
+  };
+  const next = selectSaleCustomer(state, "original", "new", "new-draft");
+  assert.equal(next.active?.draft.customerId, "new");
+  assert.equal(next.active?.draft.oldDebtPaid, "0");
+});
+test("old sale drafts without previous debt payment default to zero", () => {
+  const legacy = { ...emptySaleDraft };
+  delete (legacy as Partial<typeof legacy>).oldDebtPaid;
+  const serialized = JSON.stringify(legacy);
+  assert.equal(readSaleDraft(serialized).oldDebtPaid, "0");
 });

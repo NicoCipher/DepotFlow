@@ -808,6 +808,7 @@ export type Database = {
           receipt_number: string
           verification_token: string
           receipt_business: Json | null
+          account_receipt: Json | null
           receipt_customer_name: string
           receipt_customer_name_source: string
           receipt_status: string
@@ -825,6 +826,7 @@ export type Database = {
           receipt_number?: string
           verification_token?: string
           receipt_business?: Json | null
+          account_receipt?: Json | null
           receipt_customer_name?: string
           receipt_customer_name_source?: string
           receipt_status?: string
@@ -842,6 +844,7 @@ export type Database = {
           receipt_number?: string
           verification_token?: string
           receipt_business?: Json | null
+          account_receipt?: Json | null
           receipt_customer_name?: string
           receipt_customer_name_source?: string
           receipt_status?: string
@@ -1028,6 +1031,20 @@ export type Database = {
           p_business_date: string
           p_customer_id: string
           p_request_id: string
+        }
+        Returns: Json
+      }
+      save_sale_with_old_debt_payment: {
+        Args: {
+          p_payment_method: string
+          p_business_date: string
+          p_customer_id: string
+          p_lines: Json
+          p_paid: number
+          p_request_id: string
+          p_returned_bottles: Json
+          p_returned_crates: Json
+          p_old_debt_paid: number
         }
         Returns: Json
       }
