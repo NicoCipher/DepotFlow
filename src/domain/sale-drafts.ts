@@ -176,7 +176,7 @@ export function selectSaleCustomer(
   return updateActiveSale(
     state,
     expectedId,
-    { customerId, step: "drinks" },
+    { customerId, step: "drinks", oldDebtPaid: "0" },
     newId,
   );
 }
