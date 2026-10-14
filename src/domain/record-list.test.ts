@@ -21,7 +21,7 @@ test("combined visit shows the collected amount and a short settled state", () =
   assert.equal(x.label,"Sale + debt");
   assert.equal(x.money,2000);
   assert.equal(x.moneyLabel,"Collected");
-  assert.equal(x.status,"All settled");
+  assert.equal(x.status,"Settled at checkout");
   assert.equal(x.tone,"success");
 });
 test("combined visit with unpaid balance shows outstanding state without saying zero", () => {
@@ -49,8 +49,10 @@ test("voided sale never shows combined collected value", () => {
 });
 test("standalone sale, unpaid and payment statuses are distinct", () => {
   const unpaid=recordListView({...base,old_debt_paid:0,received:0,remaining:1000,status:"unpaid"});
-  assert.equal(unpaid.status,"Unpaid");
+  assert.equal(unpaid.status,"Unpaid when sold");
   assert.equal(unpaid.money,1000);
+  const partial=recordListView({...base,old_debt_paid:0,received:500,remaining:500,status:"partial"});
+  assert.equal(partial.status,"Partly paid when sold");
   const payment=recordListView({...base,kind:"payment",linked_sale_id:base.id,status:"received",received:1000});
   assert.equal(payment.label,"Debt payment");
   assert.equal(payment.money,1000);
