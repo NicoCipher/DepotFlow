@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   emptySaleDraft,
+  readSaleDraft,
   putSaleLine,
   quantityPriceSet,
   revalidateSaleDraft,
@@ -18,6 +19,7 @@ import {
   isSaleRequestId,
   replaceActiveSaleId,
   setActiveSaleSaveUncertain,
+  selectSaleCustomer,
 } from "./sale-drafts.ts";
 const product: SaleProduct = {
   id: "p",
@@ -299,4 +301,24 @@ test("quantity price choices allow derived partials but require independent bott
     ),
     true,
   );
+});
+
+test("selecting a newly created customer clears previous customer's debt allocation", () => {
+  const state = {
+    ...emptySaleDrafts,
+    active: {
+      id: "original",
+      pausedAt: null,
+      draft: { ...emptySaleDraft, customerId: "old", oldDebtPaid: "2500" },
+    },
+  };
+  const next = selectSaleCustomer(state, "original", "new", "new-draft");
+  assert.equal(next.active?.draft.customerId, "new");
+  assert.equal(next.active?.draft.oldDebtPaid, "0");
+});
+test("old sale drafts without previous debt payment default to zero", () => {
+  const legacy = { ...emptySaleDraft };
+  delete (legacy as Partial<typeof legacy>).oldDebtPaid;
+  const serialized = JSON.stringify(legacy);
+  assert.equal(readSaleDraft(serialized).oldDebtPaid, "0");
 });
