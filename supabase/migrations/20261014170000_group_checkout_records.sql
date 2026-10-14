@@ -119,7 +119,7 @@ begin
         from jsonb_array_elements(coalesce(r.request_payload->'bottles','[]'::jsonb)) x(value)),0),
       held.crates,held.bottles,'recorded',
       '/records/empties/' || r.request_id,
-      0::bigint,0::bigint,null::bigint,null::uuid,null::text,false,false
+      0::bigint,0::bigint,null::bigint,null::uuid,null::text,false
     from private.customer_empty_returns r join public.customers c on c.id=r.customer_id
     cross join lateral (
       select
