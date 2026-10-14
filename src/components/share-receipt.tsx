@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type ReceiptShareItem = {
   name: string;
@@ -411,6 +411,12 @@ export function ShareReceipt({
   const [feedback, setFeedback] = useState("");
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => {
+    if (!feedback) return;
+    const timeout = window.setTimeout(() => setFeedback(""), 5500);
+    return () => window.clearTimeout(timeout);
+  }, [feedback]);
+
   async function fallbackToText() {
     const text = shortReceiptText(receipt.businessName, number, url);
     if (navigator.share) {
@@ -500,25 +506,35 @@ export function ShareReceipt({
   }
 
   return (
-    <div className="space-y-2">
-      <button
-        className="primary w-full"
-        type="button"
-        onClick={share}
-        disabled={busy}
-      >
-        {busy ? "Preparing receipt…" : "Share Receipt"}
-      </button>
-      <button
-        className="secondary w-full"
-        type="button"
-        onClick={savePng}
-        disabled={busy}
-      >
-        Save PNG
-      </button>
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3">
+        <button
+          className="primary flex min-h-13 w-full items-center justify-center gap-2 rounded-xl text-sm sm:text-base"
+          type="button"
+          onClick={share}
+          disabled={busy}
+        >
+          <svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24"
+            fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 16V3M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/>
+          </svg>
+          {busy ? "Preparing…" : "Share receipt"}
+        </button>
+        <button
+          className="secondary flex min-h-13 w-full items-center justify-center gap-2 rounded-xl text-sm sm:text-base"
+          type="button"
+          onClick={savePng}
+          disabled={busy}
+        >
+          <svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24"
+            fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4"/>
+          </svg>
+          Save PNG
+        </button>
+      </div>
       {feedback && (
-        <p role="status" aria-live="polite" className="text-sm text-emerald-900">
+        <p role="status" aria-live="polite" className="rounded-lg bg-white/80 px-3 py-2 text-sm leading-5 text-emerald-900">
           {feedback}
         </p>
       )}

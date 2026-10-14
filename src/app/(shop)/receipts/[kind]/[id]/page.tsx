@@ -124,33 +124,125 @@ export default async function ReceiptPage({
       {saved === "1" && (
         <SuccessToast message="Payment saved. Receipt ready." />
       )}
-      <Link
-        className="quiet-link self-start"
-        href={
-          kind === "sale" ? `/sales/${id}` : `/customers/${receipt.customer_id}`
-        }
-      >
-        ← Back to {kind === "sale" ? "sale" : "customer"}
-      </Link>
+      <nav className="flex flex-wrap items-center justify-between gap-3" aria-label="Receipt navigation">
+        <Link className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-emerald-800" href="/records">
+          <span aria-hidden="true">←</span> Records
+        </Link>
+        <Link className="inline-flex min-h-11 items-center text-sm font-semibold text-emerald-800 underline underline-offset-4"
+          href={kind === "sale" ? `/sales/${id}` : `/customers/${receipt.customer_id}`}>
+          {kind === "sale" ? "Sale details" : "Customer account"} →
+        </Link>
+      </nav>
+      <header className="overflow-hidden rounded-3xl bg-emerald-950 px-5 py-6 text-white shadow-[0_12px_35px_rgba(6,78,59,.13)] sm:px-7 sm:py-7">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold">
+            {account ? "Sale & account receipt" : kind === "sale" ? "Sale receipt" : "Debt payment receipt"}
+          </span>
+          <span className="text-xs font-medium tracking-wide text-emerald-100">{receipt.receipt_number}</span>
+        </div>
+        <h1 className="mt-5 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
+          {receipt.receipt_status === "voided" ? "Receipt voided" : kind === "sale" ? "Sale recorded" : "Payment received"}
+        </h1>
+        <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-emerald-100">
+          {kind === "sale" && !account ? "Sale value" : account ? "Total money collected" : "Amount received"}
+        </p>
+        <p className="mt-1 text-3xl font-extrabold tabular-nums text-white sm:text-4xl">
+          {formatNaira(kind === "sale" && !account ? receipt.total ?? 0 : accountCollected)}
+        </p>
+        <p className="mt-3 break-words text-sm font-semibold text-emerald-50">{receipt.receipt_customer_name}</p>
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-white/20 pt-4 text-xs text-emerald-100">
+          <span>{formatBusinessDate(receipt.business_date)}</span>
+          <span className={`rounded-full px-3 py-1 font-bold ${
+            receipt.receipt_status === "voided" ? "bg-red-200 text-red-950" :
+              accountUnpaid ? "bg-amber-100 text-amber-950" : "bg-white/15 text-white"
+          }`}>
+            {receipt.receipt_status === "voided" ? "Voided"
+              : kind === "sale" && receipt.amount === 0 && (!account || account.collected === 0)
+                ? "Payment pending"
+                : accountUnpaid ? kind === "payment" ? "Customer still owes" : account ? "Customer balance outstanding" : "Partly paid" : kind === "payment" ? "Payment received" : "Paid in full"}
+          </span>
+        </div>
+      </header>
+      {receipt.receipt_status === "voided" && (
+        <p role="status" className="rounded-xl border border-red-200 bg-red-50 p-4 font-semibold text-red-900">This receipt was voided. Do not treat it as a valid payment.</p>
+      )}
+      <section aria-label="Receipt sharing" className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 sm:p-4">
+      <ShareReceipt
+        url={url}
+        number={receipt.receipt_number}
+        qrDataUrl={qr}
+        receipt={{
+          businessName: business?.name ?? "Business details not saved",
+          businessAddress: business?.address ?? "",
+          businessPhone: business?.phone ?? "",
+          title:
+            account ? "Sale & Customer Account Receipt"
+              : kind === "sale" ? "Sale Receipt" : "Balance Payment Receipt",
+          customer: receipt.receipt_customer_name,
+          date: formatBusinessDate(receipt.business_date),
+          method: methodLabel(receipt.method),
+          amount: formatNaira(accountCollected),
+          account: account ? {
+            bd: formatNaira(account.bd),
+            saleTotal: formatNaira(account.saleTotal),
+            due: formatNaira(account.bd + account.saleTotal),
+            paidOld: formatNaira(account.paidOld),
+            paidSale: formatNaira(account.paidSale),
+            collected: formatNaira(account.collected),
+            cd: formatNaira(account.cd),
+            debtPaymentReference: account.debtPaymentReference,
+          } : undefined,
+          total:
+            kind === "sale" ? formatNaira(receipt.total ?? 0) : undefined,
+          balanceLabel:
+            kind === "sale"
+              ? "Balance on this sale"
+              : "Customer balance after",
+          balance: formatNaira(receipt.owed_after),
+          status:
+            receipt.receipt_status === "voided"
+              ? "voided"
+              : accountCollected === 0
+                ? "unpaid"
+                : accountUnpaid
+                  ? "partial"
+                  : "paid",
+          note:
+            kind === "payment"
+              ? "Payment towards money already owed."
+              : undefined,
+          items:
+            kind === "sale"
+              ? items.map((item) => ({
+                  name: item.product_name,
+                  quantity: formatStoredQuantity(item),
+                  amount: formatNaira(item.line_total),
+                }))
+              : [],
+        }}
+      />
+      </section>
       {business ? (
-        <section aria-label="Shop details" className="space-y-1">
+        <section aria-label="Shop details" className="flex flex-wrap items-center gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-4 sm:px-5">
           {business.logo_url && (
             <Image
               unoptimized
               src={business.logo_url}
-              width={80}
-              height={80}
+              width={56}
+              height={56}
               alt={`${business.name} logo`}
-              className="mb-3 h-20 w-20 object-contain"
+              className="h-14 w-14 shrink-0 rounded-xl object-contain"
             />
           )}
-          <h2 className="text-2xl font-bold">{business.name}</h2>
-          {business.address && (
-            <p className="whitespace-pre-line text-stone-700">
-              {business.address}
-            </p>
-          )}
-          {business.phone && <p>{business.phone}</p>}
+          <div className="min-w-0 flex-1">
+            <h2 className="break-words font-bold text-stone-950">{business.name}</h2>
+            {business.address && (
+              <p className="mt-1 whitespace-pre-line break-words text-sm text-stone-600">
+                {business.address}
+              </p>
+            )}
+            {business.phone && <p className="mt-1 text-sm text-stone-600">{business.phone}</p>}
+          </div>
         </section>
       ) : (
         <section className="rounded-xl border border-stone-200 bg-stone-50 p-4">
@@ -164,22 +256,9 @@ export default async function ReceiptPage({
           </Link>
         </section>
       )}
-      <header>
-        <p className="text-sm font-semibold uppercase tracking-wide text-emerald-800">
-          {kind === "sale" && receipt.amount === 0 && (!account || account.collected === 0)
-            ? "Recorded sale · payment pending"
-            : "Confirmed payment"}
-        </p>
-        <h1>{account ? "Sale & Customer Account Receipt" : kind === "sale" ? "Sale Receipt" : "Balance Payment Receipt"}</h1>
-        <p className="mt-1 text-stone-600">{receipt.receipt_number}</p>
-      </header>
-      {receipt.receipt_status === "voided" && (
-        <p className="rounded-lg bg-red-50 p-3 font-semibold text-red-900">
-          Voided receipt
-        </p>
-      )}
+
       <section
-        className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm"
+        className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm sm:p-6"
         aria-label="Receipt details"
       >
         {kind === "sale" ? (
@@ -292,8 +371,10 @@ export default async function ReceiptPage({
           </p>
         )}
       </section>
-      <section className="flex flex-col items-center rounded-2xl border border-stone-200 bg-white p-5 text-center">
-        <h2 className="font-semibold">Verify this receipt</h2>
+      <details className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
+        <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-2 font-bold text-stone-900">Verify this receipt <span aria-hidden="true">⌄</span></summary>
+        <div className="flex flex-col items-center pt-4 text-center">
+        <p className="text-sm font-semibold text-stone-800">Scan the QR code or open the verification page</p>
         <p className="mt-1 text-sm text-stone-600">
           Scan the code to compare it with DepotFlow’s saved payment.
         </p>
@@ -308,61 +389,8 @@ export default async function ReceiptPage({
         <a href={url} className="quiet-link break-all">
           Open verification page
         </a>
-      </section>
-      <ShareReceipt
-        url={url}
-        number={receipt.receipt_number}
-        qrDataUrl={qr}
-        receipt={{
-          businessName: business?.name ?? "Business details not saved",
-          businessAddress: business?.address ?? "",
-          businessPhone: business?.phone ?? "",
-          title:
-            account ? "Sale & Customer Account Receipt"
-              : kind === "sale" ? "Sale Receipt" : "Balance Payment Receipt",
-          customer: receipt.receipt_customer_name,
-          date: formatBusinessDate(receipt.business_date),
-          method: methodLabel(receipt.method),
-          amount: formatNaira(accountCollected),
-          account: account ? {
-            bd: formatNaira(account.bd),
-            saleTotal: formatNaira(account.saleTotal),
-            due: formatNaira(account.bd + account.saleTotal),
-            paidOld: formatNaira(account.paidOld),
-            paidSale: formatNaira(account.paidSale),
-            collected: formatNaira(account.collected),
-            cd: formatNaira(account.cd),
-            debtPaymentReference: account.debtPaymentReference,
-          } : undefined,
-          total:
-            kind === "sale" ? formatNaira(receipt.total ?? 0) : undefined,
-          balanceLabel:
-            kind === "sale"
-              ? "Balance on this sale"
-              : "Customer balance after",
-          balance: formatNaira(receipt.owed_after),
-          status:
-            receipt.receipt_status === "voided"
-              ? "voided"
-              : accountCollected === 0
-                ? "unpaid"
-                : accountUnpaid
-                  ? "partial"
-                  : "paid",
-          note:
-            kind === "payment"
-              ? "Payment towards money already owed."
-              : undefined,
-          items:
-            kind === "sale"
-              ? items.map((item) => ({
-                  name: item.product_name,
-                  quantity: formatStoredQuantity(item),
-                  amount: formatNaira(item.line_total),
-                }))
-              : [],
-        }}
-      />
+        </div>
+      </details>
     </div>
   );
 }
