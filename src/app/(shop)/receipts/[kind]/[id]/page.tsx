@@ -166,7 +166,9 @@ export default async function ReceiptPage({
       )}
       <header>
         <p className="text-sm font-semibold uppercase tracking-wide text-emerald-800">
-          {account && account.collected === 0 ? "Recorded sale · payment pending" : "Confirmed payment"}
+          {kind === "sale" && receipt.amount === 0 && (!account || account.collected === 0)
+            ? "Recorded sale · payment pending"
+            : "Confirmed payment"}
         </p>
         <h1>{account ? "Sale & Customer Account Receipt" : kind === "sale" ? "Sale Receipt" : "Balance Payment Receipt"}</h1>
         <p className="mt-1 text-stone-600">{receipt.receipt_number}</p>
