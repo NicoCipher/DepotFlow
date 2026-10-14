@@ -128,7 +128,12 @@ const safeDatabaseSaleMessages = new Map<string, string>([
     "Set a partial-crate price override because the full-crate price does not divide into whole naira.",
     "Set the part-crate price because the full-crate price does not divide into whole naira.",
   ],
-  ["Sale total is too large.", "The sale total is too large."],
+  ["Check amount toward previous debt.", "Enter a valid whole amount toward previous debt."],
+  ["Payment cannot exceed money owed.", "The customer's old balance has changed. Check their current balance and adjust the previous-debt payment."],
+  ["This customer does not owe any money.", "The customer no longer has previous debt. Return to Payment and check again."],
+  ["This payment form was already used with different details.", "This old-debt payment may already have saved. Use Check Sale or review payment history before trying again."],
+  ["This sale request was already used with different debt payment details.", "This sale was already used for a different old-debt payment. Check sale and payment history."],
+    ["Sale total is too large.", "The sale total is too large."],
   [
     "Not enough stock. Review the sale.",
     "Stock changed while saving. Review the quantity and try again.",
