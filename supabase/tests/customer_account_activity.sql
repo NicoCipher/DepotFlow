@@ -153,9 +153,12 @@ select pg_temp.check_true(
   'Mixed form return disappeared or appeared twice');
 
 -- An account with a long history must still receive just six recent entries.
+-- The fixture insert runs as the database test owner, never as the shop role.
+reset role;
 insert into public.sales(customer_id,total_amount,paid_amount,business_date,request_id,request_payload)
 select '10000000-0000-4000-8000-000000000751',0,0,'2026-09-01',
   gen_random_uuid(),'{}'::jsonb from generate_series(1,50);
+set local role authenticated;
 select pg_temp.check_true(
   jsonb_array_length(public.customer_recent_activity(
     '10000000-0000-4000-8000-000000000751')->'items')=6,
