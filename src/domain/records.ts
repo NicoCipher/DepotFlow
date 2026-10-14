@@ -32,7 +32,7 @@ export function recordFilter<T extends string>(value: unknown, choices: readonly
   return typeof value === "string" && choices.includes(value as T) ? value as T : fallback;
 }
 export function recordSnapshot(value: unknown): string | null {
-  if (typeof value !== "string" || value.length > 48 || !/^\\d{4}-\\d{2}-\\d{2}T/.test(value)) return null;
+  if (typeof value !== "string" || value.length > 48 || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}T/.test(value)) return null;
   const parsed = new Date(value);
   return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
 }
