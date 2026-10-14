@@ -170,7 +170,7 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
     !/^\d{4}-\d{2}-\d{2}$/.test(draft.businessDate) ||
     !/^\d+$/.test(draft.paid) ||
     !Number.isSafeInteger(Number(draft.paid)) ||
-    !/^\\d+$/.test(draft.oldDebtPaid) ||
+    !/^\d+$/.test(draft.oldDebtPaid) ||
     !Number.isSafeInteger(Number(draft.oldDebtPaid)) ||
     Number(draft.oldDebtPaid) > 2147483647
   )
