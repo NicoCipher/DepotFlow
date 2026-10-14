@@ -757,23 +757,23 @@ export function SaleBuilder({
                 </div>
               )}
             </section>
-            <div className="sale-sticky-actions sticky z-10 space-y-3 border-t border-stone-300 bg-background py-3">
-              <div className="flex min-w-0 items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-stone-600">Current sale</p>
-                  <p className="truncate text-sm font-semibold text-stone-900">{draft.lines.length} {draft.lines.length === 1 ? "drink" : "drinks"} · {customer?.name}</p>
-                </div>
-                <strong className="shrink-0 text-xl tabular-nums text-stone-950">
-                  {total === undefined ? "—" : formatNaira(total)}
+            <div className="sale-sticky-actions sticky z-10 flex min-w-0 items-center gap-3 border-t border-stone-300 bg-background py-3">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-semibold text-stone-600">
+                  {draft.lines.length} {draft.lines.length === 1 ? "drink" : "drinks"} in sale
+                </p>
+                <strong className="block truncate text-lg font-bold tabular-nums text-stone-950">
+                  {total === undefined ? "Check prices" : formatNaira(total)}
                 </strong>
               </div>
               <button
                 type="button"
-                className="primary w-full"
+                className="primary min-h-12 shrink-0 gap-1.5 px-4"
                 disabled={!draft.lines.length || pending || revalidateSaleDraft(draft, catalog).warnings.length > 0}
                 onClick={quickCheck}
               >
-                {pending ? "Checking stock…" : draft.lines.length ? "Continue to empties →" : "Add a drink to continue"}
+                {pending ? "Checking…" : draft.lines.length ? "Next: Empties" : "Add a drink"}
+                {draft.lines.length > 0 && !pending && <SaleIcon name="arrow" className="h-4 w-4" />}
               </button>
             </div>
           </div>
