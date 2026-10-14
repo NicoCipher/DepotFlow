@@ -62,7 +62,7 @@ function RecordRow({ item }: { item: CustomerRecord }) {
                 {unpaid && <span className="font-semibold text-amber-800"> · {formatNaira(item.remaining)} still unpaid</span>}
               </>
             ) : payment ? `${methodLabel(item.method ?? "not_recorded")} · Balance after: ${formatNaira(item.remaining)}`
-              : empties ? `${item.crates} ${item.crates === 1 ? "crate" : "crates"} and ${item.bottles} ${item.bottles === 1 ? "bottle" : "bottles"} returned${(item.held_crates || item.held_bottles) ? ` · ${item.held_crates} held crates, ${item.held_bottles} held bottles collected` : ""}`
+              : empties ? `${item.crates || item.bottles ? `${item.crates} ${item.crates === 1 ? "crate" : "crates"} and ${item.bottles} ${item.bottles === 1 ? "bottle" : "bottles"} returned` : "Held empties collected"}${(item.held_crates || item.held_bottles) ? ` · ${item.held_crates} held crates, ${item.held_bottles} held bottles collected` : ""}`
                 : `${formatNaira(item.remaining)} starting money owed · ${item.crates} crates, ${item.bottles} bottles`}
           </p>
           {item.receipt_number && <p className="mt-1.5 break-all text-[11px] tracking-wide text-stone-400">{item.receipt_number}</p>}
@@ -71,7 +71,10 @@ function RecordRow({ item }: { item: CustomerRecord }) {
           <strong className={`text-base font-extrabold tabular-nums tracking-tight sm:text-xl ${unpaid ? "text-stone-950" : payment ? "text-emerald-900" : "text-stone-950"}`}>
             {sale ? formatNaira(item.sale_total)
               : payment ? formatNaira(item.received)
-                : empties ? (item.crates > 0 ? `${item.crates} ${item.crates === 1 ? "crate" : "crates"}` : `${item.bottles} ${item.bottles === 1 ? "bottle" : "bottles"}`) : formatNaira(item.remaining)}
+                : empties ? (item.crates > 0 ? `${item.crates} ${item.crates === 1 ? "crate" : "crates"}`
+                : item.bottles > 0 ? `${item.bottles} ${item.bottles === 1 ? "bottle" : "bottles"}`
+                  : item.held_crates > 0 ? `${item.held_crates} held crates` : `${item.held_bottles} held bottles`)
+              : formatNaira(item.remaining)}
           </strong>
           <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold leading-tight ${
             item.status === "voided" ? "bg-red-100 text-red-900" :
