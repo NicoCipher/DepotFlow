@@ -42,6 +42,7 @@ function RecordSummary({ item }: { item: CustomerRecord }) {
         <span><b className="font-semibold text-stone-700">Sale</b> {formatNaira(item.sale_total)}</span>
         <span><b className="font-semibold text-stone-700">Paid on sale</b> {formatNaira(item.received)}</span>
         <span><b className="font-semibold text-stone-700">Old debt paid</b> {formatNaira(item.old_debt_paid)}</span>
+        {item.method && <span className="font-semibold text-emerald-800">{methodLabel(item.method)}</span>}
       </div>
     );
   }
