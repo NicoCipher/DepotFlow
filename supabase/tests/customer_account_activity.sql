@@ -183,5 +183,5 @@ do $$ begin
     perform public.customer_recent_activity('10000000-0000-4000-8000-000000000751');
     raise exception 'Non-owner read recent customer activity';
   exception when insufficient_privilege then null; end;
-end $;
+end $$;
 rollback;
