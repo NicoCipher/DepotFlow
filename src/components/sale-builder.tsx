@@ -760,7 +760,10 @@ export function SaleBuilder({
                     ? "Price not set"
                     : `${formatNaira(product.full_crate_price)} each`}
                 </label>
+                <div className="flex items-stretch gap-2">
+                  <button type="button" className="secondary w-12 shrink-0 px-0 text-2xl" aria-label="Remove one whole crate" disabled={Boolean(cratesInputError) || Number(draft.crates) === 0} onClick={() => changeNumber("crates", -1)}>−</button>
                 <input
+                  className="min-w-0 flex-1 text-center text-xl font-bold tabular-nums"
                   id="sale-crates"
                   onFocus={selectDefaultZero}
                   onClick={selectDefaultZero}
@@ -776,6 +779,8 @@ export function SaleBuilder({
                   }
                   onChange={(e) => update({ crates: e.target.value })}
                 />
+                  <button type="button" className="secondary w-12 shrink-0 px-0 text-2xl" aria-label="Add one whole crate" disabled={!canIncreaseQuantity("crates")} onClick={() => changeNumber("crates", 1)}>+</button>
+                </div>
                 {cratesInputError && (
                   <p
                     id="sale-crates-error"
@@ -853,7 +858,37 @@ export function SaleBuilder({
               </fieldset>
                 </>
               )}
-              {pricingMode === "retail" && <p className="text-sm text-stone-700">Each bottle is charged at its configured bottle price. {product.bottles_per_crate % 2 === 0 ? `Half of this ${product.bottles_per_crate}-bottle crate is ${product.bottles_per_crate / 2} bottles.` : `This crate holds ${product.bottles_per_crate} bottles.`} Retail does not use the wholesale fraction price.</p>}
+              {pricingMode === "retail" && (
+                <div className="space-y-3">
+                  <p className="text-sm text-stone-700">
+                    {formatNaira(product.bottle_price ?? 0)} per bottle. Even half a crate is charged by the bottle, not at the wholesale half-crate price.
+                  </p>
+                  <fieldset>
+                    <legend className="mb-2 text-sm font-bold">Quick quantities</legend>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[1, ...(product.bottles_per_crate % 2 === 0 ? [product.bottles_per_crate / 2] : []), product.bottles_per_crate].filter((n, index, all) => all.indexOf(n) === index).map((n) => (
+                        <button
+                          type="button"
+                          key={n}
+                          aria-pressed={draft.bottles === String(n)}
+                          className={draft.bottles === String(n) ? "primary" : "secondary"}
+                          disabled={(() => {
+                            try {
+                              priceQuantity(product, { crates: 0, fraction: 0, bottles: n });
+                              return false;
+                            } catch {
+                              return true;
+                            }
+                          })()}
+                          onClick={() => update({ bottles: String(n) })}
+                        >
+                          <span className="text-sm">{n} {n === 1 ? "bottle" : "bottles"}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </fieldset>
+                </div>
+              )}
               <div>
                 <label htmlFor="sale-bottles">
                   {pricingMode === "retail" ? "Bottles" : "Extra loose bottles"}
@@ -861,7 +896,10 @@ export function SaleBuilder({
                     ? " · Price not set"
                     : ` · ${formatNaira(product.bottle_price)} each`}
                 </label>
+                <div className="flex items-stretch gap-2">
+                  <button type="button" className="secondary w-12 shrink-0 px-0 text-2xl" aria-label="Remove one bottle" disabled={Boolean(bottlesInputError) || Number(draft.bottles) === 0} onClick={() => changeNumber("bottles", -1)}>−</button>
                 <input
+                  className="min-w-0 flex-1 text-center text-xl font-bold tabular-nums"
                   id="sale-bottles"
                   onFocus={selectDefaultZero}
                   onClick={selectDefaultZero}
@@ -877,6 +915,8 @@ export function SaleBuilder({
                   }
                   onChange={(e) => update({ bottles: e.target.value })}
                 />
+                  <button type="button" className="secondary w-12 shrink-0 px-0 text-2xl" aria-label="Add one bottle" disabled={!canIncreaseQuantity("bottles")} onClick={() => changeNumber("bottles", 1)}>+</button>
+                </div>
                 {bottlesInputError && (
                   <p
                     id="sale-bottles-error"
@@ -897,14 +937,15 @@ export function SaleBuilder({
                 )}
               </div>
               {preview ? (
-                <p role="status" className="text-xl font-semibold">
-                  {pricingMode === "retail" ? `${quantity().bottles} bottles at retail price` : saleQuantityLabel(quantity())} ·{" "}
-                  {formatNaira(preview.lineTotal)}
-                </p>
+                <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4" aria-live="polite">
+                  <p className="text-sm font-semibold text-emerald-950">This drink will be added as</p>
+                  <p className="mt-1 text-base font-semibold text-stone-900">
+                    {pricingMode === "retail" ? quantity().bottles + " bottles at retail price" : saleQuantityLabel(quantity())}
+                  </p>
+                  <p className="mt-2 text-2xl font-bold tabular-nums text-emerald-950">{formatNaira(preview.lineTotal)}</p>
+                </div>
               ) : quantityError ? (
-                <p role="alert" className="text-red-800">
-                  {quantityError}
-                </p>
+                <p role="alert" className="text-red-800">{quantityError}</p>
               ) : null}
               <div className="sale-sticky-actions sticky z-10 -mx-4 flex items-center gap-3 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
                 <button
