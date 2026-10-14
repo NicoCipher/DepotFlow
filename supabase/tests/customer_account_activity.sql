@@ -195,6 +195,64 @@ select pg_temp.check_true(
     where item->>'title'='Returned 2 crates, 3 bottles · Customer collected 4 held crates, 12 held bottles'),
   'Mixed form return disappeared or appeared twice');
 
+-- Simulate an already-running old function body: it performs only the row
+-- update, not the new logging insert. The AFTER UPDATE trigger must capture it.
+reset role;
+insert into public.sale_empty_decisions
+  (id,sale_id,customer_id,product_id,product_name,kind,returned_type,returned_name,owed_type,owed_name,quantity,decision)
+values
+  ('60000000-0000-4000-8000-000000000758','50000000-0000-4000-8000-000000000751',
+    '10000000-0000-4000-8000-000000000751','40000000-0000-4000-8000-000000000751',
+    'History test drink','crate','wrong crate','Wrong crate','right crate','Right crate',11,'hold'),
+  ('60000000-0000-4000-8000-000000000759','50000000-0000-4000-8000-000000000751',
+    '10000000-0000-4000-8000-000000000751','40000000-0000-4000-8000-000000000751',
+    'History test drink','bottle','wrong bottle','Wrong bottle','right bottle','Right bottle',13,'hold');
+update public.sale_empty_decisions set released_at=now()
+where id='60000000-0000-4000-8000-000000000758';
+select pg_temp.check_true(
+  (select count(*)=1 from private.held_empty_collections
+    where decision_id='60000000-0000-4000-8000-000000000758'),
+  'An old-body UPDATE did not create the collection audit row');
+set local role authenticated;
+select pg_temp.check_true(
+  exists(select 1 from jsonb_array_elements(public.store_activity(
+    '2026-01-01','2026-12-31',
+    '10000000-0000-4000-8000-000000000751','empties',30,0)->'items') item
+    where item->>'title'='Customer collected 11 held crates'),
+  'Old-body held release is missing from customer activity');
+
+-- Real return-form RPC updates the same decision table, then saves its
+-- standalone receipt. Its AFTER INSERT trigger must discard the individual
+-- collection event so one return is never shown twice.
+select public.record_customer_empty_return(
+  '30000000-0000-4000-8000-000000000754',
+  '10000000-0000-4000-8000-000000000751',
+  '[]'::jsonb,'[]'::jsonb,
+  array['60000000-0000-4000-8000-000000000759'::uuid]
+);
+select public.record_customer_empty_return(
+  '30000000-0000-4000-8000-000000000754',
+  '10000000-0000-4000-8000-000000000751',
+  '[]'::jsonb,'[]'::jsonb,
+  array['60000000-0000-4000-8000-000000000759'::uuid]
+);
+reset role;
+select pg_temp.check_true(
+  (select count(*)=0 from private.held_empty_collections
+    where decision_id='60000000-0000-4000-8000-000000000759'),
+  'Return-form release appeared again as a direct held collection');
+select pg_temp.check_true(
+  (select count(*)=1 from private.customer_empty_returns
+    where request_id='30000000-0000-4000-8000-000000000754'),
+  'Return-form replay created duplicate receipts');
+set local role authenticated;
+select pg_temp.check_true(
+  exists(select 1 from jsonb_array_elements(public.store_activity(
+    '2026-01-01','2026-12-31',
+    '10000000-0000-4000-8000-000000000751','empties',30,0)->'items') item
+    where item->>'title'='Customer collected 0 held crates, 13 held bottles'),
+  'Form-based released bottles missing from one combined record');
+
 -- An account with a long history must still receive just six recent entries.
 -- The fixture insert runs as the database test owner, never as the shop role.
 reset role;
