@@ -67,7 +67,7 @@ export function SaleBuilder({
   const [catalog, setCatalog] = useState(initialCatalog);
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState("");
-  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [cancelDraftId, setCancelDraftId] = useState<string | null>(null);
   const keepSaleButton = useRef<HTMLButtonElement>(null);
   const cancelSaleButton = useRef<HTMLButtonElement>(null);
   const [sessionExpired, setSessionExpired] = useState(false);
@@ -91,6 +91,7 @@ export function SaleBuilder({
   const ready = activeId === null || verifiedId === activeId;
   const saveUncertain = sales.state.active?.saveUncertain === true;
   const saleHasWork = Boolean(sales.state.active && hasSaleWork(draft));
+  const confirmCancel = Boolean(cancelDraftId && cancelDraftId === sales.state.active?.id);
   useEffect(() => {
     if (confirmCancel) keepSaleButton.current?.focus();
   }, [confirmCancel]);
@@ -136,7 +137,7 @@ export function SaleBuilder({
     void sales.update(patch);
     setMessage("");
     setNotice("");
-    setConfirmCancel(false);
+    setCancelDraftId(null);
   }
   function edit(p: SaleProduct) {
     const setupIssue = saleProductSetupIssue(p);
@@ -510,7 +511,7 @@ export function SaleBuilder({
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-950 hover:border-emerald-700 hover:bg-emerald-100"
                 disabled={saveUncertain}
                 onClick={() => {
-                  setConfirmCancel(false);
+                  setCancelDraftId(null);
                   startTransition(async () => {
                     if (await sales.park()) {
                       setCustomerQuery("");
@@ -530,7 +531,7 @@ export function SaleBuilder({
                 ref={cancelSaleButton}
                 aria-expanded={confirmCancel}
                 aria-controls="cancel-sale-panel"
-                onClick={() => setConfirmCancel(true)}
+                onClick={() => setCancelDraftId(sales.state.active?.id ?? null)}
               >
                 <SaleIcon name="trash" className="h-5 w-5 shrink-0 text-red-700" />
                 Cancel sale
@@ -552,7 +553,7 @@ export function SaleBuilder({
                     type="button"
                     className="secondary w-full"
                     onClick={() => {
-                      setConfirmCancel(false);
+                      setCancelDraftId(null);
                       cancelSaleButton.current?.focus();
                     }}
                   >
@@ -562,13 +563,13 @@ export function SaleBuilder({
                     type="button"
                     className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-red-800 px-4 py-3 font-semibold text-white hover:bg-red-900"
                     onClick={() => {
-                      const id = sales.state.active?.id;
-                      if (!id) return;
+                      const id = cancelDraftId;
+                      if (!id || id !== sales.state.active?.id) return;
                       startTransition(async () => {
                         if (await sales.cancel(id)) {
                           setCustomerQuery("");
                           setMessage("");
-                          setConfirmCancel(false);
+                          setCancelDraftId(null);
                           setNotice("Unfinished sale cancelled. No stock or payment was changed.");
                         }
                       });
@@ -651,7 +652,10 @@ export function SaleBuilder({
                 <li key={c.id}>
                   <button
                     type="button"
-                    className="flex min-h-20 w-full items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-left hover:border-emerald-500 hover:bg-emerald-50"
+                    className={draft.customerId === c.id
+                      ? "flex min-h-20 w-full items-center gap-3 rounded-xl border-2 border-emerald-700 bg-emerald-50 px-4 py-3 text-left"
+                      : "flex min-h-20 w-full items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-left hover:border-emerald-500 hover:bg-emerald-50"}
+                    aria-pressed={draft.customerId === c.id}
                     onClick={() => update({ customerId: c.id, step: "drinks" })}
                   >
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-stone-100 text-stone-700">
@@ -662,7 +666,9 @@ export function SaleBuilder({
                       <span className="block text-sm text-stone-600">{c.phone || "No phone number"}</span>
                     </span>
                     <span className="flex shrink-0 items-center gap-1 text-sm font-bold text-emerald-800">
-                      Choose <SaleIcon name="arrow" className="h-4 w-4" />
+                      {draft.customerId === c.id
+                        ? <><SaleIcon name="check" className="h-4 w-4" /> Selected</>
+                        : <>Choose <SaleIcon name="arrow" className="h-4 w-4" /></>}
                     </span>
                   </button>
                 </li>
@@ -847,7 +853,7 @@ export function SaleBuilder({
                   startTransition(async () => {
                     if (await sales.update({ lines, step: "drinks" })) {
                       setMessage("");
-                      setConfirmCancel(false);
+                      setCancelDraftId(null);
                       setNotice(product.name + " " + saleQuantityLabel(selected) + (editing ? " updated" : " added to this sale") + " · " + amount);
                     }
                   });
