@@ -18,6 +18,10 @@ export type CustomerRecord = {
   method: string | null;
   sale_total: number;
   received: number;
+  old_debt_paid: number;
+  checkout_received: number;
+  checkout_balance: number | null;
+  linked_sale_id: string | null;
   remaining: number;
   crates: number;
   bottles: number;
