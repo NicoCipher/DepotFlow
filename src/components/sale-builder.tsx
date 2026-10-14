@@ -525,6 +525,7 @@ export function SaleBuilder({
             <input
               id="sale-customer-search"
               type="search"
+              placeholder="Customer name or phone number"
               maxLength={120}
               value={customerQuery}
               onChange={(e) => setCustomerQuery(e.target.value)}
@@ -985,10 +986,11 @@ export function SaleBuilder({
         )}
         {step === "payment" && (
           <>
-            <p className="text-stone-700">How much did they pay today?</p>
-            <p className="text-xl font-semibold">
-              Sale total: {total === undefined ? "Check drinks" : formatNaira(total)}
-            </p>
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <p className="text-sm font-semibold text-emerald-950">Total to collect</p>
+              <p className="mt-1 text-3xl font-bold tabular-nums text-emerald-950">{total === undefined ? "Check drinks" : formatNaira(total)}</p>
+            </div>
+            <p className="font-semibold text-stone-900">How much is the customer paying now?</p>
             <div className="grid grid-cols-2 gap-2" role="group" aria-label="Quick payment amounts">
               <button
                 className="secondary w-full"
@@ -996,19 +998,21 @@ export function SaleBuilder({
                 disabled={total === undefined}
                 onClick={() => total !== undefined && update({ paid: String(total) })}
               >
-                Paid in full
+                Pay full amount
               </button>
               <button
                 className="secondary w-full"
                 aria-pressed={draft.paid === "0"}
                 onClick={() => update({ paid: "0" })}
               >
-                Pay later
+                No payment yet
               </button>
             </div>
             <label htmlFor="sale-paid">Amount paid now (₦)</label>
             <input
               id="sale-paid"
+              onFocus={selectDefaultZero}
+              onClick={selectDefaultZero}
               inputMode="numeric"
               pattern="[0-9]+"
               maxLength={12}
@@ -1150,38 +1154,42 @@ export function SaleBuilder({
               />
             </details>
 
-            {draft.lines.map((line) => {
-              const p = catalog.products.find((item) => item.id === line.productId);
-              const packaging = emptiesReview?.lines.find(
-                (item) => item.productId === line.productId,
-              );
-              try {
-                return (
-                  <div key={line.productId} className="border-t py-3">
-                    <p>
-                      {p ? `${p.name} ${p.size ?? ""}` : "Drink unavailable"} ·{" "}
-                      {saleQuantityLabel(line.quantity)} ·{" "}
-                      {formatNaira(reviewedLineTotal(line))}
-                    </p>
-                    {packaging &&
-                      (packaging.cratesOwed > 0 || packaging.bottlesOwed > 0) && (
-                        <p className="mt-1 text-amber-900">
-                          {missingEmptiesMessage(
-                            packaging,
-                            p?.name ?? "Drink",
+            <section aria-labelledby="review-drinks">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 id="review-drinks" className="text-xl font-bold text-stone-950">
+                  Drinks · {draft.lines.length}
+                </h2>
+                {!saveUncertain && <button type="button" className="quiet-link text-sm" onClick={() => update({ step: "drinks" })}>Edit drinks</button>}
+              </div>
+              <ul className="divide-y divide-stone-200 rounded-xl border border-stone-200 bg-white px-3 sm:px-4">
+                {draft.lines.map((line) => {
+                  const p = catalog.products.find((item) => item.id === line.productId);
+                  const packaging = emptiesReview?.lines.find(
+                    (item) => item.productId === line.productId,
+                  );
+                  try {
+                    const amount = formatNaira(reviewedLineTotal(line));
+                    return (
+                      <li key={line.productId} className="flex min-w-0 items-start gap-3 py-4">
+                        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-stone-50">
+                          {p ? <ProductImage src={p.image_url} name={p.name} /> : <span className="block p-2 text-xs">No photo</span>}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="break-words font-semibold text-stone-950">{p ? p.name + " " + (p.size ?? "") : "Drink unavailable"}</p>
+                          <p className="mt-1 text-sm text-stone-600">{saleQuantityLabel(line.quantity)}</p>
+                          {packaging && (packaging.cratesOwed > 0 || packaging.bottlesOwed > 0) && (
+                            <p className="mt-2 text-sm font-medium text-amber-900">{missingEmptiesMessage(packaging, p?.name ?? "Drink")}</p>
                           )}
-                        </p>
-                      )}
-                  </div>
-                );
-              } catch (e) {
-                return (
-                  <p role="alert" key={line.productId}>
-                    {(e as Error).message}
-                  </p>
-                );
-              }
-            })}
+                          <p className="mt-2 text-lg font-bold tabular-nums text-stone-950">{amount}</p>
+                        </div>
+                      </li>
+                    );
+                  } catch (e) {
+                    return <li role="alert" key={line.productId} className="py-3 text-red-800">{(e as Error).message}</li>;
+                  }
+                })}
+              </ul>
+            </section>
 
             {emptiesReview && hasUnmatchedSaleEmpties(emptiesReview) && <div role="alert" className="rounded-lg bg-amber-50 p-3"><p>Some returned empties still need an Accept or Hold choice.</p><button type="button" className="quiet-link" onClick={() => update({ step: "empties" })}>Check these empties</button></div>}
             {emptiesReview?.decisions.map((choice, index) => <p key={`empty-choice-${index}`} className="rounded-lg bg-amber-50 p-3 text-sm">{catalog.products.find(product => product.id === choice.productId)?.name} · {choice.quantity} {choice.kind === "crate" ? catalog.crateTypes.find(crate => crate.id === choice.returnedType)?.name : choice.returnedType} {choice.kind === "crate" ? "crates" : "bottles"}: {choice.decision === "hold" ? "held for customer; correct type is still owed" : "accepted for this sale"}.</p>)}
@@ -1219,7 +1227,8 @@ export function SaleBuilder({
               </div>
             </dl>
             <div className="sale-sticky-actions sticky z-10 -mx-4 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
-            <p className="mb-2 truncate text-sm font-semibold text-emerald-950">Sale for {customer?.name}</p>
+            <p className="mb-1 truncate text-sm font-semibold text-emerald-950">Sale for {customer?.name}</p>
+            <p className="mb-2 text-xs text-stone-600">Saving updates stock, payment and any amount owed.</p>
             <button
               className="primary w-full"
               disabled={
