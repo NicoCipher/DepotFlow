@@ -53,6 +53,7 @@ begin
     select s.id,s.business_date as day,s.created_at,
       'sale'::text as kind,s.customer_id,
       coalesce(nullif(s.receipt_customer_name,''),c.name)::text as customer_name,
+      c.name::text as current_customer_name,
       c.business_name::text as business_name,c.phone::text as phone,
       s.receipt_number::text as receipt_number,
       (case when s.paid_amount>0 then s.payment_method else null end)::text as method,
@@ -73,7 +74,7 @@ begin
 
     select p.id,p.business_date,p.created_at,
       'payment',p.customer_id,
-      coalesce(nullif(p.receipt_customer_name,''),c.name),
+      coalesce(nullif(p.receipt_customer_name,''),c.name),c.name,
       c.business_name,c.phone,p.receipt_number,p.method,
       0::bigint,p.amount::bigint,p.owed_after::bigint,
       0::bigint,0::bigint,0::bigint,0::bigint,
@@ -87,7 +88,7 @@ begin
     -- Standalone physical returns are not cash receipts. Sale-time empties
     -- are part of their sale record and must not create another sale.
     select r.request_id,(r.created_at at time zone 'Africa/Lagos')::date,
-      r.created_at,'empties',r.customer_id,c.name,c.business_name,c.phone,
+      r.created_at,'empties',r.customer_id,c.name,c.name,c.business_name,c.phone,
       null::text,null::text,0::bigint,0::bigint,0::bigint,
       coalesce((select sum((x.value->>'quantity')::bigint)
         from jsonb_array_elements(coalesce(r.request_payload->'crates','[]'::jsonb)) x(value)),0),
@@ -109,7 +110,7 @@ begin
     union all
 
     select o.id,o.business_date,o.created_at,'opening',
-      o.customer_id,c.name,c.business_name,c.phone,
+      o.customer_id,c.name,c.name,c.business_name,c.phone,
       null::text,null::text,0::bigint,0::bigint,o.amount::bigint,
       coalesce((select sum((x.value->>'quantity')::bigint)
         from jsonb_array_elements(o.crates) x(value)),0),
@@ -126,6 +127,7 @@ begin
       and (p_method='all' or e.method=p_method)
       and (btrim(p_search)='' or
         e.customer_name ilike '%'||btrim(p_search)||'%' or
+        e.current_customer_name ilike '%'||btrim(p_search)||'%' or
         coalesce(e.business_name,'') ilike '%'||btrim(p_search)||'%' or
         coalesce(e.phone,'') ilike '%'||btrim(p_search)||'%' or
         coalesce(e.receipt_number,'') ilike '%'||btrim(p_search)||'%')
