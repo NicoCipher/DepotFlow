@@ -9,12 +9,15 @@ create or replace function public.customer_records(
   p_method text,
   p_search text,
   p_limit integer,
-  p_offset integer,
-  p_snapshot timestamptz default null
+  p_cursor jsonb default null,
+  p_before boolean default false
 ) returns jsonb
 language plpgsql security definer set search_path='' as $records$
 declare v_result jsonb;
-declare v_snapshot timestamptz := coalesce(p_snapshot, statement_timestamp());
+declare v_day date;
+declare v_created timestamptz;
+declare v_kind text;
+declare v_id uuid;
 begin
   if auth.uid() is null or not exists (
     select 1 from private.shop_owner where user_id=auth.uid()
@@ -25,8 +28,25 @@ begin
     or p_kind is null or p_kind not in ('all','sale','payment','empties','opening')
     or p_method is null or p_method not in ('all','cash','transfer','pos','not_recorded')
     or p_search is null or length(p_search)>120
-    or p_limit not between 1 and 50 or p_offset not between 0 and 1000000 then
+    or p_limit not between 1 and 50 or p_before is null
+    or (p_cursor is null and p_before)
+    or (p_cursor is not null and
+      (jsonb_typeof(p_cursor) <> 'object' or length(p_cursor::text)>300)) then
     raise exception using errcode='22023',message='Check record filters.';
+  end if;
+  if p_cursor is not null then
+    begin
+      v_day := (p_cursor->>'day')::date;
+      v_created := (p_cursor->>'created_at')::timestamptz;
+      v_kind := p_cursor->>'kind';
+      v_id := (p_cursor->>'id')::uuid;
+      if v_day is null or v_created is null or v_id is null
+        or v_kind not in ('sale','payment','empties','opening') then
+        raise exception using errcode='22023',message='Check the selected record page.';
+      end if;
+    exception when invalid_text_representation or datetime_field_overflow then
+      raise exception using errcode='22023',message='Check the selected record page.';
+    end;
   end if;
 
   with events as (
@@ -102,33 +122,55 @@ begin
     where o.business_date between p_from and p_to
   ), filtered as (
     select * from events e
-    where e.created_at<=v_snapshot
-      and (p_kind='all' or e.kind=p_kind)
+    where (p_kind='all' or e.kind=p_kind)
       and (p_method='all' or e.method=p_method)
       and (btrim(p_search)='' or
         e.customer_name ilike '%'||btrim(p_search)||'%' or
         coalesce(e.business_name,'') ilike '%'||btrim(p_search)||'%' or
         coalesce(e.phone,'') ilike '%'||btrim(p_search)||'%' or
         coalesce(e.receipt_number,'') ilike '%'||btrim(p_search)||'%')
+  ), eligible as (
+    select * from filtered e
+    where p_cursor is null
+      or (not p_before and (e.day,e.created_at,e.kind,e.id) <
+        (v_day,v_created,v_kind,v_id))
+      or (p_before and (e.day,e.created_at,e.kind,e.id) >
+        (v_day,v_created,v_kind,v_id))
+  ), picked as materialized (
+    -- For Previous, load the nearest older-page boundary in ascending order.
+    -- The extra row only detects whether another page exists.
+    select * from eligible
+    order by
+      case when p_before then day end asc,
+      case when p_before then created_at end asc,
+      case when p_before then kind end asc,
+      case when p_before then id end asc,
+      case when not p_before then day end desc,
+      case when not p_before then created_at end desc,
+      case when not p_before then kind end desc,
+      case when not p_before then id end desc
+    limit (p_limit+1)
   )
   select jsonb_build_object(
     'count',(select count(*) from filtered),
-    'snapshot',v_snapshot,
+    'has_more',(select count(*)>p_limit from picked),
     'items',(select coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb)
       from (
         select id,day,created_at,kind,customer_id,customer_name,business_name,
           receipt_number,method,sale_total,received,remaining,crates,bottles,
           held_crates,held_bottles,status,detail
-        from filtered
-        order by day desc,created_at desc,kind,id desc
-        limit p_limit offset p_offset
+        from picked
+        order by day desc,created_at desc,kind desc,id desc
+        limit p_limit
+        offset case when p_before and (select count(*) from picked)>p_limit
+          then 1 else 0 end
       ) t)
   ) into v_result;
   return v_result;
 end $records$;
 
-revoke all on function public.customer_records(date,date,text,text,text,integer,integer,timestamptz) from public,anon;
-grant execute on function public.customer_records(date,date,text,text,text,integer,integer,timestamptz) to authenticated;
+revoke all on function public.customer_records(date,date,text,text,text,integer,jsonb,boolean) from public,anon;
+grant execute on function public.customer_records(date,date,text,text,text,integer,jsonb,boolean) to authenticated;
 
 -- Dedicated read-only source for an empties return: never substitute current
 -- customer balances or invent a payment method.
