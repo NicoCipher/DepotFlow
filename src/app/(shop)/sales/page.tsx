@@ -19,19 +19,19 @@ export default async function SalesPage({
       <PageIntro
         eyebrow="Saved sales"
         title="Sales"
-        description="Open a sale to check its drinks, payment and returned empties."
+        description="Review exactly what was sold, the payment saved for that sale, and the empties recorded with it."
         action={
           <Link className="primary" href="/record-sale">
             Record Sale
           </Link>
         }
       />
-      <Link
-        className="quiet-link mb-4 self-start text-sm"
-        href="/activity?type=sale"
-      >
-        Filter sales by date or customer →
-      </Link>
+      <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+        <p className="text-sm font-semibold text-emerald-950">Looking for a receipt or customer payment?</p>
+        <Link className="quiet-link mt-2 inline-flex min-h-11 items-center text-sm" href="/records?kind=sale">
+          Find a sale by customer, date or receipt number in Records →
+        </Link>
+      </div>
       <SalesList sales={sales} showRecordSale />
       <nav aria-label="Sale pages" className="mt-4 flex justify-between">
         {page > 1 && (
