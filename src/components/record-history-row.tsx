@@ -51,9 +51,9 @@ function RecordSummary({ item }: { item: CustomerRecord }) {
       <div className="text-xs leading-5 text-stone-600">
         <span>
           {item.received > 0
-            ? `${view.voided ? "Historical payment" : "Paid"} ${formatNaira(item.received)}${item.method ? ` · ${methodLabel(item.method)}` : ""}`
-            : "No payment received"}
-          {item.remaining > 0 && !view.voided ? ` · ${formatNaira(item.remaining)} unpaid` : ""}
+            ? `${view.voided ? "Historical payment" : "Paid at sale"} ${formatNaira(item.received)}${item.method ? ` · ${methodLabel(item.method)}` : ""}`
+            : "No payment at sale"}
+          {item.remaining > 0 && !view.voided ? ` · ${formatNaira(item.remaining)} owed after sale` : ""}
         </span>
         {view.linkedPaymentVoided && (
           <span className="mt-1 block font-semibold text-red-800">
@@ -142,7 +142,7 @@ export function RecordHistoryRow({ item }: { item: CustomerRecord }) {
             <div className="mt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
               <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold leading-4 ${badge}`}>
                 {view.combined && item.checkout_balance !== null && item.checkout_balance > 0
-                  ? `Owes ${formatNaira(item.checkout_balance)}`
+                  ? `Balance after ${formatNaira(item.checkout_balance)}`
                   : view.status}
               </span>
               <span className="flex min-w-0 items-center gap-1 text-[10px] font-semibold text-stone-400">
