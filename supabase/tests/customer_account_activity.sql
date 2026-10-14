@@ -125,6 +125,7 @@ values (
 );
 set local role authenticated;
 savepoint historical_backfill_probe;
+reset role;
 with form_releases as materialized (
   select distinct r.customer_id, released.id::uuid as decision_id
   from private.customer_empty_returns r
@@ -150,6 +151,7 @@ select pg_temp.check_true(
    )),
   'Historic form-based held releases double-counted in backfill');
 rollback to savepoint historical_backfill_probe;
+set local role authenticated;
 
 -- Direct inline collections are separate historical events, including replays.
 -- Each decision's physical quantity is displayed, not one item per UUID.
