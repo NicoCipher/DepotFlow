@@ -285,6 +285,7 @@ export function SaleBuilder({
     }
   }
   const progressLabels = ["Customer", "Drinks", "Empties", "Payment", "Review"] as const;
+  const matchedCustomers = catalog.customers.filter((c) => matchesSaleCustomer(c, customerQuery));
   useEffect(() => {
     if (previousStep.current !== null && previousStep.current !== step) {
       stepHeading.current?.focus({ preventScroll: true });
@@ -412,7 +413,7 @@ export function SaleBuilder({
       <fieldset
         disabled={pending || !ready}
         aria-label="Sale draft"
-        className="space-y-5"
+        className="space-y-6 pb-4"
       >
         <header className="space-y-4 border-b border-stone-200 pb-5">
           <div>
@@ -445,41 +446,58 @@ export function SaleBuilder({
             </p>
           </div>
           <nav aria-label="Sale progress">
-            <p className="text-xs font-semibold uppercase tracking-wide text-stone-600">
-              Step {progressStep + 1} of 5
+            <p className="text-xs font-bold uppercase tracking-wide text-stone-600">
+              Step {progressStep + 1} of 5 · {progressLabels[progressStep]}
             </p>
-            <ol className="mt-2 grid grid-cols-5 gap-1.5">
+            <ol className="mt-3 grid grid-cols-5 gap-1.5 sm:gap-2">
               {progressLabels.map((label, index) => (
-                <li key={label} aria-current={index === progressStep ? "step" : undefined} className="min-w-0">
-                  <span className={index <= progressStep ? "block h-1.5 rounded-full bg-emerald-800" : "block h-1.5 rounded-full bg-stone-200"} aria-hidden="true" />
-                  <span className={index === progressStep ? "mt-1.5 block truncate text-[10px] font-bold text-emerald-900 sm:text-xs" : "mt-1.5 block truncate text-[10px] text-stone-500 sm:text-xs"}>
-                    {label}
+                <li key={label} aria-current={index === progressStep ? "step" : undefined} className="flex min-w-0 flex-col items-center gap-1.5 text-center">
+                  <span className={
+                    "flex h-8 w-8 items-center justify-center rounded-full border text-sm font-bold " +
+                    (index < progressStep
+                      ? "border-emerald-800 bg-emerald-800 text-white"
+                      : index === progressStep
+                        ? "border-emerald-800 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-200"
+                        : "border-stone-200 bg-white text-stone-400")
+                  }>
+                    {index < progressStep ? <SaleIcon name="check" className="h-4 w-4" /> : index + 1}
                   </span>
+                  <span className={
+                    "text-[10px] leading-4 sm:text-xs " +
+                    (index === progressStep ? "font-bold text-emerald-900" : index < progressStep ? "font-medium text-stone-700" : "text-stone-500")
+                  }>{label}</span>
                 </li>
               ))}
             </ol>
           </nav>
         </header>
         {customer && step !== "customer" && (
-          <section aria-label="Current sale" className="border-b border-stone-200 pb-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-sm text-stone-500">Customer</p>
-                <p className="break-words text-2xl font-semibold tracking-tight text-stone-950">{customer.name}</p>
-                {customer.phone && <p className="mt-0.5 text-sm text-stone-500">{customer.phone}</p>}
+          <section aria-label="Current sale" className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-900">
+                  <SaleIcon name="user" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-wide text-stone-500">Customer</p>
+                  <p className="break-words text-lg font-bold text-stone-950 sm:text-xl">{customer.name}</p>
+                  {customer.phone && <p className="text-xs text-stone-600 sm:text-sm">{customer.phone}</p>}
+                </div>
               </div>
-              <button
-                className="min-h-11 shrink-0 px-2 text-sm font-semibold text-emerald-800 underline underline-offset-4"
-                onClick={() => update({ step: "customer" })}
-              >
-                Change
+              <button type="button" className="secondary shrink-0 gap-1.5 px-3 text-sm" onClick={() => update({ step: "customer" })}>
+                <SaleIcon name="edit" className="h-4 w-4" /> Change
               </button>
             </div>
             {draft.lines.length > 0 && (
-              <p className="mt-3 text-sm text-stone-600">
-                {draft.lines.length} {draft.lines.length === 1 ? "drink" : "drinks"} in sale
-                {displayedTotal !== undefined && <> <span aria-hidden="true">·</span> <strong className="font-semibold text-stone-950">{formatNaira(displayedTotal)}</strong> total</>}
-              </p>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-stone-100 pt-3">
+                <span className="flex items-center gap-2 text-sm text-stone-600">
+                  <SaleIcon name="bag" className="h-4 w-4" />
+                  {draft.lines.length} {draft.lines.length === 1 ? "drink" : "drinks"} chosen
+                </span>
+                <strong className="text-lg font-bold tabular-nums text-stone-950">
+                  {displayedTotal === undefined ? "Check prices" : formatNaira(displayedTotal)}
+                </strong>
+              </div>
             )}
           </section>
         )}
@@ -598,60 +616,70 @@ export function SaleBuilder({
           </p>
         )}
         {step === "customer" && (
-          <>
-            <p className="text-stone-700">Who is buying these drinks?</p>
-            <label htmlFor="sale-customer-search">
-              Search by name or phone
-            </label>
-            <input
-              id="sale-customer-search"
-              type="search"
-              placeholder="Customer name or phone number"
-              maxLength={120}
-              value={customerQuery}
-              onChange={(e) => setCustomerQuery(e.target.value)}
-            />
+          <section aria-labelledby="sale-customer-heading" className="space-y-4">
+            <div>
+              <h2 id="sale-customer-heading" className="text-xl font-bold text-stone-950">Find a customer</h2>
+              <p className="mt-1 text-sm leading-6 text-stone-600">Select a customer to continue with their sale.</p>
+            </div>
+            <div>
+              <label htmlFor="sale-customer-search">Search by name or phone</label>
+              <input
+                id="sale-customer-search"
+                type="search"
+                placeholder="Start typing a name or number"
+                maxLength={120}
+                value={customerQuery}
+                onChange={(e) => setCustomerQuery(e.target.value)}
+              />
+            </div>
             <button
-              className="secondary w-full"
-              onClick={() =>
-                setNewCustomer({
-                  id: crypto.randomUUID(),
-                  draftId: sales.state.active?.id ?? null,
-                })
-              }
+              type="button"
+              className="secondary w-full gap-2 border-emerald-200 text-emerald-900"
+              onClick={() => setNewCustomer({ id: crypto.randomUUID(), draftId: sales.state.active?.id ?? null })}
             >
-              Add new customer
+              <SaleIcon name="plus" className="h-5 w-5" /> Add new customer
             </button>
-            {!catalog.customers.length && (
-              <p>No customers yet. Add a new customer to start this sale.</p>
+            {catalog.customers.length > 0 && (
+              <p className="text-sm font-medium text-stone-600">
+                {matchedCustomers.length} {matchedCustomers.length === 1 ? "customer" : "customers"} found
+              </p>
             )}
-            <ul className="divide-y divide-stone-200" aria-label="Choose a customer">
-              {catalog.customers
-                .filter((c) => matchesSaleCustomer(c, customerQuery))
-                .map((c) => (
-                  <li key={c.id}>
-                    <button
-                      className="flex min-h-20 w-full items-center justify-between gap-3 py-4 text-left"
-                      onClick={() =>
-                        update({ customerId: c.id, step: "drinks" })
-                      }
-                    >
-                      <span className="min-w-0">
-                        <span className="block break-words font-semibold">{c.name}</span>
-                        <span className="block text-sm text-stone-600">{c.phone}</span>
-                      </span>
-                      <span className="shrink-0 text-sm font-semibold text-emerald-900">
-                        {draft.customerId === c.id ? "Selected" : "Choose"}
-                      </span>
-                    </button>
-                  </li>
-                ))}
+            {!catalog.customers.length && (
+              <div className="rounded-xl border border-dashed border-stone-300 bg-white p-5">
+                <p className="font-bold">No customers yet</p>
+                <p className="mt-1 text-sm text-stone-600">Add your first customer to start recording sales.</p>
+              </div>
+            )}
+            <ul className="grid gap-2" aria-label="Choose a customer">
+              {matchedCustomers.map((c) => (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    className="flex min-h-20 w-full items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-left hover:border-emerald-500 hover:bg-emerald-50"
+                    onClick={() => update({ customerId: c.id, step: "drinks" })}
+                  >
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-stone-100 text-stone-700">
+                      <SaleIcon name="user" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block break-words font-bold text-stone-950">{c.name}</span>
+                      <span className="block text-sm text-stone-600">{c.phone || "No phone number"}</span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1 text-sm font-bold text-emerald-800">
+                      Choose <SaleIcon name="arrow" className="h-4 w-4" />
+                    </span>
+                  </button>
+                </li>
+              ))}
             </ul>
-            {catalog.customers.length > 0 &&
-              !catalog.customers.some((c) =>
-                matchesSaleCustomer(c, customerQuery),
-              ) && <p>No matching customers.</p>}
-          </>
+            {catalog.customers.length > 0 && !matchedCustomers.length && (
+              <div className="rounded-xl border border-stone-200 bg-white p-4">
+                <p className="font-semibold">No matching customers</p>
+                <p className="mt-1 text-sm text-stone-600">Try a different name or phone number.</p>
+                <button type="button" className="secondary mt-3" onClick={() => setCustomerQuery("")}>Clear search</button>
+              </div>
+            )}
+          </section>
         )}
         {step === "drinks" && (
           <div className="space-y-6">
