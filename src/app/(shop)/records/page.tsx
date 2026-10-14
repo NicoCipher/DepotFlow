@@ -31,6 +31,8 @@ function RecordIcon({ kind }: { kind: CustomerRecord["kind"] }) {
 function RecordRow({ item }: { item: CustomerRecord }) {
   const sale = item.kind === "sale";
   const payment = item.kind === "payment";
+  const combinedCheckout = sale && item.old_debt_paid > 0;
+  const paymentDuringSale = payment && Boolean(item.linked_sale_id);
   const empties = item.kind === "empties";
   const heldOnly = empties && item.crates === 0 && item.bottles === 0
     && (item.held_crates > 0 || item.held_bottles > 0);
@@ -48,7 +50,7 @@ function RecordRow({ item }: { item: CustomerRecord }) {
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-[11px] font-bold uppercase tracking-[.08em] text-stone-500">{heldOnly ? "Held empties collected" : recordTypeName(item.kind)}</span>
+            <span className="text-[11px] font-bold uppercase tracking-[.08em] text-stone-500">{heldOnly ? "Held empties collected" : combinedCheckout ? "Sale & debt payment" : paymentDuringSale ? "Payment during purchase" : recordTypeName(item.kind)}</span>
             <span className="text-xs text-stone-400">·</span>
             <time dateTime={item.created_at} className="text-xs text-stone-500">{eventTime(item.created_at)}</time>
           </div>
@@ -58,12 +60,23 @@ function RecordRow({ item }: { item: CustomerRecord }) {
           <p className="mt-2 text-xs leading-relaxed text-stone-600 sm:text-sm">
             {sale ? (
               <>
-                {item.received > 0
-                  ? `Received ${formatNaira(item.received)}${item.method ? ` via ${methodLabel(item.method)}` : ""}`
-                  : "No money received"}
-                {unpaid && <span className="font-semibold text-amber-800"> · {formatNaira(item.remaining)} still unpaid</span>}
+                {combinedCheckout ? (
+                  <>
+                    <strong className="font-bold text-emerald-900">Total collected {formatNaira(item.checkout_received)}</strong>
+                    {item.method ? ` via ${methodLabel(item.method)}` : ""}
+                    <span className="mt-1 block">Previous debt paid {formatNaira(item.old_debt_paid)} · Today's sale paid {formatNaira(item.received)}</span>
+                    <span className="mt-1 block font-semibold text-stone-700">Today's sale {formatNaira(item.sale_total)} · Balance after {formatNaira(item.checkout_balance ?? 0)}</span>
+                  </>
+                ) : (
+                  <>
+                    {item.received > 0
+                      ? `Received ${formatNaira(item.received)}${item.method ? ` via ${methodLabel(item.method)}` : ""}`
+                      : "No money received"}
+                    {unpaid && <span className="font-semibold text-amber-800"> · {formatNaira(item.remaining)} still unpaid</span>}
+                  </>
+                )}
               </>
-            ) : payment ? `${methodLabel(item.method ?? "not_recorded")} · Balance after: ${formatNaira(item.remaining)}`
+            )  : payment ? `${methodLabel(item.method ?? "not_recorded")} · ${paymentDuringSale ? "Included in a sale checkout · " : ""}Balance after: ${formatNaira(item.remaining)}`
               : empties ? `${item.crates || item.bottles ? `Returned: ${item.crates} ${item.crates === 1 ? "crate" : "crates"} and ${item.bottles} ${item.bottles === 1 ? "bottle" : "bottles"}` : ""}${(item.held_crates || item.held_bottles) ? `${item.crates || item.bottles ? " · " : ""}Customer collected ${item.held_crates} held crates and ${item.held_bottles} held bottles` : ""}`
                 : `${formatNaira(item.remaining)} starting money owed · ${item.crates} crates, ${item.bottles} bottles`}
           </p>
