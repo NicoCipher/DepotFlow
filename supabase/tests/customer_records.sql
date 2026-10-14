@@ -75,6 +75,30 @@ select pg_temp.ensure(
    '2026-10-14','2026-10-14','opening','all','',30)->'items') e
    where e->>'remaining'='5000' and e->>'received'='0'),
   'Opening balance was incorrectly marked as money received');
+-- Historical receipts display their saved names while a newly edited
+-- customer name must still find both sales and debt payments.
+savepoint renamed_customer_probe;
+reset role;
+update public.sales set receipt_customer_name='Original customer at checkout'
+where id='20000000-0000-4000-8000-000000000961';
+update public.customer_payments set receipt_customer_name='Original customer at payment'
+where id='40000000-0000-4000-8000-000000000961';
+update public.customers set name='Kemi Daramola'
+where id='10000000-0000-4000-8000-000000000961';
+set local role authenticated;
+select pg_temp.ensure(
+  (select count(*)=1 from jsonb_array_elements(public.customer_records(
+    '2026-10-14','2026-10-14','sale','all','Kemi Daramola',30)->'items') e
+    where e->>'customer_name'='Original customer at checkout'),
+  'Sale search did not find the current customer name without changing receipt identity');
+select pg_temp.ensure(
+  (select count(*)=1 from jsonb_array_elements(public.customer_records(
+    '2026-10-14','2026-10-14','payment','all','Kemi Daramola',30)->'items') e
+    where e->>'customer_name'='Original customer at payment'),
+  'Payment search did not find a renamed customer while preserving saved receipt name');
+rollback to savepoint renamed_customer_probe;
+set local role authenticated;
+
 -- Forward pages use a precise event cursor, not an offset.
 select set_config('test.page1',
   public.customer_records('2026-10-14','2026-10-14','all','all','',2)::text,true);
