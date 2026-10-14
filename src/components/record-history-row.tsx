@@ -38,7 +38,7 @@ function RecordSummary({ item }: { item: CustomerRecord }) {
   const view = recordListView(item);
   if (view.combined) {
     return (
-      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs leading-5 text-stone-600">
+      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[13px] leading-5 text-stone-600 sm:text-sm">
         <span><b className="font-semibold text-stone-700">Sale</b> {formatNaira(item.sale_total)}</span>
         <span><b className="font-semibold text-stone-700">Paid on sale</b> {formatNaira(item.received)}</span>
         <span><b className="font-semibold text-stone-700">Old debt paid</b> {formatNaira(item.old_debt_paid)}</span>
@@ -49,7 +49,7 @@ function RecordSummary({ item }: { item: CustomerRecord }) {
 
   if (view.sale) {
     return (
-      <div className="text-xs leading-5 text-stone-600">
+      <div className="text-[13px] leading-5 text-stone-600 sm:text-sm">
         <span>
           {item.received > 0
             ? `${view.voided ? "Historical payment" : "Paid at sale"} ${formatNaira(item.received)}${item.method ? ` · ${methodLabel(item.method)}` : ""}`
@@ -67,7 +67,7 @@ function RecordSummary({ item }: { item: CustomerRecord }) {
 
   if (view.payment) {
     return (
-      <p className="text-xs leading-5 text-stone-600">
+      <p className="text-[13px] leading-5 text-stone-600 sm:text-sm">
         {view.voided ? "Voided receipt" : methodLabel(item.method ?? "not_recorded")}
         {" · "}Balance after: {formatNaira(item.remaining)}
         {view.paymentDuringSale ? " · During purchase" : ""}
@@ -79,7 +79,7 @@ function RecordSummary({ item }: { item: CustomerRecord }) {
     const returned = item.crates > 0 || item.bottles > 0;
     const collected = item.held_crates > 0 || item.held_bottles > 0;
     return (
-      <p className="text-xs leading-5 text-stone-600">
+      <p className="text-[13px] leading-5 text-stone-600 sm:text-sm">
         {returned && `Returned: ${item.crates} crates · ${item.bottles} bottles`}
         {returned && collected ? " · " : ""}
         {collected && `Customer collected: ${item.held_crates} held crates · ${item.held_bottles} held bottles`}
@@ -88,7 +88,7 @@ function RecordSummary({ item }: { item: CustomerRecord }) {
   }
 
   return (
-    <p className="text-xs leading-5 text-stone-600">
+    <p className="text-[13px] leading-5 text-stone-600 sm:text-sm">
       {item.crates || item.bottles
         ? `Starting empties: ${item.crates} crates · ${item.bottles} bottles`
         : "Balance brought forward"}
@@ -119,7 +119,7 @@ export function RecordHistoryRow({ item }: { item: CustomerRecord }) {
           </span>
           <div className="min-w-0">
             <div className="flex items-baseline justify-between gap-2">
-              <span className="min-w-0 text-[10px] font-extrabold uppercase tracking-[.09em] leading-4 text-stone-500">
+              <span className="min-w-0 text-[11px] font-extrabold uppercase tracking-[.09em] leading-4 text-stone-500">
                 {view.label}
               </span>
               <time dateTime={item.created_at} className="shrink-0 text-[11px] font-medium tabular-nums text-stone-500">
@@ -141,7 +141,7 @@ export function RecordHistoryRow({ item }: { item: CustomerRecord }) {
               <RecordSummary item={item}/>
             </div>
             <div className="mt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-              <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold leading-4 ${badge}`}>
+              <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold leading-4 ${badge}`}>
                 {view.combined && item.checkout_balance !== null && item.checkout_balance > 0
                   ? `Balance after ${formatNaira(item.checkout_balance)}`
                   : view.status}
