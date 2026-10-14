@@ -98,7 +98,7 @@ select pg_temp.check_true(
 select pg_temp.check_true(
   (public.store_activity('2026-10-14','2026-10-14','10000000-0000-4000-8000-000000000752','empties',10,0)
     -> 'items' -> 0 ->> 'title')='Customer collected 0 held crates, 5 held bottles',
-  'Released-only activity counted a different customer\'s held decisions');
+  'Released-only activity counted a different customer''s held decisions');
 select pg_temp.check_true(
   (public.store_activity('2026-10-14','2026-10-14','10000000-0000-4000-8000-000000000751','empties',10,0)
     ->>'count')::integer=2,
