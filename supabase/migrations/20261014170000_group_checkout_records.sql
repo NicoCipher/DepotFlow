@@ -149,7 +149,11 @@ begin
     where (p_kind='all' or e.kind=p_kind)
       -- One saved checkout in All Records: keep the old-debt ledger entry
       -- available only when the owner explicitly filters Payments.
-      and (p_kind<>'all' or e.kind<>'payment' or e.linked_sale_id is null)
+      and (p_kind<>'all' or e.kind<>'payment' or e.linked_sale_id is null
+        or e.status='voided' or exists (
+          select 1 from public.sales sx
+          where sx.id=e.linked_sale_id and sx.receipt_status='voided'
+        ))
       and (p_method='all' or e.method=p_method)
       and (btrim(p_search)='' or
         e.customer_name ilike '%'||btrim(p_search)||'%' or
