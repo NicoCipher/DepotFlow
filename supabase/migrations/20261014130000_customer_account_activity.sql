@@ -137,6 +137,47 @@ create table private.held_empty_collections (
 create index held_empty_collections_recent_idx
   on private.held_empty_collections(customer_id,collected_at desc,decision_id desc);
 
+-- Capture held-property releases regardless of which already-running RPC
+-- body performs the update. PostgreSQL DDL holds a conflicting table lock
+-- while installing this trigger, so calls queued behind migration locks also
+-- pass through it after COMMIT (even if they resolved the old function body).
+create function private.audit_held_collection() returns trigger
+language plpgsql security definer set search_path='' as $audit$
+begin
+  if old.released_at is null and new.released_at is not null
+    and new.decision='hold' then
+    insert into private.held_empty_collections(decision_id,customer_id,collected_at)
+    values(new.id,new.customer_id,new.released_at)
+    on conflict (decision_id) do nothing;
+  end if;
+  return new;
+end
+$audit$;
+create trigger audit_held_collection
+  after update of released_at on public.sale_empty_decisions
+  for each row execute function private.audit_held_collection();
+revoke all on function private.audit_held_collection() from public,anon,authenticated;
+
+-- Return-form releases are already represented by one combined receipt.
+-- The existing form RPC updates held decisions BEFORE it inserts that receipt,
+-- so remove the trigger's temporary audit rows in this same transaction.
+-- A failed form rolls back both the release update and this cleanup.
+create function private.discard_form_held_collections() returns trigger
+language plpgsql security definer set search_path='' as $discard$
+begin
+  delete from private.held_empty_collections h
+    using jsonb_array_elements_text(
+      coalesce(new.request_payload->'released','[]'::jsonb)
+    ) released(id)
+    where h.decision_id=released.id::uuid and h.customer_id=new.customer_id;
+  return new;
+end
+$discard$;
+create trigger discard_form_held_collections
+  after insert on private.customer_empty_returns
+  for each row execute function private.discard_form_held_collections();
+revoke all on function private.discard_form_held_collections() from public,anon,authenticated;
+
 -- A release using the old function must finish before this snapshot.
 -- This lock conflicts with ROW EXCLUSIVE updates and lasts until COMMIT,
 -- when the replacement release function and backfilled records become visible.
@@ -175,7 +216,8 @@ begin
     returning id,customer_id,released_at into v_decision;
   if found then
     insert into private.held_empty_collections(decision_id,customer_id,collected_at)
-    values (v_decision.id,v_decision.customer_id,v_decision.released_at);
+    values (v_decision.id,v_decision.customer_id,v_decision.released_at)
+    on conflict (decision_id) do nothing;
   end if;
 end
 $release$;
