@@ -1118,83 +1118,110 @@ export function SaleBuilder({
         )}
         {step === "payment" && (
           <>
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-              <p className="text-sm font-semibold text-emerald-950">Total to collect</p>
-              <p className="mt-1 text-3xl font-bold tabular-nums text-emerald-950">{total === undefined ? "Check drinks" : formatNaira(total)}</p>
-            </div>
-            <p className="font-semibold text-stone-900">How much is the customer paying now?</p>
-            <div className="grid grid-cols-2 gap-2" role="group" aria-label="Quick payment amounts">
-              <button
-                className="secondary w-full"
-                aria-pressed={total !== undefined && draft.paid === String(total)}
-                disabled={total === undefined}
-                onClick={() => total !== undefined && update({ paid: String(total) })}
-              >
-                Pay full amount
-              </button>
-              <button
-                className="secondary w-full"
-                aria-pressed={draft.paid === "0"}
-                onClick={() => update({ paid: "0" })}
-              >
-                No payment yet
-              </button>
-            </div>
-            <label htmlFor="sale-paid">Amount paid now (₦)</label>
-            <input
-              id="sale-paid"
-              onFocus={selectDefaultZero}
-              onClick={selectDefaultZero}
-              inputMode="numeric"
-              pattern="[0-9]+"
-              maxLength={12}
-              value={draft.paid}
-              aria-invalid={Boolean(paymentInputError)}
-              aria-describedby={
-                paymentInputError ? "sale-paid-error" : undefined
-              }
-              onChange={(e) => update({ paid: e.target.value })}
-            />
-            {paymentInputError && (
-              <p
-                id="sale-paid-error"
-                role="alert"
-                className="mt-2 text-sm text-red-800"
-              >
-                {paymentInputError}
-              </p>
+            <section aria-label="Payment for today's drinks" className="space-y-3 rounded-xl border border-stone-200 bg-white p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-bold text-stone-950">Today's sale</h2>
+                <strong className="text-2xl font-bold tabular-nums text-emerald-950">{total === undefined ? "Check drinks" : formatNaira(total)}</strong>
+              </div>
+              <label htmlFor="sale-paid">Paying toward today's sale (₦)</label>
+              <div className="grid grid-cols-2 gap-2" role="group" aria-label="Quick payment for today's sale">
+                <button type="button" className="secondary w-full" aria-pressed={total !== undefined && draft.paid === String(total)} disabled={total === undefined} onClick={() => total !== undefined && update({ paid: String(total) })}>
+                  Pay in full
+                </button>
+                <button type="button" className="secondary w-full" aria-pressed={draft.paid === "0"} onClick={() => update({ paid: "0" })}>Pay later</button>
+              </div>
+              <input
+                id="sale-paid"
+                onFocus={selectDefaultZero}
+                onClick={selectDefaultZero}
+                inputMode="numeric"
+                pattern="[0-9]+"
+                maxLength={12}
+                value={draft.paid}
+                aria-invalid={Boolean(paymentInputError)}
+                aria-describedby={paymentInputError ? "sale-paid-error" : undefined}
+                onChange={(e) => update({ paid: e.target.value })}
+              />
+              {paymentInputError && <p id="sale-paid-error" role="alert" className="text-sm text-red-800">{paymentInputError}</p>}
+            </section>
+            <section aria-label="Previous customer debt" className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-bold text-stone-950">Previous money owed</h2>
+                <strong className="text-2xl font-bold tabular-nums text-amber-950">
+                  {oldDebtAmount === null ? "Checking…" : formatNaira(oldDebtAmount)}
+                </strong>
+              </div>
+              {debtChecking && <p role="status" className="text-sm text-amber-950">Checking the customer's current balance…</p>}
+              {debtError && (
+                <div role="alert" className="space-y-2 text-sm text-amber-950">
+                  <p>{debtError}</p>
+                  <button type="button" className="secondary" onClick={() => setDebtRefresh((n) => n + 1)}>Try again</button>
+                </div>
+              )}
+              {oldDebtAmount !== null && oldDebtAmount === 0 && !debtChecking && (
+                <p className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
+                  <SaleIcon name="check" className="h-4 w-4" /> No previous money owed.
+                </p>
+              )}
+              {oldDebtAmount !== null && oldDebtAmount > 0 && !debtChecking && (
+                <>
+                  <p className="text-sm leading-5 text-stone-700">They can clear some or all of their old balance while buying these drinks.</p>
+                  <label htmlFor="sale-old-debt-paid">Paying toward previous debt (₦)</label>
+                  <div className="grid grid-cols-2 gap-2" role="group" aria-label="Quick previous-debt payment">
+                    <button type="button" className="secondary w-full" aria-pressed={draft.oldDebtPaid === String(oldDebtAmount)} onClick={() => update({ oldDebtPaid: String(oldDebtAmount) })}>Pay old debt in full</button>
+                    <button type="button" className="secondary w-full" aria-pressed={draft.oldDebtPaid === "0"} onClick={() => update({ oldDebtPaid: "0" })}>Not today</button>
+                  </div>
+                  <input
+                    id="sale-old-debt-paid"
+                    inputMode="numeric"
+                    pattern="[0-9]+"
+                    maxLength={12}
+                    onFocus={selectDefaultZero}
+                    onClick={selectDefaultZero}
+                    value={draft.oldDebtPaid}
+                    aria-invalid={Boolean(oldDebtInputError)}
+                    aria-describedby={oldDebtInputError ? "old-debt-payment-error" : "old-debt-payment-note"}
+                    onChange={(e) => update({ oldDebtPaid: e.target.value })}
+                  />
+                  <p id="old-debt-payment-note" className="text-xs text-stone-600">This pays down their older balance, not today's drinks.</p>
+                  {oldDebtInputError && <p id="old-debt-payment-error" role="alert" className="text-sm text-red-800">{oldDebtInputError}</p>}
+                </>
+              )}
+            </section>
+            {Number(draft.paid) + Number(draft.oldDebtPaid) > 0 && (
+              <div>
+                <label htmlFor="sale-method">How is the customer paying?</label>
+                <select id="sale-method" value={draft.paymentMethod} onChange={(e) => update({ paymentMethod: e.target.value })} required>
+                  <option value="">Choose method</option>
+                  <option value="cash">Cash</option><option value="transfer">Transfer</option><option value="pos">POS</option>
+                </select>
+                <p className="mt-1 text-xs text-stone-600">The same method applies to both amounts. The old-debt payment gets its own receipt.</p>
+              </div>
             )}
-            {Number(draft.paid) > 0 && <div className="mt-4">
-              <label htmlFor="sale-method">How did they pay?</label>
-              <select id="sale-method" value={draft.paymentMethod} onChange={(e) => update({ paymentMethod: e.target.value })} required>
-                <option value="">Choose method</option><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="pos">POS</option>
-              </select>
-            </div>}
-            <div className="rounded-xl border border-stone-200 bg-stone-50 p-4" aria-live="polite">
+            <section aria-label="Money to collect and customer balance" className="rounded-xl border border-emerald-200 bg-white p-4" aria-live="polite">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-stone-600">Paying now</span>
-                <strong>
-                  {/^\d+$/.test(draft.paid) ? formatNaira(Number(draft.paid)) : "—"}
-                </strong>
+                <span className="font-semibold text-stone-900">Collect now</span>
+                <strong className="text-2xl font-bold tabular-nums text-emerald-950">{paymentBreakdown ? formatNaira(paymentBreakdown.collectNow) : "—"}</strong>
               </div>
-              <div className="mt-2 flex items-center justify-between gap-3 border-t border-stone-200 pt-2">
-                <span className="font-medium">Still owing after this sale</span>
-                <strong className={
-                  total !== undefined &&
-                  /^\d+$/.test(draft.paid) &&
-                  Number(draft.paid) <= total &&
-                  total - Number(draft.paid) > 0
-                    ? "text-amber-900"
-                    : "text-emerald-900"
-                }>
-                  {total !== undefined &&
-                  /^\d+$/.test(draft.paid) &&
-                  Number(draft.paid) <= total
-                    ? formatNaira(total - Number(draft.paid))
-                    : "—"}
-                </strong>
-              </div>
-            </div>
+              {paymentBreakdown && (
+                <dl className="mt-3 space-y-2 border-t border-stone-200 pt-3 text-sm">
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-stone-600">Old debt left</dt>
+                    <dd className="font-semibold">{formatNaira(paymentBreakdown.oldDebtRemaining)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-stone-600">Today's sale still unpaid</dt>
+                    <dd className="font-semibold">{formatNaira(paymentBreakdown.saleRemaining)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3 border-t border-stone-200 pt-2 font-bold">
+                    <dt>Total customer will owe</dt>
+                    <dd className={paymentBreakdown.totalOwedAfter > 0 ? "text-amber-900" : "text-emerald-900"}>
+                      {formatNaira(paymentBreakdown.totalOwedAfter)}
+                    </dd>
+                  </div>
+                </dl>
+              )}
+            </section>
             <div className="sale-sticky-actions sticky z-10 -mx-4 flex items-center gap-3 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
             <button
               className="secondary min-h-12 shrink-0 px-4"
