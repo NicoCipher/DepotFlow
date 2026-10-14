@@ -52,13 +52,23 @@ export function shiftRecordDay(day: string, amount: number): string {
   return date.toISOString().slice(0, 10);
 }
 export function recordDates(now: string, range: RecordRange, from?: unknown, to?: unknown) {
+  const specified = Boolean(from || to);
   const lower = recordDate(from);
   const upper = recordDate(to);
-  if (lower && upper) return { from: lower, to: upper, valid: lower <= upper };
+  if (specified) {
+    return {
+      from: lower ?? "",
+      to: upper ?? "",
+      valid: Boolean(lower && upper && lower <= upper),
+      error: !lower || !upper ? "Choose a valid start and end date, or leave both empty." :
+        lower > upper ? "The start date cannot be after the end date." : null,
+    };
+  }
   return {
     from: range === "all" ? "0001-01-01" : range === "today" ? now : shiftRecordDay(now, range === "7d" ? -6 : -29),
     to: now,
     valid: true,
+    error: null,
   };
 }
 export function recordStatus(kind: CustomerRecord["kind"], status: CustomerRecord["status"]) {
