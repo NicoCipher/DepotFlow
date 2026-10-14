@@ -6,10 +6,8 @@ begin;
 -- The saved account_receipt.debtPaymentReference identifies the linked payment
 -- without inferring relationships from dates, amounts or customer names.
 
--- Keep linked lookups inexpensive as the owner accumulates sale history.
-create index if not exists sales_debt_reference_lookup_idx
-  on public.sales (customer_id, (account_receipt->>'debtPaymentReference'))
-  where account_receipt is not null;
+-- The optional lookup index is deferred to a separate online maintenance
+-- change, rather than locking the sales table during this transaction.
 
 create or replace function public.customer_records(
   p_from date,
