@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { SaleIcon } from "@/components/sale-icon";
 import {
   crateReturnIssues,
   depositSetupIssues,
@@ -221,55 +222,67 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
 
   return (
     <>
-      <div>
-        <h2 className="text-xl font-semibold">Empty crates and bottles</h2>
-        <p className="mt-1 text-stone-600">
-          Check what this customer brought back for these drinks.
-        </p>
-      </div>
-      <p className="font-semibold">Did they bring back all the empties?</p>
-
-      <div
-        role="group"
-        aria-label="Empties returned"
-        className="grid grid-cols-1 gap-2"
-      >
-        <button
-          type="button"
-          aria-pressed={state.mode === "exact"}
-          className={`flex min-h-16 w-full items-center justify-between rounded-lg border bg-white px-4 py-3 text-left font-semibold ${state.mode === "exact" ? "border-emerald-800 text-emerald-950 ring-1 ring-inset ring-emerald-800" : "border-stone-300"}`}
-          onClick={() => {
-            setExtraCrates([]);
-            setExtraBottles([]);
-            update({
-              emptiesV2: {
-                ...state,
-                mode: "exact",
-                decisions: [],
-                returnedCrates: {},
-                returnedBottles: {},
-              },
-            });
-          }}
-        >
-          <span>Yes, all came back</span>
-          <span aria-hidden="true">{state.mode === "exact" ? "●" : "○"}</span>
-        </button>
-        <button
-          type="button"
-          aria-pressed={state.mode === "actual"}
-          className={`flex min-h-16 w-full items-center justify-between rounded-lg border bg-white px-4 py-3 text-left font-semibold ${state.mode === "actual" ? "border-emerald-800 text-emerald-950 ring-1 ring-inset ring-emerald-800" : "border-stone-300"}`}
-          onClick={useActualReturns}
-        >
-          <span>No, some are missing or different</span>
-          <span aria-hidden="true">{state.mode === "actual" ? "●" : "○"}</span>
-        </button>
-      </div>
+      <section aria-labelledby="empties-choice-heading" className="space-y-4">
+        <div>
+          <h2 id="empties-choice-heading" className="text-xl font-bold text-stone-950">What came back?</h2>
+          <p className="mt-1 text-sm leading-6 text-stone-600">
+            Check the empty crates and bottles the customer returned with these drinks.
+          </p>
+        </div>
+        <div role="group" aria-label="Empties returned" className="grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            aria-pressed={state.mode === "exact"}
+            className={"flex min-h-24 items-start justify-between gap-3 rounded-xl border-2 p-4 text-left " + (state.mode === "exact" ? "border-emerald-800 bg-emerald-50 text-emerald-950" : "border-stone-200 bg-white text-stone-900 hover:border-emerald-300")}
+            onClick={() => {
+              setExtraCrates([]);
+              setExtraBottles([]);
+              update({
+                emptiesV2: {
+                  ...state,
+                  mode: "exact",
+                  decisions: [],
+                  returnedCrates: {},
+                  returnedBottles: {},
+                },
+              });
+            }}
+          >
+            <span>
+              <strong className="block text-base">All returned</strong>
+              <span className="mt-1 block text-sm leading-5">Every expected crate and bottle came back</span>
+            </span>
+            <span className={"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 " + (state.mode === "exact" ? "border-emerald-800 bg-emerald-800 text-white" : "border-stone-400")} aria-hidden="true">
+              {state.mode === "exact" && <SaleIcon name="check" className="h-4 w-4" />}
+            </span>
+          </button>
+          <button
+            type="button"
+            aria-pressed={state.mode === "actual"}
+            className={"flex min-h-24 items-start justify-between gap-3 rounded-xl border-2 p-4 text-left " + (state.mode === "actual" ? "border-emerald-800 bg-emerald-50 text-emerald-950" : "border-stone-200 bg-white text-stone-900 hover:border-emerald-300")}
+            onClick={useActualReturns}
+          >
+            <span>
+              <strong className="block text-base">Something is different</strong>
+              <span className="mt-1 block text-sm leading-5">Some missing, extra or different empties</span>
+            </span>
+            <span className={"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 " + (state.mode === "actual" ? "border-emerald-800 bg-emerald-800 text-white" : "border-stone-400")} aria-hidden="true">
+              {state.mode === "actual" && <SaleIcon name="check" className="h-4 w-4" />}
+            </span>
+          </button>
+        </div>
+        {state.mode === "exact" && (
+          <p className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-950">
+            <SaleIcon name="check" className="h-4 w-4 shrink-0" />
+            All expected empties marked as returned. Continue if this is correct.
+          </p>
+        )}
+      </section>
 
       {draft.lines.some((line) => line.quantity.crates > 0) && (
-        <details className="text-sm">
-          <summary className="cursor-pointer py-2 font-medium text-emerald-900 underline underline-offset-4">
-            Bottles left without their crates?
+        <details className="rounded-xl border border-stone-200 bg-white p-3 text-sm">
+          <summary className="min-h-11 cursor-pointer py-2 font-semibold text-stone-800">
+            Bottles left without their crates? · Special case
           </summary>
           <p className="mt-2 text-sm text-stone-600">
             Normal sales use the same number of physical crates as whole crates
@@ -832,7 +845,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
       <div className="sale-sticky-actions sticky z-10 -mx-4 flex items-center gap-3 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
         <button
           type="button"
-          className="min-h-12 shrink-0 px-2 font-semibold text-emerald-900 underline underline-offset-4"
+          className="secondary min-h-12 shrink-0 px-4"
           onClick={onBack}
         >
           Back

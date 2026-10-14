@@ -8,7 +8,9 @@ import {
 import { CustomerForm } from "./customer-form";
 import { emptyCustomer } from "@/domain/customers";
 import { ProductImage } from "@/components/product-image";
+import { SaleIcon } from "@/components/sale-icon";
 import { useSaleDrafts } from "./sale-draft-session";
+import { hasSaleWork } from "@/domain/sale-drafts";
 import { PausedSalesLink } from "./paused-sales-link";
 import { SaleEmptiesStep } from "./sale-empties-step";
 import {
@@ -64,6 +66,10 @@ export function SaleBuilder({
   const pricingMode = draft.sellingMode === "retail" ? "retail" : "wholesale";
   const [catalog, setCatalog] = useState(initialCatalog);
   const [message, setMessage] = useState("");
+  const [notice, setNotice] = useState("");
+  const [cancelDraftId, setCancelDraftId] = useState<string | null>(null);
+  const keepSaleButton = useRef<HTMLButtonElement>(null);
+  const cancelSaleButton = useRef<HTMLButtonElement>(null);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [saved, setSaved] = useState<{
     id: string;
@@ -84,6 +90,11 @@ export function SaleBuilder({
   const [checkAttempt, setCheckAttempt] = useState(0);
   const ready = activeId === null || verifiedId === activeId;
   const saveUncertain = sales.state.active?.saveUncertain === true;
+  const saleHasWork = Boolean(sales.state.active && hasSaleWork(draft));
+  const confirmCancel = Boolean(cancelDraftId && cancelDraftId === sales.state.active?.id);
+  useEffect(() => {
+    if (confirmCancel) keepSaleButton.current?.focus();
+  }, [confirmCancel]);
   useEffect(() => {
     if (!activeId) return;
     let current = true;
@@ -125,6 +136,8 @@ export function SaleBuilder({
     }
     void sales.update(patch);
     setMessage("");
+    setNotice("");
+    setCancelDraftId(null);
   }
   function edit(p: SaleProduct) {
     const setupIssue = saleProductSetupIssue(p);
@@ -274,6 +287,7 @@ export function SaleBuilder({
     }
   }
   const progressLabels = ["Customer", "Drinks", "Empties", "Payment", "Review"] as const;
+  const matchedCustomers = catalog.customers.filter((c) => matchesSaleCustomer(c, customerQuery));
   useEffect(() => {
     if (previousStep.current !== null && previousStep.current !== step) {
       stepHeading.current?.focus({ preventScroll: true });
@@ -284,26 +298,47 @@ export function SaleBuilder({
   if (saved)
     return (
       <div className="space-y-5">
-        <h1>Sale saved</h1>
-        <p className="text-lg font-semibold">{saved.name}</p>
-        <dl className="rounded-lg border border-stone-200 bg-white px-4">
-          {([["Total", saved.total], ["Paid", saved.paid], ["Still owing", saved.owing]] as const).map(([label, amount]) => (
-            <div key={label} className="flex justify-between gap-3 border-b border-stone-200 py-3 last:border-b-0">
-              <dt>{label}</dt><dd className="font-semibold">{formatNaira(amount)}</dd>
+        <section aria-labelledby="sale-success-title" className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm sm:p-8">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-800">
+            <SaleIcon name="check" className="h-8 w-8" />
+          </div>
+          <p className="mt-5 text-sm font-bold uppercase tracking-wide text-emerald-800">Sale complete</p>
+          <h1 id="sale-success-title" className="mt-1 text-3xl font-bold text-stone-950">Sale recorded</h1>
+          <p className="mt-2 text-stone-600">
+            {saved.name}’s sale is saved. Stock and the customer’s balance have been updated.
+          </p>
+          <dl className="mt-6 divide-y divide-stone-200 rounded-xl border border-stone-200 bg-stone-50 px-4">
+            <div className="flex items-center justify-between gap-3 py-4">
+              <dt className="text-stone-600">Sale total</dt>
+              <dd className="text-xl font-bold tabular-nums">{formatNaira(saved.total)}</dd>
             </div>
-          ))}
-        </dl>
-        {saved.paid > 0 && <a className="primary w-full" href={`/receipts/sale/${saved.id}`}>View Receipt</a>}
-        <details className="text-sm text-stone-600"><summary className="cursor-pointer py-2">Sale reference</summary><p className="break-all">{saved.id}</p></details>
-        <button className="primary w-full" onClick={() => setSaved(null)}>
-          Record Another Sale
+            <div className="flex items-center justify-between gap-3 py-4">
+              <dt className="text-stone-600">Paid now</dt>
+              <dd className="font-bold tabular-nums">{formatNaira(saved.paid)}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-3 py-4">
+              <dt className="font-semibold">Still owing</dt>
+              <dd className={"text-xl font-bold tabular-nums " + (saved.owing > 0 ? "text-amber-900" : "text-emerald-900")}>
+                {saved.owing === 0 ? "Paid in full" : formatNaira(saved.owing)}
+              </dd>
+            </div>
+          </dl>
+        </section>
+        <button type="button" className="primary flex w-full gap-2" onClick={() => { setSaved(null); setNotice(""); }}>
+          <SaleIcon name="plus" /> Record another sale
         </button>
-        <a
-          className="secondary block text-center"
-          href={`/customers/${saved.customer}`}
-        >
-          View Customer
+        {saved.paid > 0 && (
+          <a className="secondary flex w-full gap-2" href={ "/receipts/sale/" + saved.id }>
+            <SaleIcon name="receipt" /> View payment receipt
+          </a>
+        )}
+        <a className="secondary flex w-full gap-2" href={ "/customers/" + saved.customer }>
+          <SaleIcon name="user" /> View customer
         </a>
+        <details className="text-sm text-stone-600">
+          <summary className="cursor-pointer py-2">Sale reference</summary>
+          <p className="break-all">{saved.id}</p>
+        </details>
       </div>
     );
   if (sessionExpired)
@@ -380,7 +415,7 @@ export function SaleBuilder({
       <fieldset
         disabled={pending || !ready}
         aria-label="Sale draft"
-        className="space-y-5"
+        className="space-y-6 pb-4"
       >
         <header className="space-y-4 border-b border-stone-200 pb-5">
           <div>
@@ -413,86 +448,147 @@ export function SaleBuilder({
             </p>
           </div>
           <nav aria-label="Sale progress">
-            <p className="text-xs font-semibold uppercase tracking-wide text-stone-600">
-              Step {progressStep + 1} of 5
+            <p className="text-xs font-bold uppercase tracking-wide text-stone-600">
+              Step {progressStep + 1} of 5 · {progressLabels[progressStep]}
             </p>
-            <ol className="mt-2 grid grid-cols-5 gap-1.5">
+            <ol className="mt-3 grid grid-cols-5 gap-1.5 sm:gap-2">
               {progressLabels.map((label, index) => (
-                <li key={label} aria-current={index === progressStep ? "step" : undefined} className="min-w-0">
-                  <span className={index <= progressStep ? "block h-1.5 rounded-full bg-emerald-800" : "block h-1.5 rounded-full bg-stone-200"} aria-hidden="true" />
-                  <span className={index === progressStep ? "mt-1.5 block truncate text-[10px] font-bold text-emerald-900 sm:text-xs" : "mt-1.5 block truncate text-[10px] text-stone-500 sm:text-xs"}>
-                    {label}
+                <li key={label} aria-current={index === progressStep ? "step" : undefined} className="flex min-w-0 flex-col items-center gap-1.5 text-center">
+                  <span className={
+                    "flex h-8 w-8 items-center justify-center rounded-full border text-sm font-bold " +
+                    (index < progressStep
+                      ? "border-emerald-800 bg-emerald-800 text-white"
+                      : index === progressStep
+                        ? "border-emerald-800 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-200"
+                        : "border-stone-200 bg-white text-stone-400")
+                  }>
+                    {index < progressStep ? <SaleIcon name="check" className="h-4 w-4" /> : index + 1}
                   </span>
+                  <span className={
+                    "text-[10px] leading-4 sm:text-xs " +
+                    (index === progressStep ? "font-bold text-emerald-900" : index < progressStep ? "font-medium text-stone-700" : "text-stone-500")
+                  }>{label}</span>
                 </li>
               ))}
             </ol>
           </nav>
         </header>
         {customer && step !== "customer" && (
-          <section aria-label="Current sale" className="border-b border-stone-200 pb-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-sm text-stone-500">Customer</p>
-                <p className="break-words text-2xl font-semibold tracking-tight text-stone-950">{customer.name}</p>
-                {customer.phone && <p className="mt-0.5 text-sm text-stone-500">{customer.phone}</p>}
+          <section aria-label="Current sale" className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-900">
+                  <SaleIcon name="user" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-wide text-stone-500">Customer</p>
+                  <p className="break-words text-lg font-bold text-stone-950 sm:text-xl">{customer.name}</p>
+                  {customer.phone && <p className="text-xs text-stone-600 sm:text-sm">{customer.phone}</p>}
+                </div>
               </div>
-              <button
-                className="min-h-11 shrink-0 px-2 text-sm font-semibold text-emerald-800 underline underline-offset-4"
-                onClick={() => update({ step: "customer" })}
-              >
-                Change
+              <button type="button" className="secondary shrink-0 gap-1.5 px-3 text-sm" onClick={() => update({ step: "customer" })}>
+                <SaleIcon name="edit" className="h-4 w-4" /> Change
               </button>
             </div>
             {draft.lines.length > 0 && (
-              <p className="mt-3 text-sm text-stone-600">
-                {draft.lines.length} {draft.lines.length === 1 ? "drink" : "drinks"} in sale
-                {displayedTotal !== undefined && <> <span aria-hidden="true">·</span> <strong className="font-semibold text-stone-950">{formatNaira(displayedTotal)}</strong> total</>}
-              </p>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-stone-100 pt-3">
+                <span className="flex items-center gap-2 text-sm text-stone-600">
+                  <SaleIcon name="bag" className="h-4 w-4" />
+                  {draft.lines.length} {draft.lines.length === 1 ? "drink" : "drinks"} chosen
+                </span>
+                <strong className="text-lg font-bold tabular-nums text-stone-950">
+                  {displayedTotal === undefined ? "Check prices" : formatNaira(displayedTotal)}
+                </strong>
+              </div>
             )}
           </section>
         )}
-        {step === "customer" && <PausedSalesLink ownerId={ownerId} />}
-        {sales.state.active && (draft.customerId || draft.lines.length > 0) && (
-          <details className="border-b border-stone-200 pb-2">
-            <summary className="cursor-pointer py-2 text-sm font-medium text-emerald-900">
-              Sale options
-            </summary>
-            <div className="flex flex-wrap gap-x-6 gap-y-1">
-            <button
-              className="quiet-link"
-              disabled={saveUncertain}
-              onClick={() =>
-                startTransition(async () => {
-                  if (await sales.park()) {
-                    setCustomerQuery("");
-                    setMessage("");
-                  }
-                })
-              }
-            >
-              Park Sale
-            </button>
-            <button
-              className="quiet-link"
-              disabled={saveUncertain}
-              onClick={() => {
-                const id = sales.state.active?.id;
-                if (
-                  id &&
-                  window.confirm(
-                    "Cancel this unfinished sale? This cannot be undone.",
-                  )
-                )
+        {saleHasWork && (
+          <section aria-label="Unfinished sale actions" className="border-b border-stone-200 pb-4">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-950 hover:border-emerald-700 hover:bg-emerald-100"
+                disabled={saveUncertain}
+                onClick={() => {
+                  setCancelDraftId(null);
                   startTransition(async () => {
-                    await sales.cancel(id);
-                    setCustomerQuery("");
+                    if (await sales.park()) {
+                      setCustomerQuery("");
+                      setMessage("");
+                      setNotice("Sale parked on this device. Open Paused sales to continue later.");
+                    }
                   });
-              }}
-            >
-              Cancel Sale
-            </button>
+                }}
+              >
+                <SaleIcon name="pause" className="h-5 w-5 shrink-0" />
+                Park for later
+              </button>
+              <button
+                type="button"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-bold text-stone-800 hover:border-red-300 hover:bg-red-50"
+                disabled={saveUncertain}
+                ref={cancelSaleButton}
+                aria-expanded={confirmCancel}
+                aria-controls="cancel-sale-panel"
+                onClick={() => setCancelDraftId(sales.state.active?.id ?? null)}
+              >
+                <SaleIcon name="trash" className="h-5 w-5 shrink-0 text-red-700" />
+                Cancel sale
+              </button>
             </div>
-          </details>
+            <p className="mt-2 text-xs leading-5 text-stone-600">Park keeps the unfinished sale on this device. Cancel discards it.</p>
+            {saveUncertain && (
+              <p className="mt-3 text-sm font-medium text-amber-900">The save may have completed. Use Check Sale before parking or cancelling.</p>
+            )}
+            {confirmCancel && !saveUncertain && (
+              <div id="cancel-sale-panel" role="group" aria-labelledby="cancel-sale-question" className="mt-3 rounded-lg border border-red-200 bg-red-50 p-4">
+                <h3 id="cancel-sale-question" className="font-bold text-red-950">Discard this unfinished sale?</h3>
+                <p className="mt-1 text-sm leading-5 text-red-900">
+                  The selected customer, drinks and payment details will be lost. Nothing will be deducted from stock.
+                </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <button
+                    ref={keepSaleButton}
+                    type="button"
+                    className="secondary w-full"
+                    onClick={() => {
+                      setCancelDraftId(null);
+                      cancelSaleButton.current?.focus();
+                    }}
+                  >
+                    Keep recording
+                  </button>
+                  <button
+                    type="button"
+                    className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-red-800 px-4 py-3 font-semibold text-white hover:bg-red-900"
+                    onClick={() => {
+                      const id = cancelDraftId;
+                      if (!id || id !== sales.state.active?.id) return;
+                      startTransition(async () => {
+                        if (await sales.cancel(id)) {
+                          setCustomerQuery("");
+                          setMessage("");
+                          setCancelDraftId(null);
+                          setNotice("Unfinished sale cancelled. No stock or payment was changed.");
+                        }
+                      });
+                    }}
+                  >
+                    <SaleIcon name="trash" className="h-4 w-4" /> Yes, cancel sale
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+        {step === "customer" && <PausedSalesLink ownerId={ownerId} prominent />}
+        {notice && (
+          <div role="status" aria-live="polite" className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
+            <span className="mt-0.5 shrink-0"><SaleIcon name="check" /></span>
+            <p className="min-w-0 flex-1 text-sm font-medium leading-6">{notice}</p>
+            <button type="button" className="min-h-10 shrink-0 rounded-md px-2 text-xs font-bold text-emerald-900 underline" onClick={() => setNotice("")}>Dismiss</button>
+          </div>
         )}
         {sales.error && (
           <p role="alert" className="text-red-800">
@@ -517,60 +613,75 @@ export function SaleBuilder({
           </p>
         )}
         {step === "customer" && (
-          <>
-            <p className="text-stone-700">Who is buying these drinks?</p>
-            <label htmlFor="sale-customer-search">
-              Search by name or phone
-            </label>
-            <input
-              id="sale-customer-search"
-              type="search"
-              placeholder="Customer name or phone number"
-              maxLength={120}
-              value={customerQuery}
-              onChange={(e) => setCustomerQuery(e.target.value)}
-            />
+          <section aria-labelledby="sale-customer-heading" className="space-y-4">
+            <div>
+              <h2 id="sale-customer-heading" className="text-xl font-bold text-stone-950">Find a customer</h2>
+              <p className="mt-1 text-sm leading-6 text-stone-600">Select a customer to continue with their sale.</p>
+            </div>
+            <div>
+              <label htmlFor="sale-customer-search">Search by name or phone</label>
+              <input
+                id="sale-customer-search"
+                type="search"
+                placeholder="Start typing a name or number"
+                maxLength={120}
+                value={customerQuery}
+                onChange={(e) => setCustomerQuery(e.target.value)}
+              />
+            </div>
             <button
-              className="secondary w-full"
-              onClick={() =>
-                setNewCustomer({
-                  id: crypto.randomUUID(),
-                  draftId: sales.state.active?.id ?? null,
-                })
-              }
+              type="button"
+              className="secondary w-full gap-2 border-emerald-200 text-emerald-900"
+              onClick={() => setNewCustomer({ id: crypto.randomUUID(), draftId: sales.state.active?.id ?? null })}
             >
-              Add new customer
+              <SaleIcon name="plus" className="h-5 w-5" /> Add new customer
             </button>
-            {!catalog.customers.length && (
-              <p>No customers yet. Add a new customer to start this sale.</p>
+            {catalog.customers.length > 0 && (
+              <p className="text-sm font-medium text-stone-600">
+                {matchedCustomers.length} {matchedCustomers.length === 1 ? "customer" : "customers"} found
+              </p>
             )}
-            <ul className="divide-y divide-stone-200" aria-label="Choose a customer">
-              {catalog.customers
-                .filter((c) => matchesSaleCustomer(c, customerQuery))
-                .map((c) => (
-                  <li key={c.id}>
-                    <button
-                      className="flex min-h-20 w-full items-center justify-between gap-3 py-4 text-left"
-                      onClick={() =>
-                        update({ customerId: c.id, step: "drinks" })
-                      }
-                    >
-                      <span className="min-w-0">
-                        <span className="block break-words font-semibold">{c.name}</span>
-                        <span className="block text-sm text-stone-600">{c.phone}</span>
-                      </span>
-                      <span className="shrink-0 text-sm font-semibold text-emerald-900">
-                        {draft.customerId === c.id ? "Selected" : "Choose"}
-                      </span>
-                    </button>
-                  </li>
-                ))}
+            {!catalog.customers.length && (
+              <div className="rounded-xl border border-dashed border-stone-300 bg-white p-5">
+                <p className="font-bold">No customers yet</p>
+                <p className="mt-1 text-sm text-stone-600">Add your first customer to start recording sales.</p>
+              </div>
+            )}
+            <ul className="grid gap-2" aria-label="Choose a customer">
+              {matchedCustomers.map((c) => (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    className={draft.customerId === c.id
+                      ? "flex min-h-20 w-full items-center gap-3 rounded-xl border-2 border-emerald-700 bg-emerald-50 px-4 py-3 text-left"
+                      : "flex min-h-20 w-full items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-left hover:border-emerald-500 hover:bg-emerald-50"}
+                    aria-pressed={draft.customerId === c.id}
+                    onClick={() => update({ customerId: c.id, step: "drinks" })}
+                  >
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-stone-100 text-stone-700">
+                      <SaleIcon name="user" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block break-words font-bold text-stone-950">{c.name}</span>
+                      <span className="block text-sm text-stone-600">{c.phone || "No phone number"}</span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1 text-sm font-bold text-emerald-800">
+                      {draft.customerId === c.id
+                        ? <><SaleIcon name="check" className="h-4 w-4" /> Selected</>
+                        : <>Choose <SaleIcon name="arrow" className="h-4 w-4" /></>}
+                    </span>
+                  </button>
+                </li>
+              ))}
             </ul>
-            {catalog.customers.length > 0 &&
-              !catalog.customers.some((c) =>
-                matchesSaleCustomer(c, customerQuery),
-              ) && <p>No matching customers.</p>}
-          </>
+            {catalog.customers.length > 0 && !matchedCustomers.length && (
+              <div className="rounded-xl border border-stone-200 bg-white p-4">
+                <p className="font-semibold">No matching customers</p>
+                <p className="mt-1 text-sm text-stone-600">Try a different name or phone number.</p>
+                <button type="button" className="secondary mt-3" onClick={() => setCustomerQuery("")}>Clear search</button>
+              </div>
+            )}
+          </section>
         )}
         {step === "drinks" && (
           <div className="space-y-6">
@@ -598,9 +709,15 @@ export function SaleBuilder({
                           </p>
                           <p className="mt-0.5 text-sm text-stone-700">{saleQuantityLabel(line.quantity)}</p>
                           <p className="mt-1 font-bold tabular-nums text-stone-950">{item ? linePriceLabel(item, line.quantity) : "Check drink"}</p>
-                          <div className="flex flex-wrap gap-x-5">
-                            {item && <button type="button" className="quiet-link text-sm" onClick={() => edit(item)}>Change</button>}
-                            <button type="button" className="quiet-link text-sm" onClick={() => update({ lines: removeSaleLine(draft.lines, line.productId) })}>Remove</button>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {item && (
+                              <button type="button" className="secondary min-h-12 gap-1.5 px-3 py-2 text-sm" onClick={() => edit(item)}>
+                                <SaleIcon name="edit" className="h-4 w-4" /> Change quantity
+                              </button>
+                            )}
+                            <button type="button" className="inline-flex min-h-12 items-center justify-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-red-800 hover:border-red-300 hover:bg-red-50" onClick={() => update({ lines: removeSaleLine(draft.lines, line.productId) })}>
+                              <SaleIcon name="trash" className="h-4 w-4" /> Remove
+                            </button>
                           </div>
                         </div>
                       </li>
@@ -656,8 +773,10 @@ export function SaleBuilder({
                               {p.full_crate_price === null ? "Crate price not set" : formatNaira(p.full_crate_price) + " / crate"}
                             </span>
                             {p.bottle_price !== null && <span className="block text-xs text-stone-600">{formatNaira(p.bottle_price)} / bottle</span>}
-                            <span className={line ? "mt-2 block text-sm font-bold text-emerald-900" : "mt-2 block text-sm font-bold text-emerald-800"}>
-                              {setupIssue ? "Setup needed" : !p.available ? "Cannot add" : line ? "✓ In this sale · Change" : "Select drink →"}
+                            <span className={line ? "mt-2 flex items-center gap-1 text-sm font-bold text-emerald-900" : "mt-2 flex items-center gap-1 text-sm font-bold text-emerald-800"}>
+                              {setupIssue ? "Setup needed" : !p.available ? "Cannot add" : line
+                                ? <><SaleIcon name="check" className="h-4 w-4" /> In this sale · Change</>
+                                : <><SaleIcon name="plus" className="h-4 w-4" /> Add this drink</>}
                             </span>
                           </span>
                         </button>
@@ -718,13 +837,26 @@ export function SaleBuilder({
               className="space-y-5"
               onSubmit={(e) => {
                 e.preventDefault();
+                if (sessionExpired || saveUncertain) {
+                  setMessage(sessionExpired ? saleSessionExpiredMessage : saleSaveUncertainMessage);
+                  return;
+                }
                 try {
+                  const selected = quantity();
                   const lines = putSaleLine(
                     draft.lines,
-                    { productId: product.id, quantity: quantity() },
+                    { productId: product.id, quantity: selected },
                     product,
                   );
-                  update({ lines, step: "drinks" });
+                  const editing = draft.lines.some((line) => line.productId === product.id);
+                  const amount = formatNaira(priceQuantity(product, selected).lineTotal);
+                  startTransition(async () => {
+                    if (await sales.update({ lines, step: "drinks" })) {
+                      setMessage("");
+                      setCancelDraftId(null);
+                      setNotice(product.name + " " + saleQuantityLabel(selected) + (editing ? " updated" : " added to this sale") + " · " + amount);
+                    }
+                  });
                 } catch (error) {
                   setMessage((error as Error).message);
                 }
@@ -950,7 +1082,7 @@ export function SaleBuilder({
               <div className="sale-sticky-actions sticky z-10 -mx-4 flex items-center gap-3 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
                 <button
                   type="button"
-                  className="min-h-12 shrink-0 px-2 font-semibold text-emerald-900 underline underline-offset-4"
+                  className="secondary min-h-12 shrink-0 px-4"
                   onClick={() => update({ step: "drinks" })}
                 >
                   Back
@@ -1064,7 +1196,7 @@ export function SaleBuilder({
             </div>
             <div className="sale-sticky-actions sticky z-10 -mx-4 flex items-center gap-3 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
             <button
-              className="min-h-12 shrink-0 px-2 font-semibold text-emerald-900 underline underline-offset-4"
+              className="secondary min-h-12 shrink-0 px-4"
               onClick={() => update({ step: "empties" })}
             >
               Back
@@ -1158,7 +1290,11 @@ export function SaleBuilder({
                 <h2 id="review-drinks" className="text-xl font-bold text-stone-950">
                   Drinks · {draft.lines.length}
                 </h2>
-                {!saveUncertain && <button type="button" className="quiet-link text-sm" onClick={() => update({ step: "drinks" })}>Edit drinks</button>}
+                {!saveUncertain && (
+                  <button type="button" className="secondary gap-2 px-3 text-sm" onClick={() => update({ step: "drinks" })}>
+                    <SaleIcon name="edit" className="h-4 w-4" /> Edit drinks
+                  </button>
+                )}
               </div>
               <ul className="divide-y divide-stone-200 rounded-xl border border-stone-200 bg-white px-3 sm:px-4">
                 {draft.lines.map((line) => {
@@ -1335,16 +1471,11 @@ export function SaleBuilder({
                   Back to Payment
                 </button>
                 <button
-                  className="quiet-link"
+                  type="button"
+                  className="secondary w-full gap-2"
                   onClick={() => update({ step: "empties" })}
                 >
-                  Edit empties
-                </button>
-                <button
-                  className="quiet-link"
-                  onClick={() => update({ step: "drinks" })}
-                >
-                  Edit drinks
+                  <SaleIcon name="edit" className="h-4 w-4" /> Edit empties
                 </button>
               </>
             )}
