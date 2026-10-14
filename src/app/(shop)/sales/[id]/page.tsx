@@ -7,6 +7,7 @@ export default async function SalePage({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const sale = await getSale(id);
   const unpaid = sale.owing > 0;
+  const voided = sale.receiptStatus === "voided";
 
   return (
     <div className="space-y-5 pb-9">
@@ -21,14 +22,15 @@ export default async function SalePage({ params }: { params: Promise<{ id: strin
         <div className="border-b border-stone-100 bg-stone-50/80 px-5 py-4 sm:px-6">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-[11px] font-extrabold uppercase tracking-[.12em] text-emerald-800">Saved sale</span>
-            <span className={`rounded-full px-3 py-1 text-xs font-bold ${unpaid ? "bg-amber-100 text-amber-900" : "bg-emerald-100 text-emerald-900"}`}>
-              {unpaid ? sale.paid > 0 ? "Partly paid" : "Not paid yet" : "Paid in full"}
+            <span className={`rounded-full px-3 py-1 text-xs font-bold ${voided ? "bg-red-100 text-red-900" : unpaid ? "bg-amber-100 text-amber-900" : "bg-emerald-100 text-emerald-900"}`}>
+              {voided ? "Voided" : unpaid ? sale.paid > 0 ? "Partly paid" : "Not paid yet" : "Paid in full"}
             </span>
           </div>
           <h1 className="mt-3 break-words text-2xl font-extrabold text-stone-950 sm:text-3xl">{sale.customerName}</h1>
           <p className="mt-1 text-sm text-stone-600">{formatBusinessDate(sale.businessDate)}</p>
         </div>
         <div className="px-5 py-5 sm:px-6">
+          {voided && <p role="status" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-bold leading-6 text-red-950">Voided sale. The figures below are saved history, not proof of a valid payment.</p>}
           <p className="text-xs font-bold uppercase tracking-wider text-stone-500">Sale value</p>
           <strong className="mt-1 block text-3xl font-extrabold tabular-nums tracking-tight text-stone-950 sm:text-4xl">
             {formatNaira(sale.total)}
