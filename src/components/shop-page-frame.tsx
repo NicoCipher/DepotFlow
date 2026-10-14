@@ -19,8 +19,9 @@ const widePages = new Set([
 export function ShopPageFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const wide = widePages.has(pathname);
+  const sale = pathname === "/record-sale";
   return (
-    <div className={`mx-auto w-full ${wide ? "max-w-6xl" : "max-w-xl"}`}>
+    <div className={`mx-auto w-full ${wide ? "max-w-6xl" : sale ? "max-w-3xl" : "max-w-xl"}`}>
       {children}
     </div>
   );
