@@ -5,7 +5,7 @@ import { formatBusinessDate } from "@/domain/sales";
 import { methodLabel } from "@/lib/receipts";
 import {
   recordKinds, recordMethods, recordRanges, recordFilter, recordDates,
-  recordPage, recordSnapshot, recordStatus, recordTypeName, type CustomerRecordsFeed,
+  recordPage, recordCursor, writeRecordCursor, recordStatus, recordTypeName, type CustomerRecordsFeed,
 } from "@/domain/records";
 
 const kindLabels = [
@@ -43,8 +43,9 @@ export default async function RecordsPage({
   const method = recordFilter(params.method, recordMethods, "all");
   const range = recordFilter(params.range, recordRanges, "30d");
   const query = typeof params.q === "string" ? params.q.trim().slice(0, 120) : "";
-  const page = recordPage(params.page);
-  const snapshot = recordSnapshot(params.snapshot);
+  const cursor = recordCursor(params.cursor);
+  const before = cursor !== null && params.dir === "before";
+  const page = cursor ? recordPage(params.page) : 1;
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit",
   }).format(new Date());
@@ -54,8 +55,7 @@ export default async function RecordsPage({
   const { data, error } = dates.valid
     ? await db.rpc("customer_records", {
         p_from: dates.from, p_to: dates.to, p_kind: kind, p_method: method,
-        p_search: query, p_limit: 30, p_offset: (page - 1) * 30,
-        p_snapshot: snapshot,
+        p_search: query, p_limit: 30, p_cursor: cursor, p_before: before,
       })
     : { data: null, error: null };
   if (error) throw new Error("Could not load records. Please try again.");
@@ -64,13 +64,17 @@ export default async function RecordsPage({
     throw new Error("Could not load customer records.");
 
   const url = (changes: Record<string, string | undefined>) => {
-    const args = new URLSearchParams({
+    const values = {
       ...(query ? { q: query } : {}), ...(kind !== "all" ? { kind } : {}),
       ...(method !== "all" ? { method } : {}), range,
       ...(customDates ? { from: dates.from, to: dates.to } : {}),
       ...changes,
-    });
-    for (const [key, value] of args) if (!value) args.delete(key);
+    };
+    // Never serialize undefined as the literal string "undefined".
+    const args = new URLSearchParams(
+      Object.entries(values).filter((entry): entry is [string,string] =>
+        typeof entry[1] === "string" && entry[1].length > 0),
+    );
     return "/records?" + args.toString();
   };
 
@@ -240,11 +244,24 @@ export default async function RecordsPage({
               })}
             </ul>
           )}
-          {(feed!.count > 30) && <nav aria-label="Record pages" className="mt-5 flex items-center justify-between gap-3">
-            {page > 1 ? <Link className="secondary inline-flex min-h-11 items-center px-4" href={url({ page: String(page - 1), snapshot: feed!.snapshot })}>← Previous</Link> : <span />}
-            <span className="text-sm text-stone-600">Page {page}</span>
-            {page * 30 < feed!.count ? <Link className="secondary inline-flex min-h-11 items-center px-4" href={url({ page: String(page + 1), snapshot: feed!.snapshot })}>Next →</Link> : <span />}
-          </nav>}
+          {(page > 1 || feed!.has_more) && feed!.items.length > 0 &&
+            <nav aria-label="Record pages" className="mt-5 flex items-center justify-between gap-3">
+              {page > 1
+                ? <Link className="secondary inline-flex min-h-11 items-center px-4"
+                    href={url({
+                      page: String(page - 1), dir: "before",
+                      cursor: writeRecordCursor(feed!.items[0]),
+                    })}>← Previous</Link>
+                : <span />}
+              <span className="text-sm text-stone-600">Page {page}</span>
+              {(before || feed!.has_more)
+                ? <Link className="secondary inline-flex min-h-11 items-center px-4"
+                    href={url({
+                      page: String(page + 1), dir: "after",
+                      cursor: writeRecordCursor(feed!.items[feed!.items.length - 1]),
+                    })}>Next →</Link>
+                : <span />}
+            </nav>}
         </section>
       )}
       <p className="text-xs leading-5 text-stone-500">Sales show their saved value and payment toward that sale. Separate debt payments appear only as payments. Empties are physical records, not cash receipts.</p>
