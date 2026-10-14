@@ -1,0 +1,175 @@
+{
+  "status": "STAGING_ONLY_NO_PUBLIC_ASSETS_OR_DATABASE_LINKS",
+  "items": [
+    {
+      "catalogue": "Desperados",
+      "slug": "desperados-original-bottle-45cl",
+      "variant": "Desperados Original 45cl glass bottle",
+      "status": "failed",
+      "sources_tried": [
+        {
+          "source": "https://allinonestore.ng/product/desperados-original-beer-bottle-45cl",
+          "error": "<urlopen error [Errno -3] Temporary failure in name resolution>"
+        },
+        {
+          "source": "https://addide.com/products/desperados-original-beer-45cl",
+          "error": "HTTP Error 429: Too Many Requests"
+        },
+        {
+          "source": "https://www.shopperswarehouse.com/products/391/desperados-original-beer-45cl-bottle",
+          "error": "HTTP Error 403: Forbidden"
+        }
+      ]
+    },
+    {
+      "catalogue": "Turbo",
+      "slug": "turbo-king-bottle-60cl",
+      "variant": "Turbo King 60cl dark ale actual glass bottle, not lion logo",
+      "status": "staged_unverified",
+      "sources_tried": [
+        {
+          "source": "https://www.shopperswarehouse.com/products/484/turbo-king-60cl-bottle-x12",
+          "error": "HTTP Error 403: Forbidden"
+        },
+        {
+          "image": "https://www.abapoprestaurant.com/wp-content/plugins/spicedine-extension//assets/images/loader.gif",
+          "error": "not JPG PNG or WebP"
+        },
+        {
+          "image": "https://www.abapoprestaurant.com/wp-content/uploads/2024/01/ABAPOP_Website_Logo_230x95.png",
+          "error": "invalid photo dimensions"
+        }
+      ],
+      "source_page": "https://www.abapoprestaurant.com/brand/turbo-king/",
+      "source_image": "https://www.abapoprestaurant.com/wp-content/uploads/2024/01/Turbo-King-Stout-Bottle-300x300.jpg",
+      "original_dimensions": [
+        300,
+        300
+      ],
+      "bytes": 14248,
+      "sha256": "f2ac41d7aefc49d81535d5f32e28e96e390a2603ccf3b3f379e0b6b119ea1c92"
+    },
+    {
+      "catalogue": "Amstel Can",
+      "slug": "amstel-malta-can-original-33cl",
+      "variant": "Amstel Malta original red/brown 33cl can, NOT Amstel Ultra",
+      "status": "failed",
+      "sources_tried": [
+        {
+          "source": "https://shoppersgatestores.com/products/amstel-malta-can",
+          "error": "HTTP Error 404: Not Found"
+        },
+        {
+          "source": "https://addide.com/products/amstel-malta-33cl-can",
+          "error": "HTTP Error 429: Too Many Requests"
+        }
+      ]
+    },
+    {
+      "catalogue": "Malta Can",
+      "slug": "malta-guinness-can-original-33cl",
+      "variant": "Malta Guinness original malt 330ml can, NOT Herbs",
+      "status": "staged_unverified",
+      "sources_tried": [],
+      "source_page": "https://www.shoppersgatestores.com/products/malta-guinness-330ml-can",
+      "source_image": "https://www.shoppersgatestores.com/storage/drinks/www.png",
+      "original_dimensions": [
+        305,
+        305
+      ],
+      "bytes": 20114,
+      "sha256": "e72e4fa97773fa2d6f0871e4f1fa7b09ecd1d7a662fbbc06a3a24cb6a17f85fb"
+    },
+    {
+      "catalogue": "Heineken Can",
+      "slug": "heineken-lager-can-33cl",
+      "variant": "Heineken premium lager original green 33cl can",
+      "status": "staged_unverified",
+      "sources_tried": [],
+      "source_page": "https://shoppersgatestores.com/products/heineken-can-33cl",
+      "source_image": "https://shoppersgatestores.com/storage/drinks/heineken33cl.webp",
+      "original_dimensions": [
+        500,
+        500
+      ],
+      "bytes": 21544,
+      "sha256": "2bfbcee027ea3c5fcd7d763e159fb0687e9b2a3b07e084e24ca1b8dda8e4f925"
+    },
+    {
+      "catalogue": "Stout Can",
+      "slug": "guinness-fes-can-33cl",
+      "variant": "Guinness Foreign Extra Stout black 33cl can, NOT Guinness Smooth",
+      "status": "staged_unverified",
+      "sources_tried": [],
+      "source_page": "https://www.shoppersgatestores.com/products/guinness-stout",
+      "source_image": "https://www.shoppersgatestores.com/storage/kjk-1.jpg",
+      "original_dimensions": [
+        600,
+        600
+      ],
+      "bytes": 27594,
+      "sha256": "a54b96de54d463dbb67eabbe50d8399f29161dc3cf2e21f9256282a232ed600e"
+    },
+    {
+      "catalogue": "Medium Heineken",
+      "slug": "heineken-medium-bottle-45cl",
+      "variant": "Heineken 45cl glass bottle (Medium), NOT 60cl bottle",
+      "status": "staged_unverified",
+      "sources_tried": [],
+      "source_page": "https://shoppersgatestores.com/products/heineken-45cl-bottle",
+      "source_image": "https://shoppersgatestores.com/storage/drinks/martking-heineken-bottle-drink.jpg",
+      "original_dimensions": [
+        300,
+        300
+      ],
+      "bytes": 14818,
+      "sha256": "fa855d2b13ebf3ad2fb5f79ab59559c56f85230102df1e7f0963cf66a4a97f5e"
+    },
+    {
+      "catalogue": "Guinness Smooth",
+      "slug": "guinness-smooth-bottle-45cl",
+      "variant": "Guinness Smooth 45cl glass bottle, NOT stout black can",
+      "status": "staged_unverified",
+      "sources_tried": [],
+      "source_page": "https://shoppersgatestores.com/products/guinness-smooth-45cl-stout-bottle",
+      "source_image": "https://shoppersgatestores.com/storage/guinness-smooth.jpg",
+      "original_dimensions": [
+        600,
+        600
+      ],
+      "bytes": 32118,
+      "sha256": "0d0d0d776d806abef2dfabb62ae32a1b1e6fa85c14caa6b0fb85867d88e36bf0"
+    },
+    {
+      "catalogue": "Goldberg Can",
+      "slug": "goldberg-lager-can-50cl",
+      "variant": "Goldberg Premium Lager beer 50cl can (not bottle)",
+      "status": "failed",
+      "sources_tried": [
+        {
+          "source": "https://www.supermart.ng/products/goldberg-premium-lager-beer-can-50-cl-x12",
+          "error": "HTTP Error 429: Too Many Requests"
+        },
+        {
+          "source": "https://addide.com/products/goldberg-lager-beer-50cl-can",
+          "error": "HTTP Error 429: Too Many Requests"
+        }
+      ]
+    },
+    {
+      "catalogue": "Desperados Can",
+      "slug": "desperados-original-can-44cl",
+      "variant": "Desperados Original 44cl can, NOT glass 45cl bottle",
+      "status": "staged_unverified",
+      "sources_tried": [],
+      "source_page": "https://shoppersgatestores.com/products/desperados-44cl-can-origonal-beer",
+      "source_image": "https://shoppersgatestores.com/storage/drinks/desperados12.jpg",
+      "original_dimensions": [
+        300,
+        300
+      ],
+      "bytes": 21310,
+      "sha256": "2fc3c4c8dd30c62fdf9287bc7a23b165f909e9cd9856584047238617d7fbf364"
+    }
+  ]
+}

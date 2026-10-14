@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "date": "2026-10-14",
+  "scope": "Full master catalogue regardless of current stock or shop configuration; exact label and package visually reviewed before any DB linking.",
+  "photoRights": "Source photographers' reproduction rights unverified; pilot provenance only, do not claim a commercial licence.",
+  "items": [
+    {
+      "catalogue": "Desperados",
+      "slug": "desperados-original-bottle-45cl",
+      "variant": "Desperados Original 45cl glass bottle",
+      "sources": [
+        "https://allinonestore.ng/product/desperados-original-beer-bottle-45cl",
+        "https://addide.com/products/desperados-original-beer-45cl",
+        "https://www.shopperswarehouse.com/products/391/desperados-original-beer-45cl-bottle"
+      ]
+    },
+    {
+      "catalogue": "Turbo",
+      "slug": "turbo-king-bottle-60cl",
+      "variant": "Turbo King 60cl dark ale actual glass bottle, not lion logo",
+      "sources": [
+        "https://www.shopperswarehouse.com/products/484/turbo-king-60cl-bottle-x12",
+        "https://www.abapoprestaurant.com/brand/turbo-king/",
+        "https://allinonestore.ng/product/derok-rum-liqueur-lshei"
+      ]
+    },
+    {
+      "catalogue": "Amstel Can",
+      "slug": "amstel-malta-can-original-33cl",
+      "variant": "Amstel Malta original red/brown 33cl can, NOT Amstel Ultra",
+      "sources": [
+        "https://shoppersgatestores.com/products/amstel-malta-can",
+        "https://addide.com/products/amstel-malta-33cl-can"
+      ]
+    },
+    {
+      "catalogue": "Malta Can",
+      "slug": "malta-guinness-can-original-33cl",
+      "variant": "Malta Guinness original malt 330ml can, NOT Herbs",
+      "sources": [
+        "https://www.shoppersgatestores.com/products/malta-guinness-330ml-can",
+        "https://addide.com/products/malta-guinness-classic-malt-can-330ml"
+      ]
+    },
+    {
+      "catalogue": "Heineken Can",
+      "slug": "heineken-lager-can-33cl",
+      "variant": "Heineken premium lager original green 33cl can",
+      "sources": [
+        "https://shoppersgatestores.com/products/heineken-can-33cl"
+      ]
+    },
+    {
+      "catalogue": "Stout Can",
+      "slug": "guinness-fes-can-33cl",
+      "variant": "Guinness Foreign Extra Stout black 33cl can, NOT Guinness Smooth",
+      "sources": [
+        "https://www.shoppersgatestores.com/products/guinness-stout",
+        "https://www.shopperswarehouse.com/products/310/guinness-fes-can-x24"
+      ]
+    },
+    {
+      "catalogue": "Medium Heineken",
+      "slug": "heineken-medium-bottle-45cl",
+      "variant": "Heineken 45cl glass bottle (Medium), NOT 60cl bottle",
+      "sources": [
+        "https://shoppersgatestores.com/products/heineken-45cl-bottle"
+      ]
+    },
+    {
+      "catalogue": "Guinness Smooth",
+      "slug": "guinness-smooth-bottle-45cl",
+      "variant": "Guinness Smooth 45cl glass bottle, NOT stout black can",
+      "sources": [
+        "https://shoppersgatestores.com/products/guinness-smooth-45cl-stout-bottle"
+      ]
+    },
+    {
+      "catalogue": "Goldberg Can",
+      "slug": "goldberg-lager-can-50cl",
+      "variant": "Goldberg Premium Lager beer 50cl can (not bottle)",
+      "sources": [
+        "https://www.supermart.ng/products/goldberg-premium-lager-beer-can-50-cl-x12",
+        "https://addide.com/products/goldberg-lager-beer-50cl-can"
+      ]
+    },
+    {
+      "catalogue": "Desperados Can",
+      "slug": "desperados-original-can-44cl",
+      "variant": "Desperados Original 44cl can, NOT glass 45cl bottle",
+      "sources": [
+        "https://shoppersgatestores.com/products/desperados-44cl-can-origonal-beer"
+      ]
+    }
+  ]
+}
