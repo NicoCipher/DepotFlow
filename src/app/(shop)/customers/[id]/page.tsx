@@ -59,11 +59,8 @@ export default async function CustomerPage({
     supabase.from("sale_empty_decisions")
       .select("id,product_name,kind,returned_name,owed_name,quantity,sale_id")
       .eq("customer_id", id).eq("decision", "hold").is("released_at", null).order("id"),
-    // One chronological customer feed: sales, payments, opening balances and empties.
-    supabase.rpc("store_activity", {
-      p_from: "0001-01-01", p_to: today, p_customer: id,
-      p_type: "all", p_limit: 6, p_offset: 0,
-    }),
+    // Owner-scoped recent-only RPC: six items, without whole-history totals.
+    supabase.rpc("customer_recent_activity", { p_customer: id }),
   ]);
   if ([money, crates, bottles, deposits, held, activity].some((result) => result.error))
     throw new Error("Could not load the customer account.");
