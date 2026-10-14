@@ -242,7 +242,7 @@ export default async function ReceiptPage({
               </p>
             )}
             {business.phone && <p className="mt-1 text-sm text-stone-600">{business.phone}</p>}
-          </div>}
+          </div>
         </section>
       ) : (
         <section className="rounded-xl border border-stone-200 bg-stone-50 p-4">
