@@ -234,13 +234,15 @@ export default async function ReceiptPage({
               className="h-14 w-14 shrink-0 rounded-xl object-contain"
             />
           )}
-          <h2 className="font-bold text-stone-950">{business.name}</h2>
-          {business.address && (
-            <p className="whitespace-pre-line text-sm text-stone-600">
-              {business.address}
-            </p>
-          )}
-          {business.phone && <p className="text-sm text-stone-600">{business.phone}</p>}
+          <div className="min-w-0 flex-1">
+            <h2 className="break-words font-bold text-stone-950">{business.name}</h2>
+            {business.address && (
+              <p className="mt-1 whitespace-pre-line break-words text-sm text-stone-600">
+                {business.address}
+              </p>
+            )}
+            {business.phone && <p className="mt-1 text-sm text-stone-600">{business.phone}</p>}
+          </div>}
         </section>
       ) : (
         <section className="rounded-xl border border-stone-200 bg-stone-50 p-4">
