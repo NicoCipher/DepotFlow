@@ -1,0 +1,34 @@
+{
+  "kind": "staging_only",
+  "rule": "No image may go live before original-vs-preview visual check",
+  "items": [
+    {
+      "slug": "amstel-malta-33cl",
+      "original": "public/catalogue-photos/amstel-malta-33cl.webp",
+      "status": "needs_visual_review",
+      "preview": "docs/packshot-cleanup-preview/amstel-malta-33cl-clean.webp",
+      "size_bytes": 19398,
+      "sha256": "05be9ccba2ee02284e4e29903b5d04bad506328f927f3410550cf6f7f102e19c",
+      "mask_bbox": [
+        242,
+        167,
+        400,
+        617
+      ]
+    },
+    {
+      "slug": "legend-60cl",
+      "original": "public/catalogue-photos/legend-60cl.webp",
+      "status": "needs_visual_review",
+      "preview": "docs/packshot-cleanup-preview/legend-60cl-clean.webp",
+      "size_bytes": 21898,
+      "sha256": "ad18c2c7d3e6dfca3d0cad79cf3e158c33d15415386d7922a3a975682207c942",
+      "mask_bbox": [
+        248,
+        116,
+        394,
+        695
+      ]
+    }
+  ]
+}
