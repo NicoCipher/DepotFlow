@@ -1234,7 +1234,8 @@ export function SaleBuilder({
               disabled={
                 pending ||
                 total === undefined ||
-                Boolean(paymentInputError) || (Number(draft.paid) > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))
+                Boolean(paymentInputError) || Boolean(oldDebtInputError) || !paymentBreakdown || debtChecking ||
+                (paymentBreakdown.collectNow > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))
               }
               onClick={() =>
                 startTransition(async () => {
@@ -1256,6 +1257,14 @@ export function SaleBuilder({
                     return;
                   }
                   try {
+                    const latestDebt = await loadCustomerMoneyOwed(draft.customerId);
+                    if ("error" in latestDebt) {
+                      setDebtError(latestDebt.error ?? "Could not verify the customer's balance.");
+                      setMessage(latestDebt.error ?? "Could not verify the customer's balance.");
+                      return;
+                    }
+                    setOldDebt({ customerId: draft.customerId, amount: latestDebt.amount });
+                    salePaymentTotals(total!, Number(draft.paid), latestDebt.amount, Number(draft.oldDebtPaid));
                     setCatalog(fresh);
                     matchSaleEmpties(draft, fresh);
                     const lines = draft.lines.map((line) => {
@@ -1286,8 +1295,8 @@ export function SaleBuilder({
             >
               {pending
                 ? "Checking…"
-                : Number(draft.paid) > 0
-                  ? `Review sale · ${formatNaira(Number(draft.paid))} paid`
+                : paymentBreakdown && paymentBreakdown.collectNow > 0
+                  ? `Review · Collect ${formatNaira(paymentBreakdown.collectNow)}`
                   : "Review sale · pay later"}
             </button>
             </div>
@@ -1380,15 +1389,27 @@ export function SaleBuilder({
                 <dd className="font-semibold">{reviewTotal === undefined ? "Check drinks" : formatNaira(reviewTotal)}</dd>
               </div>
               <div className="flex justify-between gap-3 border-b border-stone-200 py-3">
-                <dt>Paid now</dt>
+                <dt>Paid toward today's sale</dt>
                 <dd className="font-semibold">{formatNaira(Number(draft.paid))}</dd>
               </div>
-              {Number(draft.paid) > 0 && <div className="flex justify-between gap-3 border-b border-stone-200 py-3"><dt>Method</dt><dd className="font-semibold">{{ cash: "Cash", transfer: "Bank transfer", pos: "POS" }[draft.paymentMethod as "cash" | "transfer" | "pos"] ?? "Choose a method"}</dd></div>}
+              <div className="flex justify-between gap-3 border-b border-stone-200 py-3">
+                <dt>Paid toward previous debt</dt>
+                <dd className="font-semibold">{formatNaira(Number(draft.oldDebtPaid))}</dd>
+              </div>
+              {Number(draft.paid) + Number(draft.oldDebtPaid) > 0 && <div className="flex justify-between gap-3 border-b border-stone-200 py-3"><dt>Method</dt><dd className="font-semibold">{{ cash: "Cash", transfer: "Bank transfer", pos: "POS" }[draft.paymentMethod as "cash" | "transfer" | "pos"] ?? "Choose a method"}</dd></div>}
               <div className="flex justify-between gap-3 py-3 text-lg font-semibold">
-                <dt>Still owing</dt>
-                <dd>{reviewTotal === undefined ? "Check drinks" : formatNaira(reviewTotal - Number(draft.paid))}</dd>
+                <dt>Total to collect now</dt>
+                <dd>{reviewTotal === undefined || oldDebtAmount === null ? "Check balances" : formatNaira(Number(draft.paid) + Number(draft.oldDebtPaid))}</dd>
               </div>
             </dl>
+            {paymentBreakdown && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <p className="text-sm font-semibold text-amber-950">Customer balance after this sale</p>
+                <p className="mt-1 text-2xl font-bold tabular-nums text-amber-950">{formatNaira(paymentBreakdown.totalOwedAfter)}</p>
+                <p className="mt-1 text-xs text-amber-950">Includes previous unpaid debt and any unpaid part of today's sale. Rechecked when saving.</p>
+              </div>
+            )}
+            {debtError && <p role="alert" className="text-sm text-amber-900">{debtError}</p>}
             <div className="sale-sticky-actions sticky z-10 -mx-4 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
             <p className="mb-1 truncate text-sm font-semibold text-emerald-950">Sale for {customer?.name}</p>
             <p className="mb-2 text-xs text-stone-600">Saving updates stock, payment and any amount owed.</p>
@@ -1401,7 +1422,8 @@ export function SaleBuilder({
                 !emptiesReview ||
                 hasUnmatchedSaleEmpties(emptiesReview) ||
                 Number(draft.paid) > reviewTotal ||
-                (Number(draft.paid) > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))
+                !paymentBreakdown || debtChecking || Boolean(oldDebtInputError) ||
+                (paymentBreakdown.collectNow > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))
               }
               onClick={() =>
                 startTransition(async () => {
