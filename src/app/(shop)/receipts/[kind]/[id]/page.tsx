@@ -318,7 +318,8 @@ export default async function ReceiptPage({
           businessAddress: business?.address ?? "",
           businessPhone: business?.phone ?? "",
           title:
-            kind === "sale" ? "Sale Receipt" : "Balance Payment Receipt",
+            account ? "Sale & Customer Account Receipt"
+              : kind === "sale" ? "Sale Receipt" : "Balance Payment Receipt",
           customer: receipt.receipt_customer_name,
           date: formatBusinessDate(receipt.business_date),
           method: methodLabel(receipt.method),
