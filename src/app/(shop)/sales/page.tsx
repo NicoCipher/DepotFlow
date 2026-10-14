@@ -28,8 +28,8 @@ export default async function SalesPage({
       />
       <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
         <p className="text-sm font-semibold text-emerald-950">Looking for a receipt or customer payment?</p>
-        <Link className="quiet-link mt-2 inline-flex min-h-11 items-center text-sm" href="/records?kind=sale">
-          Find a sale by customer, date or receipt number in Records →
+        <Link className="quiet-link mt-2 inline-flex min-h-11 items-center text-sm" href="/records">
+          Find sales and payments by customer, date or receipt in Records →
         </Link>
       </div>
       <SalesList sales={sales} showRecordSale />
