@@ -3,7 +3,7 @@ begin;
 -- Receipt facts are frozen with the same transaction that saves the sale.
 -- A null snapshot denotes a sale created before this feature (never backfill
 -- from a customer's current balance, which may have changed).
-alter table public.sales add column account_receipt jsonb;
+alter table public.sales add column if not exists account_receipt jsonb;
 
 -- Align the still-supported direct sale RPC with the new checkout lock order.
 -- This entry point remains accessible for in-flight forms and callers that
@@ -49,7 +49,7 @@ $$;
 -- Atomic checkout: settle an existing debt first, then save today's sale.
 -- Both existing RPCs run in one database transaction, so a failed sale rolls
 -- back the debt payment as well. A separate payment receipt is issued.
-create function public.save_sale_with_old_debt_payment(
+create or replace function public.save_sale_with_old_debt_payment(
   p_request_id uuid,
   p_customer_id uuid,
   p_business_date date,
