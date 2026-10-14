@@ -24,6 +24,9 @@ begin
   if p_paid > 0 and (p_payment_method is null or p_payment_method not in ('cash','transfer','pos')) then
     raise exception using errcode='22023',message='Choose how the customer paid.';
   end if;
+  -- All public sale entry points acquire the request lock before row locks;
+  -- the underlying private saver acquires it again (reentrant).
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_request_id::text, 0));
   -- Customer -> money_owed -> product/stock for every sale entry point.
   perform 1 from public.customers where id = p_customer_id for share;
   perform 1 from public.money_owed where customer_id = p_customer_id for update;
