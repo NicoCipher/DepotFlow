@@ -48,13 +48,20 @@ begin
       r.created_at,
       'empties'::text as kind,
       case when totals.crates_returned=0 and totals.bottles_returned=0
-        then 'Collected ' || totals.held_released || ' held ' ||
-             case when totals.held_released=1 then 'item' else 'items' end
+        then 'Customer collected ' || totals.held_crates_released || ' held ' ||
+             case when totals.held_crates_released=1 then 'crate' else 'crates' end || ', ' ||
+             totals.held_bottles_released || ' held ' ||
+             case when totals.held_bottles_released=1 then 'bottle' else 'bottles' end
         else 'Returned ' || totals.crates_returned || ' ' ||
              case when totals.crates_returned=1 then 'crate' else 'crates' end || ', ' ||
              totals.bottles_returned || ' ' ||
              case when totals.bottles_returned=1 then 'bottle' else 'bottles' end ||
-             case when totals.held_released>0 then ' · ' || totals.held_released || ' held collected' else '' end
+             case when totals.held_crates_released>0 or totals.held_bottles_released>0
+               then ' · Customer collected ' || totals.held_crates_released || ' held ' ||
+                    case when totals.held_crates_released=1 then 'crate' else 'crates' end || ', ' ||
+                    totals.held_bottles_released || ' held ' ||
+                    case when totals.held_bottles_released=1 then 'bottle' else 'bottles' end
+               else '' end
       end as title,
       r.customer_id,0::bigint as sale_value,0::bigint as received,
       'Empties returned · ' || c.name as description,
@@ -65,7 +72,17 @@ begin
       select
         coalesce((select sum((b.value->>'quantity')::integer) from jsonb_array_elements(coalesce(r.request_payload->'crates','[]'::jsonb)) b(value)),0)::bigint as crates_returned,
         coalesce((select sum((b.value->>'quantity')::integer) from jsonb_array_elements(coalesce(r.request_payload->'bottles','[]'::jsonb)) b(value)),0)::bigint as bottles_returned,
-        jsonb_array_length(coalesce(r.request_payload->'released','[]'::jsonb)) as held_released
+        -- Released IDs refer to decisions, not individual physical empties.
+        -- Match the customer as well as the ID so one account never picks up another's quantities.
+        held.held_crates_released, held.held_bottles_released
+      from (
+        select
+          coalesce(sum(d.quantity) filter (where d.kind='crate'),0)::bigint as held_crates_released,
+          coalesce(sum(d.quantity) filter (where d.kind='bottle'),0)::bigint as held_bottles_released
+        from jsonb_array_elements_text(coalesce(r.request_payload->'released','[]'::jsonb)) released(id)
+        join public.sale_empty_decisions d on d.id=released.id::uuid
+          and d.customer_id=r.customer_id and d.decision='hold'
+      ) held
     ) totals
     where (r.created_at at time zone 'Africa/Lagos')::date between p_from and p_to
     union all
@@ -90,6 +107,11 @@ begin
 end $function$;
 
 
+-- Open wrong-empties can grow indefinitely: support the visible-customer grouped count.
+create index if not exists sale_empty_decisions_open_held_customer_idx
+  on public.sale_empty_decisions(customer_id)
+  where decision='hold' and released_at is null;
+
 -- Compute the customer-list badges from aggregates, never from a capped page of rows.
 -- Owner-only and bounded to the 30 visible customers.
 create or replace function public.customer_account_snapshot(p_customer_ids uuid[])
@@ -111,9 +133,16 @@ begin
                 where o.customer_id=c.id and o.quantity>0),0) as crates_owed,
       coalesce((select sum(o.quantity)::bigint from public.bottle_obligations o
                 where o.customer_id=c.id and o.quantity>0),0) as bottles_owed,
-      (select count(*) from public.sale_empty_decisions s
-       where s.customer_id=c.id and s.decision='hold' and s.released_at is null) as held_entries
+      coalesce(h.held_entries,0)::bigint as held_entries
     from public.customers c
+    left join (
+      -- One grouped, indexed lookup for only the visible customers.
+      select s.customer_id, count(*)::bigint as held_entries
+      from public.sale_empty_decisions s
+      where s.customer_id=any(p_customer_ids)
+        and s.decision='hold' and s.released_at is null
+      group by s.customer_id
+    ) h on h.customer_id=c.id
     where c.id=any(p_customer_ids) and c.archived_at is null;
 end
 $account$;
