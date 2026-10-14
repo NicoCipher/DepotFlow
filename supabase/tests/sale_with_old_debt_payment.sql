@@ -58,6 +58,20 @@ do $$ declare v jsonb; begin
     'Historical payment corrupted current sale amounts');
   perform pg_temp.ok((select total_bottles=99 from public.stock
     where product_id='10000000-0000-4000-8000-000000008701'),'Sale stock incorrect');
+  perform pg_temp.ok((select account_receipt->>'bd'='5000'
+      and account_receipt->>'saleTotal'='1000'
+      and account_receipt->>'paidOld'='2000'
+      and account_receipt->>'paidSale'='500'
+      and account_receipt->>'collected'='2500'
+      and account_receipt->>'cd'='3500'
+      and account_receipt->>'debtPaymentReference' is not null
+    from public.sales where request_id='40000000-0000-4000-8000-000000008701'),
+    'Customer statement did not freeze B/D and C/D at checkout');
+  perform pg_temp.ok((select public.verify_receipt(verification_token)->'account'->>'bd'='5000'
+      and public.verify_receipt(verification_token)->'account'->>'cd'='3500'
+      and public.verify_receipt(verification_token)->>'amount'='500'
+    from public.sales where request_id='40000000-0000-4000-8000-000000008701'),
+    'QR verification did not present saved customer statement');
   -- The same saved request must not create a second payment or deduct twice.
   v := public.save_sale_with_old_debt_payment(
     '40000000-0000-4000-8000-000000008701',
@@ -132,6 +146,50 @@ select public.save_sale_with_old_debt_payment(
 select pg_temp.ok((select amount=3500 from public.money_owed
   where customer_id='20000000-0000-4000-8000-000000008701'),
   'Fully paid new sale changed the customer''s old debt');
+
+-- Later ledger movements must never rewrite historical receipts or their QR codes.
+select public.record_payment(
+  '40000000-0000-4000-8000-000000008705',
+  '20000000-0000-4000-8000-000000008701',
+  1000, '2026-10-15', 'cash'
+);
+select pg_temp.ok((select amount=2500 from public.money_owed
+  where customer_id='20000000-0000-4000-8000-000000008701'),
+  'New payment did not update current debt');
+select pg_temp.ok((select account_receipt->>'cd'='3500'
+  and public.verify_receipt(verification_token)->'account'->>'cd'='3500'
+  from public.sales where request_id='40000000-0000-4000-8000-000000008701'),
+  'Later payment rewrote the historical statement');
+
+-- A zero-payment sale still has a legitimate verifiable sale statement.
+do $ declare v jsonb; begin
+  v := public.save_sale_with_old_debt_payment(
+    '40000000-0000-4000-8000-000000008706',
+    '20000000-0000-4000-8000-000000008701','2026-10-16',
+    0,pg_temp.lines(),'[]','[]','not_recorded',0
+  );
+  perform pg_temp.ok((select account_receipt->>'bd'='2500'
+    and account_receipt->>'collected'='0'
+    and account_receipt->>'cd'='3500'
+    and public.verify_receipt(verification_token)->>'amount'='0'
+    from public.sales where request_id='40000000-0000-4000-8000-000000008706'),
+    'Unpaid sale does not produce a valid historical statement');
+end $;
+
+-- An uncertain retry after other customer activity must return the original
+-- checkout's historical C/D and must not create any extra payment.
+do $ declare v jsonb; begin
+  v := public.save_sale_with_old_debt_payment(
+    '40000000-0000-4000-8000-000000008701',
+    '20000000-0000-4000-8000-000000008701','2026-10-14',
+    500,pg_temp.lines(),'[]','[]','cash',2000
+  );
+  perform pg_temp.ok((v->>'balanceAfter')::int=3500,
+    'Retry returned the live balance instead of the original saved C/D');
+end $;
+select pg_temp.ok((select count(*)=2 from public.customer_payments
+  where customer_id='20000000-0000-4000-8000-000000008701'),
+  'Retries duplicated the old-debt payment');
 
 -- No privilege for other signed-in users or anonymous callers.
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000008702',true);
