@@ -29,8 +29,9 @@ Status: **proposed product defaults, not live authorization**. Confirm these def
 | View/export full business sales history | ✓ | ✓ (view) | ○ (view) | — | ✓ (view) |
 | View operational stock quantities | ✓ | ✓ | ✓ | ✓ | ○ |
 | Receive stock and view supplier delivery | ✓ | ✓ | — | ✓ | — |
-| Enter a physical stock count | ✓ | ✓ | — | ✓ | — |
+| Submit a physical stock count **without changing stock** (future workflow) | ✓ | ✓ | — | ✓ | — |
 | **Finalize stock variance/write-off** | ✓† | ○† | — | ○† | — |
+| Create historical opening money/crate/bottle obligations | ✓† | ○† | — | — | ○† |
 | Record physical empties returns / release held empties | ✓ | ✓ | ✓ | ✓ | — |
 | Configure crate compatibility/deposit rules | ✓† | ○† | — | — | — |
 | Add/edit products and selling assortment | ✓ | ✓ | — | ○ | — |
@@ -47,6 +48,10 @@ Status: **proposed product defaults, not live authorization**. Confirm these def
 
 `*` Accounts can collect old debt separately; using a combined sale checkout additionally requires the permission to record a sale. An Accounts role alone cannot create a sale. The matrix does not override that dependency.
 
+**Current implementation discrepancy (release blocker):** `reviewCount` only previews the entered value, while `confirmCount` immediately invokes the privileged `set_current_stock` RPC and adjusts inventory. There is **no persisted pending physical count today**. The proposed Stock role can submit a count only after the pending-count workflow exists and is tested; until then the current final stock adjustment path must remain owner-only. Merely hiding the "Confirm" button or renaming the permission would be unsafe.
+
+**Opening-balances safeguard:** `recordOpeningBalances` invokes `record_opening_balances` and directly changes money owed and physical crate/bottle obligations. `balances.create_opening` is a distinct, high-risk operation with exact role defaults shown above; it is never implied by `customers.manage`, `sales.create`, `payments.collect_old_debt_standalone`, or any other generic role.
+
 **Important:** a salesperson who can receive a customer payment is **not** automatically allowed to change debt directly, refund cash, void a sale, alter past receipts or modify pricing. Future corrections are separate operations with distinct approvals and audit.
 
 ## Permission keys and dependency rules
@@ -60,11 +65,21 @@ These keys are proposed names for the server and SQL layers; do not implement ra
 | Customers | `customers.list`, `customers.view_balance`, `customers.manage`, `customers.archive` | Sensitive history separate from minimal checkout debt amount |
 | Sales | `sales.create`, `sales.view_own`, `sales.view_all`, `sales.correct` | `sales.create` includes atomically saving sale lines/payment; corrections distinct |
 | Money | `payments.collect_at_checkout`, `payments.collect_old_debt_at_checkout`, `payments.collect_old_debt_standalone`, `payments.view_all` | Combined sale+old debt requires `sales.create` **and** `payments.collect_old_debt_at_checkout` |
-| Stock | `stock.view`, `stock.receive`, `stock.count`, `stock.finalize_variance` | Counts can be submitted without granting destructive stock adjustment |
+| Historical opening balances | `balances.create_opening`, `balances.view_opening` | Recording opening debt/empties is **not** the same as accepting a payment or editing a customer. Separate, high-risk permission granted to Owner by default; optional Manager/Accounts delegation only with reason, confirmation, actor audit, scoped customer and amount/type revalidation. Existing `record_opening_balances` must check this permission at the database layer before staff rollout. Do not grant to Sales or Stock automatically. |
+| Stock | `stock.view`, `stock.receive`, `stock.count_submit`, `stock.finalize_variance` | **Not true today.** Current `confirmCount` calls `set_current_stock`, immediately changing stock. Before stockkeeper grants, add a business-scoped `pending_stock_counts` record/submit RPC that writes *only* the observed physical quantity, reason, actor, date, expected book quantity and immutable request ID. Separate, explicitly authorized finalization checks fresh quantities/version, calculates variance, atomically posts adjustment, and marks the request finalized. No count-submission RPC may call `set_current_stock` or modify `stock`. |
 | Empties | `empties.view`, `empties.return`, `empties.release_held`, `empties.adjust_stock`, `empties.change_rules` | No substitutions/merging of incompatible crate/bottle obligations |
 | Products and prices | `products.manage`, `pricing.selling_edit`, `pricing.cost_view`, `pricing.cost_edit` | Separate selling-price work from private purchase costs/profit |
 | Records | `records.view_own`, `records.view_all`, `records.export`, `records.audit_view` | Read rights are independently scoped; no default exports for Sales |
 | Platform catalogue | `platform.catalogue_manage` | Not grantable by ordinary business owner/manager |
+
+## Stock count and opening-balance negative tests required before staff access
+
+- A Stock-role user with only `stock.count_submit` can create an immutable pending count and view it, but **cannot** change `public.stock`, call `set_current_stock`, finalize a variance, authorize themselves or mutate a finalized count.
+- Replaying the same stock-count request ID returns the original pending/final result; a different request ID must not bypass quantity/version checks.
+- Owner or separately authorized Manager can finalize a pending count only when current book stock/metadata are revalidated; no stale count silently overwrites sales or recent receipts. A variance that needs another approver is held until one is granted.
+- An unprivileged Sales, Stock or ordinary customer-editor account cannot invoke `record_opening_balances` directly, even with a valid customer ID, guessed business ID or edited payload.
+- A Manager/Accounts user **without** explicit `balances.create_opening` cannot add historical debt/empty obligations; an enabled delegate still needs a reason, exact business match and an audit entry.
+- An opening-balance retry uses its idempotency key; a failed transaction must not partially change money owed or crate/bottle obligations. A user revoked during a session is denied on their next operation.
 
 ## Approval and audit rules
 
@@ -72,7 +87,7 @@ A task can be handled by one person, two people or a larger team.
 
 1. **Ordinary work** (recording sales, approved payments, receiving correctly ordered stock, recording empties): no unnecessary approval. Log `actor_user_id`, `business_id`, `occurred_at`, source record and request ID.
 2. **Sensitive, reversible settings** (selling prices, business identity, crate/deposit rules, staff permissions): require re-confirmation, reason where appropriate, log before/after change. Optionally require owner approval for manager/staff changes.
-3. **High-impact transactions** (voiding money records, major stock adjustments, changing historical opening balances, ownership transfer): explicit separately granted permission, a reason, audit and step-up authentication. For multi-person teams, optionally require another qualified approver.
+3. **High-impact transactions** (voiding money records, finalizing stock variances, creating historical opening balances, ownership transfer): explicit separately granted permission, a reason, audit and step-up authentication. For multi-person teams, optionally require another qualified approver.
 4. **One-person depot**: never block core operation due to absent second employee. Owner can perform sensitive actions with step-up confirmation, documented reason and tamper-resistant audit. This is *not* automatic permission for non-owner staff to self-approve.
 5. **No approval through editable UI state**: check approval status, actor permission and target business in the same database transaction as the change. Record both requester and approver where a two-person approval is used.
 
