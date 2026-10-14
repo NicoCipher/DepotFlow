@@ -1,0 +1,63 @@
+{
+  "status": "STAGED_FOR_MANUAL_REVIEW_NO_DB_WRITE",
+  "items": [
+    {
+      "slug": "amstel-malta-can-33cl",
+      "catalogue_name": "Amstel Can",
+      "status": "failed",
+      "source_page": "https://www.supermart.ng/products/amstel-malta-can-33-cl",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "slug": "heineken-can-33cl",
+      "catalogue_name": "Heineken Can",
+      "status": "failed",
+      "source_page": "https://www.supermart.ng/collections/beer-stout-cider/products/heineken-lager-beer-can-33-cl",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "slug": "malta-guinness-can-33cl",
+      "catalogue_name": "Malta Can",
+      "status": "failed",
+      "source_page": "https://www.supermart.ng/collections/soft-drinks/products/malta-guinness-can-33-cl",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "slug": "maltina-classic-can-33cl",
+      "catalogue_name": "Maltina Can",
+      "status": "failed",
+      "source_page": "https://www.supermart.ng/products/maltina-classic-malt-drink-can-33-cl",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "slug": "maltina-classic-pet-33cl",
+      "catalogue_name": "Maltina PET 33cl",
+      "status": "failed",
+      "source_page": "https://www.supermart.ng/products/maltina-classic-malt-drink-pet-bottle-33-cl",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "slug": "maltina-classic-glass-33cl",
+      "catalogue_name": "Maltina",
+      "status": "failed",
+      "source_page": "https://www.supermart.ng/products/maltina-classic-malt-drink-glass-bottle-33-cl",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "slug": "chamdor-red-75cl",
+      "catalogue_name": "Chamdor",
+      "status": "staged_unreviewed",
+      "source_page": "https://rightdrinksng.com/shop/chamdor-non-alcoholic-red-wine-wine-75cl/",
+      "source_image": "https://rightdrinksng.com/wp-content/uploads/2026/01/Chamdor_Non-Alcoholic_Red_Wine_Wine_75cl-1-2.png",
+      "bytes": 15572,
+      "sha256": "01eca3c5b45a30a5a6da86df8d59c71a0827e7293fdaa69bcdafed48c32039ad"
+    },
+    {
+      "slug": "fayrouz-pineapple-can-33cl",
+      "catalogue_name": "Fayrouz Can",
+      "status": "failed",
+      "source_page": "https://www.supermart.ng/products/fayrouz-pineapple-can-33-cl",
+      "error": "HTTP Error 429: Too Many Requests"
+    }
+  ]
+}
