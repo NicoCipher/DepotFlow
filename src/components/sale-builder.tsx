@@ -165,6 +165,24 @@ export function SaleBuilder({
     draft.bottles,
     "exact bottles",
   );
+  function canIncreaseQuantity(field: "crates" | "bottles") {
+    if (!product || cratesInputError || bottlesInputError) return false;
+    try {
+      const current = quantity();
+      priceQuantity(product, { ...current, [field]: current[field] + 1 });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function changeNumber(field: "crates" | "bottles", amount: -1 | 1) {
+    const current = field === "crates" ? draft.crates : draft.bottles;
+    if (!/^\d+$/.test(current)) return;
+    const next = Number(current) + amount;
+    if (!Number.isSafeInteger(next) || next < 0) return;
+    if (amount > 0 && !canIncreaseQuantity(field)) return;
+    update({ [field]: String(next) });
+  }
   let preview: ReturnType<typeof priceQuantity> | undefined;
   let quantityError = "";
   if (product && !cratesInputError && !bottlesInputError)
@@ -245,6 +263,16 @@ export function SaleBuilder({
           : step === "payment"
             ? 3
             : 4;
+  const visibleProducts = catalog.products.filter((p) =>
+    (p.name + " " + (p.size ?? "")).toLowerCase().includes(draft.productQuery.trim().toLowerCase()),
+  );
+  function linePriceLabel(p: SaleProduct, q: SaleQuantity) {
+    try {
+      return formatNaira(priceQuantity(p, q).lineTotal);
+    } catch {
+      return "Check price or stock";
+    }
+  }
   const progressLabels = ["Customer", "Drinks", "Empties", "Payment", "Review"] as const;
   useEffect(() => {
     if (previousStep.current !== null && previousStep.current !== step) {
@@ -354,39 +382,52 @@ export function SaleBuilder({
         aria-label="Sale draft"
         className="space-y-5"
       >
-        <h1 ref={stepHeading} tabIndex={-1} className="outline-none">
-          {step === "customer"
-            ? "Choose customer"
-            : step === "drinks"
-              ? "Add Drinks"
-              : step === "quantity"
-                ? "Choose quantity"
-                : step === "empties"
-                  ? "Check Empties"
-                  : step === "payment"
-                    ? "Payment"
-                    : "Review"}
-        </h1>
-        <nav aria-label="Sale progress">
-          <p className="text-sm font-semibold text-stone-700">
-            Step {progressStep + 1} of 5 · {progressLabels[progressStep]}
-          </p>
-          <div className="mt-2 grid grid-cols-5 gap-1" aria-hidden="true">
-            {progressLabels.map((label, index) => (
-              <span
-                key={label}
-                className={`h-1.5 rounded-full ${index <= progressStep ? "bg-emerald-800" : "bg-stone-200"}`}
-              />
-            ))}
+        <header className="space-y-4 border-b border-stone-200 pb-5">
+          <div>
+            <p className="mb-1 text-sm font-semibold text-emerald-800">Record sale</p>
+            <h1 ref={stepHeading} tabIndex={-1} className="outline-none">
+              {step === "customer"
+                ? "Who is buying?"
+                : step === "drinks"
+                  ? "Choose drinks"
+                  : step === "quantity"
+                    ? "Set the quantity"
+                    : step === "empties"
+                      ? "Check the empties"
+                      : step === "payment"
+                        ? "Record payment"
+                        : "Review and save"}
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-stone-600">
+              {step === "customer"
+                ? "Find the customer to begin. You can change them before saving."
+                : step === "drinks"
+                  ? "Add every drink the customer is taking. Check the order as you go."
+                  : step === "quantity"
+                    ? "Enter what they are taking. The amount updates before you add it."
+                    : step === "empties"
+                      ? "Confirm what came back, including any missing or different bottles."
+                      : step === "payment"
+                        ? "Enter what was received today. Any balance is worked out for you."
+                        : "Confirm the drinks, empties and money before saving."}
+            </p>
           </div>
-          <ol className="sr-only">
-            {progressLabels.map((label, index) => (
-              <li key={label} aria-current={index === progressStep ? "step" : undefined}>
-                {label}
-              </li>
-            ))}
-          </ol>
-        </nav>
+          <nav aria-label="Sale progress">
+            <p className="text-xs font-semibold uppercase tracking-wide text-stone-600">
+              Step {progressStep + 1} of 5
+            </p>
+            <ol className="mt-2 grid grid-cols-5 gap-1.5">
+              {progressLabels.map((label, index) => (
+                <li key={label} aria-current={index === progressStep ? "step" : undefined} className="min-w-0">
+                  <span className={index <= progressStep ? "block h-1.5 rounded-full bg-emerald-800" : "block h-1.5 rounded-full bg-stone-200"} aria-hidden="true" />
+                  <span className={index === progressStep ? "mt-1.5 block truncate text-[10px] font-bold text-emerald-900 sm:text-xs" : "mt-1.5 block truncate text-[10px] text-stone-500 sm:text-xs"}>
+                    {label}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        </header>
         {customer && step !== "customer" && (
           <section aria-label="Current sale" className="border-b border-stone-200 pb-4">
             <div className="flex items-start justify-between gap-3">
@@ -484,6 +525,7 @@ export function SaleBuilder({
             <input
               id="sale-customer-search"
               type="search"
+              placeholder="Customer name or phone number"
               maxLength={120}
               value={customerQuery}
               onChange={(e) => setCustomerQuery(e.target.value)}
@@ -531,127 +573,147 @@ export function SaleBuilder({
           </>
         )}
         {step === "drinks" && (
-          <>
-            {!draft.lines.length && <p className="text-stone-700">Choose a drink, set its quantity, then add another if needed.</p>}
-            {draft.lines.length > 0 && <section aria-label="Drinks in this sale" className="rounded-lg border-2 border-emerald-800 bg-emerald-50 p-4">
-              <h2 className="text-lg font-semibold">Drinks chosen</h2>
-              <ul className="mt-3 divide-y divide-emerald-200">{draft.lines.map((line) => {
-                const item = catalog.products.find((p) => p.id === line.productId);
-                return <li key={line.productId} className="py-3">
-                  <p className="break-words text-lg font-semibold">{item?.name ?? "Unavailable drink"} {item?.size}</p>
-                  <p>{saleQuantityLabel(line.quantity)}</p>
-                  <div className="mt-1 flex flex-wrap gap-x-5">
-                    {item && <button type="button" className="quiet-link" onClick={() => edit(item)}>Change quantity</button>}
-                    <button type="button" className="quiet-link" onClick={() => update({ lines: removeSaleLine(draft.lines, line.productId) })}>Remove</button>
-                  </div>
-                </li>;
-              })}</ul>
-              <p className="mt-3 border-t border-emerald-300 pt-3 text-xl font-semibold">Total: {total === undefined ? "Check quantities" : formatNaira(total)}</p>
-            </section>}
-            <div>
-              <label htmlFor="sale-drink-search">Search drinks</label>
-              <input
-                id="sale-drink-search"
-                type="search"
-                maxLength={120}
-                value={draft.productQuery}
-                onChange={(e) => update({ productQuery: e.target.value })}
-              />
-            </div>
-            <ul className="divide-y divide-stone-200">
-              {catalog.products
-                .filter((p) =>
-                  `${p.name} ${p.size ?? ""}`
-                    .toLowerCase()
-                    .includes(draft.productQuery.trim().toLowerCase()),
-                )
-                .map((p) => {
-                  const line = draft.lines.find(
-                    (line) => line.productId === p.id,
-                  );
+          <div className="space-y-6">
+            {draft.lines.length > 0 && (
+              <section aria-label="Drinks in this sale" className="overflow-hidden rounded-xl border border-emerald-300 bg-emerald-50/70">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-200 px-4 py-3">
+                  <h2 className="text-lg font-bold text-emerald-950">
+                    In this sale · {draft.lines.length} {draft.lines.length === 1 ? "drink" : "drinks"}
+                  </h2>
+                  <strong className="text-xl tabular-nums text-emerald-950">
+                    {total === undefined ? "Check prices" : formatNaira(total)}
+                  </strong>
+                </div>
+                <ul className="divide-y divide-emerald-200 px-4">
+                  {draft.lines.map((line) => {
+                    const item = catalog.products.find((p) => p.id === line.productId);
+                    return (
+                      <li key={line.productId} className="flex min-w-0 items-start gap-3 py-3">
+                        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-emerald-100 bg-white">
+                          {item ? <ProductImage src={item.image_url} name={item.name} /> : <span className="block p-2 text-xs">Drink unavailable</span>}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="break-words font-bold text-stone-950">
+                            {item?.name ?? "Unavailable drink"} {item?.size}
+                          </p>
+                          <p className="mt-0.5 text-sm text-stone-700">{saleQuantityLabel(line.quantity)}</p>
+                          <p className="mt-1 font-bold tabular-nums text-stone-950">{item ? linePriceLabel(item, line.quantity) : "Check drink"}</p>
+                          <div className="flex flex-wrap gap-x-5">
+                            {item && <button type="button" className="quiet-link text-sm" onClick={() => edit(item)}>Change</button>}
+                            <button type="button" className="quiet-link text-sm" onClick={() => update({ lines: removeSaleLine(draft.lines, line.productId) })}>Remove</button>
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            )}
+            <section aria-labelledby="sale-choose-drink">
+              <div className="mb-4">
+                <h2 id="sale-choose-drink" className="text-xl font-bold text-stone-950">
+                  {draft.lines.length ? "Add another drink" : "Find a drink"}
+                </h2>
+                <p className="mt-1 text-sm text-stone-600">Choose a picture or name to enter its quantity.</p>
+                <label className="mt-4" htmlFor="sale-drink-search">Search drinks</label>
+                <input
+                  id="sale-drink-search"
+                  type="search"
+                  placeholder="Type a drink name or size"
+                  maxLength={120}
+                  value={draft.productQuery}
+                  onChange={(e) => update({ productQuery: e.target.value })}
+                />
+                <p className="mt-2 text-sm text-stone-600">
+                  {visibleProducts.length} {visibleProducts.length === 1 ? "drink" : "drinks"} found
+                </p>
+              </div>
+              <ul className="grid min-w-0 gap-3 sm:grid-cols-2" aria-label="Available drinks to choose">
+                {visibleProducts.map((p) => {
+                  const line = draft.lines.find((item) => item.productId === p.id);
                   const setupIssue = saleProductSetupIssue(p);
+                  const selectable = Boolean(p.available) && !setupIssue;
                   return (
-                    <li key={p.id} className="py-4">
-                      <button
-                        className={`flex min-h-24 w-full items-center gap-4 rounded-lg p-2 text-left ${line ? "bg-emerald-50 ring-2 ring-inset ring-emerald-800" : ""}`}
-                        disabled={!p.available || Boolean(setupIssue)}
-                        onClick={() => edit(p)}
-                      >
-                        <span className="h-20 w-20 shrink-0 overflow-hidden">
-                          <ProductImage src={p.image_url} name={p.name} />
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block break-words text-lg font-semibold">
-                            {p.name} {p.size}
-                          </span>
-                          <span className="block text-sm">{available(p)}</span>
-                          <span className="block text-sm text-stone-600">
-                            {p.full_crate_price === null
-                              ? "Price not set"
-                              : `${formatNaira(p.full_crate_price)} / crate`}
-                          </span>
-                          {setupIssue && (
-                            <span className="block font-semibold text-amber-900">
-                              Setup needed before sale
-                            </span>
-                          )}
-                          {line && !setupIssue && (
-                            <span className="block font-semibold">
-                              In sale: {saleQuantityLabel(line.quantity)} ·
-                              Change
-                            </span>
-                          )}
-                        </span>
-                      </button>
-                      {setupIssue && (
-                        <Link
-                          className="quiet-link ml-24 mt-1 inline-block"
-                          href={`/products/${p.id}/edit`}
+                    <li key={p.id} className="min-w-0">
+                      <div className={line
+                        ? "h-full rounded-xl border-2 border-emerald-700 bg-emerald-50"
+                        : "h-full rounded-xl border border-stone-200 bg-white"}>
+                        <button
+                          type="button"
+                          className="flex min-h-32 w-full items-center gap-3 rounded-xl p-3 text-left disabled:opacity-70"
+                          disabled={!selectable}
+                          onClick={() => edit(p)}
                         >
-                          Finish drink setup
-                        </Link>
-                      )}
+                          <span className="h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-stone-50">
+                            <ProductImage src={p.image_url} name={p.name} />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block break-words text-base font-bold text-stone-950">{p.name} {p.size}</span>
+                            <span className={p.available === 0 ? "mt-1 block text-sm font-semibold text-red-800" : "mt-1 block text-sm text-stone-600"}>
+                              {available(p)}
+                            </span>
+                            <span className="mt-1 block text-sm font-semibold text-stone-800">
+                              {p.full_crate_price === null ? "Crate price not set" : formatNaira(p.full_crate_price) + " / crate"}
+                            </span>
+                            {p.bottle_price !== null && <span className="block text-xs text-stone-600">{formatNaira(p.bottle_price)} / bottle</span>}
+                            <span className={line ? "mt-2 block text-sm font-bold text-emerald-900" : "mt-2 block text-sm font-bold text-emerald-800"}>
+                              {setupIssue ? "Setup needed" : !p.available ? "Cannot add" : line ? "✓ In this sale · Change" : "Select drink →"}
+                            </span>
+                          </span>
+                        </button>
+                        {setupIssue && (
+                          <Link className="quiet-link mx-3 mb-2 inline-block text-sm" href={"/products/" + p.id + "/edit"}>
+                            Finish drink setup
+                          </Link>
+                        )}
+                      </div>
                     </li>
                   );
                 })}
-            </ul>
-            {!catalog.products.some((p) =>
-              `${p.name} ${p.size ?? ""}`
-                .toLowerCase()
-                .includes(draft.productQuery.trim().toLowerCase()),
-            ) && <p>No matching drinks.</p>}
-            <div className="sale-sticky-actions sticky z-10 space-y-2 border-t border-stone-300 bg-background py-4">
-              <p className="flex min-w-0 justify-between gap-2 text-sm font-semibold text-emerald-950">
-                <span className="truncate">{customer?.name}</span>
-                {total !== undefined && draft.lines.length > 0 && <span className="shrink-0">{formatNaira(total)}</span>}
-              </p>
-              {!draft.lines.length && <p className="text-sm text-stone-700">Add at least one drink to continue.</p>}
+              </ul>
+              {visibleProducts.length === 0 && (
+                <div className="rounded-xl border border-stone-200 bg-white p-5">
+                  <p className="font-semibold">No drinks found</p>
+                  <p className="mt-1 text-sm text-stone-600">Try another name or clear your search.</p>
+                  {draft.productQuery && <button type="button" className="secondary mt-3" onClick={() => update({ productQuery: "" })}>Clear search</button>}
+                </div>
+              )}
+            </section>
+            <div className="sale-sticky-actions sticky z-10 space-y-3 border-t border-stone-300 bg-background py-3">
+              <div className="flex min-w-0 items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-stone-600">Current sale</p>
+                  <p className="truncate text-sm font-semibold text-stone-900">{draft.lines.length} {draft.lines.length === 1 ? "drink" : "drinks"} · {customer?.name}</p>
+                </div>
+                <strong className="shrink-0 text-xl tabular-nums text-stone-950">
+                  {total === undefined ? "—" : formatNaira(total)}
+                </strong>
+              </div>
               <button
+                type="button"
                 className="primary w-full"
-                disabled={
-                  !draft.lines.length ||
-                  pending ||
-                  revalidateSaleDraft(draft, catalog).warnings.length > 0
-                }
+                disabled={!draft.lines.length || pending || revalidateSaleDraft(draft, catalog).warnings.length > 0}
                 onClick={quickCheck}
               >
-                {pending ? "Checking stock…" : "Next: Check empties"}
+                {pending ? "Checking stock…" : draft.lines.length ? "Continue to empties →" : "Add a drink to continue"}
               </button>
             </div>
-          </>
+          </div>
         )}
         {step === "quantity" && product && (
           <>
-            <p className="text-stone-700">Choose how to price this drink, then enter the quantity.</p>
-            <h2 className="text-xl font-semibold">
-              {product.name} {product.size}
-            </h2>
-            <p>{available(product)}</p>
-            {draft.lines.some((line) => line.productId === product.id) && (
-              <p className="text-sm">
-                Enter the total quantity of this drink for the sale.
-              </p>
-            )}
+            <div className="flex items-center gap-4 rounded-xl border border-stone-200 bg-white p-3 sm:p-4">
+              <div className="h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-stone-50 sm:h-28 sm:w-28">
+                <ProductImage src={product.image_url} name={product.name} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="break-words text-xl font-bold text-stone-950">{product.name} {product.size}</h2>
+                <p className="mt-2 font-medium text-stone-700">{available(product)}</p>
+                {draft.lines.some((line) => line.productId === product.id) && (
+                  <p className="mt-1 text-sm font-semibold text-emerald-800">Editing a drink already in this sale</p>
+                )}
+              </div>
+            </div>
             <form
               className="space-y-5"
               onSubmit={(e) => {
@@ -668,20 +730,26 @@ export function SaleBuilder({
                 }
               }}
             >
-              <fieldset className="rounded-xl border border-stone-200 p-3">
-                <legend className="px-1 font-semibold">Selling by</legend>
+              <fieldset className="rounded-xl border border-stone-200 bg-white p-3 sm:p-4">
+                <legend className="px-1 text-lg font-bold">How are they buying?</legend>
                 <div className="grid grid-cols-2 gap-2">
-                  <button type="button" aria-pressed={pricingMode === "wholesale"} className={pricingMode === "wholesale" ? "primary" : "secondary"} onClick={() => {
+                  <button type="button" aria-pressed={pricingMode === "wholesale"} className={(pricingMode === "wholesale" ? "border-emerald-800 bg-emerald-50 text-emerald-950" : "border-stone-200 bg-white text-stone-800") + " min-h-24 rounded-lg border-2 px-3 py-3 text-left"} onClick={() => {
                     if (pricingMode === "wholesale") return;
                     update({ sellingMode: "wholesale", crates: "0", fraction: 0, eighths: 0, bottles: "0" });
-                  }}>Wholesale · crates</button>
-                  <button type="button" aria-pressed={pricingMode === "retail"} className={pricingMode === "retail" ? "primary" : "secondary"} disabled={product.bottle_price === null} onClick={() => {
+                  }}>
+                    <span className="block font-bold">Wholesale</span>
+                    <span className="mt-1 block text-xs leading-5">Crates and parts of a crate</span>
+                  </button>
+                  <button type="button" aria-pressed={pricingMode === "retail"} className={(pricingMode === "retail" ? "border-emerald-800 bg-emerald-50 text-emerald-950" : "border-stone-200 bg-white text-stone-800") + " min-h-24 rounded-lg border-2 px-3 py-3 text-left"} disabled={product.bottle_price === null} onClick={() => {
                     if (pricingMode === "retail") return;
                     update({ sellingMode: "retail", crates: "0", fraction: 0, eighths: 0, bottles: "0" });
-                  }}>Retail · bottles</button>
+                  }}>
+                    <span className="block font-bold">Retail</span>
+                    <span className="mt-1 block text-xs leading-5">Every bottle at bottle price</span>
+                  </button>
                 </div>
-                <p className="mt-2 text-sm text-stone-600">Changing the price type resets this drink&apos;s quantity. Enter it again below.</p>
-                {product.bottle_price === null && <p className="mt-2 text-sm text-amber-900">Set this drink&apos;s bottle price to enable Retail.</p>}
+                <p className="mt-2 text-xs leading-5 text-stone-600">Switching between Wholesale and Retail clears this drink&apos;s entered quantity.</p>
+                {product.bottle_price === null && <p className="mt-2 text-sm font-medium text-amber-900">Bottle price not set. Retail is unavailable.</p>}
               </fieldset>
               {pricingMode === "wholesale" && (
                 <>
@@ -692,7 +760,10 @@ export function SaleBuilder({
                     ? "Price not set"
                     : `${formatNaira(product.full_crate_price)} each`}
                 </label>
+                <div className="flex items-stretch gap-2">
+                  <button type="button" className="secondary w-12 shrink-0 px-0 text-2xl" aria-label="Remove one whole crate" disabled={Boolean(cratesInputError) || Number(draft.crates) === 0} onClick={() => changeNumber("crates", -1)}>−</button>
                 <input
+                  className="min-w-0 flex-1 text-center text-xl font-bold tabular-nums"
                   id="sale-crates"
                   onFocus={selectDefaultZero}
                   onClick={selectDefaultZero}
@@ -708,6 +779,8 @@ export function SaleBuilder({
                   }
                   onChange={(e) => update({ crates: e.target.value })}
                 />
+                  <button type="button" className="secondary w-12 shrink-0 px-0 text-2xl" aria-label="Add one whole crate" disabled={!canIncreaseQuantity("crates")} onClick={() => changeNumber("crates", 1)}>+</button>
+                </div>
                 {cratesInputError && (
                   <p
                     id="sale-crates-error"
@@ -785,7 +858,37 @@ export function SaleBuilder({
               </fieldset>
                 </>
               )}
-              {pricingMode === "retail" && <p className="text-sm text-stone-700">Each bottle is charged at its configured bottle price. {product.bottles_per_crate % 2 === 0 ? `Half of this ${product.bottles_per_crate}-bottle crate is ${product.bottles_per_crate / 2} bottles.` : `This crate holds ${product.bottles_per_crate} bottles.`} Retail does not use the wholesale fraction price.</p>}
+              {pricingMode === "retail" && (
+                <div className="space-y-3">
+                  <p className="text-sm text-stone-700">
+                    {product.bottle_price === null ? "Bottle price not set." : formatNaira(product.bottle_price) + " per bottle."} Even half a crate is charged by the bottle, not at the wholesale half-crate price.
+                  </p>
+                  <fieldset>
+                    <legend className="mb-2 text-sm font-bold">Quick quantities</legend>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[1, ...(product.bottles_per_crate % 2 === 0 ? [product.bottles_per_crate / 2] : []), product.bottles_per_crate].filter((n, index, all) => all.indexOf(n) === index).map((n) => (
+                        <button
+                          type="button"
+                          key={n}
+                          aria-pressed={draft.bottles === String(n)}
+                          className={draft.bottles === String(n) ? "primary" : "secondary"}
+                          disabled={(() => {
+                            try {
+                              priceQuantity(product, { crates: 0, fraction: 0, bottles: n });
+                              return false;
+                            } catch {
+                              return true;
+                            }
+                          })()}
+                          onClick={() => update({ bottles: String(n) })}
+                        >
+                          <span className="text-sm">{n} {n === 1 ? "bottle" : "bottles"}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </fieldset>
+                </div>
+              )}
               <div>
                 <label htmlFor="sale-bottles">
                   {pricingMode === "retail" ? "Bottles" : "Extra loose bottles"}
@@ -793,7 +896,10 @@ export function SaleBuilder({
                     ? " · Price not set"
                     : ` · ${formatNaira(product.bottle_price)} each`}
                 </label>
+                <div className="flex items-stretch gap-2">
+                  <button type="button" className="secondary w-12 shrink-0 px-0 text-2xl" aria-label="Remove one bottle" disabled={Boolean(bottlesInputError) || Number(draft.bottles) === 0} onClick={() => changeNumber("bottles", -1)}>−</button>
                 <input
+                  className="min-w-0 flex-1 text-center text-xl font-bold tabular-nums"
                   id="sale-bottles"
                   onFocus={selectDefaultZero}
                   onClick={selectDefaultZero}
@@ -809,6 +915,8 @@ export function SaleBuilder({
                   }
                   onChange={(e) => update({ bottles: e.target.value })}
                 />
+                  <button type="button" className="secondary w-12 shrink-0 px-0 text-2xl" aria-label="Add one bottle" disabled={!canIncreaseQuantity("bottles")} onClick={() => changeNumber("bottles", 1)}>+</button>
+                </div>
                 {bottlesInputError && (
                   <p
                     id="sale-bottles-error"
@@ -829,14 +937,15 @@ export function SaleBuilder({
                 )}
               </div>
               {preview ? (
-                <p role="status" className="text-xl font-semibold">
-                  {pricingMode === "retail" ? `${quantity().bottles} bottles at retail price` : saleQuantityLabel(quantity())} ·{" "}
-                  {formatNaira(preview.lineTotal)}
-                </p>
+                <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4" aria-live="polite">
+                  <p className="text-sm font-semibold text-emerald-950">This drink will be added as</p>
+                  <p className="mt-1 text-base font-semibold text-stone-900">
+                    {pricingMode === "retail" ? quantity().bottles + " bottles at retail price" : saleQuantityLabel(quantity())}
+                  </p>
+                  <p className="mt-2 text-2xl font-bold tabular-nums text-emerald-950">{formatNaira(preview.lineTotal)}</p>
+                </div>
               ) : quantityError ? (
-                <p role="alert" className="text-red-800">
-                  {quantityError}
-                </p>
+                <p role="alert" className="text-red-800">{quantityError}</p>
               ) : null}
               <div className="sale-sticky-actions sticky z-10 -mx-4 flex items-center gap-3 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
                 <button
@@ -876,10 +985,11 @@ export function SaleBuilder({
         )}
         {step === "payment" && (
           <>
-            <p className="text-stone-700">How much did they pay today?</p>
-            <p className="text-xl font-semibold">
-              Sale total: {total === undefined ? "Check drinks" : formatNaira(total)}
-            </p>
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <p className="text-sm font-semibold text-emerald-950">Total to collect</p>
+              <p className="mt-1 text-3xl font-bold tabular-nums text-emerald-950">{total === undefined ? "Check drinks" : formatNaira(total)}</p>
+            </div>
+            <p className="font-semibold text-stone-900">How much is the customer paying now?</p>
             <div className="grid grid-cols-2 gap-2" role="group" aria-label="Quick payment amounts">
               <button
                 className="secondary w-full"
@@ -887,19 +997,21 @@ export function SaleBuilder({
                 disabled={total === undefined}
                 onClick={() => total !== undefined && update({ paid: String(total) })}
               >
-                Paid in full
+                Pay full amount
               </button>
               <button
                 className="secondary w-full"
                 aria-pressed={draft.paid === "0"}
                 onClick={() => update({ paid: "0" })}
               >
-                Pay later
+                No payment yet
               </button>
             </div>
             <label htmlFor="sale-paid">Amount paid now (₦)</label>
             <input
               id="sale-paid"
+              onFocus={selectDefaultZero}
+              onClick={selectDefaultZero}
               inputMode="numeric"
               pattern="[0-9]+"
               maxLength={12}
@@ -1041,38 +1153,42 @@ export function SaleBuilder({
               />
             </details>
 
-            {draft.lines.map((line) => {
-              const p = catalog.products.find((item) => item.id === line.productId);
-              const packaging = emptiesReview?.lines.find(
-                (item) => item.productId === line.productId,
-              );
-              try {
-                return (
-                  <div key={line.productId} className="border-t py-3">
-                    <p>
-                      {p ? `${p.name} ${p.size ?? ""}` : "Drink unavailable"} ·{" "}
-                      {saleQuantityLabel(line.quantity)} ·{" "}
-                      {formatNaira(reviewedLineTotal(line))}
-                    </p>
-                    {packaging &&
-                      (packaging.cratesOwed > 0 || packaging.bottlesOwed > 0) && (
-                        <p className="mt-1 text-amber-900">
-                          {missingEmptiesMessage(
-                            packaging,
-                            p?.name ?? "Drink",
+            <section aria-labelledby="review-drinks">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 id="review-drinks" className="text-xl font-bold text-stone-950">
+                  Drinks · {draft.lines.length}
+                </h2>
+                {!saveUncertain && <button type="button" className="quiet-link text-sm" onClick={() => update({ step: "drinks" })}>Edit drinks</button>}
+              </div>
+              <ul className="divide-y divide-stone-200 rounded-xl border border-stone-200 bg-white px-3 sm:px-4">
+                {draft.lines.map((line) => {
+                  const p = catalog.products.find((item) => item.id === line.productId);
+                  const packaging = emptiesReview?.lines.find(
+                    (item) => item.productId === line.productId,
+                  );
+                  try {
+                    const amount = formatNaira(reviewedLineTotal(line));
+                    return (
+                      <li key={line.productId} className="flex min-w-0 items-start gap-3 py-4">
+                        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-stone-50">
+                          {p ? <ProductImage src={p.image_url} name={p.name} /> : <span className="block p-2 text-xs">No photo</span>}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="break-words font-semibold text-stone-950">{p ? p.name + " " + (p.size ?? "") : "Drink unavailable"}</p>
+                          <p className="mt-1 text-sm text-stone-600">{saleQuantityLabel(line.quantity)}</p>
+                          {packaging && (packaging.cratesOwed > 0 || packaging.bottlesOwed > 0) && (
+                            <p className="mt-2 text-sm font-medium text-amber-900">{missingEmptiesMessage(packaging, p?.name ?? "Drink")}</p>
                           )}
-                        </p>
-                      )}
-                  </div>
-                );
-              } catch (e) {
-                return (
-                  <p role="alert" key={line.productId}>
-                    {(e as Error).message}
-                  </p>
-                );
-              }
-            })}
+                          <p className="mt-2 text-lg font-bold tabular-nums text-stone-950">{amount}</p>
+                        </div>
+                      </li>
+                    );
+                  } catch (e) {
+                    return <li role="alert" key={line.productId} className="py-3 text-red-800">{(e as Error).message}</li>;
+                  }
+                })}
+              </ul>
+            </section>
 
             {emptiesReview && hasUnmatchedSaleEmpties(emptiesReview) && <div role="alert" className="rounded-lg bg-amber-50 p-3"><p>Some returned empties still need an Accept or Hold choice.</p><button type="button" className="quiet-link" onClick={() => update({ step: "empties" })}>Check these empties</button></div>}
             {emptiesReview?.decisions.map((choice, index) => <p key={`empty-choice-${index}`} className="rounded-lg bg-amber-50 p-3 text-sm">{catalog.products.find(product => product.id === choice.productId)?.name} · {choice.quantity} {choice.kind === "crate" ? catalog.crateTypes.find(crate => crate.id === choice.returnedType)?.name : choice.returnedType} {choice.kind === "crate" ? "crates" : "bottles"}: {choice.decision === "hold" ? "held for customer; correct type is still owed" : "accepted for this sale"}.</p>)}
@@ -1110,7 +1226,8 @@ export function SaleBuilder({
               </div>
             </dl>
             <div className="sale-sticky-actions sticky z-10 -mx-4 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
-            <p className="mb-2 truncate text-sm font-semibold text-emerald-950">Sale for {customer?.name}</p>
+            <p className="mb-1 truncate text-sm font-semibold text-emerald-950">Sale for {customer?.name}</p>
+            <p className="mb-2 text-xs text-stone-600">Saving updates stock, payment and any amount owed.</p>
             <button
               className="primary w-full"
               disabled={
