@@ -1,112 +1,14 @@
 import Link from "next/link";
 import { requireOwner } from "@/lib/auth/owner";
 import { RecordsFilterPanel } from "@/components/records-filter-panel";
-import { formatNaira } from "@/domain/products";
 import { formatBusinessDate } from "@/domain/sales";
 import { methodLabel } from "@/lib/receipts";
+import { RecordHistoryRow } from "@/components/record-history-row";
 import {
   recordKinds, recordMethods, recordRanges, recordFilter, recordDates,
-  recordPage, recordCursor, writeRecordCursor, recordStatus, recordTypeName,
-  type CustomerRecord, type CustomerRecordsFeed,
+  recordPage, recordCursor, writeRecordCursor, recordTypeName,
+  type CustomerRecordsFeed,
 } from "@/domain/records";
-
-function eventTime(value: string) {
-  return new Intl.DateTimeFormat("en-NG", {
-    timeZone: "Africa/Lagos", hour: "numeric", minute: "2-digit",
-  }).format(new Date(value));
-}
-
-function RecordIcon({ kind }: { kind: CustomerRecord["kind"] }) {
-  return (
-    <svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24"
-      fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      {kind === "sale" ? <><path d="M7 3h10l2 2v16l-3-2-4 2-4-2-3 2V5z" /><path d="M9 9h6M9 13h6"/></>
-      : kind === "payment" ? <><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M16 15h2"/></>
-      : kind === "empties" ? <><path d="M7 8 12 5l5 3v11l-5 3-5-3zM7 8l5 3 5-3M12 11v11M9 3h6"/></>
-      : <><path d="M7 3h10v18H7zM10 8h4M10 12h4M10 16h2"/></>}
-    </svg>
-  );
-}
-
-function RecordRow({ item }: { item: CustomerRecord }) {
-  const sale = item.kind === "sale";
-  const payment = item.kind === "payment";
-  const combinedCheckout = sale && item.old_debt_paid > 0 && !item.linked_payment_voided && item.status !== 'voided';
-  const paymentDuringSale = payment && Boolean(item.linked_sale_id);
-  const empties = item.kind === "empties";
-  const heldOnly = empties && item.crates === 0 && item.bottles === 0
-    && (item.held_crates > 0 || item.held_bottles > 0);
-  const unpaid = sale && item.remaining > 0;
-  const visual = item.status === "voided" ? "bg-red-50 text-red-800"
-    : payment ? "bg-emerald-100 text-emerald-800"
-      : sale ? "bg-sky-100 text-sky-800"
-        : empties ? "bg-amber-100 text-amber-900" : "bg-violet-100 text-violet-800";
-  return (
-    <li>
-      <Link href={item.kind === "opening" ? `/records/opening/${item.id}` : item.detail}
-        className="group flex min-h-28 items-start gap-3 px-4 py-4 transition-colors hover:bg-emerald-50/50 focus-visible:bg-emerald-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-emerald-700 sm:items-center sm:gap-4 sm:px-6 sm:py-5">
-        <span className={`mt-0.5 grid size-11 shrink-0 place-items-center rounded-2xl ${visual} sm:mt-0`}>
-          <RecordIcon kind={item.kind}/>
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-[11px] font-bold uppercase tracking-[.08em] text-stone-500">{heldOnly ? "Held empties collected" : sale && item.linked_payment_voided ? "Sale · old payment voided" : combinedCheckout ? "Sale & debt payment" : paymentDuringSale ? "Payment during purchase" : recordTypeName(item.kind)}</span>
-            <span className="text-xs text-stone-400">·</span>
-            <time dateTime={item.created_at} className="text-xs text-stone-500">{eventTime(item.created_at)}</time>
-          </div>
-          <p className="mt-1 break-words text-[15px] font-bold leading-snug text-stone-950 sm:text-base">{item.customer_name}</p>
-          {item.business_name && item.business_name !== item.customer_name &&
-            <p className="mt-0.5 break-words text-xs text-stone-500">{item.business_name}</p>}
-          <p className="mt-2 text-xs leading-relaxed text-stone-600 sm:text-sm">
-            {sale ? (
-              <>
-                {combinedCheckout ? (
-                  <>
-                    <span className="block">New sale {formatNaira(item.sale_total)}{item.method ? ` · ${methodLabel(item.method)}` : ""}</span>
-                    <span className="mt-1 block">Old debt paid {formatNaira(item.old_debt_paid)} · Paid on this sale {formatNaira(item.received)}</span>
-                    <span className="mt-1 block font-semibold text-stone-700">Customer still owes {formatNaira(item.checkout_balance ?? 0)} after this checkout</span>
-                  </>
-                ) : (
-                  <>
-                    {item.received > 0
-                      ? `Received ${formatNaira(item.received)}${item.method ? ` via ${methodLabel(item.method)}` : ""}`
-                      : "No money received"}
-                    {unpaid && <span className="font-semibold text-amber-800"> · {formatNaira(item.remaining)} still unpaid</span>}
-                    {sale && item.linked_payment_voided && <span className="mt-1 block font-bold text-red-800">Old-debt payment voided. The separate payment record shows its status; the combined receipt contains the original checkout figures.</span>}
-                  </>
-                )}
-              </>
-            )  : payment ? `${methodLabel(item.method ?? "not_recorded")} · ${paymentDuringSale ? "Included in a sale checkout · " : ""}Balance after: ${formatNaira(item.remaining)}`
-              : empties ? `${item.crates || item.bottles ? `Returned: ${item.crates} ${item.crates === 1 ? "crate" : "crates"} and ${item.bottles} ${item.bottles === 1 ? "bottle" : "bottles"}` : ""}${(item.held_crates || item.held_bottles) ? `${item.crates || item.bottles ? " · " : ""}Customer collected ${item.held_crates} held crates and ${item.held_bottles} held bottles` : ""}`
-                : `${formatNaira(item.remaining)} starting money owed · ${item.crates} crates, ${item.bottles} bottles`}
-          </p>
-          {item.receipt_number && <p className="mt-1.5 break-all text-[11px] tracking-wide text-stone-400">{item.receipt_number}</p>}
-        </div>
-        <div className="flex max-w-[42%] shrink-0 flex-col items-end gap-2 self-stretch justify-center text-right sm:gap-3">
-          {combinedCheckout && <span className="text-[11px] font-bold uppercase tracking-wide text-stone-500">Collected now</span>}
-          <strong className={`text-base font-extrabold tabular-nums tracking-tight sm:text-xl ${item.status === "voided" ? "text-red-900" : payment ? "text-emerald-900" : "text-stone-950"}`}>
-            {sale ? formatNaira(combinedCheckout ? item.checkout_received : item.sale_total)
-              : payment ? formatNaira(item.received)
-                : empties ? (item.crates > 0 ? `${item.crates} ${item.crates === 1 ? "crate" : "crates"}`
-                : item.bottles > 0 ? `${item.bottles} ${item.bottles === 1 ? "bottle" : "bottles"}`
-                  : item.held_crates > 0 ? `${item.held_crates} held crates` : `${item.held_bottles} held bottles`)
-              : formatNaira(item.remaining)}
-          </strong>
-          <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold leading-tight ${
-            item.status === "voided" ? "bg-red-100 text-red-900" :
-              unpaid ? "bg-amber-100 text-amber-900" :
-                payment ? "bg-emerald-100 text-emerald-900" : "bg-stone-100 text-stone-700"
-          }`}>{combinedCheckout && item.status !== "voided"
-            ? item.checkout_balance === 0 ? "Account settled" : "Balance outstanding"
-            : recordStatus(item.kind, item.status)}</span>
-          <span className="hidden items-center gap-1 text-xs font-semibold text-emerald-800 group-hover:underline sm:inline-flex">
-            {sale || payment ? "Receipt" : "Details"} <span aria-hidden="true">→</span>
-          </span>
-        </div>
-      </Link>
-    </li>
-  );
-}
 
 export default async function RecordsPage({
   searchParams,
@@ -205,12 +107,11 @@ export default async function RecordsPage({
         </div>
       ) : (
         <section aria-label="Saved customer records" className="space-y-4">
-          <div className="flex flex-wrap items-end justify-between gap-2">
-            <div>
-              <h2 className="text-lg font-extrabold tracking-tight text-stone-950">Saved history</h2>
-              <p className="mt-0.5 text-xs text-stone-600">{feed!.count.toLocaleString("en-NG")} {feed!.count === 1 ? "record" : "records"} · Newest first</p>
-            </div>
-            <Link href="/activity" className="inline-flex min-h-10 items-center gap-1 text-xs font-bold text-emerald-800 hover:underline">Shop activity <span aria-hidden="true">↗</span></Link>
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="text-lg font-extrabold tracking-tight text-stone-950">
+              {feed!.count.toLocaleString("en-NG")} {feed!.count === 1 ? "record" : "records"}
+            </h2>
+            <p className="text-xs font-medium text-stone-500">Newest first</p>
           </div>
           {feed!.items.length === 0 ? (
             <div className="flex flex-col items-center rounded-3xl border border-dashed border-stone-300 bg-white px-5 py-12 text-center">
@@ -224,20 +125,25 @@ export default async function RecordsPage({
               <Link href="/records" className="secondary mt-5">Show recent records</Link>
             </div>
           ) : (
-            <div className="space-y-5">
+            <div className="space-y-4">
               {groups.map(([day, items]) => (
                 <section key={day} aria-label={day === today ? "Today" : formatBusinessDate(day)}>
-                  <div className="mb-2 flex items-center gap-3">
+                  <div className="mb-2 flex items-center gap-2.5">
                     <h3 className="text-xs font-extrabold uppercase tracking-[.11em] text-stone-600">{day === today ? "Today" : formatBusinessDate(day)}</h3>
                     <div className="h-px flex-1 bg-stone-200"/>
                   </div>
-                  <ul className="divide-y divide-stone-100 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-[0_4px_22px_rgba(15,46,30,.035)]">
-                    {items.map(item => <RecordRow key={item.kind+"-"+item.id} item={item}/>)}
+                  <ul className="divide-y divide-stone-100 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-[0_4px_18px_rgba(15,46,30,.035)]">
+                    {items.map(item => <RecordHistoryRow key={item.kind+"-"+item.id} item={item}/>)}
                   </ul>
                 </section>
               ))}
             </div>
           )}
+          <div className="border-t border-stone-200 pt-3">
+            <Link href="/activity" className="inline-flex min-h-10 items-center gap-2 text-xs font-semibold text-emerald-800 hover:underline">
+              Looking for stock movements? Shop activity <span aria-hidden="true">↗</span>
+            </Link>
+          </div>
           {(page > 1 || feed!.has_more) && feed!.items.length > 0 && (
             <nav aria-label="Record pages" className="flex items-center justify-between gap-3 pt-2">
               {page > 1
