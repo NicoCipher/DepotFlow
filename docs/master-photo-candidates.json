@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "kind": "staging_only",
+  "intention": "full 45 master catalogue, not just 22 shop drinks",
+  "usage": "Downloaded photographs require size/flavour/package review before published links. Copyright not licensed; owner personal pilot only.",
+  "items": [
+    {
+      "catalogue_name": "Amstel Can",
+      "slug": "amstel-malta-can-33cl",
+      "variant": "Amstel Malta original 33cl can",
+      "source_page": "https://addide.com/products/amstel-malta-can-33cl",
+      "notes": "Likely original Amstel Malta can; not Ultra/no added sugar | alternate source after first attempted retailer 429; validate package visually.",
+      "previous_source": "https://www.supermart.ng/products/amstel-malta-can-33-cl"
+    },
+    {
+      "catalogue_name": "Heineken Can",
+      "slug": "heineken-can-33cl",
+      "variant": "Heineken lager 33cl single can",
+      "source_page": "https://themodumall.myshopify.com/products/heineken-can-33cl",
+      "notes": "Not 50cl/case-pack collage | alternate source after first attempted retailer 429; validate package visually.",
+      "previous_source": "https://www.supermart.ng/collections/beer-stout-cider/products/heineken-lager-beer-can-33-cl"
+    },
+    {
+      "catalogue_name": "Malta Can",
+      "slug": "malta-guinness-can-33cl",
+      "variant": "Malta Guinness original 33cl can",
+      "source_page": "https://www.jumia.com.ng/malta-guinness-can-330ml-x24-83821669.html",
+      "notes": "Not Herbs Lite/Low Sugar | alternate source after first attempted retailer 429; validate package visually.",
+      "previous_source": "https://www.supermart.ng/collections/soft-drinks/products/malta-guinness-can-33-cl"
+    },
+    {
+      "catalogue_name": "Maltina Can",
+      "slug": "maltina-classic-can-33cl",
+      "variant": "Maltina Classic 33cl can",
+      "source_page": "https://shoppersgatestores.com/products/maltina-33cl-classic-can",
+      "notes": "Not Pineapple/Vanilla | alternate source after first attempted retailer 429; validate package visually.",
+      "previous_source": "https://www.supermart.ng/products/maltina-classic-malt-drink-can-33-cl"
+    },
+    {
+      "catalogue_name": "Maltina PET 33cl",
+      "slug": "maltina-classic-pet-33cl",
+      "variant": "Maltina Classic 33cl PET bottle",
+      "source_page": "https://addide.com/collections/non-alcoholic-drinks/products/maltina-classic-pet-33cl",
+      "notes": "Not glass bottle/can/50cl | alternate source after first attempted retailer 429; validate package visually.",
+      "previous_source": "https://www.supermart.ng/products/maltina-classic-malt-drink-pet-bottle-33-cl"
+    },
+    {
+      "catalogue_name": "Maltina",
+      "slug": "maltina-classic-glass-33cl",
+      "variant": "Maltina Classic 33cl glass bottle",
+      "source_page": "https://shoppersgatestores.com/products/maltina-classic-33cl-bottle",
+      "notes": "Master name does not specify packaging; manual confirmation needed | alternate source after first attempted retailer 429; validate package visually.",
+      "previous_source": "https://www.supermart.ng/products/maltina-classic-malt-drink-glass-bottle-33-cl"
+    },
+    {
+      "catalogue_name": "Chamdor",
+      "slug": "chamdor-red-75cl",
+      "variant": "Chamdor Red 750ml non-alcoholic sparkling grape bottle",
+      "source_page": "https://shoprite.ng/product/non-alcoholic-red-chamdor-750ml-bottle/",
+      "notes": "Master doesn't specify red vs white; do not auto-link | alternate source after first attempted retailer 429; validate package visually.",
+      "previous_source": "https://rightdrinksng.com/shop/chamdor-non-alcoholic-red-wine-wine-75cl/"
+    },
+    {
+      "catalogue_name": "Fayrouz Can",
+      "slug": "fayrouz-pineapple-can-33cl",
+      "variant": "Fayrouz Pineapple 33cl can",
+      "source_page": "https://drugstore.ng/product/fayrouz-drink-can",
+      "notes": "Master doesn't specify flavour; do not auto-link | alternate source after first attempted retailer 429; validate package visually.",
+      "previous_source": "https://www.supermart.ng/products/fayrouz-pineapple-can-33-cl"
+    }
+  ]
+}
