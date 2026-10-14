@@ -352,7 +352,7 @@ export function SaleBuilder({
           <p className="mt-5 text-sm font-bold uppercase tracking-wide text-emerald-800">Sale complete</p>
           <h1 id="sale-success-title" className="mt-1 text-3xl font-bold text-stone-950">Sale recorded</h1>
           <p className="mt-2 text-stone-600">
-            {saved.name}’s sale is saved. Stock and the customer’s balance have been updated.
+            {saved.name}’s sale is saved. Stock and any payment toward earlier debt have been updated.
           </p>
           <dl className="mt-6 divide-y divide-stone-200 rounded-xl border border-stone-200 bg-stone-50 px-4">
             <div className="flex items-center justify-between gap-3 py-4">
@@ -364,19 +364,33 @@ export function SaleBuilder({
               <dd className="font-bold tabular-nums">{formatNaira(saved.paid)}</dd>
             </div>
             <div className="flex items-center justify-between gap-3 py-4">
-              <dt className="font-semibold">Still owing</dt>
+              <dt className="font-semibold">Today’s sale still unpaid</dt>
               <dd className={"text-xl font-bold tabular-nums " + (saved.owing > 0 ? "text-amber-900" : "text-emerald-900")}>
                 {saved.owing === 0 ? "Paid in full" : formatNaira(saved.owing)}
               </dd>
             </div>
           </dl>
+          {saved.oldDebtPaid > 0 && (
+            <p className="mt-4 text-sm font-semibold text-emerald-900">
+              {formatNaira(saved.oldDebtPaid)} paid toward previous money owed.
+            </p>
+          )}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-emerald-50 p-4">
+            <span className="font-semibold text-emerald-950">Customer now owes in total</span>
+            <strong className="text-xl font-bold tabular-nums text-emerald-950">{formatNaira(saved.balanceAfter)}</strong>
+          </div>
         </section>
         <button type="button" className="primary flex w-full gap-2" onClick={() => { setSaved(null); setNotice(""); }}>
           <SaleIcon name="plus" /> Record another sale
         </button>
         {saved.paid > 0 && (
           <a className="secondary flex w-full gap-2" href={ "/receipts/sale/" + saved.id }>
-            <SaleIcon name="receipt" /> View payment receipt
+            <SaleIcon name="receipt" /> View today's sale receipt
+          </a>
+        )}
+        {saved.oldDebtReceiptRequestId && (
+          <a className="secondary flex w-full gap-2" href={ "/receipts/payment/" + saved.oldDebtReceiptRequestId }>
+            <SaleIcon name="receipt" /> View previous-debt payment receipt
           </a>
         )}
         <a className="secondary flex w-full gap-2" href={ "/customers/" + saved.customer }>
