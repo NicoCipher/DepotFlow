@@ -356,7 +356,7 @@ export function SaleBuilder({
               <dd className="text-xl font-bold tabular-nums">{formatNaira(saved.total)}</dd>
             </div>
             <div className="flex items-center justify-between gap-3 py-4">
-              <dt className="text-stone-600">Paid now</dt>
+              <dt className="text-stone-600">Paid toward today&apos;s sale</dt>
               <dd className="font-bold tabular-nums">{formatNaira(saved.paid)}</dd>
             </div>
             <div className="flex items-center justify-between gap-3 py-4">
@@ -368,7 +368,7 @@ export function SaleBuilder({
           </dl>
           {saved.oldDebtPaid > 0 && (
             <p className="mt-4 text-sm font-semibold text-emerald-900">
-              {formatNaira(saved.oldDebtPaid)} paid toward previous money owed.
+              {formatNaira(saved.oldDebtPaid)} paid toward previous money owed. The customer receipt shows both payments together.
             </p>
           )}
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-emerald-50 p-4">
@@ -379,15 +379,19 @@ export function SaleBuilder({
         <button type="button" className="primary flex w-full gap-2" onClick={() => { setSaved(null); setNotice(""); }}>
           <SaleIcon name="plus" /> Record another sale
         </button>
-        {saved.paid > 0 && (
-          <a className="secondary flex w-full gap-2" href={ "/receipts/sale/" + saved.id }>
-            <SaleIcon name="receipt" /> View today&apos;s sale receipt
-          </a>
-        )}
+        <a className="secondary flex w-full gap-2" href={"/receipts/sale/" + saved.id}>
+          <SaleIcon name="receipt" /> View & share customer receipt
+        </a>
         {saved.oldDebtReceiptRequestId && (
-          <a className="secondary flex w-full gap-2" href={ "/receipts/payment/" + saved.oldDebtReceiptRequestId }>
-            <SaleIcon name="receipt" /> View previous-debt payment receipt
-          </a>
+          <details className="rounded-lg border border-stone-200 px-4 py-3 text-sm">
+            <summary className="cursor-pointer font-semibold text-stone-700">
+              Separate old-debt payment record
+            </summary>
+            <p className="mt-2 text-stone-600">This accounting receipt records the old-debt payment separately from today's sale.</p>
+            <a className="secondary mt-3 flex w-full gap-2" href={"/receipts/payment/" + saved.oldDebtReceiptRequestId}>
+              <SaleIcon name="receipt" /> View old-debt payment record
+            </a>
+          </details>
         )}
         <a className="secondary flex w-full gap-2" href={ "/customers/" + saved.customer }>
           <SaleIcon name="user" /> View customer
