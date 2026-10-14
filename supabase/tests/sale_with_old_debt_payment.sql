@@ -191,6 +191,29 @@ select pg_temp.ok((select count(*)=2 from public.customer_payments
   where customer_id='20000000-0000-4000-8000-000000008701'),
   'Retries duplicated the old-debt payment');
 
+-- Customer pays only previous debt while taking a new sale on credit.
+-- The sale's receipt has zero paid toward its items but confirms old-debt cash.
+do $$ declare v jsonb; begin
+  v := public.save_sale_with_old_debt_payment(
+    '40000000-0000-4000-8000-000000008707',
+    '20000000-0000-4000-8000-000000008701','2026-10-16',
+    0,pg_temp.lines(),'[]','[]','transfer',1500
+  );
+  perform pg_temp.ok((v->>'oldDebtPaid')::int=1500 and (v->>'balanceAfter')::int=3000,
+    'Old-debt-only collection was not allocated correctly');
+  perform pg_temp.ok((select account_receipt->>'bd'='3500'
+    and account_receipt->>'paidSale'='0'
+    and account_receipt->>'paidOld'='1500'
+    and account_receipt->>'collected'='1500'
+    and account_receipt->>'cd'='3000'
+    and public.verify_receipt(verification_token)->'account'->>'collected'='1500'
+    from public.sales where request_id='40000000-0000-4000-8000-000000008707'),
+    'Account receipt omitted an old-debt-only payment');
+  perform pg_temp.ok((select count(*)=1 from public.customer_payments
+    where request_id=(v->>'oldDebtReceiptRequestId')::uuid and amount=1500),
+    'Old-debt-only checkout must have a separate payment ledger entry');
+end $$;
+
 -- No privilege for other signed-in users or anonymous callers.
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000008702',true);
 do $$ begin
