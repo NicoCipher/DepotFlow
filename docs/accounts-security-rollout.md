@@ -49,6 +49,7 @@ Use `business_id` on every tenant-owned top-level row and on dependent/historica
 - Backfill and constrain tenant ownership in safe batches, with separate migrations where locks/index changes are expensive. Design per-business uniqueness rather than globally shared shop identifiers.
 - Update shop singleton assumptions (`shop_profile.id=true`), stock product keys, customer balance keys, packaging rules, price histories and receipt/return relationships. Preserve exact original historical receipt and business-name snapshots; do not overwrite old data.
 - Define storage object paths per business with strict image-upload/delete policies; preserve rights-cleared globally shared catalogue packshots.
+- **M2 attribution prerequisite:** add immutable, verified `actor_user_id` + `business_id` (or equivalent authenticated provenance) for new sales, old-debt payments, receipts, opening balances, stock receipts/counts/adjustments and empties movements. Populate at the database transaction boundary using `auth.uid()`, never a client-supplied actor; backfill historical rows with an explicit **legacy/unattributed** classification, not an invented person. Preserve old receipt snapshots and ledger IDs. Stage safe backfill of existing business identity separately from author attribution.
 - Validate `business_id` matching inside composite FKs/checks and atomic transaction functions. No path should reach another business by guessing a UUID.
 - Keep staff feature disabled throughout. Do not widen read/write RLS policies while any tenant-owned table lacks reliable ownership.
 
@@ -60,12 +61,13 @@ Use `business_id` on every tenant-owned top-level row and on dependent/historica
 - Apply this to every public `SECURITY DEFINER` RPC, privileged private helper, invoker wrapper, direct column grant/policy and read view. Approve `SECURITY DEFINER` use only when unavoidable, with fixed `search_path`, careful grants and row-scoped checks.
 - Use targeted permissions for `save_sale_with_old_debt_payment`, `record_payment`, `receive_stock`, stock count submission/finalization, `record_opening_balances`, customer/empties actions and sensitive pricing operations.
 - **Do not map `stock.count_submit` to the existing `set_current_stock` RPC.** The live `confirmCount` action currently calls that RPC and immediately adjusts inventory. Before adding a Stock-role account, create a tenant-scoped, idempotent **pending-count record** and count-submit RPC that never alters booked stock. Finalizing a discrepancy must be a second atomic RPC guarded by `stock.finalize_variance`, checking active membership, optional approval, the expected stock version and current quantities. Keep the legacy direct count/finalize action owner-only until the two-step flow is verified.
+- **Empty-crate physical counts also need two stages**: the live `set_empty_crate_count` RPC currently changes empty crate stock immediately. Add a business-scoped, idempotent `pending_empty_crate_counts` observation and distinct `empties.count_submit` permission, separate from `empties.finalize_variance`. Finalization rechecks book count and exact crate type before atomically posting a movement. Leave direct legacy empty-crate adjustment owner-only until both paths are tested.
 - **Treat creating an opening balance as a high-risk write**: `record_opening_balances` must enforce the distinct `balances.create_opening` permission, not general customer management or payment collection. Owners have it by default; optional Manager/Accounts delegates need explicit grants, confirmation, reason, business/customer matching and an immutable audit record.
-- For combined checkout, enforce **sales.create + payments.collect_old_debt_at_checkout** in the same atomic DB call.
+- **Conditionally enforce checkout-payment grants in one atomic DB call:** `sales.create` is always required, `payments.collect_at_checkout` is required only if `p_paid>0`, and `payments.collect_old_debt_at_checkout` only if `p_old_debt_paid>0`. For a mixed payment require all three; for an entirely unpaid sale only `sales.create`. Direct RPC requests get identical rules. `sales.create` alone does **not** implicitly include a paid sale.
 - Use the verified user's `auth.uid()` and the active membership for authorization; cross-check customer/product/payment/return foreign keys with that business, never accept a caller-supplied actor.
 - A disabled membership must stop a new request immediately, including a still-authenticated user with an old browser session. Do not rely only on stale JWT app_metadata.
 
-**Gate:** production-equivalent, disposable PostgreSQL role-by-role tests. Unknown/disabled memberships get zero access even through direct PostgREST RPC calls.
+**Gate:** production-equivalent, disposable PostgreSQL role-by-role tests. Unknown/disabled memberships get zero access even through direct PostgREST RPC calls. Pending drink-stock and empty-crate counts cannot change stock without separately authorized finalization; conditional new-sale and old-debt payment permissions enforced; every new transaction has an immutable, DB-derived actor; legacy rows remain unattributed.
 
 ### M4 — Staff access and the permission-aware interface
 
@@ -74,12 +76,15 @@ Use `business_id` on every tenant-owned top-level row and on dependent/historica
 - `More → Team & Access`: team list, invite, permissions, role bundles, disable access, pending invitations, owner security and audit entry.
 - Never hide critical data without an explanation; unauthorized actions should not appear, while tampered/expired requests must still be rejected server-side.
 - Staff screens focus on **their actual tasks**, not internal role claims. Solo owner sees the ordinary sales workflow without extra setup.
+- **Do not enable `records.view_own` until persisted transaction actors and tenant isolation exist.** Staff only see transactions whose stored verified actor is their own user ID. Legacy rows have an explicitly absent/unattributed actor and are visible only under an authorized `records.view_all` scope; never infer ownership based on customer, timestamps or who happens to sign in.
 
 **Gate:** staff can do only approved tasks across mobile/tablet/desktop; business switching cannot leak previous depot data through caches, paused sales, URL routing or browser state.
 
-### M5 — Audit, protection and access recovery
+### M5 — Advanced audit, protection and access recovery
 
-- Record immutable actor, business, time, operation, record reference, request ID and safe before/after change data for important actions. Never log passwords, Auth tokens or unneeded customer personal data.
+**Basic immutable actor attribution and business scope are already mandatory in M2/M3, before any staff access.** M5 adds richer tamper-evident change histories, optional dual approvals and recovery controls; it is not the first point at which actors are saved.
+
+- Build on the immutable actor and business references installed in M2/M3: add searchable audit events, safe before/after change data, review access and retention. Never log passwords, Auth tokens or unneeded customer personal data.
 - Add sensitive-action reasons, optional owner approval, two-person controls for larger teams and **solo-owner step-up alternatives**. Prevent a non-owner self-approving or deleting past evidence.
 - Harden compromised-password checks, MFA and account recovery; protect ownership transfer, owner lockout and break-glass recovery under separately audited controls.
 - Review verified public receipts to minimize information exposure and prevent token enumeration or unbounded traffic; preserve the public receipt verification feature.
@@ -110,6 +115,10 @@ Use `business_id` on every tenant-owned top-level row and on dependent/historica
 | Stockkeeper | Can receive stock and **submit a pending physical count** according to grants; cannot post a variance, call `set_current_stock` or alter customer money/debt |
 | Manager without explicit pricing permission | Cannot edit selling/cost price by form, direct table write or RPC |
 | Stockkeeper with only `stock.count_submit` | Pending count persisted without modifying booked inventory, sales or stock movements; separate finalization denied |
+| Stockkeeper with only `empties.count_submit` | Pending empty-crate count persisted without changing booked empty stock or movements; direct `set_empty_crate_count` and finalization denied |
+| Checkout caller has `sales.create` only | Zero-payment sale accepted; any positive `p_paid` or `p_old_debt_paid` rejected atomically |
+| Checkout caller can collect new-sale payment only | New sale payment accepted; old-debt collection rejected without independent grant |
+| Staff `records.view_own`, including legacy data | Only actor-matched, business-matched transactions visible; pre-attribution rows remain legacy/unattributed, visible only to `records.view_all` |
 | Manager/Accounts without `balances.create_opening` | `record_opening_balances` rejects historical debt or crate/bottle obligation creation even if customer-edit/payment rights exist |
 | Explicit opening-balance delegate | Audit reason, business/customer scope and all three money/crate/bottle effects checked atomically; retries do not double-charge |
 | Accounts user without `sales.create` | Can record standalone debt payments when granted; cannot call combined sale checkout |
