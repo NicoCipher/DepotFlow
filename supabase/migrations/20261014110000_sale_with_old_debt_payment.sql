@@ -70,6 +70,7 @@ declare
   v_snapshot jsonb;
   v_sale_preexisting boolean := false;
   v_old_debt_reference text;
+  v_sale_method text;
 begin
   if (select auth.uid()) is null or
     not exists (select 1 from private.shop_owner where user_id = (select auth.uid())) then
@@ -119,6 +120,21 @@ begin
     p_request_id, p_customer_id, p_business_date, p_paid,
     p_lines, p_returned_crates, p_returned_bottles, p_payment_method
   );
+
+  -- Today's sale can be unpaid even when cash was collected for older debt.
+  -- The primary customer receipt must still show the actual collection method.
+  -- The linked payment RPC has already validated its method and retry identity.
+  if p_old_debt_paid > 0 then
+    select payment_method into v_sale_method from public.sales
+      where id = (v_sale_result->>'id')::uuid for update;
+    if v_sale_method not in ('not_recorded', p_payment_method) then
+      raise exception using errcode='22023',
+        message='This sale form was already used with different payment details.';
+    end if;
+    update public.sales set payment_method = p_payment_method
+      where id = (v_sale_result->>'id')::uuid
+        and payment_method = 'not_recorded';
+  end if;
 
   select amount into v_balance_after
     from public.money_owed where customer_id = p_customer_id;
