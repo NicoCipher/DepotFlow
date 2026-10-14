@@ -26,7 +26,7 @@ function KindIcon({ kind }: { kind: CustomerRecord["kind"] }) {
 function Amount({ amount, label, voided }: { amount: number; label: string; voided: boolean }) {
   return (
     <div className="shrink-0 text-right">
-      <p className={`whitespace-nowrap text-[16px] font-extrabold leading-5 tracking-tight tabular-nums sm:text-[19px] ${voided ? "text-red-800" : "text-stone-950"}`}>
+      <p className={`whitespace-nowrap text-[18px] font-extrabold leading-6 tracking-tight tabular-nums sm:text-xl ${voided ? "text-red-800" : "text-stone-950"}`}>
         {formatNaira(amount)}
       </p>
       <p className="mt-1 text-[10px] font-semibold leading-4 text-stone-500">{label}</p>
@@ -111,7 +111,6 @@ export function RecordHistoryRow({ item }: { item: CustomerRecord }) {
   return (
     <li>
       <Link href={href}
-        aria-label={`Open ${view.label.toLowerCase()} for ${item.customer_name}`}
         className="group block px-3 py-3.5 transition-colors hover:bg-emerald-50/40 focus-visible:bg-emerald-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-emerald-700 sm:px-5 sm:py-4">
         <div className="grid grid-cols-[2.25rem_minmax(0,1fr)] items-start gap-x-3 sm:grid-cols-[2.5rem_minmax(0,1fr)]">
           <span className={`grid size-9 place-items-center rounded-xl sm:size-10 ${iconColor}`}>
