@@ -185,7 +185,7 @@ export default async function VerifyPage({
             {account.debtPaymentReference && (
               <p className="mt-2 text-xs text-emerald-900">Old-debt payment reference: {account.debtPaymentReference}</p>
             )}
-            <p className="mt-2 text-xs text-emerald-900">Balances shown are frozen as of this transaction, not the customer's current balance.</p>
+            <p className="mt-2 text-xs text-emerald-900">Balances shown are frozen as of this transaction, not the customer&apos;s current balance.</p>
           </section>
         ) : (
           <div className="mt-5 rounded-xl bg-emerald-50 p-4">
