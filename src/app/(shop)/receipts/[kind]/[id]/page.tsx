@@ -220,7 +220,7 @@ export default async function ReceiptPage({
                 }))
               : [],
         }}
-      /
+      />
       </section>
       {business ? (
         <section aria-label="Shop details" className="flex flex-wrap items-center gap-3 rounded-2xl border border-stone-200 bg-white px-4 py-4 sm:px-5">
@@ -369,7 +369,9 @@ export default async function ReceiptPage({
           </p>
         )}
       </section>
-      <details className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">\n        <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-2 font-bold text-stone-900">Verify this receipt <span aria-hidden="true">⌄</span></summary>\n        <div className="flex flex-col items-center pt-4 text-center">
+      <details className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
+        <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-2 font-bold text-stone-900">Verify this receipt <span aria-hidden="true">⌄</span></summary>
+        <div className="flex flex-col items-center pt-4 text-center">
         <p className="text-sm font-semibold text-stone-800">Scan the QR code or open the verification page</p>
         <p className="mt-1 text-sm text-stone-600">
           Scan the code to compare it with DepotFlow’s saved payment.
@@ -384,8 +386,9 @@ export default async function ReceiptPage({
         />
         <a href={url} className="quiet-link break-all">
           Open verification page
-        </a>\n        </div>\n      </details>
->
+        </a>
+        </div>
+      </details>
     </div>
   );
 }
