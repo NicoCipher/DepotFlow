@@ -131,7 +131,7 @@ select public.save_sale_with_old_debt_payment(
 );
 select pg_temp.ok((select amount=3500 from public.money_owed
   where customer_id='20000000-0000-4000-8000-000000008701'),
-  'Fully paid new sale changed the customer's old debt');
+  'Fully paid new sale changed the customer''s old debt');
 
 -- No privilege for other signed-in users or anonymous callers.
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000008702',true);
