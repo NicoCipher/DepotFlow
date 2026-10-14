@@ -9,10 +9,12 @@ create or replace function public.customer_records(
   p_method text,
   p_search text,
   p_limit integer,
-  p_offset integer
+  p_offset integer,
+  p_snapshot timestamptz default null
 ) returns jsonb
 language plpgsql security definer set search_path='' as $records$
 declare v_result jsonb;
+declare v_snapshot timestamptz := coalesce(p_snapshot, statement_timestamp());
 begin
   if auth.uid() is null or not exists (
     select 1 from private.shop_owner where user_id=auth.uid()
@@ -33,7 +35,7 @@ begin
       coalesce(nullif(s.receipt_customer_name,''),c.name)::text as customer_name,
       c.business_name::text as business_name,c.phone::text as phone,
       s.receipt_number::text as receipt_number,
-      s.payment_method::text as method,
+      (case when s.paid_amount>0 then s.payment_method else null end)::text as method,
       s.total_amount::bigint as sale_total,
       s.paid_amount::bigint as received,
       (s.total_amount-s.paid_amount)::bigint as remaining,
@@ -100,7 +102,8 @@ begin
     where o.business_date between p_from and p_to
   ), filtered as (
     select * from events e
-    where (p_kind='all' or e.kind=p_kind)
+    where e.created_at<=v_snapshot
+      and (p_kind='all' or e.kind=p_kind)
       and (p_method='all' or e.method=p_method)
       and (btrim(p_search)='' or
         e.customer_name ilike '%'||btrim(p_search)||'%' or
@@ -110,6 +113,7 @@ begin
   )
   select jsonb_build_object(
     'count',(select count(*) from filtered),
+    'snapshot',v_snapshot,
     'items',(select coalesce(jsonb_agg(to_jsonb(t)), '[]'::jsonb)
       from (
         select id,day,created_at,kind,customer_id,customer_name,business_name,
@@ -123,8 +127,8 @@ begin
   return v_result;
 end $records$;
 
-revoke all on function public.customer_records(date,date,text,text,text,integer,integer) from public,anon;
-grant execute on function public.customer_records(date,date,text,text,text,integer,integer) to authenticated;
+revoke all on function public.customer_records(date,date,text,text,text,integer,integer,timestamptz) from public,anon;
+grant execute on function public.customer_records(date,date,text,text,text,integer,integer,timestamptz) to authenticated;
 
 -- Dedicated read-only source for an empties return: never substitute current
 -- customer balances or invent a payment method.
