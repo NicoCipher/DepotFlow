@@ -158,6 +158,15 @@ select pg_temp.ensure(
 rollback to savepoint voided_payment_check;
 set local role authenticated;
 
+savepoint voided_sale_check;
+reset role;
+update public.sales set receipt_status='voided' where id='20000000-0000-4000-8000-000000000961';
+set local role authenticated;
+select pg_temp.ensure(
+  (public.customer_records('2026-10-14','2026-10-14','all','all','',30)->>'count')::integer=5,
+  'A still-valid debt payment must be visible when the linked sale is voided');
+rollback to savepoint voided_sale_check;
+set local role authenticated;
 rollback to savepoint combined_checkout_probe;
 set local role authenticated;
 
