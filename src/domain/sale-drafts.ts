@@ -84,13 +84,13 @@ export function readSaleDrafts(raw: string | null): SaleDrafts {
         ? {
             ...data.active,
             saveUncertain: data.active.saveUncertain === true,
-            draft: cleanDraft(data.active.draft),
+            draft: cleanDraft(readSaleDraft(JSON.stringify(data.active.draft))),
           }
         : null,
       paused: data.paused.map((entry: StoredSaleDraft) => ({
         ...entry,
         saveUncertain: entry.saveUncertain === true,
-        draft: cleanDraft(entry.draft),
+        draft: cleanDraft(readSaleDraft(JSON.stringify(entry.draft))),
       })),
     };
   } catch {
