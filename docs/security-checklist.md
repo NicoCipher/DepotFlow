@@ -1,5 +1,26 @@
 # DepotFlow Security Checklist
 
+## Accounts and roles expansion
+
+Planning documents:
+- [Phase 1 authorization audit](./access-control-phase1-audit.md)
+- [Staff permission matrix (proposed)](./staff-permission-matrix.md)
+- [Gated multi-business migration plan](./accounts-security-rollout.md)
+
+Before granting **any staff or multi-business access**, verify:
+- every business-owned table/record is scoped and all foreign keys respect the same business
+- every read and privileged RPC checks active membership and the exact permission in PostgreSQL
+- no role bypasses cost-price, financial export, staff permissions, or cross-business protections by direct API call
+- suspended employees are denied on the next protected operation, including existing sessions
+- all legacy sale, payment, debt, receipt, empties, stock and idempotency invariants pass
+- secure staff invitation, owner recovery, audit log and approval rules are tested
+- public receipt verification exposes only intended fields
+- isolated two-business negative tests pass before enabling staff
+
+**These are release gates, not claims about the current production system.**
+
+## Existing release checklist
+
 Before release, verify:
 
 - .env.local is gitignored
