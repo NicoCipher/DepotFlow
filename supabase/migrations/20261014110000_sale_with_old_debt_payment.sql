@@ -1,5 +1,43 @@
 begin;
 
+-- Align the still-supported direct sale RPC with the new checkout lock order.
+-- This entry point remains accessible for in-flight forms and callers that
+-- have not yet switched to the combined checkout RPC.
+create or replace function public.save_sale_v2(
+  p_request_id uuid,p_customer_id uuid,p_business_date date,p_paid numeric,
+  p_lines jsonb,p_returned_crates jsonb,p_returned_bottles jsonb,p_payment_method text
+) returns jsonb language plpgsql security definer set search_path = '' as $
+declare
+  v_result jsonb;
+  v_method text;
+begin
+  if auth.uid() is null or not exists (
+    select 1 from private.shop_owner where user_id = auth.uid()
+  ) then
+    raise exception using errcode='42501', message='Owner only';
+  end if;
+  if p_paid > 0 and (p_payment_method is null or p_payment_method not in ('cash','transfer','pos')) then
+    raise exception using errcode='22023',message='Choose how the customer paid.';
+  end if;
+  -- Customer -> money_owed -> product/stock for every sale entry point.
+  perform 1 from public.customers where id = p_customer_id for share;
+  perform 1 from public.money_owed where customer_id = p_customer_id for update;
+  v_result := private.save_sale_v2(
+    p_request_id,p_customer_id,p_business_date,p_paid,
+    p_lines,p_returned_crates,p_returned_bottles
+  );
+  if p_paid > 0 then
+    select payment_method into v_method from public.sales where request_id=p_request_id for update;
+    if v_method not in ('not_recorded',p_payment_method) then
+      raise exception using errcode='22023',message='This sale form was already used with different payment details.';
+    end if;
+    update public.sales set payment_method=p_payment_method
+      where request_id=p_request_id and payment_method='not_recorded';
+  end if;
+  return v_result;
+end;
+$;
+
 -- Atomic checkout: settle an existing debt first, then save today's sale.
 -- Both existing RPCs run in one database transaction, so a failed sale rolls
 -- back the debt payment as well. A separate payment receipt is issued.
