@@ -206,6 +206,8 @@ do $$ declare v jsonb; begin
     and account_receipt->>'paidOld'='1500'
     and account_receipt->>'collected'='1500'
     and account_receipt->>'cd'='3000'
+    and payment_method='transfer'
+    and public.verify_receipt(verification_token)->>'method'='transfer'
     and public.verify_receipt(verification_token)->'account'->>'collected'='1500'
     from public.sales where request_id='40000000-0000-4000-8000-000000008707'),
     'Account receipt omitted an old-debt-only payment');
