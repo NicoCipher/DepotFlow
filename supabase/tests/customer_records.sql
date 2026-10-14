@@ -99,6 +99,77 @@ select pg_temp.ensure(
 rollback to savepoint renamed_customer_probe;
 set local role authenticated;
 
+-- A single checkout settles old debt and sells new drinks. The original
+-- payment ledger still exists but must not look like a second shop visit.
+savepoint combined_checkout_probe;
+reset role;
+update public.sales
+  set account_receipt=jsonb_build_object(
+    'bd',45000,'saleTotal',85000,'paidSale',40000,'paidOld',10000,
+    'collected',50000,'cd',80000,
+    'debtPaymentReference',(select receipt_number from public.customer_payments
+      where id='40000000-0000-4000-8000-000000000961'))
+  where id='20000000-0000-4000-8000-000000000961';
+update public.customer_payments set method='cash'
+  where id='40000000-0000-4000-8000-000000000961';
+set local role authenticated;
+select pg_temp.ensure(
+  (public.customer_records('2026-10-14','2026-10-14','all','all','',30)->>'count')::integer=4,
+  'Combined sale-and-old-debt payment was shown as two visits');
+select pg_temp.ensure(
+  (select count(*)=1 from jsonb_array_elements(public.customer_records(
+   '2026-10-14','2026-10-14','all','cash','',30)->'items') e
+   where e->>'kind'='sale' and e->>'sale_total'='85000'
+     and e->>'received'='40000' and e->>'old_debt_paid'='10000'
+     and e->>'checkout_received'='50000' and e->>'checkout_balance'='80000'),
+  'Combined sale does not preserve sale payment separately from total cash collected');
+select pg_temp.ensure(
+  (select count(*)=1 from jsonb_array_elements(public.customer_records(
+    '2026-10-14','2026-10-14','payment','cash','Royal',30)->'items') e
+    where e->>'id'='40000000-0000-4000-8000-000000000961'
+      and e->>'received'='10000' and
+      e->>'linked_sale_id'='20000000-0000-4000-8000-000000000961'),
+  'Linked old-debt receipt disappeared from Payments filter');
+select pg_temp.ensure(
+  (select count(*)=1 from jsonb_array_elements(public.customer_records(
+    '2026-10-14','2026-10-14','all','all',
+    (select receipt_number from public.customer_payments
+     where id='40000000-0000-4000-8000-000000000961'),30)->'items') e
+    where e->>'kind'='sale' and e->>'id'='20000000-0000-4000-8000-000000000961'),
+  'Searching the old-debt receipt number did not find its combined checkout');
+select pg_temp.ensure(
+  (select count(*)=1 from jsonb_array_elements(public.customer_records(
+    '2026-10-14','2026-10-14','payment','all','',30)->'items') e
+    where e->>'linked_sale_id'='20000000-0000-4000-8000-000000000961'),
+  'Payment filter no longer exposes linked old debt payments');
+savepoint voided_payment_check;
+reset role;
+update public.customer_payments set receipt_status='voided'
+  where id='40000000-0000-4000-8000-000000000961';
+set local role authenticated;
+select pg_temp.ensure(
+  (public.customer_records('2026-10-14','2026-10-14','all','all','',30)->>'count')::integer=5,
+  'Voided debt payment was hidden from All Records');
+select pg_temp.ensure(
+  (select count(*)=1 from jsonb_array_elements(public.customer_records(
+    '2026-10-14','2026-10-14','all','all','',30)->'items') e
+    where e->>'kind'='sale' and e->>'linked_payment_voided'='true'),
+  'Sale failed to flag its separately voided old-debt payment');
+rollback to savepoint voided_payment_check;
+set local role authenticated;
+
+savepoint voided_sale_check;
+reset role;
+update public.sales set receipt_status='voided' where id='20000000-0000-4000-8000-000000000961';
+set local role authenticated;
+select pg_temp.ensure(
+  (public.customer_records('2026-10-14','2026-10-14','all','all','',30)->>'count')::integer=5,
+  'A still-valid debt payment must be visible when the linked sale is voided');
+rollback to savepoint voided_sale_check;
+set local role authenticated;
+rollback to savepoint combined_checkout_probe;
+set local role authenticated;
+
 -- Forward pages use a precise event cursor, not an offset.
 select set_config('test.page1',
   public.customer_records('2026-10-14','2026-10-14','all','all','',2)::text,true);

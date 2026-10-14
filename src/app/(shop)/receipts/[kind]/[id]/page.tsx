@@ -96,6 +96,17 @@ export default async function ReceiptPage({
       };
   }
   if (!receipt) notFound();
+  // The debt payment remains independently verifiable, but its parent
+  // checkout is the owner's primary view of this single customer visit.
+  const linkedCheckout = kind === "payment"
+    ? await db.from("sales")
+        .select("id")
+        .eq("customer_id", receipt.customer_id)
+        .contains("account_receipt", { debtPaymentReference: receipt.receipt_number })
+        .maybeSingle()
+    : null;
+  if (linkedCheckout?.error) throw new Error("Could not load related checkout.");
+  const parentSaleId = linkedCheckout?.data?.id ?? null;
   const itemsResult =
     kind === "sale"
       ? await db
@@ -165,6 +176,15 @@ export default async function ReceiptPage({
       </header>
       {receipt.receipt_status === "voided" && (
         <p role="status" className="rounded-xl border border-red-200 bg-red-50 p-4 font-semibold text-red-900">This receipt was voided. Do not treat it as a valid payment.</p>
+      )}
+      {parentSaleId && (
+        <Link href={`/receipts/sale/${parentSaleId}`}
+          className="flex min-h-14 items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-950">
+          <span><strong className="block">Paid during a purchase</strong>
+            <span className="mt-1 block font-normal text-emerald-900">See the sale, old debt paid and closing balance together.</span>
+          </span>
+          <span aria-hidden="true">→</span>
+        </Link>
       )}
       <section aria-label="Receipt sharing" className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 sm:p-4">
       <ShareReceipt
