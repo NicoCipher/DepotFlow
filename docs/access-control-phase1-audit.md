@@ -27,6 +27,11 @@ Status: **baseline completed; architecture and role defaults proposed for review
 
 **Additional pre-staff launch blockers from Codex review:**
 
+- The current combined checkout uses `public.record_payment` internally; future `payments.collect_old_debt_standalone` must not be bypassable by a checkout-only user. Refactor to guarded, **separate public entry points sharing a non-public internal payment implementation**, protecting transactional integrity and the existing receipt numbering/idempotency.
+- The existing customer action can waive mandatory empties deposits by updating `customers.empties_deposit_required`. Require distinct, auditable `empties.deposit_waive_customer`, not `customers.manage`; restrict direct column writes.
+- **Actor fields are not a full mutation audit.** Staff-delegated changes to products, prices, customer records, deposit rules and employee permissions must produce immutable business-scoped actor, reason and safe before/after audit events by M2/M3, or the operation remains owner-only when staff access begins.
+
+
 - Current `set_empty_crate_count` (like `set_current_stock`) applies variance immediately. A stockkeeper may **submit** a pending observed crate quantity with `empties.count_submit`, but may not **finalize** a variance without `empties.finalize_variance`. Both require independently tested RPCs.
 - The combined sale RPC must check `sales.create` plus conditional `payments.collect_at_checkout` when `p_paid>0` and `payments.collect_old_debt_at_checkout` when `p_old_debt_paid>0`.
 - Employee `records.view_own` requires trusted, immutable transaction actors persisted in M2/M3; pre-existing transactions without verified actors are marked legacy/unattributed and are excluded from staff-owned lists.
