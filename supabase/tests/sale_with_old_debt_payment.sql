@@ -162,7 +162,7 @@ select pg_temp.ok((select account_receipt->>'cd'='3500'
   'Later payment rewrote the historical statement');
 
 -- A zero-payment sale still has a legitimate verifiable sale statement.
-do $ declare v jsonb; begin
+do $$ declare v jsonb; begin
   v := public.save_sale_with_old_debt_payment(
     '40000000-0000-4000-8000-000000008706',
     '20000000-0000-4000-8000-000000008701','2026-10-16',
@@ -174,11 +174,11 @@ do $ declare v jsonb; begin
     and public.verify_receipt(verification_token)->>'amount'='0'
     from public.sales where request_id='40000000-0000-4000-8000-000000008706'),
     'Unpaid sale does not produce a valid historical statement');
-end $;
+end $$;
 
 -- An uncertain retry after other customer activity must return the original
 -- checkout's historical C/D and must not create any extra payment.
-do $ declare v jsonb; begin
+do $$ declare v jsonb; begin
   v := public.save_sale_with_old_debt_payment(
     '40000000-0000-4000-8000-000000008701',
     '20000000-0000-4000-8000-000000008701','2026-10-14',
@@ -186,7 +186,7 @@ do $ declare v jsonb; begin
   );
   perform pg_temp.ok((v->>'balanceAfter')::int=3500,
     'Retry returned the live balance instead of the original saved C/D');
-end $;
+end $$;
 select pg_temp.ok((select count(*)=2 from public.customer_payments
   where customer_id='20000000-0000-4000-8000-000000008701'),
   'Retries duplicated the old-debt payment');
