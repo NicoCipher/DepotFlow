@@ -214,6 +214,35 @@ do $$ declare v jsonb; begin
     'Old-debt-only checkout must have a separate payment ledger entry');
 end $$;
 
+-- The first two sales for a customer with no money_owed row must freeze
+-- B/D as 0 and then 1000. Customer row locking serializes this case too.
+insert into public.customers(id,name,phone)
+values ('20000000-0000-4000-8000-000000008708','First Balance Customer','08000008708');
+select pg_temp.ok(not exists (select 1 from public.money_owed
+  where customer_id='20000000-0000-4000-8000-000000008708'),
+  'Test customer unexpectedly has a money_owed row');
+
+select public.save_sale_with_old_debt_payment(
+  '40000000-0000-4000-8000-000000008708',
+  '20000000-0000-4000-8000-000000008708','2026-10-14',
+  0,pg_temp.lines(),'[]','[]','not_recorded',0
+);
+select pg_temp.ok((select account_receipt->>'bd'='0'
+  and account_receipt->>'cd'='1000'
+  from public.sales where request_id='40000000-0000-4000-8000-000000008708'),
+  'First credit sale froze the wrong opening balance');
+
+select public.save_sale_with_old_debt_payment(
+  '40000000-0000-4000-8000-000000008709',
+  '20000000-0000-4000-8000-000000008708','2026-10-14',
+  0,pg_temp.lines(),'[]','[]','not_recorded',0
+);
+select pg_temp.ok((select account_receipt->>'bd'='1000'
+  and account_receipt->>'cd'='2000'
+  and public.verify_receipt(verification_token)->'account'->>'bd'='1000'
+  from public.sales where request_id='40000000-0000-4000-8000-000000008709'),
+  'Following credit sale did not carry forward the previous balance');
+
 -- No privilege for other signed-in users or anonymous callers.
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000008702',true);
 do $$ begin
