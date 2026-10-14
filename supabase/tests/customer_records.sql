@@ -142,6 +142,22 @@ select pg_temp.ensure(
     '2026-10-14','2026-10-14','payment','all','',30)->'items') e
     where e->>'linked_sale_id'='20000000-0000-4000-8000-000000000961'),
   'Payment filter no longer exposes linked old debt payments');
+savepoint voided_payment_check;
+reset role;
+update public.customer_payments set receipt_status='voided'
+  where id='40000000-0000-4000-8000-000000000961';
+set local role authenticated;
+select pg_temp.ensure(
+  (public.customer_records('2026-10-14','2026-10-14','all','all','',30)->>'count')::integer=5,
+  'Voided debt payment was hidden from All Records');
+select pg_temp.ensure(
+  (select count(*)=1 from jsonb_array_elements(public.customer_records(
+    '2026-10-14','2026-10-14','all','all','',30)->'items') e
+    where e->>'kind'='sale' and e->>'linked_payment_voided'='true'),
+  'Sale failed to flag its separately voided old-debt payment');
+rollback to savepoint voided_payment_check;
+set local role authenticated;
+
 rollback to savepoint combined_checkout_probe;
 set local role authenticated;
 
