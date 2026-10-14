@@ -69,6 +69,7 @@ export function SaleBuilder({
   const [notice, setNotice] = useState("");
   const [confirmCancel, setConfirmCancel] = useState(false);
   const keepSaleButton = useRef<HTMLButtonElement>(null);
+  const cancelSaleButton = useRef<HTMLButtonElement>(null);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [saved, setSaved] = useState<{
     id: string;
@@ -526,6 +527,7 @@ export function SaleBuilder({
                 type="button"
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-bold text-stone-800 hover:border-red-300 hover:bg-red-50"
                 disabled={saveUncertain}
+                ref={cancelSaleButton}
                 aria-expanded={confirmCancel}
                 aria-controls="cancel-sale-panel"
                 onClick={() => setConfirmCancel(true)}
@@ -549,7 +551,10 @@ export function SaleBuilder({
                     ref={keepSaleButton}
                     type="button"
                     className="secondary w-full"
-                    onClick={() => setConfirmCancel(false)}
+                    onClick={() => {
+                      setConfirmCancel(false);
+                      cancelSaleButton.current?.focus();
+                    }}
                   >
                     Keep recording
                   </button>
@@ -700,11 +705,11 @@ export function SaleBuilder({
                           <p className="mt-1 font-bold tabular-nums text-stone-950">{item ? linePriceLabel(item, line.quantity) : "Check drink"}</p>
                           <div className="mt-3 flex flex-wrap gap-2">
                             {item && (
-                              <button type="button" className="secondary min-h-11 gap-1.5 px-3 py-2 text-sm" onClick={() => edit(item)}>
+                              <button type="button" className="secondary min-h-12 gap-1.5 px-3 py-2 text-sm" onClick={() => edit(item)}>
                                 <SaleIcon name="edit" className="h-4 w-4" /> Change quantity
                               </button>
                             )}
-                            <button type="button" className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-red-800 hover:border-red-300 hover:bg-red-50" onClick={() => update({ lines: removeSaleLine(draft.lines, line.productId) })}>
+                            <button type="button" className="inline-flex min-h-12 items-center justify-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-red-800 hover:border-red-300 hover:bg-red-50" onClick={() => update({ lines: removeSaleLine(draft.lines, line.productId) })}>
                               <SaleIcon name="trash" className="h-4 w-4" /> Remove
                             </button>
                           </div>
