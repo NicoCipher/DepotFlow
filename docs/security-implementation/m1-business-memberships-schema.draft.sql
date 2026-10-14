@@ -24,7 +24,7 @@ create table private.business_memberships (
   user_id uuid not null references auth.users(id)
     on delete restrict,
   member_kind text not null check (member_kind in ('owner','staff')),
-  status text not null default 'active'
+  status text not null default 'disabled'
     check (status in ('active','disabled')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
