@@ -49,7 +49,7 @@ export default async function RecordsPage({
     timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit",
   }).format(new Date());
   const dates = recordDates(today, range, params.from, params.to);
-  const customDates = Boolean(params.from && params.to);
+  const customDates = Boolean(params.from || params.to);
   const db = await requireOwner();
   const { data, error } = dates.valid
     ? await db.rpc("customer_records", {
@@ -153,7 +153,7 @@ export default async function RecordsPage({
 
       {!dates.valid ? (
         <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-red-950">
-          The start date cannot be after the end date. Change the dates and try again.
+          {dates.error}
         </div>
       ) : (
         <section aria-label="Saved customer records">
