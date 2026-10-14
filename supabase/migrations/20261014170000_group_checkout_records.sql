@@ -95,7 +95,7 @@ begin
       case when p.receipt_status='voided' then 'voided' else 'received' end,
       '/receipts/payment/' || p.id,
       0::bigint,p.amount::bigint,p.owed_after::bigint,
-      linked.id::uuid as linked_sale_id,null::text as debt_payment_reference
+      linked.id::uuid as linked_sale_id,null::text as debt_payment_reference,false as linked_payment_voided
     from public.customer_payments p join public.customers c on c.id=p.customer_id
     left join lateral (
       select s.id from public.sales s
