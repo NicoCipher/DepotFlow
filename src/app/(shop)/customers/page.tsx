@@ -1,7 +1,7 @@
 import { PageIntro } from "@/components/page-intro";
 import { CustomerIcon } from "@/components/customer-icon";
 import { formatNaira } from "@/domain/products";
-import { customerHasOutstanding, owedByCustomer } from "@/domain/customer-overview";
+import { customerHasOutstanding } from "@/domain/customer-overview";
 import Link from "next/link";
 import { requireOwner } from "@/lib/auth/owner";
 import { customerSearchFilter } from "@/domain/customers";
@@ -26,27 +26,16 @@ export default async function CustomersPage({
   const { data, error, count } = await request;
   if (error) throw new Error("Could not load customers.");
 
-  // Read only obligations belonging to these 30 visible customers.
-  // Never present this page's partial totals as whole-shop totals.
+  // The owner-only RPC groups counts in PostgreSQL, avoiding PostgREST's
+  // response-row limit when many individual held-return entries exist.
   const ids = (data ?? []).map((customer) => customer.id);
-  const [crates, bottles, held] = ids.length
-    ? await Promise.all([
-        supabase.from("crate_obligations").select("customer_id,quantity")
-          .in("customer_id", ids).gt("quantity", 0),
-        supabase.from("bottle_obligations").select("customer_id,quantity")
-          .in("customer_id", ids).gt("quantity", 0),
-        supabase.from("sale_empty_decisions").select("customer_id")
-          .in("customer_id", ids).eq("decision", "hold").is("released_at", null),
-      ])
-    : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
-  if (crates.error || bottles.error || held.error) throw new Error("Could not load customer empties.");
-
-  const cratesByCustomer = owedByCustomer(crates.data ?? []);
-  const bottlesByCustomer = owedByCustomer(bottles.data ?? []);
-  const heldByCustomer = new Map<string, number>();
-  for (const entry of held.data ?? []) {
-    heldByCustomer.set(entry.customer_id, (heldByCustomer.get(entry.customer_id) ?? 0) + 1);
-  }
+  const accountResult = ids.length
+    ? await supabase.rpc("customer_account_snapshot", { p_customer_ids: ids })
+    : { data: [], error: null };
+  if (accountResult.error) throw new Error("Could not load customer balances.");
+  const accountById = new Map(
+    (accountResult.data ?? []).map((account) => [account.customer_id, account]),
+  );
   const pageUrl = (value: number) =>
     "/customers?" + new URLSearchParams({ q: query, page: String(value) }).toString();
 
@@ -108,16 +97,16 @@ export default async function CustomersPage({
         <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {data.map((customer) => {
             const money = customer.money_owed?.amount ?? 0;
-            const owedCrates = cratesByCustomer.get(customer.id) ?? 0;
-            const owedBottles = bottlesByCustomer.get(customer.id) ?? 0;
-            const heldCount = heldByCustomer.get(customer.id) ?? 0;
+            const account = accountById.get(customer.id);
+            const owedCrates = account?.crates_owed ?? 0;
+            const owedBottles = account?.bottles_owed ?? 0;
+            const heldCount = account?.held_entries ?? 0;
             const needsAttention = customerHasOutstanding(money, owedCrates, owedBottles, heldCount);
             return (
               <li key={customer.id}>
                 <Link
                   href={"/customers/" + customer.id}
                   className="group flex h-full min-h-48 flex-col rounded-2xl border border-stone-200 bg-white p-4 transition-colors hover:border-emerald-400 hover:bg-emerald-50/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-800 sm:p-5"
-                  aria-label={"Open " + customer.name + " account"}
                 >
                   <span className="flex items-start justify-between gap-3">
                     <span className="min-w-0">
