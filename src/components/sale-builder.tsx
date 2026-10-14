@@ -354,39 +354,52 @@ export function SaleBuilder({
         aria-label="Sale draft"
         className="space-y-5"
       >
-        <h1 ref={stepHeading} tabIndex={-1} className="outline-none">
-          {step === "customer"
-            ? "Choose customer"
-            : step === "drinks"
-              ? "Add Drinks"
-              : step === "quantity"
-                ? "Choose quantity"
-                : step === "empties"
-                  ? "Check Empties"
-                  : step === "payment"
-                    ? "Payment"
-                    : "Review"}
-        </h1>
-        <nav aria-label="Sale progress">
-          <p className="text-sm font-semibold text-stone-700">
-            Step {progressStep + 1} of 5 · {progressLabels[progressStep]}
-          </p>
-          <div className="mt-2 grid grid-cols-5 gap-1" aria-hidden="true">
-            {progressLabels.map((label, index) => (
-              <span
-                key={label}
-                className={`h-1.5 rounded-full ${index <= progressStep ? "bg-emerald-800" : "bg-stone-200"}`}
-              />
-            ))}
+        <header className="space-y-4 border-b border-stone-200 pb-5">
+          <div>
+            <p className="mb-1 text-sm font-semibold text-emerald-800">Record sale</p>
+            <h1 ref={stepHeading} tabIndex={-1} className="outline-none">
+              {step === "customer"
+                ? "Who is buying?"
+                : step === "drinks"
+                  ? "Choose drinks"
+                  : step === "quantity"
+                    ? "Set the quantity"
+                    : step === "empties"
+                      ? "Check the empties"
+                      : step === "payment"
+                        ? "Record payment"
+                        : "Review and save"}
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-stone-600">
+              {step === "customer"
+                ? "Find the customer to begin. You can change them before saving."
+                : step === "drinks"
+                  ? "Add every drink the customer is taking. Check the order as you go."
+                  : step === "quantity"
+                    ? "Enter what they are taking. The amount updates before you add it."
+                    : step === "empties"
+                      ? "Confirm what came back, including any missing or different bottles."
+                      : step === "payment"
+                        ? "Enter what was received today. Any balance is worked out for you."
+                        : "Confirm the drinks, empties and money before saving."}
+            </p>
           </div>
-          <ol className="sr-only">
-            {progressLabels.map((label, index) => (
-              <li key={label} aria-current={index === progressStep ? "step" : undefined}>
-                {label}
-              </li>
-            ))}
-          </ol>
-        </nav>
+          <nav aria-label="Sale progress">
+            <p className="text-xs font-semibold uppercase tracking-wide text-stone-600">
+              Step {progressStep + 1} of 5
+            </p>
+            <ol className="mt-2 grid grid-cols-5 gap-1.5">
+              {progressLabels.map((label, index) => (
+                <li key={label} aria-current={index === progressStep ? "step" : undefined} className="min-w-0">
+                  <span className={index <= progressStep ? "block h-1.5 rounded-full bg-emerald-800" : "block h-1.5 rounded-full bg-stone-200"} aria-hidden="true" />
+                  <span className={index === progressStep ? "mt-1.5 block truncate text-[10px] font-bold text-emerald-900 sm:text-xs" : "mt-1.5 block truncate text-[10px] text-stone-500 sm:text-xs"}>
+                    {label}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        </header>
         {customer && step !== "customer" && (
           <section aria-label="Current sale" className="border-b border-stone-200 pb-4">
             <div className="flex items-start justify-between gap-3">
