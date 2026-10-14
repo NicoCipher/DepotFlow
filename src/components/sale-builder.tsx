@@ -1080,7 +1080,7 @@ export function SaleBuilder({
               <div className="sale-sticky-actions sticky z-10 -mx-4 flex items-center gap-3 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
                 <button
                   type="button"
-                  className="min-h-12 shrink-0 px-2 font-semibold text-emerald-900 underline underline-offset-4"
+                  className="secondary min-h-12 shrink-0 px-4"
                   onClick={() => update({ step: "drinks" })}
                 >
                   Back
@@ -1194,7 +1194,7 @@ export function SaleBuilder({
             </div>
             <div className="sale-sticky-actions sticky z-10 -mx-4 flex items-center gap-3 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
             <button
-              className="min-h-12 shrink-0 px-2 font-semibold text-emerald-900 underline underline-offset-4"
+              className="secondary min-h-12 shrink-0 px-4"
               onClick={() => update({ step: "empties" })}
             >
               Back
@@ -1288,7 +1288,11 @@ export function SaleBuilder({
                 <h2 id="review-drinks" className="text-xl font-bold text-stone-950">
                   Drinks · {draft.lines.length}
                 </h2>
-                {!saveUncertain && <button type="button" className="quiet-link text-sm" onClick={() => update({ step: "drinks" })}>Edit drinks</button>}
+                {!saveUncertain && (
+                  <button type="button" className="secondary gap-2 px-3 text-sm" onClick={() => update({ step: "drinks" })}>
+                    <SaleIcon name="edit" className="h-4 w-4" /> Edit drinks
+                  </button>
+                )}
               </div>
               <ul className="divide-y divide-stone-200 rounded-xl border border-stone-200 bg-white px-3 sm:px-4">
                 {draft.lines.map((line) => {
@@ -1465,16 +1469,11 @@ export function SaleBuilder({
                   Back to Payment
                 </button>
                 <button
-                  className="quiet-link"
+                  type="button"
+                  className="secondary w-full gap-2"
                   onClick={() => update({ step: "empties" })}
                 >
-                  Edit empties
-                </button>
-                <button
-                  className="quiet-link"
-                  onClick={() => update({ step: "drinks" })}
-                >
-                  Edit drinks
+                  <SaleIcon name="edit" className="h-4 w-4" /> Edit empties
                 </button>
               </>
             )}
