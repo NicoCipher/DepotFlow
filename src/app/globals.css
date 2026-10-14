@@ -56,6 +56,20 @@ select[aria-invalid="true"] {
   outline: 3px solid #047857;
   outline-offset: 3px;
 }
+/* Inputs used to show a green border AND a separated outline at once.
+   Keep one strong focus stroke for fields; non-form controls retain their ring. */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  border-color: transparent;
+  outline: 2px solid #047857;
+  outline-offset: 0;
+}
+input[aria-invalid="true"]:focus-visible,
+textarea[aria-invalid="true"]:focus-visible,
+select[aria-invalid="true"]:focus-visible {
+  outline-color: #991b1b;
+}
 .primary,
 .secondary {
   display: inline-flex;
