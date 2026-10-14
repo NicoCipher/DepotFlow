@@ -58,7 +58,9 @@ Use `business_id` on every tenant-owned top-level row and on dependent/historica
 
 - Introduce one centrally reviewed `can_business(user_id,business_id,permission)`-style contract (or equivalent) with active membership fetched from trusted DB data. Keep implementation in a non-exposed schema and prevent recursive/RLS bypass.
 - Apply this to every public `SECURITY DEFINER` RPC, privileged private helper, invoker wrapper, direct column grant/policy and read view. Approve `SECURITY DEFINER` use only when unavoidable, with fixed `search_path`, careful grants and row-scoped checks.
-- Use targeted permissions for `save_sale_with_old_debt_payment`, `record_payment`, `receive_stock`, `set_current_stock`, customer/stock/empties actions and sensitive pricing operations.
+- Use targeted permissions for `save_sale_with_old_debt_payment`, `record_payment`, `receive_stock`, stock count submission/finalization, `record_opening_balances`, customer/empties actions and sensitive pricing operations.
+- **Do not map `stock.count_submit` to the existing `set_current_stock` RPC.** The live `confirmCount` action currently calls that RPC and immediately adjusts inventory. Before adding a Stock-role account, create a tenant-scoped, idempotent **pending-count record** and count-submit RPC that never alters booked stock. Finalizing a discrepancy must be a second atomic RPC guarded by `stock.finalize_variance`, checking active membership, optional approval, the expected stock version and current quantities. Keep the legacy direct count/finalize action owner-only until the two-step flow is verified.
+- **Treat creating an opening balance as a high-risk write**: `record_opening_balances` must enforce the distinct `balances.create_opening` permission, not general customer management or payment collection. Owners have it by default; optional Manager/Accounts delegates need explicit grants, confirmation, reason, business/customer matching and an immutable audit record.
 - For combined checkout, enforce **sales.create + payments.collect_old_debt_at_checkout** in the same atomic DB call.
 - Use the verified user's `auth.uid()` and the active membership for authorization; cross-check customer/product/payment/return foreign keys with that business, never accept a caller-supplied actor.
 - A disabled membership must stop a new request immediately, including a still-authenticated user with an old browser session. Do not rely only on stale JWT app_metadata.
@@ -105,8 +107,11 @@ Use `business_id` on every tenant-owned top-level row and on dependent/historica
 | Signed-in account with no membership | No shop data, even if it knows customer IDs or RPC names |
 | Disabled employee with existing session | Denied from the next protected DB operation |
 | Sales employee | Can record permitted sales and checkout debt collection; cannot edit stock balances, prices, staff or purchase costs |
-| Stockkeeper | Can receive/count according to grants; cannot alter customer money/debt |
+| Stockkeeper | Can receive stock and **submit a pending physical count** according to grants; cannot post a variance, call `set_current_stock` or alter customer money/debt |
 | Manager without explicit pricing permission | Cannot edit selling/cost price by form, direct table write or RPC |
+| Stockkeeper with only `stock.count_submit` | Pending count persisted without modifying booked inventory, sales or stock movements; separate finalization denied |
+| Manager/Accounts without `balances.create_opening` | `record_opening_balances` rejects historical debt or crate/bottle obligation creation even if customer-edit/payment rights exist |
+| Explicit opening-balance delegate | Audit reason, business/customer scope and all three money/crate/bottle effects checked atomically; retries do not double-charge |
 | Accounts user without `sales.create` | Can record standalone debt payments when granted; cannot call combined sale checkout |
 | Owner A in Business A | No read/write access to Business B records, products, costs, receipts or image objects |
 | Multi-business member switching A → B | Only B data appears, including after browser back, parked sales and in-flight requests |
