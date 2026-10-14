@@ -25,6 +25,12 @@ Status: **baseline completed; architecture and role defaults proposed for review
 8. **P1 — access recovery and fraud controls.** Enable compromised-password checks where supported, introduce owner MFA/recovery, audit sensitive actions and provide rapid staff removal without losing historical attribution.
 9. **P2 — defense in depth.** Review internal private-schema table RLS policies and public receipt verification abuse controls; absence of direct client grants is not an excuse to skip further isolation checks.
 
+**Additional pre-staff launch blockers from Codex review:**
+
+- Current `set_empty_crate_count` (like `set_current_stock`) applies variance immediately. A stockkeeper may **submit** a pending observed crate quantity with `empties.count_submit`, but may not **finalize** a variance without `empties.finalize_variance`. Both require independently tested RPCs.
+- The combined sale RPC must check `sales.create` plus conditional `payments.collect_at_checkout` when `p_paid>0` and `payments.collect_old_debt_at_checkout` when `p_old_debt_paid>0`.
+- Employee `records.view_own` requires trusted, immutable transaction actors persisted in M2/M3; pre-existing transactions without verified actors are marked legacy/unattributed and are excluded from staff-owned lists.
+
 These are migration requirements. The existing pilot remains owner-only until tested replacements are ready.
 
 ## Current application action inventory
