@@ -84,7 +84,7 @@ function RecordRow({ item }: { item: CustomerRecord }) {
         </div>
         <div className="flex max-w-[42%] shrink-0 flex-col items-end gap-2 self-stretch justify-center text-right sm:gap-3">
           {combinedCheckout && <span className="text-[11px] font-bold uppercase tracking-wide text-stone-500">Collected now</span>}
-          <strong className={`text-base font-extrabold tabular-nums tracking-tight sm:text-xl ${unpaid ? "text-stone-950" : payment ? "text-emerald-900" : "text-stone-950"}`}>
+          <strong className={`text-base font-extrabold tabular-nums tracking-tight sm:text-xl ${item.status === "voided" ? "text-red-900" : payment ? "text-emerald-900" : "text-stone-950"}`}>
             {sale ? formatNaira(combinedCheckout ? item.checkout_received : item.sale_total)
               : payment ? formatNaira(item.received)
                 : empties ? (item.crates > 0 ? `${item.crates} ${item.crates === 1 ? "crate" : "crates"}`
