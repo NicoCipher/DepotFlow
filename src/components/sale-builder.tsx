@@ -165,6 +165,24 @@ export function SaleBuilder({
     draft.bottles,
     "exact bottles",
   );
+  function canIncreaseQuantity(field: "crates" | "bottles") {
+    if (!product || cratesInputError || bottlesInputError) return false;
+    try {
+      const current = quantity();
+      priceQuantity(product, { ...current, [field]: current[field] + 1 });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function changeNumber(field: "crates" | "bottles", amount: -1 | 1) {
+    const current = field === "crates" ? draft.crates : draft.bottles;
+    if (!/^\d+$/.test(current)) return;
+    const next = Number(current) + amount;
+    if (!Number.isSafeInteger(next) || next < 0) return;
+    if (amount > 0 && !canIncreaseQuantity(field)) return;
+    update({ [field]: String(next) });
+  }
   let preview: ReturnType<typeof priceQuantity> | undefined;
   let quantityError = "";
   if (product && !cratesInputError && !bottlesInputError)
@@ -684,16 +702,18 @@ export function SaleBuilder({
         )}
         {step === "quantity" && product && (
           <>
-            <p className="text-stone-700">Choose how to price this drink, then enter the quantity.</p>
-            <h2 className="text-xl font-semibold">
-              {product.name} {product.size}
-            </h2>
-            <p>{available(product)}</p>
-            {draft.lines.some((line) => line.productId === product.id) && (
-              <p className="text-sm">
-                Enter the total quantity of this drink for the sale.
-              </p>
-            )}
+            <div className="flex items-center gap-4 rounded-xl border border-stone-200 bg-white p-3 sm:p-4">
+              <div className="h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-stone-50 sm:h-28 sm:w-28">
+                <ProductImage src={product.image_url} name={product.name} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="break-words text-xl font-bold text-stone-950">{product.name} {product.size}</h2>
+                <p className="mt-2 font-medium text-stone-700">{available(product)}</p>
+                {draft.lines.some((line) => line.productId === product.id) && (
+                  <p className="mt-1 text-sm font-semibold text-emerald-800">Editing a drink already in this sale</p>
+                )}
+              </div>
+            </div>
             <form
               className="space-y-5"
               onSubmit={(e) => {
@@ -710,20 +730,26 @@ export function SaleBuilder({
                 }
               }}
             >
-              <fieldset className="rounded-xl border border-stone-200 p-3">
-                <legend className="px-1 font-semibold">Selling by</legend>
+              <fieldset className="rounded-xl border border-stone-200 bg-white p-3 sm:p-4">
+                <legend className="px-1 text-lg font-bold">How are they buying?</legend>
                 <div className="grid grid-cols-2 gap-2">
-                  <button type="button" aria-pressed={pricingMode === "wholesale"} className={pricingMode === "wholesale" ? "primary" : "secondary"} onClick={() => {
+                  <button type="button" aria-pressed={pricingMode === "wholesale"} className={(pricingMode === "wholesale" ? "border-emerald-800 bg-emerald-50 text-emerald-950" : "border-stone-200 bg-white text-stone-800") + " min-h-24 rounded-lg border-2 px-3 py-3 text-left"} onClick={() => {
                     if (pricingMode === "wholesale") return;
                     update({ sellingMode: "wholesale", crates: "0", fraction: 0, eighths: 0, bottles: "0" });
-                  }}>Wholesale · crates</button>
-                  <button type="button" aria-pressed={pricingMode === "retail"} className={pricingMode === "retail" ? "primary" : "secondary"} disabled={product.bottle_price === null} onClick={() => {
+                  }}>
+                    <span className="block font-bold">Wholesale</span>
+                    <span className="mt-1 block text-xs leading-5">Crates and parts of a crate</span>
+                  </button>
+                  <button type="button" aria-pressed={pricingMode === "retail"} className={(pricingMode === "retail" ? "border-emerald-800 bg-emerald-50 text-emerald-950" : "border-stone-200 bg-white text-stone-800") + " min-h-24 rounded-lg border-2 px-3 py-3 text-left"} disabled={product.bottle_price === null} onClick={() => {
                     if (pricingMode === "retail") return;
                     update({ sellingMode: "retail", crates: "0", fraction: 0, eighths: 0, bottles: "0" });
-                  }}>Retail · bottles</button>
+                  }}>
+                    <span className="block font-bold">Retail</span>
+                    <span className="mt-1 block text-xs leading-5">Every bottle at bottle price</span>
+                  </button>
                 </div>
-                <p className="mt-2 text-sm text-stone-600">Changing the price type resets this drink&apos;s quantity. Enter it again below.</p>
-                {product.bottle_price === null && <p className="mt-2 text-sm text-amber-900">Set this drink&apos;s bottle price to enable Retail.</p>}
+                <p className="mt-2 text-xs leading-5 text-stone-600">Switching between Wholesale and Retail clears this drink&apos;s entered quantity.</p>
+                {product.bottle_price === null && <p className="mt-2 text-sm font-medium text-amber-900">Bottle price not set. Retail is unavailable.</p>}
               </fieldset>
               {pricingMode === "wholesale" && (
                 <>
