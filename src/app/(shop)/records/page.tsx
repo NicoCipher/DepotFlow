@@ -5,7 +5,7 @@ import { formatBusinessDate } from "@/domain/sales";
 import { methodLabel } from "@/lib/receipts";
 import {
   recordKinds, recordMethods, recordRanges, recordFilter, recordDates,
-  recordPage, recordStatus, recordTypeName, type CustomerRecordsFeed,
+  recordPage, recordSnapshot, recordStatus, recordTypeName, type CustomerRecordsFeed,
 } from "@/domain/records";
 
 const kindLabels = [
@@ -44,6 +44,7 @@ export default async function RecordsPage({
   const range = recordFilter(params.range, recordRanges, "30d");
   const query = typeof params.q === "string" ? params.q.trim().slice(0, 120) : "";
   const page = recordPage(params.page);
+  const snapshot = recordSnapshot(params.snapshot);
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit",
   }).format(new Date());
@@ -54,6 +55,7 @@ export default async function RecordsPage({
     ? await db.rpc("customer_records", {
         p_from: dates.from, p_to: dates.to, p_kind: kind, p_method: method,
         p_search: query, p_limit: 30, p_offset: (page - 1) * 30,
+        p_snapshot: snapshot,
       })
     : { data: null, error: null };
   if (error) throw new Error("Could not load records. Please try again.");
@@ -239,9 +241,9 @@ export default async function RecordsPage({
             </ul>
           )}
           {(feed!.count > 30) && <nav aria-label="Record pages" className="mt-5 flex items-center justify-between gap-3">
-            {page > 1 ? <Link className="secondary inline-flex min-h-11 items-center px-4" href={url({ page: String(page - 1) })}>← Previous</Link> : <span />}
+            {page > 1 ? <Link className="secondary inline-flex min-h-11 items-center px-4" href={url({ page: String(page - 1), snapshot: feed!.snapshot })}>← Previous</Link> : <span />}
             <span className="text-sm text-stone-600">Page {page}</span>
-            {page * 30 < feed!.count ? <Link className="secondary inline-flex min-h-11 items-center px-4" href={url({ page: String(page + 1) })}>Next →</Link> : <span />}
+            {page * 30 < feed!.count ? <Link className="secondary inline-flex min-h-11 items-center px-4" href={url({ page: String(page + 1), snapshot: feed!.snapshot })}>Next →</Link> : <span />}
           </nav>}
         </section>
       )}
