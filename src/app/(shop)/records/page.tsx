@@ -62,10 +62,9 @@ function RecordRow({ item }: { item: CustomerRecord }) {
               <>
                 {combinedCheckout ? (
                   <>
-                    <strong className="font-bold text-emerald-900">Total collected {formatNaira(item.checkout_received)}</strong>
-                    {item.method ? ` via ${methodLabel(item.method)}` : ""}
-                    <span className="mt-1 block">Previous debt paid {formatNaira(item.old_debt_paid)} · Today's sale paid {formatNaira(item.received)}</span>
-                    <span className="mt-1 block font-semibold text-stone-700">Today's sale {formatNaira(item.sale_total)} · Balance after {formatNaira(item.checkout_balance ?? 0)}</span>
+                    <span className="block">New sale {formatNaira(item.sale_total)}{item.method ? ` · ${methodLabel(item.method)}` : ""}</span>
+                    <span className="mt-1 block">Old debt paid {formatNaira(item.old_debt_paid)} · Paid on this sale {formatNaira(item.received)}</span>
+                    <span className="mt-1 block font-semibold text-stone-700">Customer still owes {formatNaira(item.checkout_balance ?? 0)} after this checkout</span>
                   </>
                 ) : (
                   <>
@@ -83,8 +82,9 @@ function RecordRow({ item }: { item: CustomerRecord }) {
           {item.receipt_number && <p className="mt-1.5 break-all text-[11px] tracking-wide text-stone-400">{item.receipt_number}</p>}
         </div>
         <div className="flex max-w-[42%] shrink-0 flex-col items-end gap-2 self-stretch justify-center text-right sm:gap-3">
+          {combinedCheckout && <span className="text-[11px] font-bold uppercase tracking-wide text-stone-500">Collected now</span>}
           <strong className={`text-base font-extrabold tabular-nums tracking-tight sm:text-xl ${unpaid ? "text-stone-950" : payment ? "text-emerald-900" : "text-stone-950"}`}>
-            {sale ? formatNaira(item.sale_total)
+            {sale ? formatNaira(combinedCheckout ? item.checkout_received : item.sale_total)
               : payment ? formatNaira(item.received)
                 : empties ? (item.crates > 0 ? `${item.crates} ${item.crates === 1 ? "crate" : "crates"}`
                 : item.bottles > 0 ? `${item.bottles} ${item.bottles === 1 ? "bottle" : "bottles"}`
@@ -95,7 +95,9 @@ function RecordRow({ item }: { item: CustomerRecord }) {
             item.status === "voided" ? "bg-red-100 text-red-900" :
               unpaid ? "bg-amber-100 text-amber-900" :
                 payment ? "bg-emerald-100 text-emerald-900" : "bg-stone-100 text-stone-700"
-          }`}>{recordStatus(item.kind, item.status)}</span>
+          }`}>{combinedCheckout && item.status !== "voided"
+            ? item.checkout_balance === 0 ? "Account settled" : "Balance outstanding"
+            : recordStatus(item.kind, item.status)}</span>
           <span className="hidden items-center gap-1 text-xs font-semibold text-emerald-800 group-hover:underline sm:inline-flex">
             {sale || payment ? "Receipt" : "Details"} <span aria-hidden="true">→</span>
           </span>
