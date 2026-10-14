@@ -6,6 +6,7 @@ Planning documents:
 - [Phase 1 authorization audit](./access-control-phase1-audit.md)
 - [Staff permission matrix (proposed)](./staff-permission-matrix.md)
 - [Gated multi-business migration plan](./accounts-security-rollout.md)
+- [Additive M1 business and membership blueprint](./business-membership-m1-blueprint.md)
 
 Before granting **any staff or multi-business access**, verify:
 - every business-owned table/record is scoped and all foreign keys respect the same business
