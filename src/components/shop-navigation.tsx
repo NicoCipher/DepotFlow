@@ -7,6 +7,7 @@ import { signOut } from "@/app/sign-in/actions";
 const sections = [
   { href: "/", label: "Home" },
   { href: "/record-sale", label: "Record Sale" },
+  { href: "/records", label: "Records" },
   { href: "/customers", label: "Customers" },
   { href: "/stock", label: "Stock" },
 ] as const;
@@ -43,7 +44,7 @@ const moreGroups: MoreGroup[] = [
 function NavigationIcon({
   kind,
 }: {
-  kind: "Home" | "Record Sale" | "Customers" | "Stock" | "More";
+  kind: "Home" | "Record Sale" | "Records" | "Customers" | "Stock" | "More";
 }) {
   const paths = {
     Home: (
@@ -56,6 +57,12 @@ function NavigationIcon({
       <>
         <path d="M4 4h16v16H4z" />
         <path d="M8 9h8M8 13h8M8 17h4" />
+      </>
+    ),
+    Records: (
+      <>
+        <rect x="6" y="3" width="14" height="18" rx="2" />
+        <path d="M9 8h8M9 12h8M9 16h5M3 7v11" />
       </>
     ),
     Customers: (
@@ -100,14 +107,37 @@ export function ShopNavigation() {
   const active = (href: string) =>
     href === "/"
       ? pathname === "/"
-      : pathname === href || pathname.startsWith(`${href}/`);
+      : pathname === href || pathname.startsWith(`${href}/`) || (href === "/records" && pathname.startsWith("/receipts/"));
   const moreLinks = moreGroups.flatMap((group) => group.links);
-  const moreActive =
-    moreLinks.some(({ href }) => active(href)) ||
-    pathname.startsWith("/receipts");
+  const moreActive = moreLinks.some(({ href }) => active(href));
 
   return (
     <>
+      <header className="mb-4 flex items-center justify-between gap-3 sm:hidden">
+        <span className="text-base font-extrabold tracking-tight text-emerald-950">DepotFlow</span>
+        <details key={pathname} className="group relative">
+          <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 text-sm font-semibold text-emerald-950 [&::-webkit-details-marker]:hidden">
+            More <span aria-hidden="true">⌄</span>
+          </summary>
+          <div className="absolute right-0 top-full z-50 mt-2 max-h-[70dvh] w-[min(19rem,86vw)] overflow-y-auto rounded-2xl border border-stone-200 bg-white p-3 shadow-xl">
+            {moreGroups.map((group) => (
+              <section key={group.label} className="mb-3 last:mb-0">
+                <p className="px-2 py-1 text-xs font-bold uppercase tracking-wide text-stone-500">{group.label}</p>
+                {group.links.map(({ href, label }) => (
+                  <Link key={href} href={href} aria-current={active(href) ? "page" : undefined}
+                    className={"block min-h-12 rounded-lg px-3 py-3 text-sm font-medium " +
+                      (active(href) ? "bg-emerald-50 text-emerald-900" : "text-stone-800")}>
+                    {label}
+                  </Link>
+                ))}
+              </section>
+            ))}
+            <form action={signOut} className="border-t border-stone-200 pt-2">
+              <button className="min-h-12 w-full rounded-lg px-3 py-3 text-left text-sm text-stone-700">Sign out</button>
+            </form>
+          </div>
+        </details>
+      </header>
       <nav
         aria-label="Shop"
         className="mb-5 hidden border-b border-stone-200 pb-2 sm:block"
@@ -172,55 +202,10 @@ export function ShopNavigation() {
               >
                 <NavigationIcon kind={label} />
               </span>
-              <span>{label}</span>
+              <span>{label === "Record Sale" ? "Sale" : label}</span>
             </Link>
           ))}
-          <details
-            key={pathname}
-            className="group relative flex min-w-0 flex-1"
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                event.currentTarget.open = false;
-                event.currentTarget.querySelector("summary")?.focus();
-              }
-            }}
-          >
-            <summary
-              className={`flex min-h-16 w-full cursor-pointer list-none flex-col items-center justify-center gap-1 px-1 text-center text-[11px] font-semibold leading-tight [&::-webkit-details-marker]:hidden ${moreActive ? "text-emerald-900" : "text-stone-600"}`}
-              aria-label="More shop pages"
-            >
-              <span
-                className={`flex h-8 w-14 items-center justify-center rounded-full ${moreActive ? "bg-emerald-100" : ""}`}
-              >
-                <NavigationIcon kind="More" />
-              </span>
-              <span>More</span>
-            </summary>
-            <div className="absolute bottom-full right-0 mb-2 max-h-[72dvh] w-[min(21rem,94vw)] overflow-y-auto overscroll-contain rounded-xl border border-stone-200 bg-white p-3 shadow-xl">
-              {moreGroups.map((group) => (
-                <section key={group.label} className="mb-3 last:mb-0">
-                  <p className="px-2 pb-1 pt-1 text-xs font-semibold uppercase tracking-wide text-stone-500">
-                    {group.label}
-                  </p>
-                  {group.links.map(({ href, label }) => (
-                    <Link
-                      key={href}
-                      href={href}
-                      aria-current={active(href) ? "page" : undefined}
-                      className={`block min-h-12 rounded-lg px-3 py-3 font-medium ${active(href) ? "bg-emerald-50 text-emerald-900" : "text-stone-800"}`}
-                    >
-                      {label}
-                    </Link>
-                  ))}
-                </section>
-              ))}
-              <form action={signOut} className="border-t border-stone-200 pt-2">
-                <button className="w-full rounded-lg px-3 py-3 text-left text-stone-700">
-                  Sign out
-                </button>
-              </form>
-            </div>
-          </details>
+          { /* Secondary pages live in the small header menu, not a sixth bottom tab. */ }
         </div>
       </nav>
     </>
