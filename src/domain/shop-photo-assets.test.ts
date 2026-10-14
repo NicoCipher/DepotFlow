@@ -10,7 +10,7 @@ const accepted = [
   "smirnoff-ice-small-33cl", "star-60cl", "star-radler-citrus-45cl",
   "trophy-lager-60cl"
 ];
-const rejected = ["desperados-45cl", "tiger-45cl", "turbo-king-big-60cl", "smirnoff-ice-big-60cl"];
+const rejected = ["desperados-45cl", "tiger-45cl", "turbo-king-big-60cl"];
 
 test("all 13 linked shop photos are real stored WebP files, not remote URLs", () => {
   assert.equal(new Set(accepted).size, 13);

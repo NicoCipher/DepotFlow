@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "rights": "Third-party photographs have not been confirmed licensed; owner-requested personal pilot only. Publishing publicly may carry copyright risk. Source provenance preserved, no endorsement claimed.",
+  "candidates": [
+    {
+      "slug": "smirnoff-ice-big-60cl",
+      "catalogue_name": "Big Ice",
+      "shop_name": "Big Smirnoff Ice",
+      "variant": "60cl original glass bottle (12 per crate)",
+      "sources": [
+        {
+          "kind": "image",
+          "url": "https://martking.ng/wp-content/uploads/2022/10/MartKing-Smirnoff-bottle.jpg",
+          "page": "https://martking.ng/product/smirnoff-ice-bottle-60-cl/"
+        },
+        {
+          "kind": "page",
+          "url": "https://www.supermart.ng/products/smirnoff-ice-bottle-60-cl"
+        },
+        {
+          "kind": "shopify",
+          "url": "https://addide.com/products/smirnoff-ice-bottle-60cl.js",
+          "page": "https://addide.com/collections/new-collection/products/smirnoff-ice-bottle-60cl"
+        }
+      ]
+    },
+    {
+      "slug": "desperados-original-45cl",
+      "catalogue_name": "Desperados",
+      "shop_name": "Desperados",
+      "variant": "45cl original clear glass bottle; do NOT accept 33cl-labelled image",
+      "sources": [
+        {
+          "kind": "shopify",
+          "url": "https://addide.com/products/desperados-original-beer-45cl.js",
+          "page": "https://addide.com/products/desperados-original-beer-45cl"
+        },
+        {
+          "kind": "page",
+          "url": "https://www.shopperswarehouse.com/products/391/desperados-original-beer-45cl-bottle"
+        },
+        {
+          "kind": "page",
+          "url": "https://www.shopperswarehouse.com/products/391/desperados-original-beer-45cl-bottle/"
+        }
+      ]
+    },
+    {
+      "slug": "turbo-king-big-60cl",
+      "catalogue_name": "Turbo",
+      "shop_name": "Turbo King",
+      "variant": "60cl dark ale bottle with lion on label",
+      "sources": [
+        {
+          "kind": "image",
+          "url": "https://allinonestore.ng/public/uploads/all/4R6cuK7euyYPHsCmQmDnbp3ryttAo0OxcJYmbNxi.jpg",
+          "page": "https://allinonestore.ng/product/derok-rum-liqueur-lshei"
+        },
+        {
+          "kind": "page",
+          "url": "https://www.shopperswarehouse.com/products/484/turbo-king-60cl-bottle-x12"
+        },
+        {
+          "kind": "page",
+          "url": "https://www.nbplc.com/our-brands/turbo-king/"
+        }
+      ]
+    }
+  ]
+}

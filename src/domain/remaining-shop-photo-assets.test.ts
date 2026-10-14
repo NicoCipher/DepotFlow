@@ -14,6 +14,15 @@ test("second photo batch contains five genuine optimized WebP sources",()=>{
   }
 });
 test("second photo batch never publishes 3 failed product variants",()=>{
-  for (const slug of ["smirnoff-ice-big-60cl","desperados-original-45cl","turbo-king-big-60cl"])
+  for (const slug of ["desperados-original-45cl","turbo-king-big-60cl"])
     assert.ok(!existsSync(new URL(`public/catalogue-photos/${slug}.webp`,root)));
+});
+
+test("Big Smirnoff Ice 60cl genuine bottle packshot is available in a safe first-party WebP", () => {
+  const filename=new URL("public/catalogue-photos/smirnoff-ice-big-60cl.webp",root);
+  assert.ok(existsSync(filename));
+  const content=readFileSync(filename);
+  assert.ok(content.length>7000&&content.length<1024*1024);
+  assert.equal(content.toString("ascii",0,4),"RIFF");
+  assert.equal(content.toString("ascii",8,12),"WEBP");
 });

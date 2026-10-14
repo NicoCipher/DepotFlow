@@ -1,0 +1,65 @@
+{
+  "status": "manual_visual_review_completed",
+  "items": [
+    {
+      "slug": "smirnoff-ice-big-60cl",
+      "status": "accepted_real_bottle_60cl_listing",
+      "attempts": [],
+      "bytes": 13512,
+      "sha256": "d1b0b0f097944b87131082834066bd5c0d9bc0de039d07ff7e9a7b9dd3c0ffa1",
+      "source_page": "https://martking.ng/product/smirnoff-ice-bottle-60-cl/",
+      "source_image": "https://martking.ng/wp-content/uploads/2022/10/MartKing-Smirnoff-bottle.jpg",
+      "original_dimensions": [
+        600,
+        600
+      ],
+      "review": "Visual inspection confirms actual Smirnoff Ice bottle on white, readable Smirnoff ICE brand; MartKing listing explicitly 60cl. No packaging alteration."
+    },
+    {
+      "slug": "desperados-original-45cl",
+      "status": "failed",
+      "attempts": [
+        {
+          "source": "https://addide.com/products/desperados-original-beer-45cl.js",
+          "error": "HTTP Error 429: Too Many Requests"
+        },
+        {
+          "source": "https://www.shopperswarehouse.com/products/391/desperados-original-beer-45cl-bottle",
+          "error": "HTTP Error 403: Forbidden"
+        },
+        {
+          "source": "https://www.shopperswarehouse.com/products/391/desperados-original-beer-45cl-bottle/",
+          "error": "HTTP Error 403: Forbidden"
+        }
+      ],
+      "review": "No usable exact 45cl photo downloaded; no database link."
+    },
+    {
+      "slug": "turbo-king-big-60cl",
+      "status": "rejected_logo_not_a_bottle",
+      "attempts": [
+        {
+          "source": "https://allinonestore.ng/public/uploads/all/4R6cuK7euyYPHsCmQmDnbp3ryttAo0OxcJYmbNxi.jpg",
+          "error": "<urlopen error [Errno -3] Temporary failure in name resolution>"
+        },
+        {
+          "source": "https://allinonestore.ng/public/uploads/all/4R6cuK7euyYPHsCmQmDnbp3ryttAo0OxcJYmbNxi.jpg",
+          "error": "No usable photo candidate"
+        },
+        {
+          "source": "https://www.shopperswarehouse.com/products/484/turbo-king-60cl-bottle-x12",
+          "error": "HTTP Error 403: Forbidden"
+        }
+      ],
+      "bytes": 22440,
+      "sha256": "eddd51724196b604f43ad9cda70a159b76f3273b0d42f17fa8a5ba92f26b654f",
+      "source_page": "https://www.nbplc.com/our-brands/turbo-king/",
+      "source_image": "https://www.nbplc.com/storage/2021/10/turboking-logo-min.png",
+      "original_dimensions": [
+        300,
+        300
+      ],
+      "review": "Visual inspection rejected downloaded Nigerian Breweries lion-logo graphic, not actual Turbo King bottle. File deleted; no database link."
+    }
+  ]
+}
