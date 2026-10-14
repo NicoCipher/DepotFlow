@@ -34,83 +34,122 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000961',true);
 
 select pg_temp.ensure(
-  (public.customer_records('2026-10-14','2026-10-14','all','all','',30,0)->>'count')::integer=5,
+  (public.customer_records('2026-10-14','2026-10-14','all','all','',30)->>'count')::integer=5,
   'Missing a sale, standalone return, payment or opening record');
 select pg_temp.ensure(
   (select count(*)=1 from jsonb_array_elements(public.customer_records(
-   '2026-10-14','2026-10-14','sale','all','Royal Hotel',30,0)->'items') e
+   '2026-10-14','2026-10-14','sale','all','Royal Hotel',30)->'items') e
    where e->>'sale_total'='85000' and e->>'received'='40000'
     and e->>'remaining'='45000' and e->>'status'='partial'),
   'Sale mixed up value, amount received, or balance');
 select pg_temp.ensure(
   (select count(*)=1 from jsonb_array_elements(public.customer_records(
-    '2026-10-14','2026-10-14','payment','transfer','Royal',30,0)->'items') e
+    '2026-10-14','2026-10-14','payment','transfer','Royal',30)->'items') e
     where e->>'received'='10000' and e->>'sale_total'='0'),
   'Separate debt payment is not independently recorded');
 select pg_temp.ensure(
-  (public.customer_records('2026-10-14','2026-10-14','all','cash','',30,0)->>'count')::integer=1,
+  (public.customer_records('2026-10-14','2026-10-14','all','cash','',30)->>'count')::integer=1,
   'Payment-method filter incorrectly included non-cash records');
 select pg_temp.ensure(
-  (public.customer_records('2026-10-14','2026-10-14','all','transfer','',30,0)->>'count')::integer=1,
+  (public.customer_records('2026-10-14','2026-10-14','all','transfer','',30)->>'count')::integer=1,
   'Transfer method incorrectly matched a sale with no new-sale payment');
 select pg_temp.ensure(
-  (public.customer_records('2026-10-14','2026-10-14','sale','transfer','',30,0)->>'count')::integer=0,
+  (public.customer_records('2026-10-14','2026-10-14','sale','transfer','',30)->>'count')::integer=0,
   'An unpaid sale inherited the method of an old-debt payment');
 select pg_temp.ensure(
-  (public.customer_records('2026-10-14','2026-10-14','sale','all','+2348000000962',30,0)->>'count')::integer=1,
+  (public.customer_records('2026-10-14','2026-10-14','sale','all','+2348000000962',30)->>'count')::integer=1,
   'Customer phone search missed an unpaid sale');
 select pg_temp.ensure(
   (select count(*)=1 from jsonb_array_elements(public.customer_records(
-    '2026-10-14','2026-10-14','sale','all','',30,0)->'items') e
+    '2026-10-14','2026-10-14','sale','all','',30)->'items') e
      where e->>'customer_name'='Another buyer' and e->>'status'='unpaid' and e->>'received'='0'),
   'Unpaid sale was incorrectly marked received');
 select pg_temp.ensure(
   (select count(*)=1 from jsonb_array_elements(public.customer_records(
-    '2026-10-14','2026-10-14','empties','all','',30,0)->'items') e
+    '2026-10-14','2026-10-14','empties','all','',30)->'items') e
    where e->>'crates'='2' and e->>'bottles'='12'
      and e->>'received'='0' and e->>'detail'='/records/empties/60000000-0000-4000-8000-000000000961'),
   'Standalone returned empties were missing or treated as money');
 select pg_temp.ensure(
   (select count(*)=1 from jsonb_array_elements(public.customer_records(
-   '2026-10-14','2026-10-14','opening','all','',30,0)->'items') e
+   '2026-10-14','2026-10-14','opening','all','',30)->'items') e
    where e->>'remaining'='5000' and e->>'received'='0'),
   'Opening balance was incorrectly marked as money received');
+-- Forward pages use a precise event cursor, not an offset.
+select set_config('test.page1',
+  public.customer_records('2026-10-14','2026-10-14','all','all','',2)::text,true);
 select pg_temp.ensure(
-  jsonb_array_length(public.customer_records('2026-10-14','2026-10-14',
-    'all','all','',2,0)->'items')=2 and
-  jsonb_array_length(public.customer_records('2026-10-14','2026-10-14',
-    'all','all','',2,2)->'items')=2,
-  'Records pagination is inaccurate');
+  jsonb_array_length(current_setting('test.page1')::jsonb->'items')=2
+  and (current_setting('test.page1')::jsonb->>'has_more')::boolean,
+  'Records first page does not include two items and a next-page signal');
+select set_config('test.next_cursor',
+  (select jsonb_build_object(
+    'day',e.item->>'day','created_at',e.item->>'created_at',
+    'kind',e.item->>'kind','id',e.item->>'id')::text
+    from jsonb_array_elements(current_setting('test.page1')::jsonb->'items')
+      with ordinality as e(item,n) where e.n=2),true);
+select set_config('test.page2',
+  public.customer_records('2026-10-14','2026-10-14',
+    'all','all','',2,current_setting('test.next_cursor')::jsonb,false)::text,true);
+select pg_temp.ensure(
+  jsonb_array_length(current_setting('test.page2')::jsonb->'items')=2,
+  'Record next page has wrong size');
+select pg_temp.ensure(
+  (select count(*)=0
+   from jsonb_array_elements(current_setting('test.page1')::jsonb->'items') a
+   join jsonb_array_elements(current_setting('test.page2')::jsonb->'items') b
+     on (a->>'id',a->>'kind')=(b->>'id',b->>'kind')),
+  'Next page repeated an event from the prior page');
+
 select pg_temp.ensure(
   (public.customer_return_record('60000000-0000-4000-8000-000000000961')->'crates'->0->>'name')='Royal Test Crate'
    and (public.customer_return_record('60000000-0000-4000-8000-000000000961')->'bottles'->0->>'quantity')='12',
   'Saved empties detail did not use exact types and quantities');
 
--- An item added after the first page's snapshot must not enter page two.
-select set_config('test.records_snapshot',
-  public.customer_records('2026-10-14','2026-10-14','all','all','',2,0)->>'snapshot',true);
+-- A committed late row with an earlier transaction-created timestamp
+-- can shift offset-based pages. The keyset preserves the original boundary.
 reset role;
 insert into public.customer_payments
   (customer_id,amount,owed_after,business_date,request_id,method,created_at)
 values
   ('10000000-0000-4000-8000-000000000961',2000,33000,'2026-10-14',
-   '50000000-0000-4000-8000-000000000962','cash',
-   current_setting('test.records_snapshot')::timestamptz + interval '1 minute');
+   '50000000-0000-4000-8000-000000000962','cash',now()+interval '1 minute');
 set local role authenticated;
 select pg_temp.ensure(
-  (public.customer_records('2026-10-14','2026-10-14','all','all','',30,0,
-     current_setting('test.records_snapshot')::timestamptz)->>'count')::integer=5,
-  'Record pagination did not exclude entries created after its snapshot');
+  (select count(*)=0
+   from jsonb_array_elements(current_setting('test.page1')::jsonb->'items') a
+   join jsonb_array_elements(public.customer_records(
+      '2026-10-14','2026-10-14','all','all','',2,
+      current_setting('test.next_cursor')::jsonb,false)->'items') b
+     on (a->>'id',a->>'kind')=(b->>'id',b->>'kind')),
+  'Late committed row caused duplicate items on page two');
+select set_config('test.back_cursor',
+  (select jsonb_build_object(
+    'day',e.item->>'day','created_at',e.item->>'created_at',
+    'kind',e.item->>'kind','id',e.item->>'id')::text
+    from jsonb_array_elements(current_setting('test.page2')::jsonb->'items')
+      with ordinality as e(item,n) where e.n=1),true);
+select pg_temp.ensure(
+  (select array_agg(x->>'id' order by ordinality)
+   from jsonb_array_elements(public.customer_records(
+      '2026-10-14','2026-10-14','all','all','',2,
+      current_setting('test.back_cursor')::jsonb,true)->'items')
+     with ordinality as a(x,ordinality))
+  =
+  (select array_agg(x->>'id' order by ordinality)
+   from jsonb_array_elements(current_setting('test.page1')::jsonb->'items')
+     with ordinality as a(x,ordinality)),
+  'Previous cursor did not return the original first page');
 do $$ begin
   begin
-    perform public.customer_records('2026-10-14','2026-10-14','nonsense','all','',30,0);
+    perform public.customer_records('2026-10-14','2026-10-14','nonsense','all','',30);
     raise exception 'Accepted invalid record kind';
   exception when invalid_parameter_value then null; end;
 end $$;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000962',true);
 do $$ begin
   begin
-    perform public.customer_records('2026-10-14','2026-10-14','all','all','',30,0);
+    perform public.customer_records('2026-10-14','2026-10-14','all','all','',30);
     raise exception 'A non-owner viewed customer records';
   exception when insufficient_privilege then null; end;
   begin
