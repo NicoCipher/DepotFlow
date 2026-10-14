@@ -84,13 +84,13 @@ export function readSaleDrafts(raw: string | null): SaleDrafts {
         ? {
             ...data.active,
             saveUncertain: data.active.saveUncertain === true,
-            draft: cleanDraft(readSaleDraft(JSON.stringify(data.active.draft))),
+            draft: cleanDraft(data.active.draft),
           }
         : null,
       paused: data.paused.map((entry: StoredSaleDraft) => ({
         ...entry,
         saveUncertain: entry.saveUncertain === true,
-        draft: cleanDraft(readSaleDraft(JSON.stringify(entry.draft))),
+        draft: cleanDraft(entry.draft),
       })),
     };
   } catch {
@@ -99,7 +99,13 @@ export function readSaleDrafts(raw: string | null): SaleDrafts {
 }
 // Keep customer identity only, never a typed phone/name search or contact record.
 function cleanDraft(draft: SaleDraft): SaleDraft {
-  return { ...draft, customerQuery: "" };
+  // Preserve existing valid quantities and empties exactly; old saved drafts
+  // predate the separate previous-debt payment field.
+  return {
+    ...draft,
+    oldDebtPaid: typeof draft.oldDebtPaid === "string" ? draft.oldDebtPaid : "0",
+    customerQuery: "",
+  };
 }
 export function updateActiveSale(
   state: SaleDrafts,
