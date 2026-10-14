@@ -8,6 +8,10 @@
       "status": "failed",
       "sources_tried": [
         {
+          "source": "https://allinonestore.ng/product/desperados-original-beer-bottle-45cl",
+          "error": "<urlopen error [Errno -3] Temporary failure in name resolution>"
+        },
+        {
           "source": "https://addide.com/products/desperados-original-beer-45cl",
           "error": "HTTP Error 429: Too Many Requests"
         },
@@ -142,6 +146,10 @@
       "variant": "Goldberg Premium Lager beer 50cl can (not bottle)",
       "status": "failed",
       "sources_tried": [
+        {
+          "source": "https://www.supermart.ng/products/goldberg-premium-lager-beer-can-50-cl-x12",
+          "error": "HTTP Error 429: Too Many Requests"
+        },
         {
           "source": "https://addide.com/products/goldberg-lager-beer-50cl-can",
           "error": "HTTP Error 429: Too Many Requests"
