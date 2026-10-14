@@ -1,3 +1,6 @@
+begin;
+
+-- Keep the activity/held-release upgrade atomic, including the history backfill.
 -- Customer account overview: complete standalone empties-return history and capped-safe badges.
 -- Existing store_activity owner check, event labels and page limits are preserved.
 CREATE OR REPLACE FUNCTION public.store_activity(p_from date, p_to date, p_customer uuid, p_type text, p_limit integer, p_offset integer)
@@ -134,17 +137,26 @@ create table private.held_empty_collections (
 create index held_empty_collections_recent_idx
   on private.held_empty_collections(customer_id,collected_at desc,decision_id desc);
 
--- Restore historical inline collections; exclude those already accounted for by
--- a standalone return-form receipt (including mixed correct/held collections).
+-- A release using the old function must finish before this snapshot.
+-- This lock conflicts with ROW EXCLUSIVE updates and lasts until COMMIT,
+-- when the replacement release function and backfilled records become visible.
+lock table public.sale_empty_decisions in share row exclusive mode;
+
+-- Materialize each form-recorded released UUID only once. Then anti-join
+-- the decisions so a historic form return is not also counted as direct
+-- collection. No per-decision scans of every customer's receipt JSON.
+with form_releases as materialized (
+  select distinct r.customer_id, released.id::uuid as decision_id
+  from private.customer_empty_returns r
+  cross join lateral jsonb_array_elements_text(
+    coalesce(r.request_payload->'released','[]'::jsonb)
+  ) released(id)
+)
 insert into private.held_empty_collections(decision_id,customer_id,collected_at)
 select d.id,d.customer_id,d.released_at
 from public.sale_empty_decisions d
-where d.decision='hold' and d.released_at is not null
-  and not exists (
-    select 1 from private.customer_empty_returns r
-    where r.customer_id=d.customer_id
-      and coalesce(r.request_payload->'released','[]'::jsonb) @> jsonb_build_array(d.id::text)
-  );
+left join form_releases f on f.customer_id=d.customer_id and f.decision_id=d.id
+where d.decision='hold' and d.released_at is not null and f.decision_id is null;
 
 -- Keep the established public RPC and its idempotent semantics. Only newly
 -- updated decisions become events, and both changes commit or roll back together.
@@ -344,3 +356,5 @@ $account$;
 
 revoke all on function public.customer_account_snapshot(uuid[]) from public;
 grant execute on function public.customer_account_snapshot(uuid[]) to authenticated;
+
+commit;
