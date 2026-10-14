@@ -21,3 +21,13 @@ Staging the eight exact-packaging retailer listings in [master-photo-candidates.
 - Strip original EXIF; keep optimized first-party WebP, source and legal-use caveat recorded
 - Publish only after manual review, CI, Codex, Vercel exact deployment check and conditional DB update
 - Underlying image rights from third-party retailers are not confirmed; personal pilot does not grant commercial reuse rights
+
+## Batch 1: first two formerly unconfigured master products (14 Oct 2026)
+
+Two real, manually inspected single-product photographs are ready in this branch; **do not claim live coverage has changed before deployment and DB linking**:
+- **Maltina Can** — original 33cl Classic can packshot, source https://shoppersgatestores.com/products/maltina-33cl-classic-can ; image https://shoppersgatestores.com/storage/drinks/mmm.png
+- **Maltina** — original 33cl Classic glass bottle, source https://shoppersgatestores.com/products/maltina-classic-33cl-bottle ; image https://shoppersgatestores.com/storage/drinks/maltina.jpg ; the master catalogue separately lists Maltina Can and three PET sizes, so the unqualified Maltina entry is treated as the glass-bottle line
+
+Both are actual packshots on white, resized and metadata-stripped. Do **not** show stock availability for either — these are catalogue-only entries with no shop configuration. Unverified third-party photo rights remain a commercial-use concern.
+
+**Rejected during this batch:** Fayrouz was a generic pharmacy icon, Chamdor a watermarked source, Maltina PET a 12-pack advertisement; images withheld. Initial other sources returned HTTP 429/403 or timed out. See `docs/master-photo-review-results.json` for individual attempts. Alternative sources and correctly specified flavours/sizes remain for later batches.

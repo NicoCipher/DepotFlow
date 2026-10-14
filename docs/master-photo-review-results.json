@@ -1,5 +1,5 @@
 {
-  "status": "STAGED_FOR_MANUAL_REVIEW_NO_DB_WRITE",
+  "status": "MANUAL_VISUAL_REVIEW_COMPLETED_ONLY_TWO_APPROVED",
   "items": [
     {
       "slug": "amstel-malta-can-33cl",
@@ -25,45 +25,50 @@
     {
       "slug": "maltina-classic-can-33cl",
       "catalogue_name": "Maltina Can",
-      "status": "staged_unreviewed",
+      "status": "accepted_real_packshot",
       "source_page": "https://shoppersgatestores.com/products/maltina-33cl-classic-can",
       "source_image": "https://shoppersgatestores.com/storage/drinks/mmm.png",
       "bytes": 17896,
-      "sha256": "e2889c9945e58b0a0b11690b32971ad492d55cb11fc0dfef2fe996ea08a03ee5"
+      "sha256": "e2889c9945e58b0a0b11690b32971ad492d55cb11fc0dfef2fe996ea08a03ee5",
+      "review": "33cl Maltina Classic aluminium can; brand and variant readable; clean white backdrop"
     },
     {
       "slug": "maltina-classic-pet-33cl",
       "catalogue_name": "Maltina PET 33cl",
-      "status": "staged_unreviewed",
+      "status": "rejected_promo_collage",
       "source_page": "https://addide.com/collections/non-alcoholic-drinks/products/maltina-classic-pet-33cl",
       "source_image": "https://addide.com/cdn/shop/files/MaltinaPet01112023_1024x.jpg?v=1698826682",
       "bytes": 28916,
-      "sha256": "cd1dcbd639ea768e0096537c141ad5aa8190ddd1ae1128d7c83c7c4f455ee644"
+      "sha256": "cd1dcbd639ea768e0096537c141ad5aa8190ddd1ae1128d7c83c7c4f455ee644",
+      "review": "A 12-pack promotional collage rather than a single-product image; do not use as packshot"
     },
     {
       "slug": "maltina-classic-glass-33cl",
       "catalogue_name": "Maltina",
-      "status": "staged_unreviewed",
+      "status": "accepted_real_packshot",
       "source_page": "https://shoppersgatestores.com/products/maltina-classic-33cl-bottle",
       "source_image": "https://shoppersgatestores.com/storage/drinks/maltina.jpg",
       "bytes": 14750,
-      "sha256": "344ac6ba9af3f4989eaf7fd23f37a85aea3744d6b3ec8a7968bc712dc19d960a"
+      "sha256": "344ac6ba9af3f4989eaf7fd23f37a85aea3744d6b3ec8a7968bc712dc19d960a",
+      "review": "33cl Maltina Classic glass bottle; master Maltina is unqualified and separate can/PET catalogue variants are listed; white backdrop"
     },
     {
       "slug": "chamdor-red-75cl",
       "catalogue_name": "Chamdor",
-      "status": "failed",
+      "status": "rejected_watermarked_or_unavailable",
       "source_page": "https://shoprite.ng/product/non-alcoholic-red-chamdor-750ml-bottle/",
-      "error": "<urlopen error timed out>"
+      "error": "<urlopen error timed out>",
+      "review": "Earlier image carried conspicuous RIGHTS DRINKS watermark, latest source timed out; do not publish"
     },
     {
       "slug": "fayrouz-pineapple-can-33cl",
       "catalogue_name": "Fayrouz Can",
-      "status": "staged_unreviewed",
+      "status": "rejected_placeholder",
       "source_page": "https://drugstore.ng/product/fayrouz-drink-can",
       "source_image": "https://drugstore.ng/images/default.png",
       "bytes": 6174,
-      "sha256": "cd50411d2b8a2c262aac16f8e15024526641656e6620f32f5e9a356187ba34bc"
+      "sha256": "cd50411d2b8a2c262aac16f8e15024526641656e6620f32f5e9a356187ba34bc",
+      "review": "Generic blue Rx pharmacy logo, not a Fayrouz can"
     }
   ]
 }
