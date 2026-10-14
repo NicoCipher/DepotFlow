@@ -8,7 +8,9 @@ import {
 import { CustomerForm } from "./customer-form";
 import { emptyCustomer } from "@/domain/customers";
 import { ProductImage } from "@/components/product-image";
+import { SaleIcon } from "@/components/sale-icon";
 import { useSaleDrafts } from "./sale-draft-session";
+import { hasSaleWork } from "@/domain/sale-drafts";
 import { PausedSalesLink } from "./paused-sales-link";
 import { SaleEmptiesStep } from "./sale-empties-step";
 import {
@@ -64,6 +66,9 @@ export function SaleBuilder({
   const pricingMode = draft.sellingMode === "retail" ? "retail" : "wholesale";
   const [catalog, setCatalog] = useState(initialCatalog);
   const [message, setMessage] = useState("");
+  const [notice, setNotice] = useState("");
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const keepSaleButton = useRef<HTMLButtonElement>(null);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [saved, setSaved] = useState<{
     id: string;
@@ -84,6 +89,10 @@ export function SaleBuilder({
   const [checkAttempt, setCheckAttempt] = useState(0);
   const ready = activeId === null || verifiedId === activeId;
   const saveUncertain = sales.state.active?.saveUncertain === true;
+  const saleHasWork = Boolean(sales.state.active && hasSaleWork(draft));
+  useEffect(() => {
+    if (confirmCancel) keepSaleButton.current?.focus();
+  }, [confirmCancel]);
   useEffect(() => {
     if (!activeId) return;
     let current = true;
@@ -125,6 +134,8 @@ export function SaleBuilder({
     }
     void sales.update(patch);
     setMessage("");
+    setNotice("");
+    setConfirmCancel(false);
   }
   function edit(p: SaleProduct) {
     const setupIssue = saleProductSetupIssue(p);
@@ -284,26 +295,47 @@ export function SaleBuilder({
   if (saved)
     return (
       <div className="space-y-5">
-        <h1>Sale saved</h1>
-        <p className="text-lg font-semibold">{saved.name}</p>
-        <dl className="rounded-lg border border-stone-200 bg-white px-4">
-          {([["Total", saved.total], ["Paid", saved.paid], ["Still owing", saved.owing]] as const).map(([label, amount]) => (
-            <div key={label} className="flex justify-between gap-3 border-b border-stone-200 py-3 last:border-b-0">
-              <dt>{label}</dt><dd className="font-semibold">{formatNaira(amount)}</dd>
+        <section aria-labelledby="sale-success-title" className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm sm:p-8">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-800">
+            <SaleIcon name="check" className="h-8 w-8" />
+          </div>
+          <p className="mt-5 text-sm font-bold uppercase tracking-wide text-emerald-800">Sale complete</p>
+          <h1 id="sale-success-title" className="mt-1 text-3xl font-bold text-stone-950">Sale recorded</h1>
+          <p className="mt-2 text-stone-600">
+            {saved.name}’s sale is saved. Stock and the customer’s balance have been updated.
+          </p>
+          <dl className="mt-6 divide-y divide-stone-200 rounded-xl border border-stone-200 bg-stone-50 px-4">
+            <div className="flex items-center justify-between gap-3 py-4">
+              <dt className="text-stone-600">Sale total</dt>
+              <dd className="text-xl font-bold tabular-nums">{formatNaira(saved.total)}</dd>
             </div>
-          ))}
-        </dl>
-        {saved.paid > 0 && <a className="primary w-full" href={`/receipts/sale/${saved.id}`}>View Receipt</a>}
-        <details className="text-sm text-stone-600"><summary className="cursor-pointer py-2">Sale reference</summary><p className="break-all">{saved.id}</p></details>
-        <button className="primary w-full" onClick={() => setSaved(null)}>
-          Record Another Sale
+            <div className="flex items-center justify-between gap-3 py-4">
+              <dt className="text-stone-600">Paid now</dt>
+              <dd className="font-bold tabular-nums">{formatNaira(saved.paid)}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-3 py-4">
+              <dt className="font-semibold">Still owing</dt>
+              <dd className={"text-xl font-bold tabular-nums " + (saved.owing > 0 ? "text-amber-900" : "text-emerald-900")}>
+                {saved.owing === 0 ? "Paid in full" : formatNaira(saved.owing)}
+              </dd>
+            </div>
+          </dl>
+        </section>
+        <button type="button" className="primary flex w-full gap-2" onClick={() => { setSaved(null); setNotice(""); }}>
+          <SaleIcon name="plus" /> Record another sale
         </button>
-        <a
-          className="secondary block text-center"
-          href={`/customers/${saved.customer}`}
-        >
-          View Customer
+        {saved.paid > 0 && (
+          <a className="secondary flex w-full gap-2" href={ "/receipts/sale/" + saved.id }>
+            <SaleIcon name="receipt" /> View payment receipt
+          </a>
+        )}
+        <a className="secondary flex w-full gap-2" href={ "/customers/" + saved.customer }>
+          <SaleIcon name="user" /> View customer
         </a>
+        <details className="text-sm text-stone-600">
+          <summary className="cursor-pointer py-2">Sale reference</summary>
+          <p className="break-all">{saved.id}</p>
+        </details>
       </div>
     );
   if (sessionExpired)
@@ -451,48 +483,97 @@ export function SaleBuilder({
             )}
           </section>
         )}
-        {step === "customer" && <PausedSalesLink ownerId={ownerId} />}
-        {sales.state.active && (draft.customerId || draft.lines.length > 0) && (
-          <details className="border-b border-stone-200 pb-2">
-            <summary className="cursor-pointer py-2 text-sm font-medium text-emerald-900">
-              Sale options
-            </summary>
-            <div className="flex flex-wrap gap-x-6 gap-y-1">
-            <button
-              className="quiet-link"
-              disabled={saveUncertain}
-              onClick={() =>
-                startTransition(async () => {
-                  if (await sales.park()) {
-                    setCustomerQuery("");
-                    setMessage("");
-                  }
-                })
-              }
-            >
-              Park Sale
-            </button>
-            <button
-              className="quiet-link"
-              disabled={saveUncertain}
-              onClick={() => {
-                const id = sales.state.active?.id;
-                if (
-                  id &&
-                  window.confirm(
-                    "Cancel this unfinished sale? This cannot be undone.",
-                  )
-                )
-                  startTransition(async () => {
-                    await sales.cancel(id);
-                    setCustomerQuery("");
-                  });
-              }}
-            >
-              Cancel Sale
-            </button>
+        {saleHasWork && (
+          <section aria-label="Unfinished sale actions" className="rounded-xl border border-stone-200 bg-white p-3 sm:p-4">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h2 className="text-sm font-bold text-stone-800">Need to stop for now?</h2>
+              <span className="text-xs font-medium text-stone-500">This sale is not saved yet</span>
             </div>
-          </details>
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
+              <button
+                type="button"
+                className="flex min-h-20 items-start gap-2 rounded-lg border-2 border-emerald-200 bg-emerald-50 px-3 py-3 text-left text-emerald-950 hover:border-emerald-700 hover:bg-emerald-100 sm:items-center sm:gap-3"
+                disabled={saveUncertain}
+                onClick={() => {
+                  setConfirmCancel(false);
+                  startTransition(async () => {
+                    if (await sales.park()) {
+                      setCustomerQuery("");
+                      setMessage("");
+                      setNotice("Sale parked safely on this device. Open Paused sales to continue later.");
+                    }
+                  });
+                }}
+              >
+                <span className="mt-0.5 shrink-0 sm:mt-0"><SaleIcon name="pause" /></span>
+                <span className="min-w-0">
+                  <strong className="block text-sm sm:text-base">Park sale</strong>
+                  <span className="mt-1 block text-xs leading-4">Keep it for later</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                className="flex min-h-20 items-start gap-2 rounded-lg border border-stone-300 bg-white px-3 py-3 text-left text-stone-800 hover:border-red-300 hover:bg-red-50 sm:items-center sm:gap-3"
+                disabled={saveUncertain}
+                aria-expanded={confirmCancel}
+                aria-controls="cancel-sale-panel"
+                onClick={() => setConfirmCancel(true)}
+              >
+                <span className="mt-0.5 shrink-0 text-red-700 sm:mt-0"><SaleIcon name="trash" /></span>
+                <span className="min-w-0">
+                  <strong className="block text-sm sm:text-base">Cancel sale</strong>
+                  <span className="mt-1 block text-xs leading-4">Discard unfinished work</span>
+                </span>
+              </button>
+            </div>
+            {saveUncertain && (
+              <p className="mt-3 text-sm font-medium text-amber-900">The save may have completed. Use Check Sale before parking or cancelling.</p>
+            )}
+            {confirmCancel && !saveUncertain && (
+              <div id="cancel-sale-panel" role="group" aria-labelledby="cancel-sale-question" className="mt-3 rounded-lg border border-red-200 bg-red-50 p-4">
+                <h3 id="cancel-sale-question" className="font-bold text-red-950">Discard this unfinished sale?</h3>
+                <p className="mt-1 text-sm leading-5 text-red-900">
+                  The selected customer, drinks and payment details will be lost. Nothing will be deducted from stock.
+                </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <button
+                    ref={keepSaleButton}
+                    type="button"
+                    className="secondary w-full"
+                    onClick={() => setConfirmCancel(false)}
+                  >
+                    Keep recording
+                  </button>
+                  <button
+                    type="button"
+                    className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-red-800 px-4 py-3 font-semibold text-white hover:bg-red-900"
+                    onClick={() => {
+                      const id = sales.state.active?.id;
+                      if (!id) return;
+                      startTransition(async () => {
+                        if (await sales.cancel(id)) {
+                          setCustomerQuery("");
+                          setMessage("");
+                          setConfirmCancel(false);
+                          setNotice("Unfinished sale cancelled. No stock or payment was changed.");
+                        }
+                      });
+                    }}
+                  >
+                    <SaleIcon name="trash" className="h-4 w-4" /> Yes, cancel sale
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+        {step === "customer" && <PausedSalesLink ownerId={ownerId} prominent />}
+        {notice && (
+          <div role="status" aria-live="polite" className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
+            <span className="mt-0.5 shrink-0"><SaleIcon name="check" /></span>
+            <p className="min-w-0 flex-1 text-sm font-medium leading-6">{notice}</p>
+            <button type="button" className="min-h-10 shrink-0 rounded-md px-2 text-xs font-bold text-emerald-900 underline" onClick={() => setNotice("")}>Dismiss</button>
+          </div>
         )}
         {sales.error && (
           <p role="alert" className="text-red-800">
