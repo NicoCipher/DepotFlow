@@ -69,9 +69,8 @@ export function SaleBuilder({
   const [catalog, setCatalog] = useState(initialCatalog);
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState("");
-  const [oldDebt, setOldDebt] = useState<{ customerId: string; amount: number } | null>(null);
-  const [debtError, setDebtError] = useState("");
-  const [debtChecking, setDebtChecking] = useState(false);
+  const [oldDebt, setOldDebt] = useState<{ key: string; amount: number } | null>(null);
+  const [debtError, setDebtError] = useState<{ key: string; message: string } | null>(null);
   const [debtRefresh, setDebtRefresh] = useState(0);
   useEffect(() => {
     if (!notice) return;
@@ -280,39 +279,36 @@ export function SaleBuilder({
   }
   const step = customer ? draft.step : "customer";
   const customerToCheck = customer?.id ?? null;
+  const debtKey = customerToCheck && (step === "payment" || step === "review")
+    ? `${customerToCheck}:${step}:${debtRefresh}`
+    : null;
   useEffect(() => {
-    if (!customerToCheck || (step !== "payment" && step !== "review")) return;
+    if (!customerToCheck || !debtKey) return;
     let current = true;
-    setDebtChecking(true);
-    setDebtError("");
     void loadCustomerMoneyOwed(customerToCheck)
       .then((result) => {
         if (!current) return;
         if ("error" in result) {
-          setOldDebt(null);
-          setDebtError(result.error ?? "Could not load previous balance.");
+          setDebtError({ key: debtKey, message: result.error ?? "Could not load previous balance." });
         } else {
-          setOldDebt({ customerId: customerToCheck, amount: result.amount });
-          setDebtError("");
+          setOldDebt({ key: debtKey, amount: result.amount });
+          setDebtError(null);
         }
       })
       .catch(() => {
-        if (current) {
-          setOldDebt(null);
-          setDebtError("Could not load the previous balance. Try again.");
-        }
-      })
-      .finally(() => { if (current) setDebtChecking(false); });
+        if (current) setDebtError({ key: debtKey, message: "Could not load the previous balance. Try again." });
+      });
     return () => { current = false; };
-  }, [customerToCheck, step, debtRefresh]);
-  const oldDebtAmount = oldDebt?.customerId === customer?.id ? oldDebt.amount : null;
+  }, [customerToCheck, debtKey]);
+  const debtErrorMessage = debtError?.key === debtKey ? debtError.message : "";
+  const debtChecking = Boolean(debtKey && oldDebt?.key !== debtKey && !debtErrorMessage);
+  const oldDebtAmount = debtKey && oldDebt?.key === debtKey ? oldDebt.amount : null;
   const oldDebtInputError = debtPaymentInputError(draft.oldDebtPaid, oldDebtAmount);
   const paymentBreakdown = (() => {
     if (total === undefined || oldDebtAmount === null || paymentInputError || oldDebtInputError) return null;
     try { return salePaymentTotals(total, Number(draft.paid), oldDebtAmount, Number(draft.oldDebtPaid)); }
     catch { return null; }
   })();
-  const displayedTotal = step === "review" ? reviewTotal : total;
   const progressStep =
     step === "customer"
       ? 0
@@ -385,7 +381,7 @@ export function SaleBuilder({
         </button>
         {saved.paid > 0 && (
           <a className="secondary flex w-full gap-2" href={ "/receipts/sale/" + saved.id }>
-            <SaleIcon name="receipt" /> View today's sale receipt
+            <SaleIcon name="receipt" /> View today&apos;s sale receipt
           </a>
         )}
         {saved.oldDebtReceiptRequestId && (
@@ -1132,13 +1128,13 @@ export function SaleBuilder({
         )}
         {step === "payment" && (
           <>
-            <section aria-label="Payment for today's drinks" className="space-y-3 rounded-xl border border-stone-200 bg-white p-4">
+            <section aria-label="Payment for today&apos;s drinks" className="space-y-3 rounded-xl border border-stone-200 bg-white p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="font-bold text-stone-950">Today's sale</h2>
+                <h2 className="font-bold text-stone-950">Today&apos;s sale</h2>
                 <strong className="text-2xl font-bold tabular-nums text-emerald-950">{total === undefined ? "Check drinks" : formatNaira(total)}</strong>
               </div>
-              <label htmlFor="sale-paid">Paying toward today's sale (₦)</label>
-              <div className="grid grid-cols-2 gap-2" role="group" aria-label="Quick payment for today's sale">
+              <label htmlFor="sale-paid">Paying toward today&apos;s sale (₦)</label>
+              <div className="grid grid-cols-2 gap-2" role="group" aria-label="Quick payment for today&apos;s sale">
                 <button type="button" className="secondary w-full" aria-pressed={total !== undefined && draft.paid === String(total)} disabled={total === undefined} onClick={() => total !== undefined && update({ paid: String(total) })}>
                   Pay in full
                 </button>
@@ -1165,10 +1161,10 @@ export function SaleBuilder({
                   {oldDebtAmount === null ? "Checking…" : formatNaira(oldDebtAmount)}
                 </strong>
               </div>
-              {debtChecking && <p role="status" className="text-sm text-amber-950">Checking the customer's current balance…</p>}
-              {debtError && (
+              {debtChecking && <p role="status" className="text-sm text-amber-950">Checking the customer&apos;s current balance…</p>}
+              {debtErrorMessage && (
                 <div role="alert" className="space-y-2 text-sm text-amber-950">
-                  <p>{debtError}</p>
+                  <p>{debtErrorMessage}</p>
                   <button type="button" className="secondary" onClick={() => setDebtRefresh((n) => n + 1)}>Try again</button>
                 </div>
               )}
@@ -1197,7 +1193,7 @@ export function SaleBuilder({
                     aria-describedby={oldDebtInputError ? "old-debt-payment-error" : "old-debt-payment-note"}
                     onChange={(e) => update({ oldDebtPaid: e.target.value })}
                   />
-                  <p id="old-debt-payment-note" className="text-xs text-stone-600">This pays down their older balance, not today's drinks.</p>
+                  <p id="old-debt-payment-note" className="text-xs text-stone-600">This pays down their older balance, not today&apos;s drinks.</p>
                   {oldDebtInputError && <p id="old-debt-payment-error" role="alert" className="text-sm text-red-800">{oldDebtInputError}</p>}
                 </>
               )}
@@ -1224,7 +1220,7 @@ export function SaleBuilder({
                     <dd className="font-semibold">{formatNaira(paymentBreakdown.oldDebtRemaining)}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
-                    <dt className="text-stone-600">Today's sale still unpaid</dt>
+                    <dt className="text-stone-600">Today&apos;s sale still unpaid</dt>
                     <dd className="font-semibold">{formatNaira(paymentBreakdown.saleRemaining)}</dd>
                   </div>
                   <div className="flex justify-between gap-3 border-t border-stone-200 pt-2 font-bold">
@@ -1273,11 +1269,12 @@ export function SaleBuilder({
                   try {
                     const latestDebt = await loadCustomerMoneyOwed(draft.customerId);
                     if ("error" in latestDebt) {
-                      setDebtError(latestDebt.error ?? "Could not verify the customer's balance.");
-                      setMessage(latestDebt.error ?? "Could not verify the customer's balance.");
+                      const errorMessage = latestDebt.error ?? "Could not verify the customer's balance.";
+                      if (debtKey) setDebtError({ key: debtKey, message: errorMessage });
+                      setMessage(errorMessage);
                       return;
                     }
-                    setOldDebt({ customerId: draft.customerId, amount: latestDebt.amount });
+                    if (debtKey) setOldDebt({ key: debtKey, amount: latestDebt.amount });
                     salePaymentTotals(total!, Number(draft.paid), latestDebt.amount, Number(draft.oldDebtPaid));
                     setCatalog(fresh);
                     matchSaleEmpties(draft, fresh);
@@ -1403,7 +1400,7 @@ export function SaleBuilder({
                 <dd className="font-semibold">{reviewTotal === undefined ? "Check drinks" : formatNaira(reviewTotal)}</dd>
               </div>
               <div className="flex justify-between gap-3 border-b border-stone-200 py-3">
-                <dt>Paid toward today's sale</dt>
+                <dt>Paid toward today&apos;s sale</dt>
                 <dd className="font-semibold">{formatNaira(Number(draft.paid))}</dd>
               </div>
               <div className="flex justify-between gap-3 border-b border-stone-200 py-3">
@@ -1420,10 +1417,10 @@ export function SaleBuilder({
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
                 <p className="text-sm font-semibold text-amber-950">Customer balance after this sale</p>
                 <p className="mt-1 text-2xl font-bold tabular-nums text-amber-950">{formatNaira(paymentBreakdown.totalOwedAfter)}</p>
-                <p className="mt-1 text-xs text-amber-950">Includes previous unpaid debt and any unpaid part of today's sale. Rechecked when saving.</p>
+                <p className="mt-1 text-xs text-amber-950">Includes previous unpaid debt and any unpaid part of today&apos;s sale. Rechecked when saving.</p>
               </div>
             )}
-            {debtError && <p role="alert" className="text-sm text-amber-900">{debtError}</p>}
+            {debtErrorMessage && <p role="alert" className="text-sm text-amber-900">{debtErrorMessage}</p>}
             <div className="sale-sticky-actions sticky z-10 -mx-4 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
             <p className="mb-1 truncate text-sm font-semibold text-emerald-950">Sale for {customer?.name}</p>
             <p className="mb-2 text-xs text-stone-600">Saving updates stock, payment and any amount owed.</p>
