@@ -142,7 +142,7 @@ begin
         from jsonb_array_elements(o.bottles) x(value)),0),
       0::bigint,0::bigint,'recorded',
       '/customers/' || o.customer_id || '/opening-balances',
-      0::bigint,0::bigint,null::bigint,null::uuid,null::text
+      0::bigint,0::bigint,null::bigint,null::uuid,null::text,false
     from public.customer_opening_balances o
     join public.customers c on c.id=o.customer_id
     where o.business_date between p_from and p_to
