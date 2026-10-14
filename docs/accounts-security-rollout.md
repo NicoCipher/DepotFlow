@@ -1,0 +1,135 @@
+# DepotFlow — Accounts, business isolation and security rollout
+
+Status: **technical rollout proposal**, not implemented. Builds on [the current access audit](./access-control-phase1-audit.md) and [the permission matrix](./staff-permission-matrix.md).
+
+## Target architecture
+
+```text
+auth.users (verified person / independent sign-in)
+    |
+    +--> businesses (distinct depots)
+             |
+             +--> business_memberships (user + business + active state)
+             |       +--> role templates + explicit capabilities
+             |       +--> current-session revocation and approvals
+             |
+             +--> customers, sales, payments, debts, returns, stock, prices...
+                        |
+                        +--> actor_user_id, immutable original receipts and audit
+Master product catalogue (separate, platform governed)
+```
+
+**Design choice:** shared Postgres schema with strong `business_id` isolation, membership-aware RLS, matching business-aware relational constraints and privileged transaction checks. Do **not** use a user-owned `owner_user_id` as the business boundary. No user can assert permission by sending a forged `business_id`, user metadata or role name.
+
+Use `business_id` on every tenant-owned top-level row and on dependent/historical rows where it is necessary for RLS, integrity, efficiency or audit. `auth.uid()` identifies the person but does not establish business membership by itself. Where useful, treat `(business_id, foreign_key)` as a validated composite reference so two businesses cannot accidentally share a customer/sale/stock movement via UUID substitution.
+
+## Release milestones / stop-go gates
+
+### M0 — Baseline and explicit product decisions (this PR)
+
+- Inventory existing owner-only checks, RPCs, RLS, direct column grants, storage and shared-catalogue contracts.
+- Get decisions on the role matrix, old debt at checkout, employee business-wide visibility, approvals, cost prices and owner recovery.
+- Capture current counts and reconciliations of stock, debts, empty crates/bottles, receipts, payments, catalogue associations and idempotency records without copying customer personal information into developer logs.
+- Record data types, PK/unique/check/FK constraints and every public/private RPC signature, so the migration can be tested using **the actual schema**.
+
+**Gate:** approved role defaults + complete source/SQL contract inventory. No production changes.
+
+### M1 — Add identity/business tables **without enabling staff access**
+
+- Introduce `businesses`, owner and member tables with verified foreign keys to `auth.users`. Define separate permanent identity vs active membership. Design `role_templates`, `membership_permission_grants` and revocation rules.
+- Create the current shop as one explicit business, assign the existing registered owner; keep `private.shop_owner` and existing owner-only auth intact as a compatibility fence.
+- Membership must be non-transferable to another business via unprivileged UPDATE. Owner creation/invites require authenticated controlled server operations.
+- Protect the final owner and avoid unrestricted self-registration, elevation or account deletion.
+
+**Gate:** isolated PG tests prove only the existing owner can still access the current business, and a newly created test account gets no application data. Existing production checkout unchanged.
+
+### M2 — Tenant-tag data and build hard isolation
+
+- Classify every table as **global catalogue, business-owned, internal-only or public verification**. Do not blindly add `business_id` to truly global content.
+- Backfill and constrain tenant ownership in safe batches, with separate migrations where locks/index changes are expensive. Design per-business uniqueness rather than globally shared shop identifiers.
+- Update shop singleton assumptions (`shop_profile.id=true`), stock product keys, customer balance keys, packaging rules, price histories and receipt/return relationships. Preserve exact original historical receipt and business-name snapshots; do not overwrite old data.
+- Define storage object paths per business with strict image-upload/delete policies; preserve rights-cleared globally shared catalogue packshots.
+- Validate `business_id` matching inside composite FKs/checks and atomic transaction functions. No path should reach another business by guessing a UUID.
+- Keep staff feature disabled throughout. Do not widen read/write RLS policies while any tenant-owned table lacks reliable ownership.
+
+**Gate:** every tenant-owned row tagged; reconciled row counts, stock, money, empties, receipt verification, idempotency and tenant-reference integrity. Cross-depot reads and writes fail on a disposable two-business database.
+
+### M3 — Central DB authorization + atomic RPC conversion
+
+- Introduce one centrally reviewed `can_business(user_id,business_id,permission)`-style contract (or equivalent) with active membership fetched from trusted DB data. Keep implementation in a non-exposed schema and prevent recursive/RLS bypass.
+- Apply this to every public `SECURITY DEFINER` RPC, privileged private helper, invoker wrapper, direct column grant/policy and read view. Approve `SECURITY DEFINER` use only when unavoidable, with fixed `search_path`, careful grants and row-scoped checks.
+- Use targeted permissions for `save_sale_with_old_debt_payment`, `record_payment`, `receive_stock`, `set_current_stock`, customer/stock/empties actions and sensitive pricing operations.
+- For combined checkout, enforce **sales.create + payments.collect_old_debt_at_checkout** in the same atomic DB call.
+- Use the verified user's `auth.uid()` and the active membership for authorization; cross-check customer/product/payment/return foreign keys with that business, never accept a caller-supplied actor.
+- A disabled membership must stop a new request immediately, including a still-authenticated user with an old browser session. Do not rely only on stale JWT app_metadata.
+
+**Gate:** production-equivalent, disposable PostgreSQL role-by-role tests. Unknown/disabled memberships get zero access even through direct PostgREST RPC calls.
+
+### M4 — Staff access and the permission-aware interface
+
+- Adapt `requireOwner()` and protected layouts to `requireBusinessPermission()` and business-scoped data access, retaining a safe compatibility path during rollout.
+- Account sign-in resolves approved memberships; only show a business picker for users with multiple active businesses. Invalid selected business fails closed.
+- `More → Team & Access`: team list, invite, permissions, role bundles, disable access, pending invitations, owner security and audit entry.
+- Never hide critical data without an explanation; unauthorized actions should not appear, while tampered/expired requests must still be rejected server-side.
+- Staff screens focus on **their actual tasks**, not internal role claims. Solo owner sees the ordinary sales workflow without extra setup.
+
+**Gate:** staff can do only approved tasks across mobile/tablet/desktop; business switching cannot leak previous depot data through caches, paused sales, URL routing or browser state.
+
+### M5 — Audit, protection and access recovery
+
+- Record immutable actor, business, time, operation, record reference, request ID and safe before/after change data for important actions. Never log passwords, Auth tokens or unneeded customer personal data.
+- Add sensitive-action reasons, optional owner approval, two-person controls for larger teams and **solo-owner step-up alternatives**. Prevent a non-owner self-approving or deleting past evidence.
+- Harden compromised-password checks, MFA and account recovery; protect ownership transfer, owner lockout and break-glass recovery under separately audited controls.
+- Review verified public receipts to minimize information exposure and prevent token enumeration or unbounded traffic; preserve the public receipt verification feature.
+
+**Gate:** reason/actor preserved across voids, sensitive adjustments, member disablement and interrupted or uncertain saves. Access revocation is tested with two simultaneous browser sessions.
+
+### M6 — Controlled adoption
+
+1. Complete all disposable PostgreSQL migrations and tests first; obtain Codex/security review of the final implementation.
+2. Rehearse on a sanitized or isolated representative copy of production data, including receipts and the heaviest product/customer accounts. Record integrity totals before/after.
+3. Install **backward-compatible, additive** DB changes. No staff membership is active. Apply controlled data backfill and verify each batch.
+4. Enable the new authorization model only once every data access route and RPC has been reviewed. Keep a temporary owner-only recovery path that **does not bypass tenant isolation**.
+5. Canary one trusted additional account and one synthetic second business after isolation passes. Explicitly compare expected and denied access.
+6. Monitor authentication failures, denied cross-tenant attempts, transaction conflicts and ordinary sale/payment/stock errors. Do not expose sensitive details in logs.
+7. Increase access slowly. Preserve the ability to disable invitations and staff logins separately from core owner sales.
+8. Retire `private.shop_owner` **only after** no live code or policy depends on it, and all tenants are proven isolated.
+
+**Rollback reality:** App and feature flags can disable staff access quickly; PostgreSQL schema rollback after a financial data migration may be unsafe. Prefer forward-compatible additive changes, backed-up state and tested forward fixes. Never “restore” receipts or debts by dropping new ledger columns.
+
+## Required negative tests (fail closed)
+
+| Test actors | Expected result |
+| --- | --- |
+| No login / anonymous | No business records or privileged mutations; limited receipt token verification only |
+| Signed-in account with no membership | No shop data, even if it knows customer IDs or RPC names |
+| Disabled employee with existing session | Denied from the next protected DB operation |
+| Sales employee | Can record permitted sales and checkout debt collection; cannot edit stock balances, prices, staff or purchase costs |
+| Stockkeeper | Can receive/count according to grants; cannot alter customer money/debt |
+| Manager without explicit pricing permission | Cannot edit selling/cost price by form, direct table write or RPC |
+| Accounts user without `sales.create` | Can record standalone debt payments when granted; cannot call combined sale checkout |
+| Owner A in Business A | No read/write access to Business B records, products, costs, receipts or image objects |
+| Multi-business member switching A → B | Only B data appears, including after browser back, parked sales and in-flight requests |
+| Unauthenticated receipt verifier with valid token | Only minimal verified receipt fields, no customer list or financial account access |
+| One-person owner | Routine sale/stock/payments work; sensitive actions require appropriate step-up/log, never unavailable second staff |
+| Two-person team with approvals | Requested change requires a different eligible approver when configured |
+| Crafted mixed-business sale | Atomic RPC rejects any customer/product/payment/empty item from a different business; no partial stock/debt writes |
+| Retried save after network uncertainty | Same original sale returned; no duplicate sale, debt payment, stock movement or audit entry |
+| Staff price/customer/owner modification attempt | Denied by PostgreSQL regardless of hidden UI or edited request body |
+
+## Deployment discipline
+
+- **No Vercel preview deployments**; branch work is reviewed through GitHub and disposable database checks. Production builds only when release gates are green.
+- Never combine tenant backfill, privilege widening and live staff enablement into one huge release.
+- For each stage publish: migration plan, reversible-app strategy, affected tables/RPCs, tests and proven data totals, owners approving the release, and no-go triggers.
+- One failed cross-business isolation test blocks staff launch regardless of UI quality.
+- Establish a separate private process for security vulnerabilities and Auth configuration before expanding accounts.
+
+## Owners of remaining decisions
+
+- **Product owner**: approve initial roles and what Sales/Manager can view, change and approve; set high-risk limits suitable for a Nigerian beverage depot.
+- **Engineering**: implement tenant data boundaries, membership-checked RPCs, data-conversion scripts and UI transitions.
+- **Security reviewer**: validate session revocation, privilege escalation, MFA/recovery, storage rules, public receipt surface and cross-tenant tests.
+- **Business pilot operator**: verify that solo operation still works and two people can divide responsibilities naturally.
+
+**Next engineering PR after Phase 1 is approved:** M1 identity + business/membership schema **without activating new users**. No staff UI before verified isolation.
