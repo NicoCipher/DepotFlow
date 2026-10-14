@@ -1169,9 +1169,19 @@ export function SaleBuilder({
                 </div>
               )}
               {oldDebtAmount !== null && oldDebtAmount === 0 && !debtChecking && (
-                <p className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
-                  <SaleIcon name="check" className="h-4 w-4" /> No previous money owed.
-                </p>
+                <>
+                  <p className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
+                    <SaleIcon name="check" className="h-4 w-4" /> No previous money owed.
+                  </p>
+                  {Number(draft.oldDebtPaid) > 0 && !saveUncertain && (
+                    <div role="alert" className="space-y-2">
+                      <p className="text-sm text-red-800">The previous debt has been cleared. Remove the old-debt amount before continuing.</p>
+                      <button type="button" className="secondary w-full" onClick={() => update({ oldDebtPaid: "0" })}>
+                        Clear old-debt payment
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
               {oldDebtAmount !== null && oldDebtAmount > 0 && !debtChecking && (
                 <>
@@ -1433,8 +1443,10 @@ export function SaleBuilder({
                 !emptiesReview ||
                 hasUnmatchedSaleEmpties(emptiesReview) ||
                 Number(draft.paid) > reviewTotal ||
-                !paymentBreakdown || debtChecking || Boolean(oldDebtInputError) ||
-                (paymentBreakdown.collectNow > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))
+                (!saveUncertain && (
+                  !paymentBreakdown || debtChecking || Boolean(oldDebtInputError) ||
+                  (paymentBreakdown.collectNow > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))
+                ))
               }
               onClick={() =>
                 startTransition(async () => {
