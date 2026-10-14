@@ -55,3 +55,12 @@ Five more shop photos are visually confirmed and supplied through the same first
 | Tiger | `tiger-45cl-closecrop.webp` | [Product listing](https://www.supermart.ng/products/tiger-lager-beer-45-cl) |
 
 **Remaining on hold:** Big Smirnoff Ice (60cl), Desperados (45cl) and Turbo King (60cl); earlier direct fetches returned HTTP 429 or timed out. No source failed or variant mismatch is to be assigned merely to achieve 100% coverage.
+
+## Big Smirnoff Ice 60cl (personal pilot)
+
+- Verified product listing: https://martking.ng/product/smirnoff-ice-bottle-60-cl/
+- Original 600×600 genuine bottle photograph: https://martking.ng/wp-content/uploads/2022/10/MartKing-Smirnoff-bottle.jpg
+- Reprocessed into 640×800 `public/catalogue-photos/smirnoff-ice-big-60cl.webp`, EXIF removed and product label unmodified. Corresponding master catalogue name is **Big Ice**; linked shop drink is **Big Smirnoff Ice** (12 bottles per crate).
+- The image shows original Smirnoff Ice packaging; retailer confirms 60cl. Exact current local packaging may differ, and a newer authorised photo should replace it when available.
+- Photo reuse rights are unverified; owner-requested personal pilot only. This does not imply a licence or endorsement.
+- Desperados Original 45cl image **not assigned**: 33cl image mismatch from earlier source and later exact-variant sources returned 429/403. Turbo King 60cl image **not assigned**: source yielded a logo rather than a bottle. Neither fallback should be published as a product photograph.
