@@ -975,6 +975,7 @@ export type Database = {
       }
     }
     Functions: {
+      customer_recent_activity: { Args: { p_customer: string }; Returns: Json }
       customer_account_snapshot: {
         Args: { p_customer_ids: string[] }
         Returns: { customer_id: string; crates_owed: number; bottles_owed: number; held_entries: number }[]
