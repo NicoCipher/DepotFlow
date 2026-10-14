@@ -110,6 +110,61 @@ do $$ begin
   exception when invalid_parameter_value then null; end;
 end $$;
 
+-- Direct inline collections are separate historical events, including replays.
+-- Each decision's physical quantity is displayed, not one item per UUID.
+select public.release_held_empties('60000000-0000-4000-8000-000000000753');
+select public.release_held_empties('60000000-0000-4000-8000-000000000753');
+select public.release_held_empties('60000000-0000-4000-8000-000000000754');
+select pg_temp.check_true(
+  (select held_entries=0 from public.customer_account_snapshot(
+    array['10000000-0000-4000-8000-000000000751'::uuid])),
+  'Inline collection failed to resolve open held counts');
+select pg_temp.check_true(
+  (public.store_activity('2026-01-01','2026-12-31',
+    '10000000-0000-4000-8000-000000000751','empties',30,0)->>'count')::int=4,
+  'Inline events missing, replay duplicated, or mixed return double-counted');
+select pg_temp.check_true(
+  exists(select 1 from jsonb_array_elements(public.store_activity(
+     '2026-01-01','2026-12-31','10000000-0000-4000-8000-000000000751',
+     'empties',30,0)->'items') item
+     where item->>'title'='Customer collected 2 held crates'),
+  'Inline held crate collection quantity missing from full history');
+select pg_temp.check_true(
+  exists(select 1 from jsonb_array_elements(public.store_activity(
+     '2026-01-01','2026-12-31','10000000-0000-4000-8000-000000000751',
+     'empties',30,0)->'items') item
+     where item->>'title'='Customer collected 7 held bottles'),
+  'Inline held bottle collection quantity missing from full history');
+select pg_temp.check_true(
+  exists(select 1 from jsonb_array_elements(public.customer_recent_activity(
+    '10000000-0000-4000-8000-000000000751')->'items') item
+    where item->>'title'='Customer collected 2 held crates'),
+  'Recent customer account did not show inline collections');
+select pg_temp.check_true(
+  (select count(*)=0 from jsonb_array_elements(public.customer_recent_activity(
+    '10000000-0000-4000-8000-000000000752')->'items') item
+    where item->>'title' in ('Customer collected 2 held crates','Customer collected 7 held bottles')),
+  'Recent feed included another customer''s collection');
+-- Confirm form-based releases remain one event, not duplicated by direct history.
+select pg_temp.check_true(
+  (select count(*)=1 from jsonb_array_elements(public.customer_recent_activity(
+    '10000000-0000-4000-8000-000000000751')->'items') item
+    where item->>'title'='Returned 2 crates, 3 bottles · Customer collected 4 held crates, 12 held bottles'),
+  'Mixed form return disappeared or appeared twice');
+
+-- An account with a long history must still receive just six recent entries.
+insert into public.sales(customer_id,total_amount,paid_amount,business_date,request_id,request_payload)
+select '10000000-0000-4000-8000-000000000751',0,0,'2026-09-01',
+  gen_random_uuid(),'{}'::jsonb from generate_series(1,50);
+select pg_temp.check_true(
+  jsonb_array_length(public.customer_recent_activity(
+    '10000000-0000-4000-8000-000000000751')->'items')=6,
+  'Account feed did not stay bounded to six entries');
+select pg_temp.check_true(
+  not (public.customer_recent_activity(
+    '10000000-0000-4000-8000-000000000751') ? 'sales_value'),
+  'Recent account feed unnecessarily computed full-history totals');
+
 -- A signed-in non-owner cannot see the aggregates or the activity feed.
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000752',true);
 do $$ begin
@@ -121,5 +176,9 @@ do $$ begin
     perform public.store_activity('2026-10-14','2026-10-14','10000000-0000-4000-8000-000000000751','all',10,0);
     raise exception 'Non-owner read activity';
   exception when insufficient_privilege then null; end;
-end $$;
+  begin
+    perform public.customer_recent_activity('10000000-0000-4000-8000-000000000751');
+    raise exception 'Non-owner read recent customer activity';
+  exception when insufficient_privilege then null; end;
+end $;
 rollback;
