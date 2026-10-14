@@ -3,12 +3,14 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
   refreshSaleCatalog,
+  loadCustomerMoneyOwed,
   saveSale,
 } from "@/app/(shop)/record-sale/actions";
 import { CustomerForm } from "./customer-form";
 import { emptyCustomer } from "@/domain/customers";
 import { ProductImage } from "@/components/product-image";
 import { SaleIcon } from "@/components/sale-icon";
+import { salePaymentTotals, debtPaymentInputError } from "@/domain/sale-payment";
 import { useSaleDrafts } from "./sale-draft-session";
 import { hasSaleWork } from "@/domain/sale-drafts";
 import { PausedSalesLink } from "./paused-sales-link";
@@ -67,6 +69,10 @@ export function SaleBuilder({
   const [catalog, setCatalog] = useState(initialCatalog);
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState("");
+  const [oldDebt, setOldDebt] = useState<{ customerId: string; amount: number } | null>(null);
+  const [debtError, setDebtError] = useState("");
+  const [debtChecking, setDebtChecking] = useState(false);
+  const [debtRefresh, setDebtRefresh] = useState(0);
   useEffect(() => {
     if (!notice) return;
     const timer = window.setTimeout(() => setNotice(""), 4000);
@@ -82,6 +88,9 @@ export function SaleBuilder({
     paid: number;
     owing: number;
     customer: string;
+    oldDebtPaid: number;
+    oldDebtReceiptRequestId: string | null;
+    balanceAfter: number;
     name: string;
   } | null>(null);
   const [pending, startTransition] = useTransition();
@@ -270,6 +279,39 @@ export function SaleBuilder({
         : `Available: ${formatQuantity(p.available, p.bottles_per_crate)}`;
   }
   const step = customer ? draft.step : "customer";
+  const customerToCheck = customer?.id ?? null;
+  useEffect(() => {
+    if (!customerToCheck || (step !== "payment" && step !== "review")) return;
+    let current = true;
+    setDebtChecking(true);
+    setDebtError("");
+    void loadCustomerMoneyOwed(customerToCheck)
+      .then((result) => {
+        if (!current) return;
+        if ("error" in result) {
+          setOldDebt(null);
+          setDebtError(result.error ?? "Could not load previous balance.");
+        } else {
+          setOldDebt({ customerId: customerToCheck, amount: result.amount });
+          setDebtError("");
+        }
+      })
+      .catch(() => {
+        if (current) {
+          setOldDebt(null);
+          setDebtError("Could not load the previous balance. Try again.");
+        }
+      })
+      .finally(() => { if (current) setDebtChecking(false); });
+    return () => { current = false; };
+  }, [customerToCheck, step, debtRefresh]);
+  const oldDebtAmount = oldDebt?.customerId === customer?.id ? oldDebt.amount : null;
+  const oldDebtInputError = debtPaymentInputError(draft.oldDebtPaid, oldDebtAmount);
+  const paymentBreakdown = (() => {
+    if (total === undefined || oldDebtAmount === null || paymentInputError || oldDebtInputError) return null;
+    try { return salePaymentTotals(total, Number(draft.paid), oldDebtAmount, Number(draft.oldDebtPaid)); }
+    catch { return null; }
+  })();
   const displayedTotal = step === "review" ? reviewTotal : total;
   const progressStep =
     step === "customer"
@@ -615,7 +657,7 @@ export function SaleBuilder({
                       ? "flex min-h-20 w-full items-center gap-3 rounded-xl border-2 border-emerald-700 bg-emerald-50 px-4 py-3 text-left"
                       : "flex min-h-20 w-full items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-left hover:border-emerald-500 hover:bg-emerald-50"}
                     aria-pressed={draft.customerId === c.id}
-                    onClick={() => update({ customerId: c.id, step: "drinks" })}
+                    onClick={() => update({ customerId: c.id, oldDebtPaid: c.id === draft.customerId ? draft.oldDebtPaid : "0", step: "drinks" })}
                   >
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-stone-100 text-stone-700">
                       <SaleIcon name="user" />
