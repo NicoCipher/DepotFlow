@@ -11,11 +11,37 @@ type ReturnRecord = {
   crates: ReturnLine[]; bottles: ReturnLine[]; released: ReleasedLine[];
 };
 
-export default async function EmptiesRecordPage({
-  params,
+function ReturnSection({
+  label, description, entries, tone = "normal",
 }: {
-  params: Promise<{ id: string }>;
+  label: string;
+  description: string;
+  entries: { name: string; quantity: number; unit: string }[];
+  tone?: "normal" | "caution";
 }) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
+      <div className={`px-5 py-4 sm:px-6 ${tone === "caution" ? "bg-amber-50" : "bg-stone-50/70"}`}>
+        <h2 className="text-lg font-bold text-stone-950">{label}</h2>
+        <p className="mt-1 text-sm leading-6 text-stone-600">{description}</p>
+      </div>
+      <dl className="divide-y divide-stone-100 px-5 sm:px-6">
+        {entries.map((row, index) => (
+          <div key={index} className="flex items-center justify-between gap-4 py-4">
+            <dt className="min-w-0 break-words text-sm font-medium text-stone-800">
+              {row.name} <span className="text-stone-500">· {row.unit}</span>
+            </dt>
+            <dd className="shrink-0 rounded-lg bg-stone-100 px-3 py-1 text-base font-extrabold tabular-nums text-stone-950">
+              {row.quantity}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+export default async function EmptiesRecordPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) notFound();
   const db = await requireOwner();
@@ -23,54 +49,71 @@ export default async function EmptiesRecordPage({
   if (error) throw new Error("Could not load the saved empties return.");
   const saved = data as ReturnRecord | null;
   if (!saved) notFound();
-  const lines = [
-    ...saved.crates.map(row => ({ ...row, unit: "crates" })),
-    ...saved.bottles.map(row => ({ ...row, unit: "bottles" })),
-  ];
-  const time = new Intl.DateTimeFormat("en-NG", {
-    timeZone: "Africa/Lagos", hour: "numeric", minute: "2-digit",
-  }).format(new Date(saved.created_at));
+
+  const crates = saved.crates.reduce((sum, row) => sum + row.quantity, 0);
+  const bottles = saved.bottles.reduce((sum, row) => sum + row.quantity, 0);
+  const heldCrates = saved.released.filter(row => row.kind === "crate").reduce((sum, row) => sum + row.quantity, 0);
+  const heldBottles = saved.released.filter(row => row.kind === "bottle").reduce((sum, row) => sum + row.quantity, 0);
   const date = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit",
   }).format(new Date(saved.created_at));
+  const time = new Intl.DateTimeFormat("en-NG", {
+    timeZone: "Africa/Lagos", hour: "numeric", minute: "2-digit",
+  }).format(new Date(saved.created_at));
+  const returns = [
+    ...saved.crates.map(row => ({ ...row, unit: row.quantity === 1 ? "crate" : "crates" })),
+    ...saved.bottles.map(row => ({ ...row, unit: row.quantity === 1 ? "bottle" : "bottles" })),
+  ];
   return (
-    <div className="space-y-6 pb-10">
-      <Link href="/records" className="quiet-link inline-flex min-h-11 items-center text-sm">← All records</Link>
-      <header>
-        <p className="text-xs font-bold uppercase tracking-widest text-emerald-800">Saved customer record</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight">Empties returned</h1>
-        <p className="mt-2 text-stone-600">{formatBusinessDate(date)} · {time}</p>
+    <div className="space-y-5 pb-10">
+      <nav aria-label="Record details">
+        <Link href="/records" className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-emerald-800">
+          <span aria-hidden="true">←</span> Back to Records
+        </Link>
+      </nav>
+      <header className="overflow-hidden rounded-3xl bg-emerald-950 p-5 text-white shadow-[0_12px_35px_rgba(6,78,59,.14)] sm:p-7">
+        <div className="flex items-center justify-between gap-3">
+          <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold">Empties received</span>
+          <span className="text-xs text-emerald-100">{formatBusinessDate(date)} · {time}</span>
+        </div>
+        <h1 className="mt-5 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Return recorded</h1>
+        <p className="mt-2 break-words text-lg font-semibold text-emerald-50">{saved.customer_name}</p>
+        {saved.business_name && saved.business_name !== saved.customer_name && <p className="mt-1 text-sm text-emerald-100">{saved.business_name}</p>}
+        <div className="mt-6 grid grid-cols-2 gap-3 border-t border-white/20 pt-5">
+          <div>
+            <p className="text-xs text-emerald-100">Crates returned</p>
+            <p className="mt-1 text-3xl font-extrabold tabular-nums text-white">{crates}</p>
+          </div>
+          <div>
+            <p className="text-xs text-emerald-100">Bottles returned</p>
+            <p className="mt-1 text-3xl font-extrabold tabular-nums text-white">{bottles}</p>
+          </div>
+        </div>
       </header>
-      <section className="rounded-2xl border border-stone-200 bg-white p-5">
-        <p className="text-xs font-bold uppercase tracking-wide text-stone-500">Customer</p>
-        <h2 className="mt-2 break-words text-xl font-bold">{saved.customer_name}</h2>
-        {saved.business_name && <p className="mt-1 text-sm text-stone-600">{saved.business_name}</p>}
-        <Link href={`/customers/${saved.customer_id}`} className="quiet-link mt-3 inline-flex min-h-11 items-center">View customer account →</Link>
-      </section>
-      {lines.length > 0 && <section className="rounded-2xl border border-stone-200 bg-white p-5">
-        <h2 className="text-xl font-semibold">Correct empties brought back</h2>
-        <p className="mt-1 text-sm text-stone-600">These returns reduced what the customer owed.</p>
-        <dl className="mt-4 divide-y divide-stone-100">
-          {lines.map((row, index) => <div key={index} className="flex items-center justify-between gap-3 py-3">
-            <dt className="break-words text-stone-700">{row.name} · {row.unit}</dt>
-            <dd className="shrink-0 text-lg font-bold tabular-nums">{row.quantity}</dd>
-          </div>)}
-        </dl>
-      </section>}
-      {saved.released.length > 0 && <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
-        <h2 className="text-xl font-semibold text-amber-950">Wrong empties collected by customer</h2>
-        <p className="mt-1 text-sm leading-6 text-amber-950">These were held for the customer and handed back. They were not added to usable empty stock.</p>
-        <dl className="mt-4 divide-y divide-amber-200">
-          {saved.released.map((row, index) => <div key={index} className="flex items-center justify-between gap-3 py-3">
-            <dt className="break-words text-amber-950">{row.name} · {row.kind === "crate" ? "crates" : "bottles"}</dt>
-            <dd className="shrink-0 text-lg font-bold tabular-nums text-amber-950">{row.quantity}</dd>
-          </div>)}
-        </dl>
-      </section>}
-      <p className="rounded-xl border border-stone-200 bg-stone-50 p-4 text-sm leading-6 text-stone-700">
-        Empties record only. No cash payment was created by this return.
-      </p>
-      <p className="break-all text-xs text-stone-500">Saved reference: {saved.id}</p>
+      <Link href={`/customers/${saved.customer_id}`}
+        className="flex min-h-14 items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-bold text-emerald-950 transition hover:bg-emerald-100">
+        View customer account <span aria-hidden="true">→</span>
+      </Link>
+      {returns.length > 0 && (
+        <ReturnSection label="Empties returned" description="These reduced the customer's outstanding empties."
+          entries={returns}/>
+      )}
+      {saved.released.length > 0 && (
+        <ReturnSection label="Held empties given back" tone="caution"
+          description={`Customer collected ${heldCrates} held crates and ${heldBottles} held bottles. These were not added to usable empty stock.`}
+          entries={saved.released.map(row => ({
+            name: row.name, quantity: row.quantity, unit: row.kind === "crate"
+              ? (row.quantity === 1 ? "crate" : "crates")
+              : (row.quantity === 1 ? "bottle" : "bottles"),
+          }))}/>
+      )}
+      <div className="rounded-2xl bg-stone-100 p-4 text-sm leading-6 text-stone-700">
+        <span className="font-bold">No money recorded.</span> This is an empties record, not a payment receipt.
+      </div>
+      <details className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-xs text-stone-600">
+        <summary className="min-h-8 cursor-pointer py-1 font-semibold text-stone-700">Record reference</summary>
+        <p className="mt-2 break-all font-mono">{saved.id}</p>
+      </details>
     </div>
   );
 }
