@@ -13,6 +13,8 @@ values
   ('20000000-0000-4000-8000-000000000961','10000000-0000-4000-8000-000000000961',85000,40000,'2026-10-14','30000000-0000-4000-8000-000000000961','{}'::jsonb),
   ('20000000-0000-4000-8000-000000000962','10000000-0000-4000-8000-000000000962',5000,0,'2026-10-14','30000000-0000-4000-8000-000000000962','{}'::jsonb);
 update public.sales set payment_method='cash' where id='20000000-0000-4000-8000-000000000961';
+-- A separate old-debt payment may leave its method on a zero-paid sale.
+update public.sales set payment_method='transfer' where id='20000000-0000-4000-8000-000000000962';
 insert into public.customer_payments(id,customer_id,amount,owed_after,business_date,request_id,method)
 values ('40000000-0000-4000-8000-000000000961','10000000-0000-4000-8000-000000000961',10000,35000,'2026-10-14','50000000-0000-4000-8000-000000000961','transfer');
 insert into private.customer_empty_returns(request_id,customer_id,request_payload,created_at)
@@ -49,6 +51,12 @@ select pg_temp.ensure(
   (public.customer_records('2026-10-14','2026-10-14','all','cash','',30,0)->>'count')::integer=1,
   'Payment-method filter incorrectly included non-cash records');
 select pg_temp.ensure(
+  (public.customer_records('2026-10-14','2026-10-14','all','transfer','',30,0)->>'count')::integer=1,
+  'Transfer method incorrectly matched a sale with no new-sale payment');
+select pg_temp.ensure(
+  (public.customer_records('2026-10-14','2026-10-14','sale','transfer','',30,0)->>'count')::integer=0,
+  'An unpaid sale inherited the method of an old-debt payment');
+select pg_temp.ensure(
   (public.customer_records('2026-10-14','2026-10-14','sale','all','+2348000000962',30,0)->>'count')::integer=1,
   'Customer phone search missed an unpaid sale');
 select pg_temp.ensure(
@@ -78,7 +86,22 @@ select pg_temp.ensure(
    and (public.customer_return_record('60000000-0000-4000-8000-000000000961')->'bottles'->0->>'quantity')='12',
   'Saved empties detail did not use exact types and quantities');
 
-do $$ begin
+-- An item added after the first page's snapshot must not enter page two.
+select set_config('test.records_snapshot',
+  public.customer_records('2026-10-14','2026-10-14','all','all','',2,0)->>'snapshot',true);
+reset role;
+insert into public.customer_payments
+  (customer_id,amount,owed_after,business_date,request_id,method,created_at)
+values
+  ('10000000-0000-4000-8000-000000000961',2000,33000,'2026-10-14',
+   '50000000-0000-4000-8000-000000000962','cash',
+   current_setting('test.records_snapshot')::timestamptz + interval '1 minute');
+set local role authenticated;
+select pg_temp.ensure(
+  (public.customer_records('2026-10-14','2026-10-14','all','all','',30,0,
+     current_setting('test.records_snapshot')::timestamptz)->>'count')::integer=5,
+  'Record pagination did not exclude entries created after its snapshot');
+do $ begin
   begin
     perform public.customer_records('2026-10-14','2026-10-14','nonsense','all','',30,0);
     raise exception 'Accepted invalid record kind';
