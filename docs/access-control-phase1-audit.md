@@ -36,7 +36,7 @@ All routes below ultimately require an authenticated shop owner today. The futur
 | `src/app/(shop)/record-sale/actions.ts` | `loadSaleCatalog`, `refreshSaleCatalog`, `loadCustomerMoneyOwed`, `saveSale`; `save_sale_with_old_debt_payment` | sales/create; sales/read; customers/read-balance |
 | `src/app/(shop)/customers/actions.ts` | Add/edit/archive/restore customer, change empties-deposit requirements | customers/manage; customers/archive; empties/change-requirements |
 | `src/app/(shop)/customers/[id]/pay/actions.ts` | `record_payment` | payments/record-debt |
-| `src/app/(shop)/customers/[id]/opening-balances/actions.ts` | `record_opening_balances` | balances/create-opening |
+| `src/app/(shop)/customers/[id]/opening-balances/actions.ts` | `record_opening_balances` | balances.create_opening |
 | `src/app/(shop)/customers/[id]/return-empties/actions.ts` | `record_customer_empty_return` | empties/record-return |
 | `src/app/(shop)/customers/[id]/held-actions.ts` | `release_held_empties` | empties/release-held |
 | `src/app/(shop)/products/actions.ts` | Add/edit product, cost/selling price and crate associations | products/manage; pricing/sell; pricing/cost |
@@ -71,7 +71,7 @@ All routes below ultimately require an authenticated shop owner today. The futur
 - [ ] Approve default permissions and high-risk approval choices with product owner.
 - [ ] Complete per-RPC authorization contract tests in disposable PostgreSQL before changing production checks.
 - [ ] Perform detailed private security review of high-risk grants/advisor warnings; don't advertise sensitive findings in a public issue.
-- [ ] Approve phase-2 tenant schema and historic-data backfill/rollback strategy.
+- [ ] Approve phase-2 tenant schema and historic-data backfill/rollback strategy. Read the [M1 business/membership blueprint](./business-membership-m1-blueprint.md) before proposing the first additive SQL migration.
 
 ## Reference points
 
