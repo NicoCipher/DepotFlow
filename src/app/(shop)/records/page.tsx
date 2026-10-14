@@ -39,7 +39,7 @@ function RecordRow({ item }: { item: CustomerRecord }) {
         : empties ? "bg-amber-100 text-amber-900" : "bg-violet-100 text-violet-800";
   return (
     <li>
-      <Link href={item.detail}
+      <Link href={item.kind === "opening" ? `/records/opening/${item.id}` : item.detail}
         className="group flex min-h-28 items-start gap-3 px-4 py-4 transition-colors hover:bg-emerald-50/50 focus-visible:bg-emerald-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-emerald-700 sm:items-center sm:gap-4 sm:px-6 sm:py-5">
         <span className={`mt-0.5 grid size-11 shrink-0 place-items-center rounded-2xl ${visual} sm:mt-0`}>
           <RecordIcon kind={item.kind}/>
@@ -71,7 +71,7 @@ function RecordRow({ item }: { item: CustomerRecord }) {
           <strong className={`text-base font-extrabold tabular-nums tracking-tight sm:text-xl ${unpaid ? "text-stone-950" : payment ? "text-emerald-900" : "text-stone-950"}`}>
             {sale ? formatNaira(item.sale_total)
               : payment ? formatNaira(item.received)
-                : empties ? `${item.crates + item.bottles} empties` : formatNaira(item.remaining)}
+                : empties ? (item.crates > 0 ? `${item.crates} ${item.crates === 1 ? "crate" : "crates"}` : `${item.bottles} ${item.bottles === 1 ? "bottle" : "bottles"}`) : formatNaira(item.remaining)}
           </strong>
           <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold leading-tight ${
             item.status === "voided" ? "bg-red-100 text-red-900" :
