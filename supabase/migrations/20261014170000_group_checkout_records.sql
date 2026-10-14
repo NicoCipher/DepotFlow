@@ -80,6 +80,7 @@ begin
       null::uuid as linked_sale_id,
       (s.account_receipt->>'debtPaymentReference')::text as debt_payment_reference, exists (select 1 from public.customer_payments p2
         where p2.customer_id=s.customer_id and p2.receipt_number=s.account_receipt->>'debtPaymentReference'
+        and p2.amount::bigint=coalesce((s.account_receipt->>'paidOld')::bigint,0)
         and p2.receipt_status='voided') as linked_payment_voided
     from public.sales s join public.customers c on c.id=s.customer_id
     where s.business_date between p_from and p_to
