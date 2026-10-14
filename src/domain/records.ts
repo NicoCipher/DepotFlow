@@ -26,15 +26,32 @@ export type CustomerRecord = {
   status: "paid" | "partial" | "unpaid" | "received" | "recorded" | "voided";
   detail: string;
 };
-export type CustomerRecordsFeed = { count: number; snapshot: string; items: CustomerRecord[] };
+export type CustomerRecordsFeed = { count: number; has_more: boolean; items: CustomerRecord[] };
+export type RecordCursor = Pick<CustomerRecord,"id"|"day"|"created_at"|"kind">;
+
+export function recordCursor(value: unknown): RecordCursor | null {
+  if (typeof value !== "string" || value.length>320) return null;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    const obj = parsed as Record<string, unknown>;
+    if (typeof obj.id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(obj.id)
+      || recordDate(obj.day) === null || typeof obj.created_at !== "string"
+      || obj.created_at.length>48 || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}T/.test(obj.created_at)
+      || !Number.isFinite(Date.parse(obj.created_at))
+      || !["sale","payment","empties","opening"].includes(String(obj.kind))) return null;
+    return {id:obj.id,day:obj.day as string,created_at:obj.created_at,kind:obj.kind as RecordCursor["kind"]};
+  } catch {
+    return null;
+  }
+}
+export function writeRecordCursor(row: RecordCursor): string {
+  return JSON.stringify({day:row.day,created_at:row.created_at,kind:row.kind,id:row.id});
+}
+
 
 export function recordFilter<T extends string>(value: unknown, choices: readonly T[], fallback: T): T {
   return typeof value === "string" && choices.includes(value as T) ? value as T : fallback;
-}
-export function recordSnapshot(value: unknown): string | null {
-  if (typeof value !== "string" || value.length > 48 || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}T/.test(value)) return null;
-  const parsed = new Date(value);
-  return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
 }
 export function recordPage(value: unknown): number {
   if (typeof value !== "string" || !/^[0-9]{1,6}$/.test(value)) return 1;
