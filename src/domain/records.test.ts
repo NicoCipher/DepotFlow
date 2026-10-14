@@ -24,11 +24,13 @@ test("pagination snapshot accepts canonical timestamps only", () => {
   assert.equal(recordSnapshot("2026-10-14"),null);
 });
 test("quick dates and custom dates are deterministic", () => {
-  assert.deepEqual(recordDates("2026-10-14", "today"), {from:"2026-10-14",to:"2026-10-14",valid:true});
-  assert.deepEqual(recordDates("2026-10-14", "7d"), {from:"2026-10-08",to:"2026-10-14",valid:true});
-  assert.deepEqual(recordDates("2026-10-14", "all"), {from:"0001-01-01",to:"2026-10-14",valid:true});
-  assert.deepEqual(recordDates("2026-10-14", "30d","2026-09-02","2026-10-03"), {from:"2026-09-02",to:"2026-10-03",valid:true});
+  assert.deepEqual(recordDates("2026-10-14", "today"), {from:"2026-10-14",to:"2026-10-14",valid:true,error:null});
+  assert.deepEqual(recordDates("2026-10-14", "7d"), {from:"2026-10-08",to:"2026-10-14",valid:true,error:null});
+  assert.deepEqual(recordDates("2026-10-14", "all"), {from:"0001-01-01",to:"2026-10-14",valid:true,error:null});
+  assert.deepEqual(recordDates("2026-10-14", "30d","2026-09-02","2026-10-03"), {from:"2026-09-02",to:"2026-10-03",valid:true,error:null});
   assert.equal(recordDates("2026-10-14","30d","2026-12-20","2026-10-03").valid, false);
+  assert.equal(recordDates("2026-10-14","30d","2026-10-01",undefined).valid,false);
+  assert.match(recordDates("2026-10-14","30d","2026-10-01",undefined).error ?? "",/start and end date/);
   assert.equal(shiftRecordDay("2026-03-01",-1),"2026-02-28");
   assert.equal(recordDate("2026-02-30"),null);
   assert.equal(recordDate("2026-02-28"),"2026-02-28");
