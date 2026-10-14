@@ -110,6 +110,47 @@ do $$ begin
   exception when invalid_parameter_value then null; end;
 end $$;
 
+-- Reproduce migration's historical backfill on fixture data: previously
+-- recorded return-form releases must not become duplicate direct events.
+-- A separately released decision should be included. Roll back this probe
+-- so downstream activity counts still describe the original test fixtures.
+reset role;
+insert into public.sale_empty_decisions
+  (id,sale_id,customer_id,product_id,product_name,kind,returned_type,returned_name,owed_type,owed_name,quantity,decision,released_at)
+values (
+  '60000000-0000-4000-8000-000000000757','50000000-0000-4000-8000-000000000751',
+  '10000000-0000-4000-8000-000000000751','40000000-0000-4000-8000-000000000751',
+  'History test drink','bottle','wrong bottle','Wrong bottle','right bottle','Right bottle',9,'hold',
+  '2026-10-14 08:50:00+00'
+);
+set local role authenticated;
+savepoint historical_backfill_probe;
+with form_releases as materialized (
+  select distinct r.customer_id, released.id::uuid as decision_id
+  from private.customer_empty_returns r
+  cross join lateral jsonb_array_elements_text(
+    coalesce(r.request_payload->'released','[]'::jsonb)
+  ) released(id)
+)
+insert into private.held_empty_collections(decision_id,customer_id,collected_at)
+select d.id,d.customer_id,d.released_at
+from public.sale_empty_decisions d
+left join form_releases f on f.customer_id=d.customer_id and f.decision_id=d.id
+where d.decision='hold' and d.released_at is not null and f.decision_id is null;
+select pg_temp.check_true(
+  (select count(*)=1 from private.held_empty_collections
+   where decision_id='60000000-0000-4000-8000-000000000757'),
+  'Historic direct held release not captured in backfill');
+select pg_temp.check_true(
+  (select count(*)=0 from private.held_empty_collections
+   where decision_id in (
+     '60000000-0000-4000-8000-000000000751',
+     '60000000-0000-4000-8000-000000000752',
+     '60000000-0000-4000-8000-000000000756'
+   )),
+  'Historic form-based held releases double-counted in backfill');
+rollback to savepoint historical_backfill_probe;
+
 -- Direct inline collections are separate historical events, including replays.
 -- Each decision's physical quantity is displayed, not one item per UUID.
 select public.release_held_empties('60000000-0000-4000-8000-000000000753');
