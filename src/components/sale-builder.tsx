@@ -709,11 +709,11 @@ export function SaleBuilder({
                           <p className="mt-1 font-bold tabular-nums text-stone-950">{item ? linePriceLabel(item, line.quantity) : "Check drink"}</p>
                           <div className="mt-3 flex flex-wrap gap-2">
                             {item && (
-                              <button type="button" className="secondary min-h-10 gap-1.5 px-3 py-2 text-sm" onClick={() => edit(item)}>
+                              <button type="button" className="secondary min-h-11 gap-1.5 px-3 py-2 text-sm" onClick={() => edit(item)}>
                                 <SaleIcon name="edit" className="h-4 w-4" /> Change quantity
                               </button>
                             )}
-                            <button type="button" className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-red-800 hover:border-red-300 hover:bg-red-50" onClick={() => update({ lines: removeSaleLine(draft.lines, line.productId) })}>
+                            <button type="button" className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-red-800 hover:border-red-300 hover:bg-red-50" onClick={() => update({ lines: removeSaleLine(draft.lines, line.productId) })}>
                               <SaleIcon name="trash" className="h-4 w-4" /> Remove
                             </button>
                           </div>
