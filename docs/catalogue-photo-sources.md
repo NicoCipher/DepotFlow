@@ -41,3 +41,17 @@ First-party packshot URLs remain restricted to DepotFlow's own domain. This reco
 **Hold:** Desperados source bottle visibly says **33cl**, not the shop’s 45cl variant (Codex P1), so we removed its file and DB mapping. Tiger source photo shows a bottle too tiny to recognize on mobile (Codex P2), so we removed its file and mapping pending a better crop. Trophy Stout photo import returned a generic missing-image icon, not a product photograph; the placeholder asset was deleted and the drink has no assigned image. Heineken Big, Big Smirnoff Ice, Turbo King, Castle Lite and Flying Fish await reliable exact product references. The 33 Export packshot may show an older design (2026 relaunch); the Small Smirnoff Ice packshot has a regional label; replace these with local-match photographs when confirmed.
 
 See [shop-photo-import-results.json](./shop-photo-import-results.json) for HTTP failures and explicit visual rejection.
+
+## Follow-up: five exact-size bottle photographs (October 2026)
+
+Five more shop photos are visually confirmed and supplied through the same first-party bundling. Tiger is re-cropped from the earlier authentic 45cl photo; bottle, label and colors remain unchanged. The **original photographer's reproduction permission has not been verified**; see the [source candidate manifest](./remaining-shop-photo-candidates.json) and [fetch results](./remaining-shop-photo-fetch-results.json).
+
+| Configured shop product | Verified asset | Retailer source |
+|---|---|---|
+| Heineken Big | `heineken-big-60cl.webp` | [Product listing](https://shoppersgatestores.com/products/heineken-60cl-bottle) |
+| Castle Lite | `castle-lite-60cl.webp` | [Product listing](https://shoppersgatestores.com/products/castle-lite-beer-600ml) |
+| Flying Fish | `flying-fish-45cl.webp` | [Product listing](https://shoppersgatestores.com/products/flying-fish-45cl-larger-beer) |
+| Trophy Stout | `trophy-stout-60cl.webp` | [Product listing](https://shoppersgatestores.com/products/trophy-extra-stout-60cl) |
+| Tiger | `tiger-45cl-closecrop.webp` | [Product listing](https://www.supermart.ng/products/tiger-lager-beer-45-cl) |
+
+**Remaining on hold:** Big Smirnoff Ice (60cl), Desperados (45cl) and Turbo King (60cl); earlier direct fetches returned HTTP 429 or timed out. No source failed or variant mismatch is to be assigned merely to achieve 100% coverage.
