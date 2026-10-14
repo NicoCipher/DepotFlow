@@ -72,6 +72,7 @@ function RecordRow({ item }: { item: CustomerRecord }) {
                       ? `Received ${formatNaira(item.received)}${item.method ? ` via ${methodLabel(item.method)}` : ""}`
                       : "No money received"}
                     {unpaid && <span className="font-semibold text-amber-800"> · {formatNaira(item.remaining)} still unpaid</span>}
+                    {sale && item.linked_payment_voided && <span className="mt-1 block font-bold text-red-800">Old-debt payment voided. The separate payment record shows its status; the combined receipt contains the original checkout figures.</span>}
                   </>
                 )}
               </>
