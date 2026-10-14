@@ -643,7 +643,6 @@ export function SaleBuilder({
                           className="flex min-h-32 w-full items-center gap-3 rounded-xl p-3 text-left disabled:opacity-70"
                           disabled={!selectable}
                           onClick={() => edit(p)}
-                          aria-label={(line ? "Change " : "Choose ") + p.name + " " + (p.size ?? "")}
                         >
                           <span className="h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-stone-50">
                             <ProductImage src={p.image_url} name={p.name} />
