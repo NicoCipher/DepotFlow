@@ -6,7 +6,7 @@ begin;
 create or replace function public.save_sale_v2(
   p_request_id uuid,p_customer_id uuid,p_business_date date,p_paid numeric,
   p_lines jsonb,p_returned_crates jsonb,p_returned_bottles jsonb,p_payment_method text
-) returns jsonb language plpgsql security definer set search_path = '' as $
+) returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
   v_result jsonb;
   v_method text;
@@ -36,7 +36,7 @@ begin
   end if;
   return v_result;
 end;
-$;
+$$;
 
 -- Atomic checkout: settle an existing debt first, then save today's sale.
 -- Both existing RPCs run in one database transaction, so a failed sale rolls
