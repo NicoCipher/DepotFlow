@@ -43,7 +43,7 @@ do $$ declare v jsonb; begin
     500,pg_temp.lines(),'[]','[]','cash',2000
   );
   perform pg_temp.ok((v->>'total')::int=1000 and (v->>'paid')::int=500,
-    'Today's sale total or paid is wrong');
+    'Today''s sale total or paid is wrong');
   perform pg_temp.ok((v->>'oldDebtPaid')::int=2000 and (v->>'balanceAfter')::int=3500,
     'Old debt and new unpaid sale were not combined correctly');
   perform pg_temp.ok((select amount=3500 from public.money_owed
