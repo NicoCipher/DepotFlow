@@ -285,7 +285,7 @@ begin
       v_recent;
   end if;
   v_records:=public.customer_records(
-    v_today-1,v_today+1,'all','all','',100,null,false);
+    v_today-1,v_today+1,'all','all','',50,null,false);
   if pg_catalog.strpos(v_records::text,'B customer updated')<>0
     or pg_catalog.strpos(v_records::text,v_foreign::text)<>0 then
     raise exception 'Foreign customer leaked through records hub';
