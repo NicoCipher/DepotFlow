@@ -131,7 +131,7 @@ alter table public.sales validate constraint tenant_sales_customer_id_fkey;
 do $all_valid$
 begin
  if (select count(*) from pg_constraint
-     where conname like 'tenant\\_%' and convalidated)<>31 then
+     where left(conname,7)='tenant_' and convalidated)<>31 then
    raise exception 'Failed to validate all 31 M2c tenant relationships';
  end if;
 end;
