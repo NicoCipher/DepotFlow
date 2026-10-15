@@ -63,7 +63,7 @@ export default async function CrateTypesPage({
           Crate saved. Return to your drink setup tab if you came from there.
         </p>
       )}
-      {status.deleted === "1" && <p role="status" className="mt-3 text-emerald-900">Unused crate deleted.</p>}
+      {status.deleted === "1" && <p role="status" className="mt-3 text-emerald-900">Never-used crate setup discarded.</p>}
       <p className="mt-4 text-stone-600">Set up the crates your drinks use. This page describes each crate; record the number in your shop under Empty Crates.</p>
       <p className="mt-3 text-sm text-stone-600">A brewery is a group, not a physical crate. Every identifiable branded crate must have its own identity. Replacements require separate approved rules.</p>
       {pooled.length > 0 && (
@@ -161,8 +161,7 @@ export default async function CrateTypesPage({
                 <CrateDisplay crate={crate} />
                 <p className="mt-2 text-sm text-stone-600">
                   Older records cannot be edited into a new crate type. Create
-                  an exact type for current drinks. This record can be deleted
-                  only if no stock, sales, counts, or other records use it.
+                  an exact type for current drinks. It is preserved for history. A never-used setup can be discarded only when no stock, sales, counts, or other records refer to it.
                 </p>
                 <div className="mt-3">
                   <DeleteCrateType id={crate.id} name={crate.name} />
