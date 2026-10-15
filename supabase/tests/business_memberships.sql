@@ -14,13 +14,23 @@ values ('80000000-0000-4000-9000-000000000002','setup');
 insert into private.business_memberships(business_id,user_id,member_kind,status)
 values ('80000000-0000-4000-9000-000000000001',
         '80000000-0000-4000-8000-000000000001','owner','active');
--- An invited or otherwise provisioned staff user is not activated by default.
+-- A second owner registration cannot activate itself by simply having a row.
 insert into private.business_memberships(business_id,user_id,member_kind)
 values ('80000000-0000-4000-9000-000000000002',
-        '80000000-0000-4000-8000-000000000002','staff');
+        '80000000-0000-4000-8000-000000000002','owner');
 
 do $$
 begin
+  if exists(select 1 from private.business_memberships
+       where member_kind <> 'owner') then
+    raise exception 'V1 may not contain any staff membership';
+  end if;
+  begin
+    update private.business_memberships set member_kind='staff'
+      where business_id='80000000-0000-4000-9000-000000000002';
+    raise exception 'V1 accepted a staff membership';
+  exception when check_violation then null;
+  end;
   if (select count(*) from private.business_memberships where status='disabled') <> 1 then
     raise exception 'New memberships must default to disabled';
   end if;
