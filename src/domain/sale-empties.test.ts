@@ -7,6 +7,8 @@ import {
   allReturnedConfirmationKey,
   assertAllReturnedConfirmed,
   hasConfirmedAllReturned,
+  hasNoExpectedSaleEmpties,
+  paymentStepAfterEmpties,
   hasUnmatchedSaleEmpties,
   depositSetupIssues,
   emptyEmptiesV2,
@@ -569,4 +571,109 @@ test("manual actual-return path remains available without all-returned confirmat
   const match = matchSaleEmpties(draft, catalog);
   assert.doesNotThrow(() => assertAllReturnedConfirmed(draft, match));
   assert.equal(actualSaleEmpties(draft, catalog).crates[0].quantity, 1);
+});
+
+test("sales with no crates or returnable bottles can skip empties confirmation safely", () => {
+  const dry = {
+    ...goldberg,
+    id: "can",
+    name: "Nonreturnable can",
+    crate_type_id: "goldberg-crate",
+    bottles_returnable: false,
+    bottle_type: null,
+  };
+  const nonreturnableCatalog = { ...catalog, products: [...catalog.products, dry] };
+  const draft = sale("can", 0);
+  draft.lines[0].quantity = { crates: 0, fraction: 0, bottles: 3 };
+  draft.emptiesV2.mode = "exact";
+  const match = matchSaleEmpties(draft, nonreturnableCatalog);
+  assert.equal(hasNoExpectedSaleEmpties(match), true);
+  assert.equal(hasConfirmedAllReturned(draft, match), true);
+  assert.deepEqual(actualSaleEmpties(draft, nonreturnableCatalog), { crates: [], bottles: [] });
+});
+
+test("returnable loose bottles and full crates still require checking", () => {
+  const loose = sale("goldberg", 0);
+  loose.lines[0].quantity = { crates: 0, fraction: 0, bottles: 3 };
+  loose.emptiesV2.mode = "exact";
+  const looseMatch = matchSaleEmpties(loose, catalog);
+  assert.equal(hasNoExpectedSaleEmpties(looseMatch), false);
+  assert.equal(hasConfirmedAllReturned(loose, looseMatch), false);
+
+  const full = sale("goldberg", 1);
+  full.emptiesV2.mode = "exact";
+  assert.equal(hasNoExpectedSaleEmpties(matchSaleEmpties(full, catalog)), false);
+});
+
+test("no-empties fast path survives draft reload, but changed obligations are not confirmed", () => {
+  const nonreturnable = { ...goldberg, id: "dry", name: "Nonreturnable", bottles_returnable: false, bottle_type: null };
+  const dryCatalog = { ...catalog, products: [...catalog.products, nonreturnable] };
+  const draft = sale("dry", 0);
+  draft.lines[0].quantity = { crates: 0, fraction: 0, bottles: 3 };
+  draft.emptiesV2.mode = "exact";
+  const match = matchSaleEmpties(draft, dryCatalog);
+  assert.equal(hasNoExpectedSaleEmpties(match), true);
+  draft.emptiesV2.confirmedAllReturned = allReturnedConfirmationKey(draft, match);
+  draft.step = "payment";
+  const resumedPayment = readSaleDraft(JSON.stringify(draft));
+  assert.equal(resumedPayment.step, "payment");
+  assert.equal(hasConfirmedAllReturned(resumedPayment, matchSaleEmpties(resumedPayment, dryCatalog)), true);
+
+  draft.step = "review";
+  const resumedReview = readSaleDraft(JSON.stringify(draft));
+  assert.equal(resumedReview.step, "review");
+
+  const returnable = {
+    ...dryCatalog,
+    products: dryCatalog.products.map((p) =>
+      p.id === "dry" ? { ...p, bottles_returnable: true, bottle_type: "Goldberg bottle" } : p),
+  };
+  const changed = matchSaleEmpties(resumedReview, returnable);
+  assert.equal(hasNoExpectedSaleEmpties(changed), false);
+  assert.equal(hasConfirmedAllReturned(resumedReview, changed), false);
+  assert.throws(() => assertAllReturnedConfirmed(resumedReview, changed), /Confirm the crates and bottles/);
+});
+
+test("in-step zero-obligation return saves a durable confirmation when proceeding to payment", () => {
+  const withoutBottles = {
+    ...goldberg,
+    bottles_returnable: false,
+    bottle_type: null,
+  };
+  const dryCatalog = { ...catalog, products: [withoutBottles, trophy, big] };
+  const draft = sale("goldberg");
+  draft.emptiesV2.mode = "exact";
+  // Whole crate sold, but customer carries its bottles without plastic crate.
+  draft.emptiesV2.cratesTaken = { goldberg: "0" };
+  const preview = matchSaleEmpties(draft, dryCatalog);
+  assert.equal(hasNoExpectedSaleEmpties(preview), true);
+  assert.equal(draft.emptiesV2.confirmedAllReturned ?? null, null);
+  const patch = paymentStepAfterEmpties(draft, preview);
+  const resumed = readSaleDraft(JSON.stringify({ ...draft, ...patch }));
+  assert.equal(resumed.step, "payment");
+  assert.equal(resumed.emptiesV2.mode, "exact");
+  assert.equal(hasConfirmedAllReturned(resumed, matchSaleEmpties(resumed, dryCatalog)), true);
+
+  const updatedCatalog = {
+    ...dryCatalog,
+    products: [goldberg, trophy, big],
+  };
+  const changed = matchSaleEmpties(resumed, updatedCatalog);
+  assert.equal(hasNoExpectedSaleEmpties(changed), false);
+  assert.equal(hasConfirmedAllReturned(resumed, changed), false);
+  assert.throws(() => assertAllReturnedConfirmed(resumed, changed), /Confirm the crates and bottles/);
+});
+
+test("continuing from unconfirmed all-returned crates cannot forge confirmation", () => {
+  const draft = sale("goldberg");
+  draft.emptiesV2.mode = "exact";
+  const preview = matchSaleEmpties(draft, catalog);
+  assert.throws(() => paymentStepAfterEmpties(draft, preview), /Confirm the crates and bottles/);
+  draft.emptiesV2.confirmedAllReturned = allReturnedConfirmationKey(draft, preview);
+  const patch = paymentStepAfterEmpties(draft, preview);
+  assert.equal(readSaleDraft(JSON.stringify({ ...draft, ...patch })).step, "payment");
+
+  draft.emptiesV2.mode = "actual";
+  const actual = paymentStepAfterEmpties(draft, matchSaleEmpties(draft, catalog));
+  assert.deepEqual(actual, { step: "payment" });
 });

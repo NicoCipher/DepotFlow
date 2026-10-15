@@ -70,14 +70,37 @@ export function allReturnedConfirmationKey(draft: SaleDraft, result: EmptiesMatc
   });
 }
 
+export function hasNoExpectedSaleEmpties(result: EmptiesMatchResult): boolean {
+  return result.lines.every((line) => line.cratesOut === 0 && line.bottlesOut === 0);
+}
+
 export function hasConfirmedAllReturned(draft: SaleDraft, result: EmptiesMatchResult): boolean {
   return draft.emptiesV2?.mode === "exact" &&
-    draft.emptiesV2.confirmedAllReturned === allReturnedConfirmationKey(draft, result);
+    (hasNoExpectedSaleEmpties(result) ||
+      draft.emptiesV2.confirmedAllReturned === allReturnedConfirmationKey(draft, result));
 }
 
 export function assertAllReturnedConfirmed(draft: SaleDraft, result: EmptiesMatchResult): void {
   if (draft.emptiesV2?.mode === "exact" && !hasConfirmedAllReturned(draft, result))
     throw new Error("Confirm the crates and bottles returned before saving this sale.");
+}
+
+/**
+ * Save an exact-mode confirmation whenever the operator advances to payment,
+ * including when changing physical crates taken leaves nothing to return.
+ * Otherwise restoring an unfinished sale could falsely reopen Empties.
+ * Server-side saving still rechecks this key against the fresh catalog.
+ */
+export function paymentStepAfterEmpties(draft: SaleDraft, result: EmptiesMatchResult): Partial<SaleDraft> {
+  if (draft.emptiesV2.mode !== "exact") return { step: "payment" };
+  assertAllReturnedConfirmed(draft, result);
+  return {
+    step: "payment",
+    emptiesV2: {
+      ...draft.emptiesV2,
+      confirmedAllReturned: allReturnedConfirmationKey(draft, result),
+    },
+  };
 }
 
 /**

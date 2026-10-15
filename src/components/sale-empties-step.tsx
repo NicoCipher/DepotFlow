@@ -3,10 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { SaleIcon } from "@/components/sale-icon";
+import { EmptyQuantityRow } from "@/components/empty-quantity-row";
 import {
   crateReturnIssues,
   allReturnedConfirmationKey,
   hasConfirmedAllReturned,
+  paymentStepAfterEmpties,
   depositSetupIssues,
   matchSaleEmpties,
   hasUnmatchedSaleEmpties,
@@ -207,6 +209,35 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
   const missingDepositSetup =
     depositBlocked && result ? depositSetupIssues(result, catalog) : [];
 
+  const actualCratesDiffer = [...expectedCrates].some(
+    ([type, count]) => Number(state.returnedCrates[type] ?? "0") !== count,
+  ) || Object.entries(state.returnedCrates).some(([type, value]) => !expectedCrates.has(type) && Number(value) > 0);
+  const actualBottlesDiffer = [...expectedBottles].some(
+    ([type, count]) => Number(state.returnedBottles[type] ?? "0") !== count,
+  ) || Object.entries(state.returnedBottles).some(([type, value]) => !expectedBottles.has(type) && Number(value) > 0);
+  const physicalCratesDiffer = draft.lines.some(
+    (line) => state.cratesTaken[line.productId] !== undefined && Number(state.cratesTaken[line.productId]) !== line.quantity.crates,
+  );
+  const actualHasException = actualCratesDiffer || actualBottlesDiffer || physicalCratesDiffer || (state.decisions?.length ?? 0) > 0;
+
+  const unmatchedCrateTypes = Object.entries(result?.unmatchedCrates ?? {}).filter(([, count]) => count > 0);
+  const unmatchedBottleTypes = Object.entries(result?.unmatchedBottles ?? {}).filter(([, count]) => count > 0);
+  const decisionKind = (choice.kind === "crate" && unmatchedCrateTypes.length > 0)
+    || (choice.kind === "bottle" && unmatchedBottleTypes.length > 0)
+    ? choice.kind : unmatchedCrateTypes.length > 0 ? "crate" : "bottle";
+  const availableWrongTypes = decisionKind === "crate" ? unmatchedCrateTypes : unmatchedBottleTypes;
+  const missingForChoice = (result?.lines ?? []).filter(
+    (line) => decisionKind === "crate" ? line.cratesOwed > 0 : line.bottlesOwed > 0,
+  );
+  const chosenMissing = missingForChoice.find((line) => line.productId === choice.productId) ?? missingForChoice[0];
+  const chosenWrongType = availableWrongTypes.find(([type]) => type === choice.returnedType)?.[0] ?? availableWrongTypes[0]?.[0] ?? "";
+  const selectedWasEdited = choice.kind === decisionKind && choice.productId === chosenMissing?.productId && choice.returnedType === chosenWrongType;
+  const missingQuantity = chosenMissing ? (decisionKind === "crate" ? chosenMissing.cratesOwed : chosenMissing.bottlesOwed) : 0;
+  const wrongQuantity = availableWrongTypes.find(([type]) => type === chosenWrongType)?.[1] ?? 0;
+  const suggestedQuantity = String(Math.min(missingQuantity, wrongQuantity));
+  const chosenDecisionQuantity = selectedWasEdited && choice.quantity ? choice.quantity : suggestedQuantity;
+  const decisionHasUnmatched = unmatchedCrateTypes.length > 0 || unmatchedBottleTypes.length > 0;
+
   // One wrong loose bottle type should require a decision, not another round
   // of selecting its type and re-entering the same count.
   const simpleBottleReturn = state.mode === "actual" && result
@@ -323,11 +354,10 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
       {draft.lines.some((line) => line.quantity.crates > 0) && (
         <details className="rounded-xl border border-stone-200 bg-white p-3 text-sm">
           <summary className="min-h-11 cursor-pointer py-2 font-semibold text-stone-800">
-            Bottles left without their crates? · Special case
+            Did any drinks leave without their plastic crates?
           </summary>
           <p className="mt-2 text-sm text-stone-600">
-            Normal sales use the same number of physical crates as whole crates
-            sold. Change only the exceptions, such as bottles carried in a sack.
+            Usually a customer takes the plastic crate with a whole-crate purchase. Only change this if the customer took the bottles without the crate.
           </p>
           <div className="mt-4 space-y-4">
             {draft.lines
@@ -388,365 +418,245 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
       )}
 
       {state.mode === "actual" && (
-        <div className="space-y-7">
-          <p className="text-sm text-stone-600">
-            The expected counts are filled in. Change each one to what actually
-            came back. Enter 0 if none came back.
-          </p>
-          <section className="border-t border-stone-300 pt-5">
-            <h3 className="text-lg font-semibold">Empty crates returned</h3>
-            <p className="mt-1 text-sm text-stone-600">
-              Change these counts to the crates that came back.
+        <section aria-labelledby="returned-quantity-heading" className="space-y-4">
+          <div>
+            <h3 id="returned-quantity-heading" className="text-lg font-bold text-stone-950">Enter what actually came back</h3>
+            <p className="mt-1 text-sm leading-5 text-stone-600">
+              We filled in the expected amounts to save time. Change only what is missing, extra, or different. Set 0 when none came back.
             </p>
-            {visibleCrateIds.size === 0 && (
-              <p className="mt-3 text-sm text-stone-600">
-                No crates expected for this sale.
-              </p>
-            )}
-            <div className="mt-4 space-y-4">
-              {catalog.crateTypes
-                .filter((crate) => visibleCrateIds.has(crate.id))
-                .map((crate) => (
-                  <div key={crate.id}>
-                    <label htmlFor={`returned-crate-${crate.id}`}>
-                      {crate.name}
-                      {crate.pocket_count
-                        ? ` · ${crate.pocket_count} pockets`
-                        : ""}
-                    </label>
-                    <input
-                      id={`returned-crate-${crate.id}`}
-                      onFocus={selectDefaultZero}
-                      onClick={selectDefaultZero}
-                      className="mt-2"
-                      inputMode="numeric"
-                      pattern="[0-9]+"
-                      value={state.returnedCrates[crate.id] ?? "0"}
-                      aria-invalid={Boolean(returnedCrateErrors[crate.id])}
-                      aria-describedby={
-                        returnedCrateErrors[crate.id]
-                          ? `returned-crate-${crate.id}-error`
-                          : undefined
-                      }
-                      onChange={(event) =>
-                        update({
-                          emptiesV2: {
-                            ...state,
-                            returnedCrates: {
-                              ...state.returnedCrates,
-                              [crate.id]: event.target.value,
-                            },
-                          },
-                        })
-                      }
-                    />
-                    {returnedCrateErrors[crate.id] && (
-                      <p
-                        id={`returned-crate-${crate.id}-error`}
-                        role="alert"
-                        className="mt-2 text-sm text-red-800"
-                      >
-                        {returnedCrateErrors[crate.id]}
-                      </p>
-                    )}
-                  </div>
-                ))}
+          </div>
+          {visibleCrateIds.size > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-bold text-stone-900">Crates returned</h4>
+              {catalog.crateTypes.filter((crate) => visibleCrateIds.has(crate.id)).map((crate) => (
+                <EmptyQuantityRow
+                  key={crate.id}
+                  id={`returned-crate-${crate.id}`}
+                  name={crate.name}
+                  detail={crate.pocket_count ? `${crate.pocket_count} pockets` : undefined}
+                  expected={expectedCrates.get(crate.id) ?? 0}
+                  value={state.returnedCrates[crate.id] ?? "0"}
+                  unit="crate"
+                  error={returnedCrateErrors[crate.id]}
+                  onChange={(value) => update({ emptiesV2: { ...state, returnedCrates: { ...state.returnedCrates, [crate.id]: value } } })}
+                />
+              ))}
             </div>
-            {otherCrates.length > 0 && (
-              <div className="mt-5">
-                <label htmlFor="other-returned-crate">
-                  Different crate type came back?
-                </label>
-                <select
-                  id="other-returned-crate"
-                  value=""
-                  onChange={(event) =>
-                    setExtraCrates((current) => [
-                      ...current,
-                      event.target.value,
-                    ])
-                  }
-                >
-                  <option value="" disabled>
-                    Choose another crate type
-                  </option>
-                  {otherCrates.map((crate) => (
-                    <option key={crate.id} value={crate.id}>
-                      {crate.name}
-                      {crate.pocket_count
-                        ? ` · ${crate.pocket_count} pockets`
-                        : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </section>
-
-          <section className="border-t border-stone-300 pt-5">
-            <h3 className="text-lg font-semibold">Empty bottles returned</h3>
-            <p className="mt-1 text-sm text-stone-600">
-              Include loose bottles and bottles in sacks.
-            </p>
-            {visibleBottleTypes.size === 0 && (
-              <p className="mt-3 text-sm text-stone-600">
-                No bottles expected for this sale.
-              </p>
-            )}
-            <div className="mt-4 space-y-4">
-              {bottleTypes
-                .filter((type) => visibleBottleTypes.has(type))
-                .map((bottleType) => (
-                  <div key={bottleType}>
-                    <label
-                      htmlFor={`returned-bottle-${bottleTypes.indexOf(bottleType)}`}
+          )}
+          {visibleBottleTypes.size > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-bold text-stone-900">Bottles returned</h4>
+              {bottleTypes.filter((type) => visibleBottleTypes.has(type)).map((bottleType) => (
+                <EmptyQuantityRow
+                  key={bottleType}
+                  id={`returned-bottle-${bottleTypes.indexOf(bottleType)}`}
+                  name={bottleType}
+                  expected={expectedBottles.get(bottleType) ?? 0}
+                  value={state.returnedBottles[bottleType] ?? "0"}
+                  unit="bottle"
+                  error={returnedBottleErrors[bottleType]}
+                  onChange={(value) => update({ emptiesV2: { ...state, returnedBottles: { ...state.returnedBottles, [bottleType]: value } } })}
+                />
+              ))}
+            </div>
+          )}
+          {(otherCrates.length > 0 || otherBottles.length > 0) && (
+            <details className="rounded-xl border border-stone-200 bg-white px-3 py-2 sm:px-4">
+              <summary className="min-h-11 cursor-pointer py-2 text-sm font-bold text-emerald-900">
+                Different type brought back? Add it here
+              </summary>
+              <div className="grid gap-3 border-t border-stone-200 py-3 sm:grid-cols-2">
+                {otherCrates.length > 0 && (
+                  <label htmlFor="other-returned-crate" className="text-sm font-semibold text-stone-800">
+                    Different crate type
+                    <select
+                      id="other-returned-crate"
+                      className="mt-2"
+                      value=""
+                      onChange={(event) => {
+                        if (event.target.value) setExtraCrates((current) => [...new Set([...current, event.target.value])]);
+                      }}
                     >
-                      {bottleType}
-                    </label>
-                    <input
-                      id={`returned-bottle-${bottleTypes.indexOf(bottleType)}`}
-                      onFocus={selectDefaultZero}
-                      onClick={selectDefaultZero}
+                      <option value="">Choose a type to add</option>
+                      {otherCrates.map((crate) => <option key={crate.id} value={crate.id}>{crate.name}{crate.pocket_count ? ` · ${crate.pocket_count} pockets` : ""}</option>)}
+                    </select>
+                  </label>
+                )}
+                {otherBottles.length > 0 && (
+                  <label htmlFor="other-returned-bottle" className="text-sm font-semibold text-stone-800">
+                    Different bottle type
+                    <select
+                      id="other-returned-bottle"
                       className="mt-2"
-                      inputMode="numeric"
-                      pattern="[0-9]+"
-                      value={state.returnedBottles[bottleType] ?? "0"}
-                      aria-invalid={Boolean(returnedBottleErrors[bottleType])}
-                      aria-describedby={
-                        returnedBottleErrors[bottleType]
-                          ? `returned-bottle-${bottleTypes.indexOf(bottleType)}-error`
-                          : undefined
-                      }
-                      onChange={(event) =>
-                        update({
-                          emptiesV2: {
-                            ...state,
-                            returnedBottles: {
-                              ...state.returnedBottles,
-                              [bottleType]: event.target.value,
-                            },
-                          },
-                        })
-                      }
-                    />
-                    {returnedBottleErrors[bottleType] && (
-                      <p
-                        id={`returned-bottle-${bottleTypes.indexOf(bottleType)}-error`}
-                        role="alert"
-                        className="mt-2 text-sm text-red-800"
-                      >
-                        {returnedBottleErrors[bottleType]}
-                      </p>
-                    )}
-                  </div>
-                ))}
-            </div>
-            {otherBottles.length > 0 && (
-              <div className="mt-5">
-                <label htmlFor="other-returned-bottle">
-                  Different bottle type came back?
-                </label>
-                <select
-                  id="other-returned-bottle"
-                  value=""
-                  onChange={(event) =>
-                    setExtraBottles((current) => [
-                      ...current,
-                      event.target.value,
-                    ])
-                  }
-                >
-                  <option value="" disabled>
-                    Choose another bottle type
-                  </option>
-                  {otherBottles.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
+                      value=""
+                      onChange={(event) => {
+                        if (event.target.value) setExtraBottles((current) => [...new Set([...current, event.target.value])]);
+                      }}
+                    >
+                      <option value="">Choose a type to add</option>
+                      {otherBottles.map((type) => <option key={type} value={type}>{type}</option>)}
+                    </select>
+                  </label>
+                )}
               </div>
-            )}
-          </section>
-        </div>
+              <p className="pb-2 text-xs text-stone-600">
+                Enter the quantity in the new row. DepotFlow will ask what you did with it if it cannot settle this sale.
+              </p>
+            </details>
+          )}
+        </section>
       )}
 
       {state.mode === "actual" && (
-        <>
-          {simpleBottleReturn && <section aria-label="Different bottle returned" className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-            <h3 className="text-lg font-semibold">Different bottle returned</h3>
-            <p className="mt-2">{simpleBottleReturn.quantity} {simpleBottleReturn.returnedType} {simpleBottleReturn.quantity === 1 ? "bottle" : "bottles"} came back instead of {simpleBottleReturn.expectedType} for {productName.get(simpleBottleReturn.productId)}.</p>
-            <p className="mt-2 text-sm">What should happen to {simpleBottleReturn.quantity === 1 ? "this bottle" : "these bottles"}?</p>
-            <div className="mt-3 grid gap-2">
-              <button type="button" className="primary w-full" onClick={() => decideSimpleBottleReturn("accept")}>Accept instead · reduce what is owed</button>
-              <button type="button" className="secondary w-full" onClick={() => decideSimpleBottleReturn("hold")}>Hold · correct bottle still owed</button>
-            </div>
-            {choiceError && <p role="alert" className="mt-2 text-red-800">{choiceError}</p>}
-          </section>}
-          {(state.decisions?.length ?? 0) > 0 && <div aria-live="polite" className="space-y-1 rounded-lg bg-stone-50 p-3 text-sm">
-            {(state.decisions ?? []).map((entry, index) => <p key={index}>{entry.quantity} {entry.returnedType} {entry.kind === "bottle" ? "bottles" : "crates"}: {entry.decision === "accept" ? "Accepted for this sale; correct type reduced" : "Held; correct type still owed"}</p>)}
-          </div>}
-          {!simpleBottleReturn && <details
-          className="rounded-xl border border-stone-200 bg-white p-4"
-        >
-          <summary className="min-h-12 cursor-pointer py-3 font-semibold">
-            Wrong empties? Accept or hold them
-          </summary>
-          <p className="mb-4 text-sm text-stone-600">
-            First enter exactly what came back above. Choose separately for a
-            wrong crate and wrong bottles. This choice applies to this sale
-            only.
-          </p>
-          <div className="space-y-4">
-            <label className="block">
-              Which drink is still missing empties?
-              <select
-                value={choice.productId}
-                onChange={(event) =>
-                  setChoice({ ...choice, productId: event.target.value })
-                }
-              >
-                <option value="">Choose a drink</option>
-                {draft.lines.map((line) => (
-                  <option key={line.productId} value={line.productId}>
-                    {productName.get(line.productId)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <fieldset>
-              <legend>What came back wrong?</legend>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                {(["crate", "bottle"] as const).map((kind) => (
-                  <button
-                    type="button"
-                    key={kind}
-                    className={choice.kind === kind ? "primary" : "secondary"}
-                    aria-pressed={choice.kind === kind}
-                    onClick={() =>
-                      setChoice({ ...choice, kind, returnedType: "" })
+        <div className="space-y-3">
+          {result && (shortages.length > 0 || actualHasException) && (
+            <section aria-live="polite" className="rounded-xl border border-amber-200 bg-amber-50 p-3 sm:p-4">
+              <h3 className="font-bold text-amber-950">
+                {shortages.length > 0 ? "Still owed if saved" : "All expected empties accounted for"}
+              </h3>
+              {shortages.length > 0 ? (
+                <ul className="mt-2 space-y-1 text-sm text-amber-950">
+                  {shortages.map((line) => (
+                    <li key={line.productId}>{missingEmptiesMessage(line, productName.get(line.productId) ?? "Drink")}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-1 text-sm text-emerald-950">No new crate or bottle balance from this sale.</p>
+              )}
+              <p className="mt-2 text-xs text-stone-700">Preview only. The customer&apos;s record changes when the sale is saved.</p>
+            </section>
+          )}
+
+          {simpleBottleReturn && (
+            <section aria-label="Different bottle returned" className="rounded-xl border border-amber-200 bg-white p-4">
+              <h3 className="text-base font-bold text-stone-950">One different bottle type</h3>
+              <p className="mt-2 text-sm leading-5 text-stone-700">
+                {simpleBottleReturn.quantity} {simpleBottleReturn.returnedType} {simpleBottleReturn.quantity === 1 ? "bottle" : "bottles"} came back instead of {simpleBottleReturn.expectedType} for {productName.get(simpleBottleReturn.productId)}.
+              </p>
+              <p className="mt-3 text-sm font-bold">What did you do with {simpleBottleReturn.quantity === 1 ? "it" : "them"}?</p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <button type="button" className="secondary min-h-14 w-full text-sm" onClick={() => decideSimpleBottleReturn("hold")}>
+                  Kept aside · Correct type still owed
+                </button>
+                <button type="button" className="secondary min-h-14 w-full text-sm" onClick={() => decideSimpleBottleReturn("accept")}>
+                  Accepted as replacement · Reduces bottles still owed
+                </button>
+              </div>
+              {choiceError && <p role="alert" className="mt-2 text-sm text-red-800">{choiceError}</p>}
+            </section>
+          )}
+
+          {result && !simpleBottleReturn && decisionHasUnmatched && (
+            <section aria-labelledby="different-return-heading" className="space-y-3 rounded-xl border border-amber-200 bg-white p-4">
+              <div>
+                <h3 id="different-return-heading" className="text-lg font-bold text-stone-950">Different empties need a decision</h3>
+                <p className="mt-1 text-sm leading-5 text-stone-600">
+                  DepotFlow won&apos;t silently use a different crate or bottle to clear what is owed.
+                </p>
+              </div>
+              {unmatchedCrateTypes.length > 0 && unmatchedBottleTypes.length > 0 && (
+                <div className="grid grid-cols-2 gap-2" role="group" aria-label="Type of different empties">
+                  {(["crate", "bottle"] as const).map((kind) => (
+                    <button key={kind} type="button" className={decisionKind === kind ? "primary min-h-12" : "secondary min-h-12"}
+                      aria-pressed={decisionKind === kind}
+                      onClick={() => setChoice({ productId: "", kind, returnedType: "", quantity: "", decision: "hold" })}>
+                      {kind === "crate" ? "Crates" : "Bottles"}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {missingForChoice.length > 0 ? (
+                <>
+                  <label className="block text-sm font-semibold text-stone-800">
+                    Which drink still has {decisionKind === "crate" ? "crates" : "bottles"} missing?
+                    <select className="mt-1.5" value={chosenMissing?.productId ?? ""}
+                      onChange={(event) => setChoice({ ...choice, kind: decisionKind, productId: event.target.value, returnedType: chosenWrongType, quantity: "" })}>
+                      {missingForChoice.map((line) => (
+                        <option key={line.productId} value={line.productId}>{productName.get(line.productId) ?? "Drink"} · {decisionKind === "crate" ? line.cratesOwed : line.bottlesOwed} missing</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block text-sm font-semibold text-stone-800">
+                    What different type came back?
+                    <select className="mt-1.5" value={chosenWrongType}
+                      onChange={(event) => setChoice({ ...choice, kind: decisionKind, productId: chosenMissing?.productId ?? "", returnedType: event.target.value, quantity: "" })}>
+                      {availableWrongTypes.map(([type, quantity]) => (
+                        <option key={type} value={type}>
+                          {decisionKind === "crate" ? crateName.get(type) ?? type : type} · {quantity} available
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block text-sm font-semibold text-stone-800">
+                    How many {decisionKind === "crate" ? "crates" : "bottles"} did this affect?
+                    <input className="mt-1.5" inputMode="numeric" pattern="[0-9]+"
+                      value={chosenDecisionQuantity} onFocus={(event) => event.currentTarget.select()}
+                      onChange={(event) => setChoice({ ...choice, kind: decisionKind, productId: chosenMissing?.productId ?? "", returnedType: chosenWrongType, quantity: event.target.value })}/>
+                    <span className="mt-1 block text-xs font-normal text-stone-600">Suggested: {suggestedQuantity} · change if fewer were involved.</span>
+                  </label>
+                  <fieldset>
+                    <legend className="text-sm font-bold text-stone-900">What happened to the different empties?</legend>
+                    <div className="mt-2 grid gap-2">
+                      {(["hold", "accept"] as const).map((decision) => (
+                        <button key={decision} type="button"
+                          className={"min-h-12 rounded-lg border-2 p-3 text-left text-sm " + (choice.decision === decision ? "border-emerald-800 bg-emerald-50 font-semibold text-emerald-950" : "border-stone-200 bg-white text-stone-800")}
+                          aria-pressed={choice.decision === decision}
+                          onClick={() => setChoice({ ...choice, decision })}>
+                          {decision === "hold"
+                            ? "Kept aside · Customer still owes the correct type"
+                            : "Accepted as replacement · Reduces the amount owed"}
+                        </button>
+                      ))}
+                    </div>
+                  </fieldset>
+                  {choiceError && <p role="alert" className="text-sm font-medium text-red-800">{choiceError}</p>}
+                  <button type="button" className="primary w-full min-h-12" onClick={() => {
+                    const nextChoice = {
+                      productId: chosenMissing?.productId ?? "",
+                      kind: decisionKind,
+                      returnedType: chosenWrongType,
+                      quantity: chosenDecisionQuantity,
+                      decision: choice.decision,
+                    };
+                    const next = { ...state, decisions: [...(state.decisions ?? []), nextChoice] };
+                    try {
+                      matchSaleEmpties({ ...draft, emptiesV2: next }, catalog);
+                      update({ emptiesV2: next });
+                      setChoice({ productId: "", kind: "crate", returnedType: "", quantity: "", decision: "hold" });
+                      setChoiceError("");
+                    } catch (cause) {
+                      setChoiceError(cause instanceof Error ? cause.message : "Check this choice.");
                     }
-                  >
-                    {kind === "crate" ? "Plastic crate" : "Bottles"}
-                  </button>
+                  }}>Record what happened</button>
+                </>
+              ) : (
+                <p role="alert" className="text-sm text-amber-950">
+                  These extra empties don&apos;t match any outstanding type in this sale. Set their counts to 0 here and record a separate customer return if they relate to an earlier sale.
+                </p>
+              )}
+            </section>
+          )}
+
+          {(state.decisions?.length ?? 0) > 0 && (
+            <section className="rounded-xl border border-stone-200 bg-stone-50 p-3">
+              <h3 className="text-sm font-bold text-stone-950">Your decisions</h3>
+              <ul className="mt-2 space-y-2">
+                {(state.decisions ?? []).map((entry, index) => (
+                  <li key={index} className="flex items-start justify-between gap-2 text-sm text-stone-700">
+                    <span className="min-w-0">
+                      {entry.quantity} {entry.kind === "crate" ? crateName.get(entry.returnedType) ?? entry.returnedType : entry.returnedType} {entry.kind === "crate" ? "crates" : "bottles"}
+                      {entry.decision === "hold" ? " kept separately · correct type still owed" : " accepted as replacement · reduces debt in empties"}
+                    </span>
+                    <button type="button" className="shrink-0 rounded-lg border border-stone-300 bg-white px-3 py-2 font-semibold text-emerald-900"
+                      onClick={() => update({ emptiesV2: { ...state, decisions: state.decisions?.filter((_, i) => i !== index) } })}>
+                      Undo
+                    </button>
+                  </li>
                 ))}
-              </div>
-            </fieldset>
-            <label className="block">
-              Type that came back
-              <select
-                value={choice.returnedType}
-                onChange={(event) =>
-                  setChoice({ ...choice, returnedType: event.target.value })
-                }
-              >
-                <option value="">Choose the returned type</option>
-                {(choice.kind === "crate"
-                  ? catalog.crateTypes.map((item) => ({
-                      id: item.id,
-                      name: item.name,
-                    }))
-                  : bottleTypes.map((type) => ({ id: type, name: type }))
-                ).map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              How many {choice.kind === "crate" ? "crates" : "bottles"}?
-              <input
-                inputMode="numeric"
-                onFocus={(event) => event.currentTarget.select()}
-                onClick={(event) => event.currentTarget.select()}
-                value={choice.quantity}
-                onChange={(event) =>
-                  setChoice({ ...choice, quantity: event.target.value })
-                }
-              />
-            </label>
-            <fieldset>
-              <legend>What should happen?</legend>
-              <div className="mt-2 space-y-2">
-                {(["hold", "accept"] as const).map((decision) => (
-                  <button
-                    key={decision}
-                    type="button"
-                    className={`w-full text-left ${choice.decision === decision ? "primary" : "secondary"}`}
-                    aria-pressed={choice.decision === decision}
-                    onClick={() => setChoice({ ...choice, decision })}
-                  >
-                    {decision === "hold"
-                      ? "Hold these · correct type is still owed"
-                      : "Accept these · reduce what is owed"}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-            {choiceError && (
-              <p role="alert" className="text-red-800">
-                {choiceError}
-              </p>
-            )}
-            <button
-              type="button"
-              className="secondary w-full"
-              onClick={() => {
-                const next = {
-                  ...state,
-                  decisions: [...(state.decisions ?? []), choice],
-                };
-                try {
-                  matchSaleEmpties({ ...draft, emptiesV2: next }, catalog);
-                  update({ emptiesV2: next });
-                  setChoiceError("");
-                } catch (cause) {
-                  setChoiceError(
-                    cause instanceof Error
-                      ? cause.message
-                      : "Check this choice.",
-                  );
-                }
-              }}
-            >
-              Add this choice
-            </button>
-          </div>
-          {(state.decisions ?? []).map((entry, index) => (
-            <div key={index} className="mt-4 rounded-lg bg-stone-50 p-3">
-              <p className="font-semibold">
-                {productName.get(entry.productId)} · {entry.quantity}{" "}
-                {entry.kind === "crate"
-                  ? crateName.get(entry.returnedType)
-                  : entry.returnedType}{" "}
-                {entry.kind === "crate" ? "crates" : "bottles"}
-              </p>
-              <p className="mt-1">
-                {entry.decision === "hold"
-                  ? "Held for this customer. Correct type is still owed."
-                  : "Accepted for this sale. Reduces what is owed."}
-              </p>
-              <button
-                type="button"
-                className="quiet-link mt-1"
-                onClick={() =>
-                  update({
-                    emptiesV2: {
-                      ...state,
-                      decisions: state.decisions?.filter(
-                        (_, itemIndex) => itemIndex !== index,
-                      ),
-                    },
-                  })
-                }
-              >
-                Remove choice
-              </button>
-            </div>
-          ))}
-        </details>}
-        </>
+              </ul>
+            </section>
+          )}
+        </div>
       )}
 
       {hasFieldErrors && (
@@ -760,13 +670,13 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
         </p>
       )}
 
-      {result && (state.mode === "actual" || exactConfirmed) && (
+      {result && state.mode === "actual" && actualHasException && (crateIssues.length > 0 || result.swaps.length > 0 || hasUnmatchedSaleEmpties(result) || depositBlocked) && (
         <section
           aria-live="polite"
           className="rounded-lg border border-stone-200 bg-white p-4"
         >
           <h3 className="font-semibold">
-            {shortages.length ? "Still missing" : "Empties checked"}
+            Return details
           </h3>
 
           {result.swaps.map((swap) => (
@@ -780,7 +690,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
 
           {!shortages.length ? (
             <p className="mt-2 text-emerald-900">
-              No empty crates or bottles owed from this sale.
+              No additional missing empties from this sale.
             </p>
           ) : (
             <div className="mt-3 space-y-2">
@@ -884,6 +794,12 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
         </section>
       )}
 
+      {state.mode === "actual" && !actualHasException && !hasFieldErrors && (
+        <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950">
+          These amounts still match what was expected. If everything came back correctly, choose “Yes, all returned” above.
+        </p>
+      )}
+
       <div className="sale-sticky-actions sticky z-10 -mx-4 flex items-center gap-3 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
         <button
           type="button"
@@ -896,9 +812,11 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
           type="button"
           className="primary min-w-0 flex-1"
           disabled={
-            hasFieldErrors || !result || (state.mode === "exact" && !exactConfirmed) || hasUnmatchedSaleEmpties(result) || Boolean(error) || depositBlocked
+            hasFieldErrors || !result || (state.mode === "exact" && !exactConfirmed) || (state.mode === "actual" && !actualHasException) || hasUnmatchedSaleEmpties(result) || Boolean(error) || depositBlocked
           }
-          onClick={() => update({ step: "payment" })}
+          onClick={() => {
+            if (result) update(paymentStepAfterEmpties(draft, result));
+          }}
         >
           Next: Enter payment
         </button>
