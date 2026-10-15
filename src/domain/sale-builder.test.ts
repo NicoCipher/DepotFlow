@@ -3,6 +3,8 @@ import { test } from "node:test";
 import {
   emptySaleDraft,
   matchesSaleCustomer,
+  modeForSaleDrink,
+  saleSaveConfirmationKey,
   priceQuantity,
   putSaleLine,
   readSaleDraft,
@@ -371,4 +373,31 @@ test("legacy snapshots retain combined partial arithmetic without false warnings
   assert.equal(salePriceChangeMessage(line, current),
     `Drink: Price for this quantity changed from ₦${oldTotal.toLocaleString("en-NG")} to ₦${newTotal.toLocaleString("en-NG")}.`);
   assert.equal(salePriceChangeMessage({ ...line, quantity: q(1), priceSnapshot: JSON.stringify([10100, null, null, null]) }, current), null);
+});
+
+test("early sale preference applies to new drinks only and survives parked draft recovery", () => {
+  const retailDraft = { ...emptySaleDraft, preferredSellingMode: "retail" as const };
+  assert.equal(modeForSaleDrink(retailDraft, undefined), "retail");
+  assert.equal(modeForSaleDrink(retailDraft, q(1)), "wholesale");
+  assert.equal(modeForSaleDrink(retailDraft, q(0, 0, 6)), "retail");
+  assert.equal(modeForSaleDrink({ ...retailDraft, preferredSellingMode: "wholesale" }, undefined), "wholesale");
+  const resumed = readSaleDraft(JSON.stringify({ ...retailDraft, step: "drinks" }));
+  assert.equal(resumed.preferredSellingMode, "retail");
+  assert.equal(modeForSaleDrink(resumed, undefined), "retail");
+  assert.equal(readSaleDraft(JSON.stringify({ ...retailDraft, preferredSellingMode: "invalid" })).preferredSellingMode, "wholesale");
+  assert.equal(readSaleDraft(JSON.stringify({ ...emptySaleDraft, preferredSellingMode: undefined })).preferredSellingMode, "wholesale");
+});
+
+test("final-sale confirmation expires when any material record or checked balance changes", () => {
+  const draft = { ...emptySaleDraft, customerId: "customer-a", step: "review" as const };
+  const first = saleSaveConfirmationKey(draft, 4000, 8500);
+  assert.equal(first, saleSaveConfirmationKey({ ...draft }, 4000, 8500));
+  assert.notEqual(first, saleSaveConfirmationKey({ ...draft, paid: "1000" }, 4000, 8500));
+  assert.notEqual(first, saleSaveConfirmationKey({ ...draft, oldDebtPaid: "100" }, 4000, 8500));
+  assert.notEqual(first, saleSaveConfirmationKey({ ...draft, customerId: "customer-b" }, 4000, 8500));
+  assert.notEqual(first, saleSaveConfirmationKey({ ...draft, paymentMethod: "cash" }, 4000, 8500));
+  assert.notEqual(first, saleSaveConfirmationKey(draft, 3000, 8500));
+  assert.notEqual(first, saleSaveConfirmationKey(draft, 4000, 8600));
+  assert.notEqual(first, saleSaveConfirmationKey({ ...draft, emptiesV2: { ...draft.emptiesV2, mode: "actual" } }, 4000, 8500));
+  assert.notEqual(first, saleSaveConfirmationKey({ ...draft, lines: [{ productId: "one", quantity: q(1) }] }, 4000, 8500));
 });
