@@ -37,6 +37,16 @@ export function crateLabel(crate: CrateAttributes): string {
   const description = crateDescription(crate);
   return [crate.name, description].filter(Boolean).join(" · ");
 }
+/**
+ * NB is the established owner-facing brewery family label. Older records and
+ * free-text input may say NBL; never show these as two physical-stock groups.
+ * This is presentation/setup normalization, NOT a crate compatibility rule.
+ */
+export function canonicalCrateFamily(family: string): string {
+  const trimmed = family.trim();
+  return /^(nb|nbl)$/i.test(trimmed) ? "NB" : trimmed;
+}
+
 export function crateNeedsSetup(crate: CrateAttributes): boolean {
   return (
     crate.is_legacy === true ||
@@ -63,7 +73,7 @@ export function validateCrateType(values: {
   variant: string;
 }) {
   const name = values.name.trim(),
-    empty_family = values.empty_family.trim(),
+    empty_family = canonicalCrateFamily(values.empty_family),
     variant = values.variant.trim() || null;
   const pocket_count = Number(values.pocket_count.trim());
   if (
