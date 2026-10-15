@@ -133,4 +133,39 @@ $$;
 end;
 $$;
 
+-- Preserve the physical brand and the different obligation it settled in return history.
+create or replace function public.customer_return_record(p_id uuid)
+returns jsonb language plpgsql security definer set search_path='' as $return$
+declare v_result jsonb;
+begin
+  if auth.uid() is null or not exists(
+    select 1 from private.shop_owner where user_id=auth.uid()
+  ) then
+    raise exception using errcode='42501',message='Owner only';
+  end if;
+  select jsonb_build_object(
+    'id',r.request_id,'customer_id',r.customer_id,
+    'customer_name',c.name,'business_name',c.business_name,'created_at',r.created_at,
+    'crates',coalesce((select jsonb_agg(jsonb_build_object(
+      'name',coalesce(actual.name,'Crate'),
+      'owed_name',case when actual.id is distinct from owed.id then owed.name else null end,
+      'quantity',(x.value->>'quantity')::integer))
+      from jsonb_array_elements(coalesce(r.request_payload->'crates','[]'::jsonb)) x(value)
+      left join public.crate_types owed on owed.id=(x.value->>'crateTypeId')::uuid
+      left join public.crate_types actual on actual.id=coalesce(
+        nullif(x.value->>'returnedCrateTypeId','')::uuid,(x.value->>'crateTypeId')::uuid)),'[]'::jsonb),
+    'bottles',coalesce((select jsonb_agg(jsonb_build_object(
+      'name',x.value->>'bottleType','quantity',(x.value->>'quantity')::integer))
+      from jsonb_array_elements(coalesce(r.request_payload->'bottles','[]'::jsonb)) x(value)),'[]'::jsonb),
+    'released',coalesce((select jsonb_agg(jsonb_build_object(
+      'name',d.returned_name,'kind',d.kind,'quantity',d.quantity))
+      from jsonb_array_elements_text(coalesce(r.request_payload->'released','[]'::jsonb)) e(id)
+      join public.sale_empty_decisions d on d.id=e.id::uuid and d.customer_id=r.customer_id),'[]'::jsonb)
+  ) into v_result
+  from private.customer_empty_returns r join public.customers c on c.id=r.customer_id
+  where r.request_id=p_id;
+  return v_result;
+end $return$;
+
+
 commit;
