@@ -45,9 +45,9 @@ export default async function CrateTypesPage({
     const assigned = products.filter((p) => p.crate_type_id === crate.id);
     if (assigned.length < 2) return false;
     const name = crate.name.trim().toLowerCase();
-    if (["nb", "nbl", "nigerian breweries"].includes(name)) return true;
-    return !assigned.some((product) =>
-      product.name.toLowerCase().includes(name));
+    // Only verified generic historical labels; packaging-variant names can
+    // legitimately be shared by several drinks. Never guess from name matching.
+    return ["nb", "nbl"].includes(name);
   });
   const groups = Map.groupBy(activeTypes, (crate) =>
     crateNeedsSetup(crate) ? "Needs setup" : canonicalCrateFamily(crate.empty_family!),
@@ -68,9 +68,9 @@ export default async function CrateTypesPage({
       <p className="mt-3 text-sm text-stone-600">A brewery is a group, not a physical crate. Every identifiable branded crate must have its own identity. Replacements require separate approved rules.</p>
       {pooled.length > 0 && (
         <section aria-label="Shared crate identities need review" className="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-4">
-          <h2 className="text-lg font-semibold text-amber-950">{pooled.length} shared crate {pooled.length === 1 ? "identity" : "identities"} need review</h2>
+          <h2 className="text-lg font-semibold text-amber-950">{pooled.length} possible pooled crate {pooled.length === 1 ? "identity" : "identities"} need review</h2>
           <p className="mt-2 text-sm text-amber-950">
-            Generic crate identities are attached to different drinks. Check the actual brand marked on each physical crate. Create the missing branded identities, then update each drink to use its own correct crate.
+            These older NB/NBL placeholder identities are attached to several drinks. Check whether each physical crate has its own branded identity. Do not split a genuinely indistinguishable physical type. Create the missing branded identities, then update each drink to use its own correct crate.
             Keep historic customer debts and recorded counts on their original IDs until physically reconciled.
           </p>
           <ul className="mt-3 space-y-3">
