@@ -981,6 +981,7 @@ export type Database = {
       }
     }
     Functions: {
+      set_shop_drink_active: { Args: { p_id: string; p_active: boolean; p_expected_active: boolean }; Returns: boolean }
       customer_records: {
         Args: { p_from: string; p_to: string; p_kind: string; p_method: string; p_search: string; p_limit: number; p_cursor?: Json | null; p_before?: boolean }
         Returns: Json
