@@ -24,7 +24,7 @@ export async function reviewReceiving(
   const product = await supabase
     .from("products")
     .select(
-      "bottles_per_crate,crate_type_id,crate_types(*),stock(total_bottles)",
+      "bottles_per_crate,crate_type_id,is_active,crate_types(*),stock(total_bottles)",
     )
     .eq("id", productId)
     .maybeSingle();
@@ -34,6 +34,7 @@ export async function reviewReceiving(
       businessDate,
       message: "Could not load the product. Try again.",
     };
+  if (!product.data.is_active) return { crates, businessDate, message: "This drink was removed from your shop. Restore it before receiving new stock." };
   const empty = await supabase
     .from("empty_crate_stock")
     .select("quantity")
