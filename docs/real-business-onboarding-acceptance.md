@@ -1,6 +1,6 @@
 # Real-business onboarding: launch checklist and acceptance scenarios
 
-**Working product example:** Warlink Venture (confirm spelling, receipt name, address and owner-controlled login inside setup). **No test data may be presumed real.**
+**Working product example:** Walnik Ventures (confirm spelling, receipt name, address and owner-controlled login inside setup). **No test data may be presumed real.**
 
 ## Staged launch gates
 
@@ -22,7 +22,7 @@
 | Owner chooses “Create an account,” enters email | Clear email verification message, no access before verification |
 | Owner verifies and taps Create Business twice | Exactly one business and owner membership; no duplicated setup |
 | Owner leaves midway, comes back tomorrow | Returns to last completed setup step with data saved |
-| Owner enters receipt name “Warlink Venture” | That business displays exactly the owner-confirmed name; no inherited name from test account |
+| Owner enters receipt name “Walnik Ventures” | That business displays exactly the owner-confirmed name; no inherited name from test account |
 | A different owner registers a separate depot | Completely isolated owner membership, shop data, catalog pricing, stock, customers and receipts; no V1 business switching |
 | Owner selects Goldberg from master catalogue | Adds to **this** business; does not change another shop's prices or product list |
 | Owner saves product with missing bottle/crate type | Honest “Needs details” state, no fake empty type and cannot sell invalid configured units |
@@ -74,9 +74,9 @@ Before opening signup, implement and verify: owner-controlled verified email, on
 
 ## V1 scope rule
 
-Self-serve signup creates one independent business per newly registered owner. Two separate owner accounts prove isolation. One account switching among multiple owned businesses, staff invitations and Team & Access are future enhancements, **not** required to activate Warlink Venture.
+Self-serve signup creates one independent business per newly registered owner. Two separate owner accounts prove isolation. One account switching among multiple owned businesses, staff invitations and Team & Access are future enhancements, **not** required to activate Walnik Ventures.
 
-## Controlled Warlink Venture cutover checklist
+## Controlled Walnik Ventures cutover checklist
 
 - [ ] Verify owner-controlled email and an independently secured backup/recovery method (never share password, recovery codes or OTP in chat)
 - [ ] Confirm exact public business name and receipt header, phone, physical address
