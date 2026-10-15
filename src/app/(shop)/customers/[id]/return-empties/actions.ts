@@ -11,10 +11,10 @@ export async function saveEmptyReturn(
   const request = String(form.get("request") ?? "");
   if (![customer, request].every((value) => /^[0-9a-f-]{36}$/i.test(value)))
     return { message: "Could not find this customer. Open their page again." };
-  const crates: { crateTypeId: string; quantity: number }[] = [];
+  const crates: { crateTypeId: string; returnedCrateTypeId?: string; quantity: number }[] = [];
   const bottles: { bottleType: string; quantity: number }[] = [];
   for (const [key, value] of form.entries()) {
-    if (!key.startsWith("crate:") && !key.startsWith("bottle:")) continue;
+    if (!key.startsWith("crate:") && !key.startsWith("crate-swap:") && !key.startsWith("bottle:")) continue;
     const raw = String(value).trim();
     if (!/^[0-9]{1,9}$/.test(raw))
       return {
@@ -22,11 +22,20 @@ export async function saveEmptyReturn(
           "Enter whole counts of empty crates and empty bottles. Use 0 for types that did not come back.",
       };
     if (Number(raw) === 0) continue;
-    if (key.startsWith("crate:"))
+    if (key.startsWith("crate-swap:")) {
+      const [owedId, receivedId, ...extra] = key.slice("crate-swap:".length).split(":");
+      if (extra.length || ![owedId, receivedId].every(id =>
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)))
+        return { message: "Check the replacement crate types and try again." };
+      crates.push({ crateTypeId: owedId, returnedCrateTypeId: receivedId, quantity: Number(raw) });
+    } else if (key.startsWith("crate:")) {
       crates.push({ crateTypeId: key.slice(6), quantity: Number(raw) });
-    else bottles.push({ bottleType: key.slice(7), quantity: Number(raw) });
+    } else {
+      bottles.push({ bottleType: key.slice(7), quantity: Number(raw) });
+    }
   }
-  crates.sort((a, b) => a.crateTypeId.localeCompare(b.crateTypeId));
+  crates.sort((a, b) => a.crateTypeId.localeCompare(b.crateTypeId) ||
+    (a.returnedCrateTypeId ?? a.crateTypeId).localeCompare(b.returnedCrateTypeId ?? b.crateTypeId));
   bottles.sort((a, b) => a.bottleType.localeCompare(b.bottleType));
   const released = form.getAll("released").map(String).sort();
   if (!crates.length && !bottles.length && !released.length)
