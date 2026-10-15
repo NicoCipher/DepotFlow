@@ -82,6 +82,7 @@ export default async function Home() {
         .select(
           "id,bottles_per_crate,crate_types(is_legacy,pocket_count,empty_family)",
         )
+        .eq("is_active", true)
         .order("id")
         .range(offset, offset + 999);
       if (result.error) throw new Error("Could not load drink setup.");
