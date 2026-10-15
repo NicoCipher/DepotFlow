@@ -310,6 +310,18 @@ export type SaleDraft = {
   customerQuery: string;
   productQuery: string;
 };
+/** Only customer-bound decisions require an extra confirmation when switching accounts. */
+export function hasCustomerBoundSaleWork(draft: SaleDraft): boolean {
+  const empties = draft.emptiesV2;
+  return draft.lines.length > 0 ||
+    Number(draft.paid) > 0 || Number(draft.oldDebtPaid) > 0 ||
+    Boolean(draft.paymentMethod) || Boolean(empties.confirmedAllReturned) ||
+    (empties.decisions?.length ?? 0) > 0 ||
+    Object.values(empties.cratesTaken).some((value) => Number(value) > 0) ||
+    Object.values(empties.returnedCrates).some((value) => Number(value) > 0) ||
+    Object.values(empties.returnedBottles).some((value) => Number(value) > 0);
+}
+
 /** Change customer without carrying money or empty-return choices to a different account.
  * The drinks stay in the unfinished sale; they must be rechecked on saving.
  */
