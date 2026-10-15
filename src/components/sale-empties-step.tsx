@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { SaleIcon } from "@/components/sale-icon";
+import { EmptyQuantityRow } from "@/components/empty-quantity-row";
 import {
   crateReturnIssues,
   allReturnedConfirmationKey,
@@ -388,187 +389,93 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
       )}
 
       {state.mode === "actual" && (
-        <div className="space-y-7">
-          <p className="text-sm text-stone-600">
-            The expected counts are filled in. Change each one to what actually
-            came back. Enter 0 if none came back.
-          </p>
-          <section className="border-t border-stone-300 pt-5">
-            <h3 className="text-lg font-semibold">Empty crates returned</h3>
-            <p className="mt-1 text-sm text-stone-600">
-              Change these counts to the crates that came back.
+        <section aria-labelledby="returned-quantity-heading" className="space-y-4">
+          <div>
+            <h3 id="returned-quantity-heading" className="text-lg font-bold text-stone-950">Enter what actually came back</h3>
+            <p className="mt-1 text-sm leading-5 text-stone-600">
+              We filled in the expected amounts to save time. Change only what is missing, extra, or different. Set 0 when none came back.
             </p>
-            {visibleCrateIds.size === 0 && (
-              <p className="mt-3 text-sm text-stone-600">
-                No crates expected for this sale.
-              </p>
-            )}
-            <div className="mt-4 space-y-4">
-              {catalog.crateTypes
-                .filter((crate) => visibleCrateIds.has(crate.id))
-                .map((crate) => (
-                  <div key={crate.id}>
-                    <label htmlFor={`returned-crate-${crate.id}`}>
-                      {crate.name}
-                      {crate.pocket_count
-                        ? ` · ${crate.pocket_count} pockets`
-                        : ""}
-                    </label>
-                    <input
-                      id={`returned-crate-${crate.id}`}
-                      onFocus={selectDefaultZero}
-                      onClick={selectDefaultZero}
-                      className="mt-2"
-                      inputMode="numeric"
-                      pattern="[0-9]+"
-                      value={state.returnedCrates[crate.id] ?? "0"}
-                      aria-invalid={Boolean(returnedCrateErrors[crate.id])}
-                      aria-describedby={
-                        returnedCrateErrors[crate.id]
-                          ? `returned-crate-${crate.id}-error`
-                          : undefined
-                      }
-                      onChange={(event) =>
-                        update({
-                          emptiesV2: {
-                            ...state,
-                            returnedCrates: {
-                              ...state.returnedCrates,
-                              [crate.id]: event.target.value,
-                            },
-                          },
-                        })
-                      }
-                    />
-                    {returnedCrateErrors[crate.id] && (
-                      <p
-                        id={`returned-crate-${crate.id}-error`}
-                        role="alert"
-                        className="mt-2 text-sm text-red-800"
-                      >
-                        {returnedCrateErrors[crate.id]}
-                      </p>
-                    )}
-                  </div>
-                ))}
+          </div>
+          {visibleCrateIds.size > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-bold text-stone-900">Crates returned</h4>
+              {catalog.crateTypes.filter((crate) => visibleCrateIds.has(crate.id)).map((crate) => (
+                <EmptyQuantityRow
+                  key={crate.id}
+                  id={`returned-crate-${crate.id}`}
+                  name={crate.name}
+                  detail={crate.pocket_count ? `${crate.pocket_count} pockets` : undefined}
+                  expected={expectedCrates.get(crate.id) ?? 0}
+                  value={state.returnedCrates[crate.id] ?? "0"}
+                  unit="crate"
+                  error={returnedCrateErrors[crate.id]}
+                  onChange={(value) => update({ emptiesV2: { ...state, returnedCrates: { ...state.returnedCrates, [crate.id]: value } } })}
+                />
+              ))}
             </div>
-            {otherCrates.length > 0 && (
-              <div className="mt-5">
-                <label htmlFor="other-returned-crate">
-                  Different crate type came back?
-                </label>
-                <select
-                  id="other-returned-crate"
-                  value=""
-                  onChange={(event) =>
-                    setExtraCrates((current) => [
-                      ...current,
-                      event.target.value,
-                    ])
-                  }
-                >
-                  <option value="" disabled>
-                    Choose another crate type
-                  </option>
-                  {otherCrates.map((crate) => (
-                    <option key={crate.id} value={crate.id}>
-                      {crate.name}
-                      {crate.pocket_count
-                        ? ` · ${crate.pocket_count} pockets`
-                        : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </section>
-
-          <section className="border-t border-stone-300 pt-5">
-            <h3 className="text-lg font-semibold">Empty bottles returned</h3>
-            <p className="mt-1 text-sm text-stone-600">
-              Include loose bottles and bottles in sacks.
-            </p>
-            {visibleBottleTypes.size === 0 && (
-              <p className="mt-3 text-sm text-stone-600">
-                No bottles expected for this sale.
-              </p>
-            )}
-            <div className="mt-4 space-y-4">
-              {bottleTypes
-                .filter((type) => visibleBottleTypes.has(type))
-                .map((bottleType) => (
-                  <div key={bottleType}>
-                    <label
-                      htmlFor={`returned-bottle-${bottleTypes.indexOf(bottleType)}`}
+          )}
+          {visibleBottleTypes.size > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-bold text-stone-900">Bottles returned</h4>
+              {bottleTypes.filter((type) => visibleBottleTypes.has(type)).map((bottleType) => (
+                <EmptyQuantityRow
+                  key={bottleType}
+                  id={`returned-bottle-${bottleTypes.indexOf(bottleType)}`}
+                  name={bottleType}
+                  expected={expectedBottles.get(bottleType) ?? 0}
+                  value={state.returnedBottles[bottleType] ?? "0"}
+                  unit="bottle"
+                  error={returnedBottleErrors[bottleType]}
+                  onChange={(value) => update({ emptiesV2: { ...state, returnedBottles: { ...state.returnedBottles, [bottleType]: value } } })}
+                />
+              ))}
+            </div>
+          )}
+          {(otherCrates.length > 0 || otherBottles.length > 0) && (
+            <details className="rounded-xl border border-stone-200 bg-white px-3 py-2 sm:px-4">
+              <summary className="min-h-11 cursor-pointer py-2 text-sm font-bold text-emerald-900">
+                Different type brought back? Add it here
+              </summary>
+              <div className="grid gap-3 border-t border-stone-200 py-3 sm:grid-cols-2">
+                {otherCrates.length > 0 && (
+                  <label htmlFor="other-returned-crate" className="text-sm font-semibold text-stone-800">
+                    Different crate type
+                    <select
+                      id="other-returned-crate"
+                      className="mt-2"
+                      value=""
+                      onChange={(event) => {
+                        if (event.target.value) setExtraCrates((current) => [...new Set([...current, event.target.value])]);
+                      }}
                     >
-                      {bottleType}
-                    </label>
-                    <input
-                      id={`returned-bottle-${bottleTypes.indexOf(bottleType)}`}
-                      onFocus={selectDefaultZero}
-                      onClick={selectDefaultZero}
+                      <option value="">Choose a type to add</option>
+                      {otherCrates.map((crate) => <option key={crate.id} value={crate.id}>{crate.name}{crate.pocket_count ? ` · ${crate.pocket_count} pockets` : ""}</option>)}
+                    </select>
+                  </label>
+                )}
+                {otherBottles.length > 0 && (
+                  <label htmlFor="other-returned-bottle" className="text-sm font-semibold text-stone-800">
+                    Different bottle type
+                    <select
+                      id="other-returned-bottle"
                       className="mt-2"
-                      inputMode="numeric"
-                      pattern="[0-9]+"
-                      value={state.returnedBottles[bottleType] ?? "0"}
-                      aria-invalid={Boolean(returnedBottleErrors[bottleType])}
-                      aria-describedby={
-                        returnedBottleErrors[bottleType]
-                          ? `returned-bottle-${bottleTypes.indexOf(bottleType)}-error`
-                          : undefined
-                      }
-                      onChange={(event) =>
-                        update({
-                          emptiesV2: {
-                            ...state,
-                            returnedBottles: {
-                              ...state.returnedBottles,
-                              [bottleType]: event.target.value,
-                            },
-                          },
-                        })
-                      }
-                    />
-                    {returnedBottleErrors[bottleType] && (
-                      <p
-                        id={`returned-bottle-${bottleTypes.indexOf(bottleType)}-error`}
-                        role="alert"
-                        className="mt-2 text-sm text-red-800"
-                      >
-                        {returnedBottleErrors[bottleType]}
-                      </p>
-                    )}
-                  </div>
-                ))}
-            </div>
-            {otherBottles.length > 0 && (
-              <div className="mt-5">
-                <label htmlFor="other-returned-bottle">
-                  Different bottle type came back?
-                </label>
-                <select
-                  id="other-returned-bottle"
-                  value=""
-                  onChange={(event) =>
-                    setExtraBottles((current) => [
-                      ...current,
-                      event.target.value,
-                    ])
-                  }
-                >
-                  <option value="" disabled>
-                    Choose another bottle type
-                  </option>
-                  {otherBottles.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
+                      value=""
+                      onChange={(event) => {
+                        if (event.target.value) setExtraBottles((current) => [...new Set([...current, event.target.value])]);
+                      }}
+                    >
+                      <option value="">Choose a type to add</option>
+                      {otherBottles.map((type) => <option key={type} value={type}>{type}</option>)}
+                    </select>
+                  </label>
+                )}
               </div>
-            )}
-          </section>
-        </div>
+              <p className="pb-2 text-xs text-stone-600">
+                Enter the quantity in the new row. DepotFlow will ask what you did with it if it cannot settle this sale.
+              </p>
+            </details>
+          )}
+        </section>
       )}
 
       {state.mode === "actual" && (
