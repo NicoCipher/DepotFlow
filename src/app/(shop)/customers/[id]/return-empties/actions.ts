@@ -19,7 +19,7 @@ export async function saveEmptyReturn(
     if (!/^[0-9]{1,9}$/.test(raw))
       return {
         message:
-          "Enter whole counts, using 0 for any type that did not come back.",
+          "Enter whole counts of empty crates and empty bottles. Use 0 for types that did not come back.",
       };
     if (Number(raw) === 0) continue;
     if (key.startsWith("crate:"))
@@ -32,7 +32,7 @@ export async function saveEmptyReturn(
   if (!crates.length && !bottles.length && !released.length)
     return {
       message:
-        "Enter what came back, or tick the held empties you handed back.",
+        "Enter the empty crates or empty bottles received, or select held empties handed back to the customer.",
     };
   try {
     const { error } = await db.rpc("record_customer_empty_return", {
@@ -46,7 +46,7 @@ export async function saveEmptyReturn(
       return {
         message:
           error.code === "22023"
-            ? "Check the counts and held empties. They may have been recorded already. Your entries are still here."
+            ? "Check the empty crate and empty bottle counts and any held returns. They may already be recorded. Your entries are still here."
             : "Could not confirm this return. Keep these entries and try again; the same return will only be saved once.",
       };
   } catch {
