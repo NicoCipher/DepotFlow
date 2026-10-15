@@ -55,7 +55,7 @@ begin
     perform public.save_sale_v2(
       '89000000-0000-4000-9000-000000000040',
       '89000000-0000-4000-9000-000000000030',
-      '2026-10-15',12000,jsonb_build_array(line),'[]'::jsonb,'[]'::jsonb
+      '2026-10-15',12000,jsonb_build_array(line),'[]'::jsonb,'[]'::jsonb,'cash'
     );
     raise exception 'Sale of removed drink was accepted' using errcode='PT001';
   exception when sqlstate '22023' then
@@ -76,7 +76,7 @@ begin
   sale:=public.save_sale_v2(
     '89000000-0000-4000-9000-000000000041',
     '89000000-0000-4000-9000-000000000030',
-    '2026-10-15',12000,jsonb_build_array(line),'[]'::jsonb,'[]'::jsonb
+    '2026-10-15',12000,jsonb_build_array(line),'[]'::jsonb,'[]'::jsonb,'cash'
   );
   if (sale->>'id') is null then raise exception 'Restore did not allow sale'; end if;
   if (select total_bottles from public.stock where product_id=p)<>108 then
@@ -86,7 +86,7 @@ begin
   replay:=public.save_sale_v2(
     '89000000-0000-4000-9000-000000000041',
     '89000000-0000-4000-9000-000000000030',
-    '2026-10-15',12000,jsonb_build_array(line),'[]'::jsonb,'[]'::jsonb
+    '2026-10-15',12000,jsonb_build_array(line),'[]'::jsonb,'[]'::jsonb,'cash'
   );
   if replay->>'id' is distinct from sale->>'id'
     or (select total_bottles from public.stock where product_id=p)<>108 then
