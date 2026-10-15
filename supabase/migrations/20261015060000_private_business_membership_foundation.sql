@@ -18,9 +18,9 @@ create table private.businesses (
 create table private.business_memberships (
   business_id uuid not null references private.businesses(id) on delete restrict,
   user_id uuid not null references auth.users(id) on delete restrict,
-  member_kind text not null check (member_kind in ('owner', 'staff')),
+  member_kind text not null default 'owner' check (member_kind = 'owner'),
   status text not null default 'disabled'
-    check (status in ('active', 'disabled', 'invited')),
+    check (status in ('active', 'disabled')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   primary key (business_id, user_id)
@@ -29,6 +29,7 @@ create index business_memberships_by_user_idx
   on private.business_memberships (user_id, business_id);
 
 -- This stage deliberately creates no SELECT/INSERT/UPDATE/DELETE policy.
+-- V1 permits an owner per business only. Staff roles/invites are later migrations.
 -- Even an authenticated user with a valid session has no direct data access.
 alter table private.businesses enable row level security;
 alter table private.business_memberships enable row level security;
