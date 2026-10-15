@@ -5,6 +5,8 @@ import { formatNaira } from "@/domain/products";
 import { ProductImage } from "@/components/product-image";
 import { DrinkPhotoUpload } from "@/components/catalogue-photo-upload";
 import { crateFitsProduct, crateNeedsSetup } from "@/domain/crate-types";
+import { requireOwner } from "@/lib/auth/owner";
+import { ShopDrinkStatus } from "@/components/shop-drink-status";
 export default async function ProductPage({
   params,
   searchParams,
@@ -13,6 +15,9 @@ export default async function ProductPage({
   searchParams: Promise<{ saved?: string }>;
 }) {
   const product = await getProduct((await params).id);
+  const { data: stock, error: stockError } = await (await requireOwner())
+    .from("stock").select("total_bottles").eq("product_id", product.id).maybeSingle();
+  if (stockError) throw new Error("Could not load recorded stock.");
   const { saved } = await searchParams;
   const crateNeedsAttention =
     !product.crate_types ||
@@ -51,6 +56,7 @@ export default async function ProductPage({
         </p>
       )}
       <h1 className="break-words">{product.name}</h1>
+      {!product.is_active && <p role="status" className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 font-medium text-amber-950">Removed from new sales · Existing stock and history kept</p>}
       {crateNeedsAttention && (
         <div className="mt-4 border-l-4 border-amber-700 pl-3">
           <p className="font-semibold text-amber-900">Finish this drink’s crate setup</p>
@@ -77,7 +83,7 @@ export default async function ProductPage({
       ) : (
         <DrinkPhotoUpload id={product.id} hasPhoto={Boolean(product.image_url)} kind="product" />
       )}
-      {saved === "added" && !crateNeedsAttention && (
+      {saved === "added" && product.is_active && !crateNeedsAttention && (
         <section className="mt-6 border-y border-stone-300 py-5">
           <h2 className="text-lg font-semibold">Next: record the stock in your shop</h2>
           <p className="mt-2 text-sm text-stone-600">Adding a drink does not add any stock. Count what you have so it is available for sales.</p>
@@ -91,6 +97,7 @@ export default async function ProductPage({
       >
         Edit product
       </Link>
+      <ShopDrinkStatus id={product.id} name={product.name} active={product.is_active} stock={stock?.total_bottles ?? null} />
       <section className="mt-7 space-y-2">
         <h2>Physical crate</h2>
         <CrateDisplay crate={product.crate_types} />
