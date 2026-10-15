@@ -98,7 +98,7 @@ export function CrateTypeForm({
         });
       }}
     >
-      <p className="text-stone-600">Create a separate branded crate identity for each drink's physical crate, even if other brands use the same shape or pocket count. Approved replacements are set separately.</p>
+      <p className="text-stone-600">Create a separate branded crate identity for each drink&apos;s physical crate, even if other brands use the same shape or pocket count. Approved replacements are set separately.</p>
       <fieldset disabled={pending} className="space-y-5">
         {field("name", "Crate name", 120)}
         <div>
