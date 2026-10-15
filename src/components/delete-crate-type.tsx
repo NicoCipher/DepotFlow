@@ -15,7 +15,7 @@ export function DeleteCrateType({ id, name }: { id: string; name: string }) {
         className="quiet-link text-sm text-red-800"
         disabled={pending}
         onClick={() => {
-          if (!window.confirm(`Delete ${name}? This can only work if the crate type has never been used.`)) return;
+          if (!window.confirm(`Discard unused crate setup for ${name}? Only a crate type that has never been used in stock, sales, counts, debts, or swap rules can be discarded. Real or historical crate records are kept.`)) return;
           startTransition(async () => {
             setMessage("");
             try {
@@ -30,7 +30,7 @@ export function DeleteCrateType({ id, name }: { id: string; name: string }) {
           });
         }}
       >
-        {pending ? "Checking…" : "Delete unused crate"}
+        {pending ? "Checking…" : "Discard unused setup"}
       </button>
       {message && <p role="alert" className="mt-2 text-sm text-red-800">{message}</p>}
     </>
