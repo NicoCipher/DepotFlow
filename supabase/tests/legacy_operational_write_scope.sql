@@ -107,6 +107,23 @@ $preflight$;
 -- Explicit backfill, exactly as the reviewed M2b admin workflow requires.
 select private.backfill_legacy_shop_rows(private.legacy_scope_snapshot());
 
+-- A validated FK in an unrelated table must not substitute for an
+-- unvalidated real M2c FK. The earlier name-only count would mistakenly
+-- see 31 validated constraints and allow activation.
+create temporary table tenant_fk_decoy (
+  business_id uuid,
+  constraint tenant_unrelated_valid_fk
+    foreign key (business_id) references private.businesses(id)
+);
+do $decoy$
+begin
+  if (select count(*) from pg_constraint
+      where left(conname,7)='tenant_' and convalidated)<>31 then
+    raise exception 'Decoy did not reproduce the vulnerable FK count';
+  end if;
+end;
+$decoy$;
+
 -- Even after backfill, activating with one unvalidated M2c FK must fail.
 -- This independently proves the exact-FK gate, not just row reconciliation.
 do $incomplete_fk$
@@ -130,8 +147,20 @@ alter table public.sales validate constraint tenant_sales_customer_id_fkey;
 
 do $all_valid$
 begin
- if (select count(*) from pg_constraint
-     where left(conname,7)='tenant_' and convalidated)<>31 then
+ if (select count(*) from pg_constraint c
+      join pg_class cls on cls.oid=c.conrelid
+      join pg_namespace ns on ns.oid=cls.relnamespace
+      join private.legacy_scope_tables() sc
+        on sc.schema_name=ns.nspname and sc.table_name=cls.relname
+      where c.contype='f' and left(c.conname,7)='tenant_'
+        and c.confrelid in (
+          'public.customers'::regclass,
+          'public.crate_types'::regclass,
+          'public.products'::regclass,
+          'public.sales'::regclass,
+          'public.sale_empty_decisions'::regclass
+        )
+        and c.convalidated)<>31 then
    raise exception 'Failed to validate all 31 M2c tenant relationships';
  end if;
 end;
