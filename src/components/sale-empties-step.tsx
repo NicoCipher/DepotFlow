@@ -10,6 +10,7 @@ import {
   crateReturnIssues,
   allReturnedConfirmationKey,
   hasConfirmedAllReturned,
+  isQuickRetailEmptiesSale,
   paymentStepAfterEmpties,
   depositSetupIssues,
   matchSaleEmpties,
@@ -212,12 +213,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
   );
   const bulkCrateIds = new Set(visibleBulkGroups.map((group) => group.crateTypeId));
   const bulkBottleTypes = new Set(visibleBulkGroups.map((group) => group.bottleType));
-  const quickRetailSale = draft.lines.length === 1 &&
-    draft.lines[0].quantity.crates === 0 &&
-    draft.lines[0].quantity.fraction === 0 &&
-    !draft.lines[0].quantity.eighths &&
-    draft.lines[0].quantity.bottles > 0 &&
-    draft.lines[0].quantity.bottles <= 6;
+  const quickRetailSale = isQuickRetailEmptiesSale(draft);
 
   const shortages =
     result?.lines.filter((line) => line.cratesOwed || line.bottlesOwed) ?? [];
