@@ -40,9 +40,9 @@ export default async function ReturnEmptiesPage({
         ← {customer.name}
       </Link>
       <header>
-        <h1>Empties brought back</h1>
+        <h1>Record empty crates and empty bottles returned</h1>
         <p className="mt-2 text-stone-600">
-          {customer.name} · Enter the correct types that came back today.
+          {customer.name} · Count the empty crates and empty bottles actually received today. Previous money owed is not changed here.
         </p>
       </header>
       <EmptyReturnForm

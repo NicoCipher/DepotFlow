@@ -25,7 +25,7 @@ const successMessages: Record<string, string> = {
   added: "Customer added.",
   updated: "Customer updated.",
   payment: "Payment recorded.",
-  empties: "Empties returned. Balances updated.",
+  empties: "Empty return recorded. Balances updated.",
   archived: "Customer archived.",
   restored: "Customer restored.",
 };
@@ -146,14 +146,14 @@ export default async function CustomerPage({
           <div className="rounded-2xl border border-stone-200 bg-white p-5">
             <div className="flex items-center gap-2 text-sm font-semibold text-stone-700">
               <CustomerIcon name="crate" className="h-5 w-5 text-emerald-800" />
-              Crates owed
+              Empty crates owed
             </div>
             <p className="mt-2 text-3xl font-bold tabular-nums">{crateCount}</p>
           </div>
           <div className="rounded-2xl border border-stone-200 bg-white p-5">
             <div className="flex items-center gap-2 text-sm font-semibold text-stone-700">
               <CustomerIcon name="bottle" className="h-5 w-5 text-emerald-800" />
-              Bottles owed
+              Empty bottles owed
             </div>
             <p className="mt-2 text-3xl font-bold tabular-nums">{bottleCount}</p>
           </div>
@@ -190,8 +190,8 @@ export default async function CustomerPage({
                 className="flex min-h-20 items-center gap-3 rounded-xl border border-stone-300 bg-stone-50 p-4 text-emerald-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-900">
                 <CustomerIcon name="return" className="h-6 w-6 shrink-0" />
                 <span className="min-w-0 flex-1">
-                  <strong className="block">Record returned empties</strong>
-                  <span className="mt-1 block text-sm text-stone-600">{crateCount} {crateCount === 1 ? "crate" : "crates"} · {bottleCount} {bottleCount === 1 ? "bottle" : "bottles"} owed</span>
+                  <strong className="block">Record empty returns</strong>
+                  <span className="mt-1 block text-sm text-stone-600">{crateCount} {crateCount === 1 ? "empty crate" : "empty crates"} · {bottleCount} {bottleCount === 1 ? "empty bottle" : "empty bottles"} owed</span>
                 </span>
                 <CustomerIcon name="arrow" className="h-5 w-5 shrink-0" />
               </Link>
@@ -201,7 +201,7 @@ export default async function CustomerPage({
                 className="flex min-h-20 items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-900">
                 <CustomerIcon name="bottle" className="h-6 w-6 shrink-0" />
                 <span className="min-w-0 flex-1">
-                  <strong className="block">Check held wrong empties</strong>
+                  <strong className="block">Check different empties held here</strong>
                   <span className="mt-1 block text-sm">{heldRows.length} {heldRows.length === 1 ? "held entry" : "held entries"} to resolve</span>
                 </span>
                 <CustomerIcon name="arrow" className="h-5 w-5 shrink-0" />
@@ -211,7 +211,7 @@ export default async function CustomerPage({
         ) : (
           <div className="mt-4 flex items-start gap-3 rounded-xl bg-emerald-50 p-4 text-emerald-950">
             <CustomerIcon name="check" className="h-6 w-6 shrink-0" />
-            <p className="text-sm leading-6">No money or empties currently owed. Nothing to collect right now.</p>
+            <p className="text-sm leading-6">No money, empty crates or empty bottles currently owed. Nothing to collect right now.</p>
           </div>
         )}
       </section>
@@ -282,18 +282,18 @@ export default async function CustomerPage({
 
         <div className="min-w-0 space-y-4">
           <section aria-labelledby="empties-detail" className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
-            <h2 id="empties-detail" className="text-lg font-semibold">Empties still owed</h2>
-            <p className="mt-1 text-sm text-stone-600">Exact types matter when they are returned.</p>
+            <h2 id="empties-detail" className="text-lg font-semibold">Empty crates and empty bottles still owed</h2>
+            <p className="mt-1 text-sm text-stone-600">Keep each empty crate and empty bottle type separate when recording a return.</p>
             {crateRows.length === 0 && bottleRows.length === 0 ? (
               <p className="mt-4 flex items-center gap-2 text-sm font-medium text-emerald-900">
-                <CustomerIcon name="check" className="h-5 w-5" /> No crates or bottles owed
+                <CustomerIcon name="check" className="h-5 w-5" /> No empty crates or empty bottles owed
               </p>
             ) : (
               <div className="mt-3 space-y-2">
                 {crateRows.length > 0 && (
                   <details className="group rounded-xl border border-stone-200">
                     <summary className="flex min-h-12 cursor-pointer items-center justify-between gap-2 px-3 py-3 font-semibold">
-                      <span>{crateCount} {crateCount === 1 ? "crate" : "crates"} · See types</span>
+                      <span>{crateCount} {crateCount === 1 ? "empty crate" : "empty crates"} · See types</span>
                       <span aria-hidden="true" className="text-lg text-stone-500 group-open:rotate-45">+</span>
                     </summary>
                     <dl className="divide-y divide-stone-100 border-t border-stone-100 px-3">
@@ -311,7 +311,7 @@ export default async function CustomerPage({
                 {bottleRows.length > 0 && (
                   <details className="group rounded-xl border border-stone-200">
                     <summary className="flex min-h-12 cursor-pointer items-center justify-between gap-2 px-3 py-3 font-semibold">
-                      <span>{bottleCount} {bottleCount === 1 ? "bottle" : "bottles"} · See types</span>
+                      <span>{bottleCount} {bottleCount === 1 ? "empty bottle" : "empty bottles"} · See types</span>
                       <span aria-hidden="true" className="text-lg text-stone-500 group-open:rotate-45">+</span>
                     </summary>
                     <dl className="divide-y divide-stone-100 border-t border-stone-100 px-3">
