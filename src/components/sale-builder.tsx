@@ -1607,7 +1607,7 @@ export function SaleBuilder({
                 <p className="mt-1 text-sm text-emerald-950">
                   {draft.lines.length} {draft.lines.length === 1 ? "drink" : "drinks"} · Sale total {reviewTotal === undefined ? "unavailable" : formatNaira(reviewTotal)} · Collect {formatNaira(Number(draft.paid) + Number(draft.oldDebtPaid))}.
                 </p>
-                <p className="mt-1 text-xs text-stone-700">Stock and customer money/empty-return balances will change. The same sale cannot be recorded twice.</p>
+                <p className="mt-1 text-xs text-stone-700">Saving updates stock and customer balances. If the connection fails, use Check Sale instead of starting another save.</p>
                 <button type="button" className="secondary mt-2 min-h-11 w-full" onClick={() => setConfirmedSaveKey(null)}>Keep editing</button>
               </div>
             )}
