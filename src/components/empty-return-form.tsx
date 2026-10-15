@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { saveEmptyReturn } from "@/app/(shop)/customers/[id]/return-empties/actions";
+import { emptyReturnConfirmationKey } from "@/domain/action-confirmations";
 
 type Count = { id: string; name: string; owed: number };
 type ReturnRow = Count & { kind: "crate" | "bottle" };
@@ -17,6 +18,8 @@ export function EmptyReturnForm({
 }) {
   const [counts, setCounts] = useState<Record<string, string>>({});
   const [collected, setCollected] = useState<string[]>([]);
+  const [confirmedKey, setConfirmedKey] = useState<string | null>(null);
+  const [acknowledged, setAcknowledged] = useState(false);
   const [state, action, pending] = useActionState(saveEmptyReturn, { message: "" });
   const rows: ReturnRow[] = [
     ...crates.map((row) => ({ ...row, kind: "crate" as const })),
@@ -31,6 +34,8 @@ export function EmptyReturnForm({
   };
   const hasInvalid = rows.some((row) => rawCount(row) === null);
   const anyReturned = rows.some((row) => (rawCount(row) ?? 0) > 0);
+  const reviewKey = emptyReturnConfirmationKey({ request, customer, counts, released: collected });
+  const confirmed = confirmedKey === reviewKey;
   const allOwed = rows.length > 0 && rows.every((row) => rawCount(row) === row.owed);
   const totalCratesOwed = crates.reduce((sum, row) => sum + row.owed, 0);
   const totalBottlesOwed = bottles.reduce((sum, row) => sum + row.owed, 0);
@@ -83,7 +88,20 @@ export function EmptyReturnForm({
   }
 
   return (
-    <form action={action} onReset={(event) => event.preventDefault()} className="space-y-5">
+    <form action={action} onReset={(event) => event.preventDefault()} className="space-y-5"
+      onSubmit={(event) => {
+        if (pending || hasInvalid || (!anyReturned && collected.length === 0)) {
+          event.preventDefault();
+          return;
+        }
+        if (!confirmed) {
+          event.preventDefault();
+          setAcknowledged(false);
+          setConfirmedKey(reviewKey);
+          return;
+        }
+        if (!acknowledged) event.preventDefault();
+      }}>
       <input type="hidden" name="request" value={request} />
       <input type="hidden" name="customer" value={customer} />
       <section className="space-y-3" aria-labelledby="return-count-heading">
@@ -145,10 +163,34 @@ export function EmptyReturnForm({
         </section>
       )}
       {state.message && <p role="alert" className="rounded-xl bg-red-50 p-4 text-red-900">{state.message}</p>}
-      <button type="submit" className="primary w-full min-h-12"
-        disabled={pending || hasInvalid || (!anyReturned && collected.length === 0)}>
-        {pending ? "Saving…" : "Save empty returns"}
-      </button>
+      {!pending && confirmed && (
+        <section aria-label="Confirm saving empty returns" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+          <h2 className="font-bold text-emerald-950">Confirm these empty returns</h2>
+          <p className="mt-1 text-sm text-emerald-950">
+            Receive {totalCratesOwed - remainingCrates} empty {totalCratesOwed - remainingCrates === 1 ? "crate" : "crates"}
+            {" "}and {totalBottlesOwed - remainingBottles} empty {totalBottlesOwed - remainingBottles === 1 ? "bottle" : "bottles"}.
+          </p>
+          <p className="mt-1 text-sm text-stone-700">
+            After saving, this customer will still owe {remainingCrates} empty {remainingCrates === 1 ? "crate" : "crates"} and {remainingBottles} empty {remainingBottles === 1 ? "bottle" : "bottles"}.
+          </p>
+          {collected.length > 0 && <p className="mt-1 text-sm text-amber-950">Also hand back {collected.length} held {collected.length === 1 ? "entry" : "entries"}. Those do not reduce the amount owed.</p>}
+          <p className="mt-1 text-xs text-stone-700">Stock and customer balances change only after this is saved. Exact types remain separate.</p>
+          <label className="mt-3 flex min-h-11 items-center gap-3 rounded-lg border border-emerald-200 bg-white p-3 text-sm font-semibold text-emerald-950">
+            <input type="checkbox" className="h-5 w-5 shrink-0" checked={acknowledged} onChange={(event) => setAcknowledged(event.currentTarget.checked)} />
+            I have checked the empty crates, empty bottles and held returns.
+          </label>
+          <button type="button" className="secondary mt-3 min-h-11 w-full" onClick={() => { setConfirmedKey(null); setAcknowledged(false); }}>Go back and edit</button>
+        </section>
+      )}
+      {!confirmed && (
+        <button type="button" className="primary w-full min-h-12" disabled={pending || hasInvalid || (!anyReturned && collected.length === 0)}
+          onClick={() => { setAcknowledged(false); setConfirmedKey(reviewKey); }}>Review empty returns</button>
+      )}
+      {confirmed && (
+        <button type="submit" className="primary w-full min-h-12" disabled={pending || hasInvalid || (!anyReturned && collected.length === 0) || !acknowledged}>
+          {pending ? "Saving…" : "Yes, save empty returns"}
+        </button>
+      )}
     </form>
   );
 }
