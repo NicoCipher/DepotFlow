@@ -30,6 +30,41 @@ values ('88000000-0000-4000-9000-000000000030','M2d customer','08000008001');
 insert into public.money_owed(customer_id,amount)
 values ('88000000-0000-4000-9000-000000000030',3000);
 
+-- Prove historical NULL rows independently block activation: validate
+-- 30 of the 31 M2c shadow FKs first (MATCH SIMPLE allows legacy NULL tags).
+-- Leave the sale/customer FK unvalidated to separately test the FK gate.
+do $validate_early$
+declare r record; v_count integer:=0;
+begin
+  for r in
+    select ns.nspname s, cls.relname t, c.conname k
+    from pg_constraint c
+    join pg_class cls on cls.oid=c.conrelid
+    join pg_namespace ns on ns.oid=cls.relnamespace
+    join private.legacy_scope_tables() scope
+      on scope.schema_name=ns.nspname and scope.table_name=cls.relname
+    where c.contype='f'
+      and left(c.conname,7)='tenant_'
+      and c.confrelid in (
+        'public.customers'::regclass,
+        'public.crate_types'::regclass,
+        'public.products'::regclass,
+        'public.sales'::regclass,
+        'public.sale_empty_decisions'::regclass
+      )
+      and c.conname<>'tenant_sales_customer_id_fkey'
+  loop
+    execute pg_catalog.format(
+      'alter table %I.%I validate constraint %I',r.s,r.t,r.k
+    );
+    v_count:=v_count+1;
+  end loop;
+  if v_count<>30 then
+    raise exception 'Expected exactly 30 initially validated FKs, found %',v_count;
+  end if;
+end;
+$validate_early$;
+
 do $preflight$
 declare v_snapshot jsonb; v_err text;
 begin
@@ -62,8 +97,7 @@ begin
     raise exception 'Unbackfilled legacy rows were activated' using errcode='PT001';
   exception when sqlstate 'P0001' then
     get stacked diagnostics v_err=message_text;
-    if v_err not like 'All historical rows%' and
-       v_err not like '31 M2c tenant%' then
+    if v_err not like 'All historical rows%' then
       raise exception 'Unexpected enable failure: %',v_err;
     end if;
   end;
@@ -73,26 +107,35 @@ $preflight$;
 -- Explicit backfill, exactly as the reviewed M2b admin workflow requires.
 select private.backfill_legacy_shop_rows(private.legacy_scope_snapshot());
 
--- Deliberately validate the 31 previously unvalidated M2c FKs on the
--- disposable database; production must run this as a separate release gate.
-do $validate$
-declare r record; v_count integer:=0;
+-- Even after backfill, activating with one unvalidated M2c FK must fail.
+-- This independently proves the exact-FK gate, not just row reconciliation.
+do $incomplete_fk$
+declare v_error text;
 begin
- for r in select ns.nspname s, cls.relname t, c.conname k
-   from pg_constraint c
-   join pg_class cls on cls.oid=c.conrelid
-   join pg_namespace ns on ns.oid=cls.relnamespace
-   where c.contype='f' and c.conname like 'tenant_%'
- loop
-   execute pg_catalog.format('alter table %I.%I validate constraint %I',
-     r.s,r.t,r.k);
-   v_count:=v_count+1;
- end loop;
- if v_count<>31 then
-   raise exception 'Expected 31 validated business FKs, got %',v_count;
+  begin
+    perform private.enable_legacy_write_scope(private.legacy_scope_snapshot());
+    raise exception 'Unvalidated tenant FK was accepted' using errcode='PT001';
+  exception when sqlstate 'P0001' then
+    get stacked diagnostics v_error=message_text;
+    if v_error not like 'Exactly 31 matching M2c tenant FKs%' then
+      raise exception 'Unexpected unvalidated-FK failure: %',v_error;
+    end if;
+  end;
+end;
+$incomplete_fk$;
+
+-- Last business FK is validated separately in this disposable transaction.
+-- Production must validate ALL 31 after the audited backfill.
+alter table public.sales validate constraint tenant_sales_customer_id_fkey;
+
+do $all_valid$
+begin
+ if (select count(*) from pg_constraint
+     where conname like 'tenant\\_%' and convalidated)<>31 then
+   raise exception 'Failed to validate all 31 M2c tenant relationships';
  end if;
 end;
-$validate$;
+$all_valid$;
 
 select private.enable_legacy_write_scope(private.legacy_scope_snapshot());
 
