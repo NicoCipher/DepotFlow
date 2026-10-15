@@ -55,18 +55,19 @@ begin
   end;
   update private.business_memberships set status='active'
     where business_id=v_business;
-  insert into private.business_memberships
-    (business_id,user_id,member_kind,status)
-  values (v_business,'85000000-0000-4000-8000-000000000002',
-          'owner','active');
   begin
-    perform private.link_legacy_shop_business();
-    raise exception 'Unexpected additional owner accepted'
+    insert into private.business_memberships
+      (business_id,user_id,member_kind,status)
+    values (v_business,'85000000-0000-4000-8000-000000000002',
+            'owner','active');
+    raise exception 'A second owner was accepted'
       using errcode='PT001';
-  exception when SQLSTATE 'P0001' then null;
+  exception when unique_violation then null;
   end;
-  delete from private.business_memberships
-    where user_id='85000000-0000-4000-8000-000000000002';
+  if (select count(*) from private.business_memberships
+      where business_id=v_business) <> 1 then
+    raise exception 'Database failed to reject second owner';
+  end if;
   if private.link_legacy_shop_business() is distinct from v_business then
     raise exception 'Recovered mapping changed identity';
   end if;
