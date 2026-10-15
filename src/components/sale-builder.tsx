@@ -268,7 +268,7 @@ export function SaleBuilder({
           setMessage(checked.warnings[0]);
           return;
         }
-        // No returned crates or bottles are required for this sale.
+        // No empty crates or empty bottles are required for this sale.
         // Skip questions the operator does not need to answer.
         let preview: ReturnType<typeof matchSaleEmpties>;
         try {
@@ -280,7 +280,7 @@ export function SaleBuilder({
           // Old physical-crate quantities may no longer fit an edited sale.
           // This is not a network failure: let the operator correct the fields.
           await sales.update({ step: "empties" });
-          setMessage(cause instanceof Error ? cause.message : "Check the empty crates and bottles.");
+          setMessage(cause instanceof Error ? cause.message : "Check the empty crates and empty bottles.");
           return;
         }
         const skipEmpties = draft.emptiesV2.mode === "exact" && hasNoExpectedSaleEmpties(preview);
@@ -1367,7 +1367,7 @@ export function SaleBuilder({
         )}
         {step === "review" && (
           <>
-            <p className="text-stone-700">Check this sale before saving it.</p>
+            <p className="text-stone-700">Check the drinks, empty returns and money before saving.</p>
             <p className="text-sm text-stone-600">
               Sale date: {draft.businessDate}
             </p>
@@ -1426,9 +1426,9 @@ export function SaleBuilder({
               </ul>
             </section>
 
-            {emptiesNeedConfirmation && <div role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm"><p className="font-semibold text-amber-950">Returned empties need confirmation.</p><p className="mt-1 text-amber-950">Check the expected crates and bottles before saving.</p><button type="button" className="quiet-link mt-2" onClick={() => update({ step: "empties" })}>Confirm empties</button></div>}
-            {emptiesReview && hasUnmatchedSaleEmpties(emptiesReview) && <div role="alert" className="rounded-lg bg-amber-50 p-3"><p>Some returned empties still need an Accept or Hold choice.</p><button type="button" className="quiet-link" onClick={() => update({ step: "empties" })}>Check these empties</button></div>}
-            {emptiesReview?.decisions.map((choice, index) => <p key={`empty-choice-${index}`} className="rounded-lg bg-amber-50 p-3 text-sm">{catalog.products.find(product => product.id === choice.productId)?.name} · {choice.quantity} {choice.kind === "crate" ? catalog.crateTypes.find(crate => crate.id === choice.returnedType)?.name : choice.returnedType} {choice.kind === "crate" ? "crates" : "bottles"}: {choice.decision === "hold" ? "held for customer; correct type is still owed" : "accepted for this sale"}.</p>)}
+            {emptiesNeedConfirmation && <div role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm"><p className="font-semibold text-amber-950">Empty crates and empty bottles need confirmation.</p><p className="mt-1 text-amber-950">Check the empty crates and empty bottles expected before saving.</p><button type="button" className="quiet-link mt-2" onClick={() => update({ step: "empties" })}>Confirm empty returns</button></div>}
+            {emptiesReview && hasUnmatchedSaleEmpties(emptiesReview) && <div role="alert" className="rounded-lg bg-amber-50 p-3"><p>Some different empty crates or empty bottles still need a decision.</p><button type="button" className="quiet-link" onClick={() => update({ step: "empties" })}>Check different empty returns</button></div>}
+            {emptiesReview?.decisions.map((choice, index) => <p key={`empty-choice-${index}`} className="rounded-lg bg-amber-50 p-3 text-sm">{catalog.products.find(product => product.id === choice.productId)?.name} · {choice.quantity} {choice.kind === "crate" ? catalog.crateTypes.find(crate => crate.id === choice.returnedType)?.name : choice.returnedType} {choice.kind === "crate" ? "empty crates" : "empty bottles"}: {choice.decision === "hold" ? "held for customer; correct type is still owed" : "accepted for this sale"}.</p>)}
             {emptiesReview?.swaps.map((swap) => {
               const from = catalog.crateTypes.find(
                 (crate) => crate.id === swap.returnedCrateTypeId,
@@ -1441,8 +1441,8 @@ export function SaleBuilder({
                   className="text-sm text-stone-600"
                   key={`${swap.owedCrateTypeId}:${swap.returnedCrateTypeId}`}
                 >
-                  Crate swap: {swap.quantity} {from?.name ?? "returned crate"} for{" "}
-                  {to?.name ?? "expected crate"}
+                  Empty crate replacement: {swap.quantity} {from?.name ?? "returned empty crate"} for{" "}
+                  {to?.name ?? "expected empty crate"}
                 </p>
               );
             })}
