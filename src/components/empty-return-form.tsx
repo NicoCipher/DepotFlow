@@ -45,7 +45,7 @@ export function EmptyReturnForm({
     const value = rawCount(row);
     const noun = row.kind === "crate" ? "empty crates" : "empty bottles";
     const field = `${row.kind}:${row.id}`;
-    const inputId = `return-${row.kind}-${row.id}`;
+    const inputId = `return-${row.kind}-${encodeURIComponent(row.id)}`;
     return (
       <div key={field} className="rounded-xl border border-stone-200 bg-white p-3">
         <label htmlFor={inputId} className="block text-sm font-bold text-stone-950">
