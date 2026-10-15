@@ -58,3 +58,9 @@ test("overflow and corrupt counts cannot become a review", () => {
     receivingPreview("1", { ...snapshot, bottlesPerCrate: 0 }),
   );
 });
+
+test("removed drink receiving is a definite rejection, not a retryable network failure", () => {
+  const result = receivingSaveError("22023", "This drink was removed from the shop; restore it before receiving stock");
+  assert.equal(result.retryable, false);
+  assert.match(result.message, /Restore it before receiving/);
+});

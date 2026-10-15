@@ -74,3 +74,10 @@ test("known business-rule failures keep useful plain-language recovery", () => {
     "This drink’s physical crate setup is incomplete. Fix the drink setup before saving.",
   );
 });
+
+test("removed shop drink is a definitive rejected sale, not an uncertain save", () => {
+  assert.match(
+    safeDatabaseSaleErrorMessage("22023", "This drink was removed from the shop; restore it before selling"),
+    /removed from the shop.*Go back to Drinks/,
+  );
+});

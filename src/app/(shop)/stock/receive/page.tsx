@@ -19,6 +19,7 @@ export default async function ChooseReceivingProductPage({
   let request = supabase
     .from("products")
     .select("id,name,size,image_url,bottles_per_crate", { count: "exact" })
+    .eq("is_active", true)
     .order("name")
     .order("id")
     .range((page - 1) * 30, page * 30 - 1);

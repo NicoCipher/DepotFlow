@@ -8,12 +8,13 @@ import { ProductCard } from "@/components/product-card";
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; page?: string; show?: string }>;
 }) {
   const supabase = await requireOwner();
   const params = await searchParams;
   const query =
     typeof params.q === "string" ? params.q.trim().slice(0, 120) : "";
+  const removed = params.show === "removed";
   const page = Math.max(
     1,
     Math.min(10000, Number.parseInt(params.page ?? "1", 10) || 1),
@@ -21,9 +22,10 @@ export default async function ProductsPage({
   let request = supabase
     .from("products")
     .select(
-      "id,name,size,image_url,bottles_per_crate,full_crate_price,bottle_price,crate_types(is_legacy,pocket_count,empty_family)",
+      "id,name,size,image_url,bottles_per_crate,full_crate_price,bottle_price,is_active,crate_types(is_legacy,pocket_count,empty_family)",
       { count: "exact" },
     )
+    .eq("is_active", !removed)
     .order("name")
     .order("id")
     .range((page - 1) * 30, page * 30 - 1);
@@ -31,14 +33,19 @@ export default async function ProductsPage({
   const { data, error, count } = await request;
   if (error) throw new Error("Could not load drinks.");
   const pageUrl = (value: number) =>
-    `/products?${new URLSearchParams({ q: query, page: String(value) })}`;
+    `/products?${new URLSearchParams({ q: query, page: String(value), ...(removed ? { show: "removed" } : {}) })}`;
   return (
     <>
       <div className="flex items-center justify-between gap-3">
         <h1>Drinks</h1>
         <Link className="primary shrink-0" href="/products/catalogue">Add drink</Link>
       </div>
+      <nav aria-label="Shop drinks" className="mt-5 flex gap-3">
+        <Link href="/products" className={removed ? "secondary" : "primary"}>In my shop</Link>
+        <Link href="/products?show=removed" className={removed ? "primary" : "secondary"}>Removed drinks</Link>
+      </nav>
       <form action="/products" role="search" className="mb-4 mt-5">
+        {removed && <input type="hidden" name="show" value="removed" />}
         <label htmlFor="search">Search by name or size</label>
         <div className="flex gap-2">
           <input
@@ -53,7 +60,7 @@ export default async function ProductsPage({
           <button className="secondary">Search</button>
         </div>
         {query && (
-          <Link href="/products" className="quiet-link inline-block">
+          <Link href={removed ? "/products?show=removed" : "/products"} className="quiet-link inline-block">
             Clear search
           </Link>
         )}
@@ -67,12 +74,12 @@ export default async function ProductsPage({
       {!data?.length ? (
         <div className="border-t border-stone-300 py-8">
           <h2 className="text-xl font-semibold">
-            {query ? "No matching drinks" : "No drinks yet"}
+            {query ? "No matching drinks" : removed ? "No removed drinks" : "No drinks yet"}
           </h2>
           <p className="mt-2 text-stone-600">
             {query
               ? "Try a different name or size."
-              : "Add a drink to keep its prices and details here."}
+              : removed ? "Drinks removed from new sales will appear here. You can restore them at any time." : "Add a drink to keep its prices and details here."}
           </p>
         </div>
       ) : (
@@ -92,6 +99,7 @@ export default async function ProductsPage({
             return (
               <li key={product.id}>
                 <ProductCard product={product} />
+                {removed && <p className="mt-1 text-sm text-stone-600">Removed from new sales · <Link href={`/products/${product.id}`} className="underline font-semibold">View or restore</Link></p>}
                 {needsSetup && (
                   <p className="mt-2 border-l-4 border-amber-700 pl-3 text-sm text-amber-900">
                     Crate setup needed before selling this drink.

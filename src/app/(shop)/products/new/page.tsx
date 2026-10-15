@@ -21,7 +21,7 @@ export default async function NewProductPage({ searchParams }: {
     ]);
     if (drink.error || existing.error) throw new Error("Could not load this drink. Please try again.");
     if (!drink.data) notFound();
-    if (existing.data) redirect(`/products/${existing.data.id}/edit`);
+    if (existing.data) redirect(`/products/${existing.data.id}`);
     const today = new Intl.DateTimeFormat("en-CA", {
       timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit",
     }).format(new Date());

@@ -72,6 +72,7 @@ const safeDatabaseSaleMessages = new Map<string, string>([
     "The crate price does not give a whole-naira price for this bottle quantity.",
   ],
   ["Check the empties choices.", "Check the empties choices."],
+  ["This drink was removed from the shop; restore it before selling", "A drink in this sale was removed from the shop. Go back to Drinks and remove it before saving."],
   ["Check the sale details.", "Check the sale details and try again."],
   [
     "This sale request was already used with different details.",

@@ -20,6 +20,7 @@ export default async function StockPage({
     .select("id,name,size,image_url,bottles_per_crate,stock(total_bottles)", {
       count: "exact",
     })
+    .eq("is_active", true)
     .order("name")
     .order("id")
     .range((page - 1) * 30, page * 30 - 1);
@@ -101,6 +102,7 @@ export default async function StockPage({
           </Link>
         )}
       </nav>
+      <p className="mt-4 text-sm text-stone-600">Removed drinks keep their recorded stock. Find and restore them under <Link href="/products?show=removed" className="font-semibold underline">Removed drinks</Link>.</p>
       <div className="mt-6 divide-y divide-stone-200 border-t border-stone-200">
         <Link
           className="flex min-h-14 items-center justify-between gap-3 py-3 font-medium text-emerald-900"
