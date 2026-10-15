@@ -310,6 +310,29 @@ export type SaleDraft = {
   customerQuery: string;
   productQuery: string;
 };
+/** Change customer without carrying money or empty-return choices to a different account.
+ * The drinks stay in the unfinished sale; they must be rechecked on saving.
+ */
+export function changeSaleCustomer(draft: SaleDraft, customerId: string): Partial<SaleDraft> {
+  if (draft.customerId === customerId) return { customerId, step: "drinks" };
+  return {
+    customerId,
+    step: "drinks",
+    paid: "0",
+    oldDebtPaid: "0",
+    paymentMethod: "",
+    emptiesV2: {
+      ...draft.emptiesV2,
+      mode: "exact",
+      confirmedAllReturned: null,
+      decisions: [],
+      returnedCrates: {},
+      returnedBottles: {},
+      cratesTaken: {},
+    },
+  };
+}
+
 /** Existing quantities retain their own price basis. New drinks follow the sale preference. */
 export function modeForSaleDrink(draft: SaleDraft, existing: SaleQuantity | undefined): "retail" | "wholesale" {
   if (!existing) return draft.preferredSellingMode === "retail" ? "retail" : "wholesale";
