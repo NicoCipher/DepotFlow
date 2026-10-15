@@ -9,6 +9,9 @@ insert into private.shop_owner(user_id)
 values ('88000000-0000-4000-8000-000000000001');
 select private.link_legacy_shop_business();
 
+insert into public.product_catalogue(id,name)
+values ('88000000-0000-4000-9000-000000000090','M2d Global Photo');
+
 insert into public.shop_profile(id,name,address,phone)
 values (true,'M2d Legacy Shop','Lagos','08012345678');
 insert into public.crate_types(id,name,empty_family,pocket_count)
@@ -33,6 +36,19 @@ begin
   if (select count(*) from pg_trigger
       where tgname='legacy_scope_business_write' and not tgisinternal)<>29 then
     raise exception 'M2d did not install all 29 operational write triggers';
+  end if;
+  if (select count(*) from pg_trigger
+      where tgname='legacy_scope_business_write'
+        and (tgtype & 8)=8 and not tgisinternal)<>29 then
+    raise exception 'M2d missing active-membership DELETE guards';
+  end if;
+  if not exists(
+    select 1 from pg_trigger
+    where tgname='legacy_scope_catalogue_image_write'
+      and tgrelid='public.product_catalogue'::regclass
+      and (tgtype & 16)=16 and not tgisinternal
+  ) then
+    raise exception 'M2d missing catalogue image edit guard';
   end if;
   if (select count(*) from private.legacy_write_scope_gate)<>0 then
     raise exception 'M2d enabled stamping automatically';
@@ -209,6 +225,23 @@ begin
 end;
 $combined$;
 
+-- The authorized owner may still create and remove genuinely unused
+-- empty crate types, and update the shared catalogue photo path.
+select public.create_crate_type(
+ '88000000-0000-4000-8000-000000000080',
+ 'M2d legitimate deletion','M2d',12,'test'
+);
+select public.delete_unused_crate_type(
+ '88000000-0000-4000-8000-000000000080'
+);
+select public.create_crate_type(
+ '88000000-0000-4000-8000-000000000081',
+ 'M2d revoke deletion','M2d',12,'test'
+);
+update public.product_catalogue
+set image_path='catalogue/88000000-0000-4000-9000-000000000090/88000000-0000-4000-8000-000000000091.webp'
+where id='88000000-0000-4000-9000-000000000090';
+
 -- Other existing APIs also write through the same protected tables.
 -- A counted stock adjustment, empty-crate count and exact-type receiving
 -- must atomically tag both snapshot rows and immutable movement receipts.
@@ -367,6 +400,30 @@ begin
  -- Disabled membership must deny the original owner as well.
  update private.business_memberships set status='disabled'
    where business_id=v_business;
+ begin
+   perform public.delete_unused_crate_type(
+     '88000000-0000-4000-8000-000000000081');
+   raise exception 'Disabled owner deleted an empty crate type'
+     using errcode='PT001';
+ exception when insufficient_privilege then null;
+ end;
+ begin
+   update public.product_catalogue
+     set image_path='catalogue/88000000-0000-4000-9000-000000000090/88000000-0000-4000-8000-000000000092.webp'
+   where id='88000000-0000-4000-9000-000000000090';
+   raise exception 'Disabled owner edited a shared catalogue photo'
+     using errcode='PT001';
+ exception when insufficient_privilege then null;
+ end;
+ if not exists(
+   select 1 from public.crate_types where
+     id='88000000-0000-4000-8000-000000000081'
+ ) or (select image_path from public.product_catalogue
+    where id='88000000-0000-4000-9000-000000000090')
+    is distinct from
+    'catalogue/88000000-0000-4000-9000-000000000090/88000000-0000-4000-8000-000000000091.webp' then
+   raise exception 'Revoked owner changed the crate or shared catalogue';
+ end if;
  begin
    insert into public.customers(id,name,phone)
    values ('88000000-0000-4000-9000-000000000033',
