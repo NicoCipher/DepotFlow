@@ -324,7 +324,7 @@ test("missing complete crate deposit price is identified without guessing", () =
     {
       key: "complete:12",
       message:
-        "Deposit price for a complete 12-pocket crate has not been set.",
+        "Deposit price for a complete 12-pocket empty-crate set has not been set.",
     },
   ]);
 });
@@ -336,7 +336,7 @@ test("missing bottle and crate-only deposit prices are identified separately", (
   assert.deepEqual(depositSetupIssues(bottlesResult, catalog), [
     {
       key: "bottle",
-      message: "Deposit price per bottle has not been set.",
+      message: "Deposit price per empty bottle has not been set.",
     },
   ]);
 
@@ -372,11 +372,11 @@ test("configured deposit prices produce no setup error", () => {
 test("missing empties message says exactly what is still missing", () => {
   assert.equal(
     missingEmptiesMessage({ cratesOwed: 0, bottlesOwed: 2 }, "Trophy"),
-    "Trophy: 2 bottles still missing.",
+    "Trophy: 2 empty bottles still owed after this sale.",
   );
   assert.equal(
     missingEmptiesMessage({ cratesOwed: 1, bottlesOwed: 2 }, "Goldberg"),
-    "Goldberg: 1 crate · 2 bottles still missing.",
+    "Goldberg: 1 empty crate · 2 empty bottles still owed after this sale.",
   );
   assert.equal(
     missingEmptiesMessage({ cratesOwed: 0, bottlesOwed: 0 }, "Trophy"),
@@ -513,8 +513,8 @@ test("all-returned mode requires an explicit confirmation, even when every expec
   assert.equal(match.lines[0].cratesSettled, 2);
   assert.equal(match.lines[0].bottlesSettled, 24);
   assert.equal(hasConfirmedAllReturned(draft, match), false);
-  assert.throws(() => assertAllReturnedConfirmed(draft, match), /Confirm the crates and bottles/);
-  assert.throws(() => actualSaleEmpties(draft, catalog), /Confirm the crates and bottles/);
+  assert.throws(() => assertAllReturnedConfirmed(draft, match), /Confirm the empty crates and empty bottles/);
+  assert.throws(() => actualSaleEmpties(draft, catalog), /Confirm the empty crates and empty bottles/);
 });
 
 test("confirmed complete return records physical stock by exact crate and bottle type with no shortage", () => {
@@ -632,7 +632,7 @@ test("no-empties fast path survives draft reload, but changed obligations are no
   const changed = matchSaleEmpties(resumedReview, returnable);
   assert.equal(hasNoExpectedSaleEmpties(changed), false);
   assert.equal(hasConfirmedAllReturned(resumedReview, changed), false);
-  assert.throws(() => assertAllReturnedConfirmed(resumedReview, changed), /Confirm the crates and bottles/);
+  assert.throws(() => assertAllReturnedConfirmed(resumedReview, changed), /Confirm the empty crates and empty bottles/);
 });
 
 test("in-step zero-obligation return saves a durable confirmation when proceeding to payment", () => {
@@ -662,14 +662,14 @@ test("in-step zero-obligation return saves a durable confirmation when proceedin
   const changed = matchSaleEmpties(resumed, updatedCatalog);
   assert.equal(hasNoExpectedSaleEmpties(changed), false);
   assert.equal(hasConfirmedAllReturned(resumed, changed), false);
-  assert.throws(() => assertAllReturnedConfirmed(resumed, changed), /Confirm the crates and bottles/);
+  assert.throws(() => assertAllReturnedConfirmed(resumed, changed), /Confirm the empty crates and empty bottles/);
 });
 
 test("continuing from unconfirmed all-returned crates cannot forge confirmation", () => {
   const draft = sale("goldberg");
   draft.emptiesV2.mode = "exact";
   const preview = matchSaleEmpties(draft, catalog);
-  assert.throws(() => paymentStepAfterEmpties(draft, preview), /Confirm the crates and bottles/);
+  assert.throws(() => paymentStepAfterEmpties(draft, preview), /Confirm the empty crates and empty bottles/);
   draft.emptiesV2.confirmedAllReturned = allReturnedConfirmationKey(draft, preview);
   const patch = paymentStepAfterEmpties(draft, preview);
   assert.equal(readSaleDraft(JSON.stringify({ ...draft, ...patch })).step, "payment");
