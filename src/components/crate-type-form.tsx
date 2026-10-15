@@ -69,7 +69,7 @@ export function CrateTypeForm({
         } catch {
           const nextErrors: typeof errors = {};
           if (!values.name.trim()) nextErrors.name = "Enter the crate name.";
-          if (!values.empty_family.trim()) nextErrors.empty_family = "Enter its brewery, such as NBL or Guinness.";
+          if (!values.empty_family.trim()) nextErrors.empty_family = "Enter its brewery, such as NB or Guinness.";
           if (!/^\d+$/.test(values.pocket_count.trim()) || Number(values.pocket_count) < 1 || Number(values.pocket_count) > 2147483647) {
             nextErrors.pocket_count = "Enter a whole number of bottle spaces greater than zero.";
           }
