@@ -69,4 +69,34 @@ create trigger block_removed_drink_sale
   before insert on public.sale_items
   for each row execute function private.prevent_removed_shop_drink_sale();
 
+
+-- Receiving stock must be checked in the same transaction, not just in
+-- the server action's review screen. The existing receiving RPC already
+-- locks products before updating stock; this final fence ensures removed
+-- drinks cannot receive into hidden stock via stale forms or direct calls.
+-- Successful request-ID retries return from the receiving RPC before INSERT.
+create function private.prevent_removed_shop_drink_receive()
+returns trigger
+language plpgsql security definer set search_path=''
+as $
+declare
+  v_active boolean;
+begin
+  if new.movement_type='receive' then
+    select is_active into v_active from public.products
+    where id=new.product_id for share;
+    if not found or v_active is distinct from true then
+      raise exception using errcode='22023',
+        message='This drink was removed from the shop; restore it before receiving stock';
+    end if;
+  end if;
+  return new;
+end $;
+revoke all on function private.prevent_removed_shop_drink_receive()
+  from public,anon,authenticated,service_role;
+
+create trigger block_removed_drink_receive
+  before insert on public.stock_movements
+  for each row execute function private.prevent_removed_shop_drink_receive();
+
 commit;
