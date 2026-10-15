@@ -22,6 +22,7 @@ do $$
 declare
   v_business uuid;
   v_again uuid;
+  v_status text;
 begin
   v_business := private.link_legacy_shop_business();
   if v_business is null then
@@ -68,6 +69,27 @@ begin
       where business_id=v_business) <> 1 then
     raise exception 'Database failed to reject second owner';
   end if;
+  -- A previously mapped legacy owner must not be seeded into another
+  -- business, whether the other membership is active or disabled.
+  insert into private.businesses(id,status)
+  values('85000000-0000-4000-9000-000000000020','setup');
+  for v_status in select unnest(array['active','disabled']) loop
+    insert into private.business_memberships
+      (business_id,user_id,member_kind,status)
+    values('85000000-0000-4000-9000-000000000020',
+           '85000000-0000-4000-8000-000000000001',
+           'owner',v_status);
+    begin
+      perform private.link_legacy_shop_business();
+      raise exception 'Existing owner mapping outside legacy shop accepted'
+        using errcode='PT001';
+    exception when SQLSTATE 'P0001' then null;
+    end;
+    delete from private.business_memberships
+    where business_id='85000000-0000-4000-9000-000000000020';
+  end loop;
+  delete from private.businesses
+    where id='85000000-0000-4000-9000-000000000020';
   if private.link_legacy_shop_business() is distinct from v_business then
     raise exception 'Recovered mapping changed identity';
   end if;
