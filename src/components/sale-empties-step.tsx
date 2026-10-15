@@ -353,11 +353,10 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
       {draft.lines.some((line) => line.quantity.crates > 0) && (
         <details className="rounded-xl border border-stone-200 bg-white p-3 text-sm">
           <summary className="min-h-11 cursor-pointer py-2 font-semibold text-stone-800">
-            Bottles left without their crates? · Special case
+            Did any drinks leave without their plastic crates?
           </summary>
           <p className="mt-2 text-sm text-stone-600">
-            Normal sales use the same number of physical crates as whole crates
-            sold. Change only the exceptions, such as bottles carried in a sack.
+            Usually a customer takes the plastic crate with a whole-crate purchase. Only change this if the customer took the bottles without the crate.
           </p>
           <div className="mt-4 space-y-4">
             {draft.lines
@@ -507,9 +506,9 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
         </section>
       )}
 
-      {state.mode === "actual" && result && (
+      {state.mode === "actual" && (
         <div className="space-y-3">
-          {(shortages.length > 0 || actualHasException) && (
+          {result && (shortages.length > 0 || actualHasException) && (
             <section aria-live="polite" className="rounded-xl border border-amber-200 bg-amber-50 p-3 sm:p-4">
               <h3 className="font-bold text-amber-950">
                 {shortages.length > 0 ? "Still owed if saved" : "All expected empties accounted for"}
@@ -546,7 +545,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
             </section>
           )}
 
-          {!simpleBottleReturn && decisionHasUnmatched && (
+          {result && !simpleBottleReturn && decisionHasUnmatched && (
             <section aria-labelledby="different-return-heading" className="space-y-3 rounded-xl border border-amber-200 bg-white p-4">
               <div>
                 <h3 id="different-return-heading" className="text-lg font-bold text-stone-950">Different empties need a decision</h3>
@@ -670,13 +669,13 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
         </p>
       )}
 
-      {result && (state.mode === "actual" || exactConfirmed) && (
+      {result && state.mode === "actual" && actualHasException && (crateIssues.length > 0 || result.swaps.length > 0 || hasUnmatchedSaleEmpties(result) || depositBlocked) && (
         <section
           aria-live="polite"
           className="rounded-lg border border-stone-200 bg-white p-4"
         >
           <h3 className="font-semibold">
-            {shortages.length ? "Still missing" : "Empties checked"}
+            Return details
           </h3>
 
           {result.swaps.map((swap) => (
@@ -690,7 +689,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
 
           {!shortages.length ? (
             <p className="mt-2 text-emerald-900">
-              No empty crates or bottles owed from this sale.
+              No additional missing empties from this sale.
             </p>
           ) : (
             <div className="mt-3 space-y-2">
