@@ -101,7 +101,7 @@ $$;
         where owed_crate_type_id=v_owed_type and returned_crate_type_id=v_actual_type for share;
       if not found then raise exception using errcode='22023',message='The replacement crate is not approved.'; end if;
     end if;
-    select quantity into owed from public.crate_obligations
+    select public.crate_obligations.quantity into owed from public.crate_obligations
       where customer_id=p_customer_id and crate_type_id=v_owed_type for update;
     if not found or quantity>owed then
       raise exception using errcode='22023',message='More crates were entered than this customer owes. Check the counts.'; end if;
