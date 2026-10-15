@@ -507,182 +507,156 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
         </section>
       )}
 
-      {state.mode === "actual" && (
-        <>
-          {simpleBottleReturn && <section aria-label="Different bottle returned" className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-            <h3 className="text-lg font-semibold">Different bottle returned</h3>
-            <p className="mt-2">{simpleBottleReturn.quantity} {simpleBottleReturn.returnedType} {simpleBottleReturn.quantity === 1 ? "bottle" : "bottles"} came back instead of {simpleBottleReturn.expectedType} for {productName.get(simpleBottleReturn.productId)}.</p>
-            <p className="mt-2 text-sm">What should happen to {simpleBottleReturn.quantity === 1 ? "this bottle" : "these bottles"}?</p>
-            <div className="mt-3 grid gap-2">
-              <button type="button" className="primary w-full" onClick={() => decideSimpleBottleReturn("accept")}>Accept instead · reduce what is owed</button>
-              <button type="button" className="secondary w-full" onClick={() => decideSimpleBottleReturn("hold")}>Hold · correct bottle still owed</button>
-            </div>
-            {choiceError && <p role="alert" className="mt-2 text-red-800">{choiceError}</p>}
-          </section>}
-          {(state.decisions?.length ?? 0) > 0 && <div aria-live="polite" className="space-y-1 rounded-lg bg-stone-50 p-3 text-sm">
-            {(state.decisions ?? []).map((entry, index) => <p key={index}>{entry.quantity} {entry.returnedType} {entry.kind === "bottle" ? "bottles" : "crates"}: {entry.decision === "accept" ? "Accepted for this sale; correct type reduced" : "Held; correct type still owed"}</p>)}
-          </div>}
-          {!simpleBottleReturn && <details
-          className="rounded-xl border border-stone-200 bg-white p-4"
-        >
-          <summary className="min-h-12 cursor-pointer py-3 font-semibold">
-            Wrong empties? Accept or hold them
-          </summary>
-          <p className="mb-4 text-sm text-stone-600">
-            First enter exactly what came back above. Choose separately for a
-            wrong crate and wrong bottles. This choice applies to this sale
-            only.
-          </p>
-          <div className="space-y-4">
-            <label className="block">
-              Which drink is still missing empties?
-              <select
-                value={choice.productId}
-                onChange={(event) =>
-                  setChoice({ ...choice, productId: event.target.value })
-                }
-              >
-                <option value="">Choose a drink</option>
-                {draft.lines.map((line) => (
-                  <option key={line.productId} value={line.productId}>
-                    {productName.get(line.productId)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <fieldset>
-              <legend>What came back wrong?</legend>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                {(["crate", "bottle"] as const).map((kind) => (
-                  <button
-                    type="button"
-                    key={kind}
-                    className={choice.kind === kind ? "primary" : "secondary"}
-                    aria-pressed={choice.kind === kind}
-                    onClick={() =>
-                      setChoice({ ...choice, kind, returnedType: "" })
+      {state.mode === "actual" && result && (
+        <div className="space-y-3">
+          {(shortages.length > 0 || actualHasException) && (
+            <section aria-live="polite" className="rounded-xl border border-amber-200 bg-amber-50 p-3 sm:p-4">
+              <h3 className="font-bold text-amber-950">
+                {shortages.length > 0 ? "Still owed if saved" : "All expected empties accounted for"}
+              </h3>
+              {shortages.length > 0 ? (
+                <ul className="mt-2 space-y-1 text-sm text-amber-950">
+                  {shortages.map((line) => (
+                    <li key={line.productId}>{missingEmptiesMessage(line, productName.get(line.productId) ?? "Drink")}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-1 text-sm text-emerald-950">No new crate or bottle balance from this sale.</p>
+              )}
+              <p className="mt-2 text-xs text-stone-700">Preview only. The customer's record changes when the sale is saved.</p>
+            </section>
+          )}
+
+          {simpleBottleReturn && (
+            <section aria-label="Different bottle returned" className="rounded-xl border border-amber-200 bg-white p-4">
+              <h3 className="text-base font-bold text-stone-950">One different bottle type</h3>
+              <p className="mt-2 text-sm leading-5 text-stone-700">
+                {simpleBottleReturn.quantity} {simpleBottleReturn.returnedType} {simpleBottleReturn.quantity === 1 ? "bottle" : "bottles"} came back instead of {simpleBottleReturn.expectedType} for {productName.get(simpleBottleReturn.productId)}.
+              </p>
+              <p className="mt-3 text-sm font-bold">What did you do with {simpleBottleReturn.quantity === 1 ? "it" : "them"}?</p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <button type="button" className="secondary min-h-14 w-full text-sm" onClick={() => decideSimpleBottleReturn("hold")}>
+                  Kept aside · Correct type still owed
+                </button>
+                <button type="button" className="secondary min-h-14 w-full text-sm" onClick={() => decideSimpleBottleReturn("accept")}>
+                  Accepted as replacement · Clears this bottle balance
+                </button>
+              </div>
+              {choiceError && <p role="alert" className="mt-2 text-sm text-red-800">{choiceError}</p>}
+            </section>
+          )}
+
+          {!simpleBottleReturn && decisionHasUnmatched && (
+            <section aria-labelledby="different-return-heading" className="space-y-3 rounded-xl border border-amber-200 bg-white p-4">
+              <div>
+                <h3 id="different-return-heading" className="text-lg font-bold text-stone-950">Different empties need a decision</h3>
+                <p className="mt-1 text-sm leading-5 text-stone-600">
+                  DepotFlow won't silently use a different crate or bottle to clear what is owed.
+                </p>
+              </div>
+              {unmatchedCrateTypes.length > 0 && unmatchedBottleTypes.length > 0 && (
+                <div className="grid grid-cols-2 gap-2" role="group" aria-label="Type of different empties">
+                  {(["crate", "bottle"] as const).map((kind) => (
+                    <button key={kind} type="button" className={decisionKind === kind ? "primary min-h-12" : "secondary min-h-12"}
+                      aria-pressed={decisionKind === kind}
+                      onClick={() => setChoice({ productId: "", kind, returnedType: "", quantity: "", decision: "hold" })}>
+                      {kind === "crate" ? "Crates" : "Bottles"}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {missingForChoice.length > 0 ? (
+                <>
+                  <label className="block text-sm font-semibold text-stone-800">
+                    Which drink still has {decisionKind === "crate" ? "crates" : "bottles"} missing?
+                    <select className="mt-1.5" value={chosenMissing?.productId ?? ""}
+                      onChange={(event) => setChoice({ ...choice, kind: decisionKind, productId: event.target.value, returnedType: chosenWrongType, quantity: "" })}>
+                      {missingForChoice.map((line) => (
+                        <option key={line.productId} value={line.productId}>{productName.get(line.productId) ?? "Drink"} · {decisionKind === "crate" ? line.cratesOwed : line.bottlesOwed} missing</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block text-sm font-semibold text-stone-800">
+                    What different type came back?
+                    <select className="mt-1.5" value={chosenWrongType}
+                      onChange={(event) => setChoice({ ...choice, kind: decisionKind, productId: chosenMissing?.productId ?? "", returnedType: event.target.value, quantity: "" })}>
+                      {availableWrongTypes.map(([type, quantity]) => (
+                        <option key={type} value={type}>
+                          {decisionKind === "crate" ? crateName.get(type) ?? type : type} · {quantity} available
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block text-sm font-semibold text-stone-800">
+                    How many {decisionKind === "crate" ? "crates" : "bottles"} did this affect?
+                    <input className="mt-1.5" inputMode="numeric" pattern="[0-9]+"
+                      value={chosenDecisionQuantity} onFocus={(event) => event.currentTarget.select()}
+                      onChange={(event) => setChoice({ ...choice, kind: decisionKind, productId: chosenMissing?.productId ?? "", returnedType: chosenWrongType, quantity: event.target.value })}/>
+                    <span className="mt-1 block text-xs font-normal text-stone-600">Suggested: {suggestedQuantity} · change if fewer were involved.</span>
+                  </label>
+                  <fieldset>
+                    <legend className="text-sm font-bold text-stone-900">What happened to the different empties?</legend>
+                    <div className="mt-2 grid gap-2">
+                      {(["hold", "accept"] as const).map((decision) => (
+                        <button key={decision} type="button"
+                          className={"min-h-12 rounded-lg border-2 p-3 text-left text-sm " + (choice.decision === decision ? "border-emerald-800 bg-emerald-50 font-semibold text-emerald-950" : "border-stone-200 bg-white text-stone-800")}
+                          aria-pressed={choice.decision === decision}
+                          onClick={() => setChoice({ ...choice, decision })}>
+                          {decision === "hold"
+                            ? "Kept aside · Customer still owes the correct type"
+                            : "Accepted as replacement · Reduces the amount owed"}
+                        </button>
+                      ))}
+                    </div>
+                  </fieldset>
+                  {choiceError && <p role="alert" className="text-sm font-medium text-red-800">{choiceError}</p>}
+                  <button type="button" className="primary w-full min-h-12" onClick={() => {
+                    const nextChoice = {
+                      productId: chosenMissing?.productId ?? "",
+                      kind: decisionKind,
+                      returnedType: chosenWrongType,
+                      quantity: chosenDecisionQuantity,
+                      decision: choice.decision,
+                    };
+                    const next = { ...state, decisions: [...(state.decisions ?? []), nextChoice] };
+                    try {
+                      matchSaleEmpties({ ...draft, emptiesV2: next }, catalog);
+                      update({ emptiesV2: next });
+                      setChoice({ productId: "", kind: "crate", returnedType: "", quantity: "", decision: "hold" });
+                      setChoiceError("");
+                    } catch (cause) {
+                      setChoiceError(cause instanceof Error ? cause.message : "Check this choice.");
                     }
-                  >
-                    {kind === "crate" ? "Plastic crate" : "Bottles"}
-                  </button>
+                  }}>Record what happened</button>
+                </>
+              ) : (
+                <p role="alert" className="text-sm text-amber-950">
+                  These extra empties don't match any outstanding type in this sale. Set their counts to 0 here and record a separate customer return if they relate to an earlier sale.
+                </p>
+              )}
+            </section>
+          )}
+
+          {(state.decisions?.length ?? 0) > 0 && (
+            <section className="rounded-xl border border-stone-200 bg-stone-50 p-3">
+              <h3 className="text-sm font-bold text-stone-950">Your decisions</h3>
+              <ul className="mt-2 space-y-2">
+                {(state.decisions ?? []).map((entry, index) => (
+                  <li key={index} className="flex items-start justify-between gap-2 text-sm text-stone-700">
+                    <span className="min-w-0">
+                      {entry.quantity} {entry.kind === "crate" ? crateName.get(entry.returnedType) ?? entry.returnedType : entry.returnedType} {entry.kind === "crate" ? "crates" : "bottles"}
+                      {entry.decision === "hold" ? " kept separately · correct type still owed" : " accepted as replacement · reduces debt in empties"}
+                    </span>
+                    <button type="button" className="shrink-0 rounded-lg border border-stone-300 bg-white px-3 py-2 font-semibold text-emerald-900"
+                      onClick={() => update({ emptiesV2: { ...state, decisions: state.decisions?.filter((_, i) => i !== index) } })}>
+                      Undo
+                    </button>
+                  </li>
                 ))}
-              </div>
-            </fieldset>
-            <label className="block">
-              Type that came back
-              <select
-                value={choice.returnedType}
-                onChange={(event) =>
-                  setChoice({ ...choice, returnedType: event.target.value })
-                }
-              >
-                <option value="">Choose the returned type</option>
-                {(choice.kind === "crate"
-                  ? catalog.crateTypes.map((item) => ({
-                      id: item.id,
-                      name: item.name,
-                    }))
-                  : bottleTypes.map((type) => ({ id: type, name: type }))
-                ).map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              How many {choice.kind === "crate" ? "crates" : "bottles"}?
-              <input
-                inputMode="numeric"
-                onFocus={(event) => event.currentTarget.select()}
-                onClick={(event) => event.currentTarget.select()}
-                value={choice.quantity}
-                onChange={(event) =>
-                  setChoice({ ...choice, quantity: event.target.value })
-                }
-              />
-            </label>
-            <fieldset>
-              <legend>What should happen?</legend>
-              <div className="mt-2 space-y-2">
-                {(["hold", "accept"] as const).map((decision) => (
-                  <button
-                    key={decision}
-                    type="button"
-                    className={`w-full text-left ${choice.decision === decision ? "primary" : "secondary"}`}
-                    aria-pressed={choice.decision === decision}
-                    onClick={() => setChoice({ ...choice, decision })}
-                  >
-                    {decision === "hold"
-                      ? "Hold these · correct type is still owed"
-                      : "Accept these · reduce what is owed"}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-            {choiceError && (
-              <p role="alert" className="text-red-800">
-                {choiceError}
-              </p>
-            )}
-            <button
-              type="button"
-              className="secondary w-full"
-              onClick={() => {
-                const next = {
-                  ...state,
-                  decisions: [...(state.decisions ?? []), choice],
-                };
-                try {
-                  matchSaleEmpties({ ...draft, emptiesV2: next }, catalog);
-                  update({ emptiesV2: next });
-                  setChoiceError("");
-                } catch (cause) {
-                  setChoiceError(
-                    cause instanceof Error
-                      ? cause.message
-                      : "Check this choice.",
-                  );
-                }
-              }}
-            >
-              Add this choice
-            </button>
-          </div>
-          {(state.decisions ?? []).map((entry, index) => (
-            <div key={index} className="mt-4 rounded-lg bg-stone-50 p-3">
-              <p className="font-semibold">
-                {productName.get(entry.productId)} · {entry.quantity}{" "}
-                {entry.kind === "crate"
-                  ? crateName.get(entry.returnedType)
-                  : entry.returnedType}{" "}
-                {entry.kind === "crate" ? "crates" : "bottles"}
-              </p>
-              <p className="mt-1">
-                {entry.decision === "hold"
-                  ? "Held for this customer. Correct type is still owed."
-                  : "Accepted for this sale. Reduces what is owed."}
-              </p>
-              <button
-                type="button"
-                className="quiet-link mt-1"
-                onClick={() =>
-                  update({
-                    emptiesV2: {
-                      ...state,
-                      decisions: state.decisions?.filter(
-                        (_, itemIndex) => itemIndex !== index,
-                      ),
-                    },
-                  })
-                }
-              >
-                Remove choice
-              </button>
-            </div>
-          ))}
-        </details>}
-        </>
+              </ul>
+            </section>
+          )}
+        </div>
       )}
 
       {hasFieldErrors && (
