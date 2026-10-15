@@ -3,6 +3,7 @@ import { SessionRecoveryLink } from "./session-recovery-link";
 import { useActionState, useState } from "react";
 import { recordPayment } from "@/app/(shop)/customers/[id]/pay/actions";
 import { formatNaira } from "@/domain/products";
+import { paymentConfirmationKey } from "@/domain/action-confirmations";
 
 export function RecordPaymentForm({
   customerId,
@@ -16,6 +17,7 @@ export function RecordPaymentForm({
   // Keep the request ID stable across re-renders so a retry is safe.
   const [submissionId] = useState(requestId);
   const [method, setMethod] = useState("");
+  const [confirmedKey, setConfirmedKey] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
   const [businessDate, setBusinessDate] = useState(() =>
     new Date().toLocaleDateString("sv-SE"),
@@ -28,8 +30,19 @@ export function RecordPaymentForm({
   const numericAmount = validAmount ? Number(amount) : 0;
   const exceedsBalance = validAmount && numericAmount > owed;
   const remaining = validAmount && !exceedsBalance ? owed - numericAmount : null;
+  const reviewKey = paymentConfirmationKey({ request: submissionId, customer: customerId, amount, method, businessDate, owed });
+  const confirmed = confirmedKey === reviewKey;
   return (
-    <form action={action} className="mt-5 space-y-5">
+    <form action={action} className="mt-5 space-y-5" onSubmit={(event) => {
+      if (pending || !validAmount || exceedsBalance || !method || !businessDate) {
+        event.preventDefault();
+        return;
+      }
+      if (!confirmed) {
+        event.preventDefault();
+        setConfirmedKey(reviewKey);
+      }
+    }}>
       <button
         type="button"
         className="secondary w-full"
@@ -102,14 +115,25 @@ export function RecordPaymentForm({
         </p>
       )}
       <SessionRecoveryLink message={state.message} />
-      <button className="primary w-full" disabled={pending || exceedsBalance}>
+      {!pending && confirmed && (
+        <section aria-label="Confirm customer payment" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+          <h2 className="font-bold text-emerald-950">Confirm this payment</h2>
+          <p className="mt-1 text-sm text-emerald-950">
+            Record {formatNaira(numericAmount)} toward previous money owed
+            using {method === "transfer" ? "bank transfer" : method === "pos" ? "POS" : "cash"} on {businessDate}?
+          </p>
+          <p className="mt-1 text-sm text-stone-700">Customer will still owe {remaining === null ? "—" : formatNaira(remaining)}. This creates a permanent payment record.</p>
+          <button type="button" className="secondary mt-3 min-h-11 w-full" onClick={() => setConfirmedKey(null)}>Go back and edit</button>
+        </section>
+      )}
+      <button className="primary w-full" disabled={pending || exceedsBalance || !validAmount || !method || !businessDate}>
         {pending
           ? "Saving…"
           : state.retryable
             ? "Retry same payment"
-            : validAmount
-              ? `Save ${formatNaira(numericAmount)} payment`
-              : "Save payment"}
+            : confirmed
+              ? `Yes, save ${formatNaira(numericAmount)} payment`
+              : "Review payment before saving"}
       </button>
     </form>
   );
