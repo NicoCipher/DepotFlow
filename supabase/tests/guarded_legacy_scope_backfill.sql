@@ -14,6 +14,20 @@ insert into public.customers(id,name,phone)
 values ('86000000-0000-4000-9000-000000000001','Legacy sample one','860000001'),
        ('86000000-0000-4000-9000-000000000002','Legacy sample two','860000002');
 
+-- Reproduce permitted historical crate/product mismatches. The dedicated
+-- pocket trigger must still reject FUTURE pocket changes, but business tagging
+-- itself may not run this unrelated validation.
+insert into public.crate_types(id,name,pocket_count)
+values ('86000000-0000-4000-9000-000000000010','M2b old crate',12);
+insert into public.products
+  (id,name,bottles_per_crate,full_crate_price,bottles_returnable,crate_type_id)
+values ('86000000-0000-4000-9000-000000000011','M2b old drink',
+        12,5000,false,'86000000-0000-4000-9000-000000000010');
+alter table public.crate_types disable trigger crate_product_pockets;
+update public.crate_types set pocket_count=24
+where id='86000000-0000-4000-9000-000000000010';
+alter table public.crate_types enable trigger crate_product_pockets;
+
 do $m2b$
 declare
   v_before jsonb;
@@ -64,6 +78,23 @@ begin
        where business_id is null) <> 0 then
     raise exception 'Backfill did not exclusively assign the legacy business';
   end if;
+  -- The legacy mismatch is preserved without changing stock or packaging.
+  if not exists (
+    select 1 from public.crate_types ct
+    join public.products p on p.crate_type_id=ct.id
+    where ct.id='86000000-0000-4000-9000-000000000010'
+      and ct.pocket_count=24 and p.bottles_per_crate=12
+      and ct.business_id=v_legacy and p.business_id=v_legacy
+  ) then
+    raise exception 'Legacy crate mismatch could not be safely tagged';
+  end if;
+  begin
+    update public.crate_types set pocket_count=30
+    where id='86000000-0000-4000-9000-000000000010';
+    raise exception 'Pocket-count validation was weakened'
+      using errcode='PT001';
+  exception when check_violation then null;
+  end;
   v_after := private.legacy_scope_snapshot();
   if (v_after->'public.customers'->>'unassigned')::bigint <> 0
      or (v_after->'public.customers'->>'legacy')::bigint <> 3 then
