@@ -102,7 +102,7 @@ create trigger block_removed_drink_receive
 -- Home stock alerts describe products available for new sales only.
 -- Revenue, outstanding debt, payment and customer counts remain historic.
 create or replace function public.manager_snapshot(p_day date)
-returns jsonb language plpgsql security definer set search_path='' as $
+returns jsonb language plpgsql security definer set search_path='' as $dashboard_snapshot$
 declare v_result jsonb;
 begin
   if auth.uid() is null or not exists(select 1 from private.shop_owner where user_id=auth.uid()) then
@@ -120,6 +120,6 @@ begin
     'missing_counts',(select count(*) from public.products p left join public.stock st on st.product_id=p.id where p.is_active is true and st.total_bottles is null)
   ) into v_result;
   return v_result;
-end $;
+end $dashboard_snapshot$;
 
 commit;
