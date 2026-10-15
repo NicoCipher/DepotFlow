@@ -4,6 +4,7 @@ import {
   emptySaleDraft,
   matchesSaleCustomer,
   modeForSaleDrink,
+  changeSaleCustomer,
   saleSaveConfirmationKey,
   priceQuantity,
   putSaleLine,
@@ -400,4 +401,40 @@ test("final-sale confirmation expires when any material record or checked balanc
   assert.notEqual(first, saleSaveConfirmationKey(draft, 4000, 8600));
   assert.notEqual(first, saleSaveConfirmationKey({ ...draft, emptiesV2: { ...draft.emptiesV2, mode: "actual" } }, 4000, 8500));
   assert.notEqual(first, saleSaveConfirmationKey({ ...draft, lines: [{ productId: "one", quantity: q(1) }] }, 4000, 8500));
+});
+
+test("changing customer preserves drinks but clears previous account's money and empty-return choices", () => {
+  const draft = {
+    ...emptySaleDraft,
+    customerId: "customer-old",
+    step: "payment" as const,
+    paid: "1500",
+    oldDebtPaid: "4000",
+    paymentMethod: "transfer",
+    lines: [{ productId: "one", quantity: q(1) }],
+    preferredSellingMode: "retail" as const,
+    emptiesV2: {
+      ...emptySaleDraft.emptiesV2,
+      mode: "actual" as const,
+      confirmedAllReturned: "old-customer-key",
+      decisions: [{ productId: "one", kind: "crate" as const, returnedType: "other", quantity: "1", decision: "hold" as const }],
+      cratesTaken: { one: "1" }, returnedCrates: { other: "1" }, returnedBottles: { glass: "12" },
+    },
+  };
+  const patch = changeSaleCustomer(draft, "customer-new");
+  const changed = { ...draft, ...patch };
+  assert.equal(changed.customerId, "customer-new");
+  assert.equal(changed.step, "drinks");
+  assert.deepEqual(changed.lines, draft.lines);
+  assert.equal(changed.preferredSellingMode, "retail");
+  assert.equal(changed.paid, "0");
+  assert.equal(changed.oldDebtPaid, "0");
+  assert.equal(changed.paymentMethod, "");
+  assert.equal(changed.emptiesV2.mode, "exact");
+  assert.equal(changed.emptiesV2.confirmedAllReturned, null);
+  assert.deepEqual(changed.emptiesV2.decisions, []);
+  assert.deepEqual(changed.emptiesV2.returnedCrates, {});
+  assert.deepEqual(changed.emptiesV2.returnedBottles, {});
+  assert.deepEqual(changed.emptiesV2.cratesTaken, {});
+  assert.deepEqual(changeSaleCustomer(draft, "customer-old"), { customerId: "customer-old", step: "drinks" });
 });
