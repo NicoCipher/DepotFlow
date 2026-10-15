@@ -35,6 +35,7 @@ import {
   matchesSaleCustomer,
   modeForSaleDrink,
   changeSaleCustomer,
+  hasCustomerBoundSaleWork,
   saleSaveConfirmationKey,
   revalidateSaleDraft,
   saleProductSetupIssue,
@@ -76,6 +77,7 @@ export function SaleBuilder({
   const [requestedCustomerId, setRequestedCustomerId] = useState<string | null>(null);
   const [confirmNewCustomer, setConfirmNewCustomer] = useState(false);
   const [confirmedSaveKey, setConfirmedSaveKey] = useState<string | null>(null);
+  const [saveAcknowledged, setSaveAcknowledged] = useState(false);
   const pricingMode = draft.sellingMode === "retail" ? "retail" : "wholesale";
   const [catalog, setCatalog] = useState(initialCatalog);
   const [message, setMessage] = useState("");
@@ -160,6 +162,7 @@ export function SaleBuilder({
     }
     void sales.update(patch);
     setConfirmedSaveKey(null);
+    setSaveAcknowledged(false);
     setRemoveLineId(null);
     setRequestedMode(null);
     setRequestedCustomerId(null);
@@ -713,7 +716,7 @@ export function SaleBuilder({
               type="button"
               className="secondary w-full gap-2 border-emerald-200 text-emerald-900"
               onClick={() => {
-                if (draft.customerId && draft.lines.length > 0) setConfirmNewCustomer(true);
+                if (draft.customerId && hasCustomerBoundSaleWork(draft)) setConfirmNewCustomer(true);
                 else setNewCustomer({ id: crypto.randomUUID(), draftId: sales.state.active?.id ?? null });
               }}
             >
@@ -767,7 +770,7 @@ export function SaleBuilder({
                       : "flex min-h-20 w-full items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-left hover:border-emerald-500 hover:bg-emerald-50"}
                     aria-pressed={draft.customerId === c.id}
                     onClick={() => {
-                      if (draft.customerId && draft.customerId !== c.id && draft.lines.length > 0) {
+                      if (draft.customerId && draft.customerId !== c.id && hasCustomerBoundSaleWork(draft)) {
                         setRequestedCustomerId(c.id);
                         return;
                       }
@@ -1608,13 +1611,46 @@ export function SaleBuilder({
                   {draft.lines.length} {draft.lines.length === 1 ? "drink" : "drinks"} · Sale total {reviewTotal === undefined ? "unavailable" : formatNaira(reviewTotal)} · Collect {formatNaira(Number(draft.paid) + Number(draft.oldDebtPaid))}.
                 </p>
                 <p className="mt-1 text-xs text-stone-700">Saving updates stock and customer balances. If the connection fails, use Check Sale instead of starting another save.</p>
-                <button type="button" className="secondary mt-2 min-h-11 w-full" onClick={() => setConfirmedSaveKey(null)}>Keep editing</button>
+                <label className="mt-3 flex min-h-11 items-center gap-3 rounded-lg border border-emerald-200 bg-white p-3 text-sm font-semibold text-emerald-950">
+                  <input type="checkbox" className="h-5 w-5 shrink-0" checked={saveAcknowledged} onChange={(event) => setSaveAcknowledged(event.currentTarget.checked)} />
+                  I have checked the customer, money and empty returns.
+                </label>
+                <button type="button" className="secondary mt-2 min-h-11 w-full" onClick={() => { setConfirmedSaveKey(null); setSaveAcknowledged(false); }}>Keep editing</button>
               </div>
             )}
+            {!saveUncertain && !finalSaveConfirmed && (
+              <button type="button" className="primary w-full"
+                disabled={                pending ||
+                !draft.businessDate ||
+                reviewTotal === undefined ||
+                !emptiesReview ||
+                emptiesNeedConfirmation ||
+                hasUnmatchedSaleEmpties(emptiesReview) ||
+                Number(draft.paid) > reviewTotal ||
+                (!saveUncertain && (
+                  !paymentBreakdown || debtChecking || Boolean(oldDebtInputError) ||
+                  (paymentBreakdown.collectNow > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))
+                ))}
+                onClick={() => { setSaveAcknowledged(false); setConfirmedSaveKey(reviewKey); }}>
+                Review final confirmation
+              </button>
+            )}
+            {(saveUncertain || finalSaveConfirmed) && (
             <button
               className="primary w-full"
               disabled={
-                pending ||
+                                pending ||
+                !draft.businessDate ||
+                reviewTotal === undefined ||
+                !emptiesReview ||
+                emptiesNeedConfirmation ||
+                hasUnmatchedSaleEmpties(emptiesReview) ||
+                Number(draft.paid) > reviewTotal ||
+                (!saveUncertain && (
+                  !paymentBreakdown || debtChecking || Boolean(oldDebtInputError) ||
+                  (paymentBreakdown.collectNow > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))
+                )) ||
+                (!saveUncertain && !saveAcknowledged)
                 !draft.businessDate ||
                 reviewTotal === undefined ||
                 !emptiesReview ||
@@ -1627,10 +1663,6 @@ export function SaleBuilder({
                 ))
               }
               onClick={() => {
-                if (!saveUncertain && !finalSaveConfirmed) {
-                  setConfirmedSaveKey(reviewKey);
-                  return;
-                }
                 startTransition(async () => {
                   const activeDraftId = sales.state.active?.id;
                   if (!activeDraftId) return;
@@ -1737,6 +1769,7 @@ export function SaleBuilder({
                     ? "Yes, confirm & save sale"
                     : "Confirm sale details"}
             </button>
+            )}
             </div>
             {!saveUncertain && (
               <>
