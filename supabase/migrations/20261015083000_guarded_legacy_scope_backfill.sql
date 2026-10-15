@@ -107,6 +107,10 @@ begin
     raise exception 'An approved JSON object snapshot is required';
   end if;
   perform pg_catalog.pg_advisory_xact_lock(81015, 610);
+  -- Freeze ownership metadata too: another admin cannot create an owner or
+  -- business between the singleton check and our table-wide backfill.
+  lock table private.businesses, private.business_memberships,
+    private.shop_owner in share row exclusive mode;
   if (select count(*) from private.businesses) <> 1
      or (select count(*) from private.shop_owner) <> 1
      or (select count(*) from private.business_memberships) <> 1 then
