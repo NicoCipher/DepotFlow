@@ -8,6 +8,7 @@ import {
   crateReturnIssues,
   allReturnedConfirmationKey,
   hasConfirmedAllReturned,
+  paymentStepAfterEmpties,
   depositSetupIssues,
   matchSaleEmpties,
   hasUnmatchedSaleEmpties,
@@ -813,7 +814,9 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
           disabled={
             hasFieldErrors || !result || (state.mode === "exact" && !exactConfirmed) || (state.mode === "actual" && !actualHasException) || hasUnmatchedSaleEmpties(result) || Boolean(error) || depositBlocked
           }
-          onClick={() => update({ step: "payment" })}
+          onClick={() => {
+            if (result) update(paymentStepAfterEmpties(draft, result));
+          }}
         >
           Next: Enter payment
         </button>
