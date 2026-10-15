@@ -1,4 +1,4 @@
-import { canonicalCrateFamily } from "./crate-types";
+import { canonicalCrateFamily } from "./crate-types.ts";
 
 export type StockCrate = {
   crate_type_id: string | null;
