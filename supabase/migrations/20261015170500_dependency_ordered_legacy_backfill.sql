@@ -87,7 +87,7 @@ begin
     with recursive
       allowed as (
         select x.schema_name, x.table_name,
-          x.schema_name||'.'||x.table_name as key
+          (x.schema_name||'.'||x.table_name) collate "C" as key
         from private.legacy_scope_tables() x
       ),
       edges as (
