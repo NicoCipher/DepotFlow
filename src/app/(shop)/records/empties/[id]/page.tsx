@@ -31,7 +31,7 @@ function ReturnSection({
             <dt className="min-w-0 break-words text-sm font-medium text-stone-800">
               {row.name} <span className="text-stone-500">· {row.unit}</span>
               {row.owed_name && <span className="mt-1 block text-xs font-normal text-stone-600">
-                Accepted instead of {row.owed_name} to settle this customer's crate debt
+                Accepted instead of {row.owed_name} to settle this customer&apos;s crate debt
               </span>}
             </dt>
             <dd className="shrink-0 rounded-lg bg-stone-100 px-3 py-1 text-base font-extrabold tabular-nums text-stone-950">
