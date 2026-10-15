@@ -34,6 +34,7 @@ import { formatQuantity } from "@/domain/quantity";
 import {
   matchesSaleCustomer,
   modeForSaleDrink,
+  changeSaleCustomer,
   saleSaveConfirmationKey,
   revalidateSaleDraft,
   saleProductSetupIssue,
@@ -733,13 +734,7 @@ export function SaleBuilder({
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <button type="button" className="secondary min-h-11" onClick={() => setRequestedCustomerId(null)}>Keep customer</button>
                   <button type="button" className="primary min-h-11" onClick={() => {
-                    update({
-                      customerId: requestedCustomerId,
-                      paid: "0", oldDebtPaid: "0", paymentMethod: "",
-                      emptiesV2: { ...draft.emptiesV2, mode: "exact", confirmedAllReturned: null,
-                        decisions: [], returnedCrates: {}, returnedBottles: {}, cratesTaken: {} },
-                      step: "drinks",
-                    });
+                    update(changeSaleCustomer(draft, requestedCustomerId));
                   }}>Yes, change customer</button>
                 </div>
               </div>
@@ -758,7 +753,7 @@ export function SaleBuilder({
                         setRequestedCustomerId(c.id);
                         return;
                       }
-                      update({ customerId: c.id, oldDebtPaid: c.id === draft.customerId ? draft.oldDebtPaid : "0", step: "drinks" });
+                      update(changeSaleCustomer(draft, c.id));
                     }}
                   >
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-stone-100 text-stone-700">
