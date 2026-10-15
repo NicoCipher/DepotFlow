@@ -12,7 +12,7 @@ create table private.businesses (
   created_at timestamptz not null default now(),
   -- One legacy shop may be marked for a subsequent verified owner backfill.
   -- Future businesses must leave this NULL.
-  legacy_singleton boolean unique check (legacy_singleton is true)
+  legacy_singleton boolean unique check (legacy_singleton is distinct from false)
 );
 
 create table private.business_memberships (
