@@ -39,6 +39,21 @@ begin
 
   select id into v_business from private.businesses
   where legacy_singleton is true for update;
+  -- In owner-only V1, a registered legacy owner cannot quietly become
+  -- owner of another business. Require a separate audited migration instead.
+  -- If this is a retry, only the original active legacy membership is valid.
+  if exists (
+    select 1 from private.business_memberships m
+    where m.user_id=v_owner
+      and (
+        v_business is null
+        or m.business_id <> v_business
+        or m.member_kind <> 'owner'
+        or m.status <> 'active'
+      )
+  ) then
+    raise exception 'Legacy owner already mapped to another or inactive business';
+  end if;
   if v_business is null then
     insert into private.businesses(status,legacy_singleton)
     values('active',true)
