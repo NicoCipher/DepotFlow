@@ -355,7 +355,9 @@ export function SaleBuilder({
   })();
   const reviewKey = saleSaveConfirmationKey(draft, oldDebtAmount, reviewTotal);
   const finalSaveConfirmed = confirmedSaveKey === reviewKey;
-  const reviewSaveBlocked = pending || !ready || !draft.businessDate ||
+  // "Check Sale" must remain usable even when catalogue refresh is offline:
+  // an uncertain save can only be resolved by the original request ID.
+  const reviewSaveBlocked = pending || (!ready && !saveUncertain) || !draft.businessDate ||
     reviewTotal === undefined || !emptiesReview || emptiesNeedConfirmation ||
     hasUnmatchedSaleEmpties(emptiesReview) || Number(draft.paid) > reviewTotal ||
     (!saveUncertain && (!paymentBreakdown || debtChecking || Boolean(oldDebtInputError) ||
