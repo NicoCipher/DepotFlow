@@ -269,10 +269,19 @@ export function SaleBuilder({
         }
         // No returned crates or bottles are required for this sale.
         // Skip questions the operator does not need to answer.
-        const preview = matchSaleEmpties(
-          { ...draft, emptiesV2: { ...draft.emptiesV2, mode: "exact", decisions: [] } },
-          fresh,
-        );
+        let preview: ReturnType<typeof matchSaleEmpties>;
+        try {
+          preview = matchSaleEmpties(
+            { ...draft, emptiesV2: { ...draft.emptiesV2, mode: "exact", decisions: [] } },
+            fresh,
+          );
+        } catch (cause) {
+          // Old physical-crate quantities may no longer fit an edited sale.
+          // This is not a network failure: let the operator correct the fields.
+          await sales.update({ step: "empties" });
+          setMessage(cause instanceof Error ? cause.message : "Check the empty crates and bottles.");
+          return;
+        }
         const skipEmpties = draft.emptiesV2.mode === "exact" && hasNoExpectedSaleEmpties(preview);
         await sales.update({ step: skipEmpties ? "payment" : "empties" });
         setMessage("");
