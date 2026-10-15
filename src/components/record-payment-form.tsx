@@ -18,6 +18,7 @@ export function RecordPaymentForm({
   const [submissionId] = useState(requestId);
   const [method, setMethod] = useState("");
   const [confirmedKey, setConfirmedKey] = useState<string | null>(null);
+  const [acknowledged, setAcknowledged] = useState(false);
   const [amount, setAmount] = useState("");
   const [businessDate, setBusinessDate] = useState(() =>
     new Date().toLocaleDateString("sv-SE"),
@@ -40,8 +41,11 @@ export function RecordPaymentForm({
       }
       if (!confirmed) {
         event.preventDefault();
+        setAcknowledged(false);
         setConfirmedKey(reviewKey);
+        return;
       }
+      if (!acknowledged) event.preventDefault();
     }}>
       <button
         type="button"
@@ -123,18 +127,24 @@ export function RecordPaymentForm({
             using {method === "transfer" ? "bank transfer" : method === "pos" ? "POS" : "cash"} on {businessDate}?
           </p>
           <p className="mt-1 text-sm text-stone-700">Customer will still owe {remaining === null ? "—" : formatNaira(remaining)}. This creates a permanent payment record.</p>
-          <button type="button" className="secondary mt-3 min-h-11 w-full" onClick={() => setConfirmedKey(null)}>Go back and edit</button>
+          <label className="mt-3 flex min-h-11 items-center gap-3 rounded-lg border border-emerald-200 bg-white p-3 text-sm font-semibold text-emerald-950">
+            <input type="checkbox" className="h-5 w-5 shrink-0" checked={acknowledged} onChange={(event) => setAcknowledged(event.currentTarget.checked)} />
+            I have checked the amount and payment method.
+          </label>
+          <button type="button" className="secondary mt-3 min-h-11 w-full" onClick={() => { setConfirmedKey(null); setAcknowledged(false); }}>Go back and edit</button>
         </section>
       )}
-      <button className="primary w-full" disabled={pending || exceedsBalance || !validAmount || !method || !businessDate}>
-        {pending
-          ? "Saving…"
-          : state.retryable
-            ? "Retry same payment"
-            : confirmed
-              ? `Yes, save ${formatNaira(numericAmount)} payment`
-              : "Review payment before saving"}
-      </button>
+      {!confirmed && (
+        <button type="button" className="primary w-full" disabled={pending || exceedsBalance || !validAmount || !method || !businessDate}
+          onClick={() => { setAcknowledged(false); setConfirmedKey(reviewKey); }}>
+          Review payment before saving
+        </button>
+      )}
+      {confirmed && (
+        <button type="submit" className="primary w-full" disabled={pending || exceedsBalance || !validAmount || !method || !businessDate || !acknowledged}>
+          {pending ? "Saving…" : state.retryable ? "Retry same payment" : `Yes, save ${formatNaira(numericAmount)} payment`}
+        </button>
+      )}
     </form>
   );
 }
