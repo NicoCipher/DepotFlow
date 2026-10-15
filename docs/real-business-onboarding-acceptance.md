@@ -40,7 +40,7 @@
 | Owner tries to activate a customer with missing crate/deposit review | Activation fails with the incomplete customer's name and missing section; does not post money only |
 | Existing test account has customer with same name | No auto-import, no association without explicit owner verification |
 | Owner begins selling without any existing customers | Can use supported sale/customer flows without setting up a customer book first |
-| User has no customer phone number | Do not invent one; either allow optional phone after schema review or show an honest, non-blocking alternative defined by product owner |
+| User has no customer phone number | Save a real customer with `phone=NULL` after tested schema/domain migration; no fabricated number; detect possible duplicate names. Block onboarding release if schema is still phone-required |
 | Owner checks setup total and taps Start twice | One activation time/date, one set of opening events, one receipt sequence |
 | First real sale uses only part payment | Correct sale total, collected, still owing, stock and receipt |
 | First sale includes old-debt payment | One visit in All Records, original sale and payment receipts separately auditable, no double count |
@@ -50,7 +50,15 @@
 | Someone forwards a valid receipt verification link | Anonymous response contains **only** receipt number, shop name, business date, kind, status and sale total or payment amount; no customer, phone, line items, balances, account, costs, internal IDs or shop address |
 | Old sale, partial sale, payment and voided receipt tokens | Each receives the same strict anonymous allowlist; every forbidden field absent, not simply null |
 | Owner signs out and signs back in | Returns to their business dashboard; active business identity visible and unambiguous |
+| Owner loses password but still controls verified email | Standard recovery restores access; new sessions are authenticated and previous sessions revoked as required |
+| Owner loses MFA device but retains saved recovery code and verified email | One-time recovery code restores access through a controlled process; reuse fails and sessions rotate |
+| Sole owner loses access to email and MFA | No automatic ownership takeover; high-assurance support case requires independent business proof, two independent reviewers, notification/cooling-off and full audit; unverified claim denied |
+| Staff or platform operator tries to take over a depot using a recovery URL | Blocked; no hidden admin membership or bypass of business isolation |
 | New business setup is incomplete | Public links do not expose any partial customer/financial data |
+
+## Owner recovery acceptance gate
+
+Before opening signup, implement and verify: owner-controlled verified email, one-time hashed recovery codes, optional second channel, standard reset and lost-MFA recovery, high-assurance lost-email review with two independent approvers, old-contact notification, cooling-off period, audit of ownership evidence, and immediate previous-session revocation on approval. Support must never ask for the password or a recovery code in chat. If verification is impossible, preserve data and deny takeover rather than transferring ownership.
 
 ## UI acceptance — no training needed
 
@@ -70,7 +78,7 @@ Self-serve signup creates one independent business per newly registered owner. T
 
 ## Controlled Warlink Venture cutover checklist
 
-- [ ] Verify owner-controlled email and recovery method (never share password or OTP in chat)
+- [ ] Verify owner-controlled email and an independently secured backup/recovery method (never share password, recovery codes or OTP in chat)
 - [ ] Confirm exact public business name and receipt header, phone, physical address
 - [ ] Agree an **opening date and time** in Nigeria (WAT) and that test transactions remain non-official
 - [ ] Count currently available drinks by exact product/size and loose bottles
