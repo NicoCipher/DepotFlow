@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   validateCrateType,
+  canonicalCrateFamily,
   crateLabel,
   crateDescription,
   crateFitsProduct,
@@ -93,22 +94,22 @@ test("crate labels show names and attributes without internal references or dupl
   };
   assert.equal(crateLabel(unresolved), "NBL");
   assert.equal(crateNeedsSetup(unresolved), true);
-  assert.equal(crateDescription(attributes), "NBL · 12-pocket");
+  assert.equal(crateDescription(attributes), "NB · 12-pocket");
   assert.equal(
     crateDescription({
       ...attributes,
       name: "33 Export crate",
       variant: "Regular",
     }),
-    "NBL · 12-pocket · Regular",
+    "NB · 12-pocket · Regular",
   );
   assert.equal(
     crateLabel({ ...attributes, id: "50000000-0000-4000-8000-000000000001" }),
-    "Regular · NBL · 12-pocket",
+    "Regular · NB · 12-pocket",
   );
   assert.equal(
     crateLabel({ ...attributes, id: "50000000-0000-4000-8000-000000000002" }),
-    "Regular · NBL · 12-pocket",
+    "Regular · NB · 12-pocket",
   );
   assert.doesNotMatch(
     crateLabel(unresolved),
@@ -120,4 +121,16 @@ test("resolved pockets match product bottles; unknown pockets remain exempt", ()
   assert.equal(crateFitsProduct(12, 12), true);
   assert.equal(crateFitsProduct(12, 20), false);
   assert.equal(crateFitsProduct(null, 20), true);
+});
+
+test("crate setup and display canonicalize NB and NBL without inferring swaps", () => {
+  for (const family of ["NB", "NBL", "nbl", " nb ", " NBL "]) {
+    assert.equal(canonicalCrateFamily(family), "NB");
+    assert.equal(validateCrateType({
+      name: "Gulder branded crate", empty_family: family, pocket_count: "12", variant: "",
+    }).empty_family, "NB");
+  }
+  assert.equal(canonicalCrateFamily("Guinness"), "Guinness");
+  assert.equal(canonicalCrateFamily("International Breweries"), "International Breweries");
+  assert.equal(crateLabel({ ...attributes, name: "Goldberg" }), "Goldberg · NB · 12-pocket · regular");
 });
