@@ -78,7 +78,7 @@ create trigger block_removed_drink_sale
 create function private.prevent_removed_shop_drink_receive()
 returns trigger
 language plpgsql security definer set search_path=''
-as $
+as $receive_guard$
 declare
   v_active boolean;
 begin
@@ -91,7 +91,7 @@ begin
     end if;
   end if;
   return new;
-end $;
+end $receive_guard$;
 revoke all on function private.prevent_removed_shop_drink_receive()
   from public,anon,authenticated,service_role;
 
