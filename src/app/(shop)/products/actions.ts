@@ -148,3 +148,41 @@ export async function editProduct(
 ) {
   return save(id, true, formData);
 }
+
+/**
+ * A shop can stop stocking/selling a drink without deleting the master
+ * catalogue, its physical stock, customer history or receipts.
+ * The RPC serializes this change against a concurrent sale.
+ */
+export async function setShopDrinkStatus(
+  id: string,
+  active: boolean,
+  expectedActive: boolean,
+): Promise<{ saved?: boolean; message?: string }> {
+  const supabase = await requireOwner();
+  if (!isProductId(id) || typeof active !== "boolean" || typeof expectedActive !== "boolean")
+    return { message: "Reopen this drink and try again." };
+  try {
+    const { error } = await supabase.rpc("set_shop_drink_active", {
+      p_id: id,
+      p_active: active,
+      p_expected_active: expectedActive,
+    });
+    if (error) return {
+      message: error.code === "40001"
+        ? "This drink changed on another screen. Refresh before trying again."
+        : error.code === "P0002"
+          ? "Drink no longer exists. Return to Drinks."
+          : "Could not update the drink. Check your connection and try again.",
+    };
+    revalidatePath("/", "layout");
+    revalidatePath("/products");
+    revalidatePath("/products/catalogue");
+    revalidatePath("/stock");
+    revalidatePath("/record-sale");
+    revalidatePath(`/products/${id}`);
+    return { saved: true };
+  } catch {
+    return { message: "Could not confirm whether this drink changed. Reload the page and check its status." };
+  }
+}
