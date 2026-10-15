@@ -17,6 +17,7 @@ import { PausedSalesLink } from "./paused-sales-link";
 import { SaleEmptiesStep } from "./sale-empties-step";
 import {
   matchSaleEmpties,
+  allReturnedConfirmationKey,
   hasConfirmedAllReturned,
   hasNoExpectedSaleEmpties,
   hasUnmatchedSaleEmpties,
@@ -283,7 +284,24 @@ export function SaleBuilder({
           return;
         }
         const skipEmpties = draft.emptiesV2.mode === "exact" && hasNoExpectedSaleEmpties(preview);
-        await sales.update({ step: skipEmpties ? "payment" : "empties" });
+        // Preserve the no-empties decision across page refresh and parked sales.
+        // It is tied to the exact customer, sale lines and catalog obligations,
+        // so newly returnable drinks invalidate it at save time.
+        const updated = await sales.update(skipEmpties
+          ? {
+              step: "payment",
+              emptiesV2: {
+                ...draft.emptiesV2,
+                mode: "exact",
+                decisions: [],
+                confirmedAllReturned: allReturnedConfirmationKey(draft, preview),
+              },
+            }
+          : { step: "empties" });
+        if (!updated) {
+          setMessage("Could not save this step on your device. Try again.");
+          return;
+        }
         setMessage("");
       } catch {
         setMessage(saleNetworkMessage);
