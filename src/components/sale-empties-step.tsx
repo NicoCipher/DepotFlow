@@ -301,13 +301,13 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
             </div>
             {(expectedCrates.size > 0 || expectedBottles.size > 0) && (
               <details className="mt-3 border-t border-stone-200 pt-2 text-sm">
-                <summary className="cursor-pointer py-2 font-semibold text-emerald-900">View expected types</summary>
+                <summary className="cursor-pointer py-2 font-semibold text-emerald-900">See empty crate and empty bottle types</summary>
                 <ul className="mt-2 space-y-1 text-stone-700">
                   {[...expectedCrates].filter(([, count]) => count > 0).map(([type, count]) => (
-                    <li key={"crate-" + type}>{count} {crateName.get(type) ?? "Unknown"} {count === 1 ? "crate" : "crates"}</li>
+                    <li key={"crate-" + type}>{count} {crateName.get(type) ?? "Unknown"} {count === 1 ? "empty crate" : "empty crates"}</li>
                   ))}
                   {[...expectedBottles].filter(([, count]) => count > 0).map(([type, count]) => (
-                    <li key={"bottle-" + type}>{count} {type} {count === 1 ? "bottle" : "bottles"}</li>
+                    <li key={"bottle-" + type}>{count} {type} {count === 1 ? "empty bottle" : "empty bottles"}</li>
                   ))}
                 </ul>
               </details>
@@ -338,7 +338,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
             }}
           >
             <span>
-              <strong className="block text-base">{exactConfirmed ? "All returned · Confirmed" : "Yes, all returned"}</strong>
+              <strong className="block text-base">{exactConfirmed ? "All returned · Confirmed" : "Yes, all empty returns received"}</strong>
               <span className="mt-1 block text-sm leading-5">I checked: all expected empty crates and empty bottles came back</span>
             </span>
             <span className={"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 " + (exactConfirmed ? "border-emerald-800 bg-emerald-800 text-white" : "border-stone-400")} aria-hidden="true">
@@ -364,7 +364,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
           <p role="status" className={"flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium " + (exactConfirmed ? "bg-emerald-50 text-emerald-950" : "bg-amber-50 text-amber-950")}>
             <SaleIcon name={exactConfirmed ? "check" : "shield"} className="h-4 w-4 shrink-0" />
             {exactConfirmed
-              ? "Confirmed. All expected returns will be recorded when the sale is saved."
+              ? "Confirmed. The empty crates and empty bottles will be recorded when the sale is saved."
               : "Not yet confirmed. Check the empty crates and empty bottles, then tap “Yes, all returned”."}
           </p>
         )}
@@ -560,17 +560,17 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                   ))}
                 </ul>
               ) : (
-                <p className="mt-1 text-sm text-emerald-950">No new crate or bottle balance from this sale.</p>
+                <p className="mt-1 text-sm text-emerald-950">No new empty crates or empty bottles owed from this sale.</p>
               )}
               <p className="mt-2 text-xs text-stone-700">Preview only. The customer&apos;s record changes when the sale is saved.</p>
             </section>
           )}
 
           {simpleBottleReturn && (
-            <section aria-label="Different bottle returned" className="rounded-xl border border-amber-200 bg-white p-4">
-              <h3 className="text-base font-bold text-stone-950">One different bottle type</h3>
+            <section aria-label="Different empty bottle returned" className="rounded-xl border border-amber-200 bg-white p-4">
+              <h3 className="text-base font-bold text-stone-950">Different empty bottle received</h3>
               <p className="mt-2 text-sm leading-5 text-stone-700">
-                {simpleBottleReturn.quantity} {simpleBottleReturn.returnedType} {simpleBottleReturn.quantity === 1 ? "bottle" : "bottles"} came back instead of {simpleBottleReturn.expectedType} for {productName.get(simpleBottleReturn.productId)}.
+                {simpleBottleReturn.quantity} {simpleBottleReturn.returnedType} {simpleBottleReturn.quantity === 1 ? "empty bottle" : "empty bottles"} came back instead of {simpleBottleReturn.expectedType} for {productName.get(simpleBottleReturn.productId)}.
               </p>
               <p className="mt-3 text-sm font-bold">What did you do with {simpleBottleReturn.quantity === 1 ? "it" : "them"}?</p>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -578,7 +578,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                   Kept aside · Correct type still owed
                 </button>
                 <button type="button" className="secondary min-h-14 w-full text-sm" onClick={() => decideSimpleBottleReturn("accept")}>
-                  Accepted as replacement · Reduces bottles still owed
+                  Accepted instead · Reduces empty bottles still owed
                 </button>
               </div>
               {choiceError && <p role="alert" className="mt-2 text-sm text-red-800">{choiceError}</p>}
@@ -590,7 +590,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
               <div>
                 <h3 id="different-return-heading" className="text-lg font-bold text-stone-950">Different empties need a decision</h3>
                 <p className="mt-1 text-sm leading-5 text-stone-600">
-                  DepotFlow won&apos;t silently use a different crate or bottle to clear what is owed.
+                  A different empty crate or empty bottle will not automatically clear what the customer owes.
                 </p>
               </div>
               {unmatchedCrateTypes.length > 0 && unmatchedBottleTypes.length > 0 && (
@@ -599,7 +599,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                     <button key={kind} type="button" className={decisionKind === kind ? "primary min-h-12" : "secondary min-h-12"}
                       aria-pressed={decisionKind === kind}
                       onClick={() => setChoice({ productId: "", kind, returnedType: "", quantity: "", decision: "hold" })}>
-                      {kind === "crate" ? "Crates" : "Bottles"}
+                      {kind === "crate" ? "Empty crates" : "Empty bottles"}
                     </button>
                   ))}
                 </div>
@@ -607,11 +607,11 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
               {missingForChoice.length > 0 ? (
                 <>
                   <label className="block text-sm font-semibold text-stone-800">
-                    Which drink still has {decisionKind === "crate" ? "crates" : "bottles"} missing?
+                    Which drink still has {decisionKind === "crate" ? "empty crates" : "empty bottles"} missing?
                     <select className="mt-1.5" value={chosenMissing?.productId ?? ""}
                       onChange={(event) => setChoice({ ...choice, kind: decisionKind, productId: event.target.value, returnedType: chosenWrongType, quantity: "" })}>
                       {missingForChoice.map((line) => (
-                        <option key={line.productId} value={line.productId}>{productName.get(line.productId) ?? "Drink"} · {decisionKind === "crate" ? line.cratesOwed : line.bottlesOwed} missing</option>
+                        <option key={line.productId} value={line.productId}>{productName.get(line.productId) ?? "Drink"} · {decisionKind === "crate" ? line.cratesOwed : line.bottlesOwed} still owed</option>
                       ))}
                     </select>
                   </label>
@@ -627,7 +627,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                     </select>
                   </label>
                   <label className="block text-sm font-semibold text-stone-800">
-                    How many {decisionKind === "crate" ? "crates" : "bottles"} did this affect?
+                    How many {decisionKind === "crate" ? "empty crates" : "empty bottles"} does this affect?
                     <input className="mt-1.5" inputMode="numeric" pattern="[0-9]+"
                       value={chosenDecisionQuantity} onFocus={(event) => event.currentTarget.select()}
                       onChange={(event) => setChoice({ ...choice, kind: decisionKind, productId: chosenMissing?.productId ?? "", returnedType: chosenWrongType, quantity: event.target.value })}/>
@@ -683,8 +683,8 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                 {(state.decisions ?? []).map((entry, index) => (
                   <li key={index} className="flex items-start justify-between gap-2 text-sm text-stone-700">
                     <span className="min-w-0">
-                      {entry.quantity} {entry.kind === "crate" ? crateName.get(entry.returnedType) ?? entry.returnedType : entry.returnedType} {entry.kind === "crate" ? "crates" : "bottles"}
-                      {entry.decision === "hold" ? " kept separately · correct type still owed" : " accepted as replacement · reduces debt in empties"}
+                      {entry.quantity} {entry.kind === "crate" ? crateName.get(entry.returnedType) ?? entry.returnedType : entry.returnedType} {entry.kind === "crate" ? "empty crates" : "empty bottles"}
+                      {entry.decision === "hold" ? " kept separately · correct type still owed" : " accepted instead · reduces empty returns still owed"}
                     </span>
                     <button type="button" className="shrink-0 rounded-lg border border-stone-300 bg-white px-3 py-2 font-semibold text-emerald-900"
                       onClick={() => update({ emptiesV2: { ...state, decisions: state.decisions?.filter((_, i) => i !== index) } })}>
@@ -721,9 +721,9 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
           {result.swaps.map((swap) => (
             <p key={`${swap.owedCrateTypeId}:${swap.returnedCrateTypeId}`}>
               {swap.quantity}{" "}
-              {crateName.get(swap.returnedCrateTypeId) ?? "returned crate"}{" "}
-              {swap.quantity === 1 ? "crate" : "crates"} accepted for{" "}
-              {crateName.get(swap.owedCrateTypeId) ?? "the expected crate"}.
+              {crateName.get(swap.returnedCrateTypeId) ?? "returned empty crate"}{" "}
+              {swap.quantity === 1 ? "empty crate" : "empty crates"} accepted for{" "}
+              {crateName.get(swap.owedCrateTypeId) ?? "the expected empty crate"}.
             </p>
           ))}
 
@@ -746,13 +746,13 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
 
           {crateIssues.length > 0 && (
             <div className="mt-4 space-y-2">
-              <p className="font-medium">Different crates to check</p>
+              <p className="font-medium">Different empty crates to check</p>
               {crateIssues.map((issue) => {
                 const returnedName =
-                  crateName.get(issue.returnedCrateTypeId) ?? "Returned crate";
+                  crateName.get(issue.returnedCrateTypeId) ?? "Returned empty crate";
                 const owedName = issue.owedCrateTypeId
                   ? (crateName.get(issue.owedCrateTypeId) ??
-                    "the expected crate")
+                    "the expected empty crate")
                   : null;
                 if (issue.reason === "not_allowed" && owedName)
                   return (
@@ -774,16 +774,16 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                     >
                       {returnedName} can replace {owedName} only when complete.{" "}
                       {issue.matchingBottlesReturned ?? 0} of{" "}
-                      {issue.matchingBottlesNeeded ?? 0} matching bottles came
+                      {issue.matchingBottlesNeeded ?? 0} matching empty bottles came
                       back.
                     </p>
                   );
                 return (
                   <p className="text-stone-700" key={issue.returnedCrateTypeId}>
-                    {issue.quantity} {issue.quantity === 1 ? "crate" : "crates"}{" "}
+                    {issue.quantity} {issue.quantity === 1 ? "empty crate" : "empty crates"}{" "}
                     of {returnedName} came back, but{" "}
-                    {issue.quantity === 1 ? "it did" : "they did"} not settle a
-                    crate in this sale.
+                    {issue.quantity === 1 ? "it did" : "they did"} not settle an
+                    empty crate in this sale.
                   </p>
                 );
               })}
@@ -792,7 +792,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
 
           {Object.keys(result.unmatchedBottles).length > 0 && (
             <div className="mt-4">
-              <p className="font-medium">Other bottles that came back</p>
+              <p className="font-medium">Other empty bottles that came back</p>
               {Object.entries(result.unmatchedBottles).map(
                 ([type, quantity]) => (
                   <p key={type}>
@@ -825,7 +825,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
           )}
           {depositBlocked && missingDepositSetup.length === 0 && (
             <p role="alert" className="mt-4 text-amber-900">
-              This customer requires a deposit for the missing empties. The
+              This customer requires a deposit for the missing empty crates or empty bottles. The
               prices are configured, but collecting the refundable deposit in
               this sale is not enabled yet.
             </p>
@@ -835,7 +835,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
 
       {state.mode === "actual" && !actualHasException && !hasFieldErrors && (
         <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950">
-          These amounts still match what was expected. If everything came back correctly, choose “Yes, all returned” above.
+          These numbers still match what was expected. If everything came back correctly, choose “Yes, all empty returns received” above.
         </p>
       )}
 
