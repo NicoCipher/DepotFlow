@@ -74,6 +74,16 @@ export function hasNoExpectedSaleEmpties(result: EmptiesMatchResult): boolean {
   return result.lines.every((line) => line.cratesOut === 0 && line.bottlesOut === 0);
 }
 
+/** One loose-bottle line: confirmation can take the owner straight to Payment.
+ * Larger, mixed or fractional sales retain the normal guided empty-returns step.
+ */
+export function isQuickRetailEmptiesSale(draft: SaleDraft): boolean {
+  if (draft.lines.length !== 1) return false;
+  const quantity = draft.lines[0].quantity;
+  return quantity.crates === 0 && quantity.fraction === 0 && !quantity.eighths &&
+    Number.isSafeInteger(quantity.bottles) && quantity.bottles > 0 && quantity.bottles <= 6;
+}
+
 export function hasConfirmedAllReturned(draft: SaleDraft, result: EmptiesMatchResult): boolean {
   return draft.emptiesV2?.mode === "exact" &&
     (hasNoExpectedSaleEmpties(result) ||
