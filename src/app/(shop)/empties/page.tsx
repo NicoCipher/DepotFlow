@@ -153,7 +153,7 @@ export default async function EmptiesPage() {
       <PageIntro
         eyebrow="Customer returns"
         title="Empties"
-        description="Only customers who currently owe crates or bottles, or have different empties being held."
+        description="Customers who owe empty crates or empty bottles, or have different empty returns kept aside."
       />
 
       <section
@@ -166,11 +166,11 @@ export default async function EmptiesPage() {
           <p className="mt-1 text-xs text-stone-500">need empties action</p>
         </div>
         <div className="rounded-xl border border-stone-200 bg-white p-4">
-          <p className="text-sm text-stone-600">Crates owed</p>
+          <p className="text-sm text-stone-600">Empty crates owed</p>
           <p className="mt-1 text-2xl font-semibold">{totalCrates}</p>
         </div>
         <div className="rounded-xl border border-stone-200 bg-white p-4">
-          <p className="text-sm text-stone-600">Bottles owed</p>
+          <p className="text-sm text-stone-600">Empty bottles owed</p>
           <p className="mt-1 text-2xl font-semibold">{totalBottles}</p>
         </div>
         <div className={`rounded-xl border p-4 ${hasHeld ? "border-amber-200 bg-amber-50" : "border-stone-200 bg-white"}`}>
@@ -178,10 +178,10 @@ export default async function EmptiesPage() {
           {hasHeld ? (
             <div className="mt-1 space-y-1 font-semibold">
               {heldCrates > 0 && (
-                <p>{heldCrates} {heldCrates === 1 ? "crate" : "crates"}</p>
+                <p>{heldCrates} {heldCrates === 1 ? "empty crate" : "empty crates"}</p>
               )}
               {heldBottles > 0 && (
-                <p>{heldBottles} {heldBottles === 1 ? "bottle" : "bottles"}</p>
+                <p>{heldBottles} {heldBottles === 1 ? "empty bottle" : "empty bottles"}</p>
               )}
             </div>
           ) : (
@@ -194,7 +194,7 @@ export default async function EmptiesPage() {
         <div className="rounded-xl border border-dashed border-stone-300 p-6">
           <h2 className="text-xl font-semibold">No customer empties need attention</h2>
           <p className="mt-2 text-stone-600">
-            When a customer owes a crate or bottle, they will appear here automatically.
+            When a customer owes an empty crate or empty bottle, they will appear here automatically.
           </p>
           <Link href="/empty-crates" className="secondary mt-5">
             See empty crates in the depot
@@ -204,7 +204,7 @@ export default async function EmptiesPage() {
         <section aria-labelledby="customer-empties-heading">
           <div className="mb-3 flex items-end justify-between gap-3">
             <h2 id="customer-empties-heading" className="text-xl font-semibold">
-              Customers to follow up
+              Customers with empty returns to check
             </h2>
             <span className="text-sm text-stone-500">{actionCustomers.length}</span>
           </div>
@@ -243,7 +243,7 @@ export default async function EmptiesPage() {
                               {crateNames.get(row.crate_type_id) ?? row.crate_type}
                             </span>
                             <strong className="shrink-0 tabular-nums">
-                              {row.quantity} {row.quantity === 1 ? "crate" : "crates"}
+                              {row.quantity} {row.quantity === 1 ? "empty crate" : "empty crates"}
                             </strong>
                           </li>
                         ))}
@@ -251,7 +251,7 @@ export default async function EmptiesPage() {
                           <li key={row.bottle_type} className="flex justify-between gap-4">
                             <span className="min-w-0 break-words">{row.bottle_type}</span>
                             <strong className="shrink-0 tabular-nums">
-                              {row.quantity} {row.quantity === 1 ? "bottle" : "bottles"}
+                              {row.quantity} {row.quantity === 1 ? "empty bottle" : "empty bottles"}
                             </strong>
                           </li>
                         ))}
@@ -266,7 +266,7 @@ export default async function EmptiesPage() {
                       </p>
                       {customerHeld.map((row) => (
                         <p key={row.id} className="mt-1 text-sm text-amber-950">
-                          {row.quantity} {row.returned_name} {row.kind === "crate" ? "crates" : "bottles"} · {row.owed_name} still owed for {row.product_name}
+                          {row.quantity} {row.returned_name} {row.kind === "crate" ? "empty crates" : "empty bottles"} · {row.owed_name} still owed for {row.product_name}
                         </p>
                       ))}
                     </div>
@@ -277,7 +277,7 @@ export default async function EmptiesPage() {
                       href={`/customers/${customer.id}/return-empties`}
                       className="primary w-full"
                     >
-                      Record return
+                      Record empty return
                     </Link>
                     <Link
                       href={`/customers/${customer.id}`}
