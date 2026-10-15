@@ -168,6 +168,46 @@ begin
   );
 end;
 $sale$;
+
+-- Combined checkout must also keep the earlier debt-payment ledger separate
+-- from the current sale. This is a different security-definer RPC path.
+do $combined$
+declare
+  v_line jsonb;
+  v_result jsonb;
+begin
+  v_line:=pg_catalog.jsonb_build_object(
+    'productId','88000000-0000-4000-9000-000000000020',
+    'quantity',pg_catalog.jsonb_build_object(
+      'crates',0,'fraction',0,'eighths',0,'bottles',1),
+    'cratesTaken',0,'returnedCrates',0,'returnedBottles',0,
+    'emptyDecisions','[]'::jsonb,
+    'expected',pg_catalog.jsonb_build_object(
+      'full',12000,'half',null,'quarter',null,'bottle',1000,
+      'size',12,'crate','88000000-0000-4000-9000-000000000010',
+      'returnable',false,'bottleType',null)
+  );
+  v_result:=public.save_sale_with_old_debt_payment(
+    '88000000-0000-4000-8000-000000000051',
+    '88000000-0000-4000-9000-000000000030',
+    '2026-10-15',1000,
+    pg_catalog.jsonb_build_array(v_line),'[]'::jsonb,'[]'::jsonb,
+    'cash',500
+  );
+  if (v_result->>'total')::int<>1000
+     or (v_result->>'oldDebtPaid')::int<>500
+     or (v_result->>'balanceAfter')::int<>2000 then
+    raise exception 'M2d broke combined checkout debt accounting: %',v_result;
+  end if;
+  perform public.save_sale_with_old_debt_payment(
+    '88000000-0000-4000-8000-000000000051',
+    '88000000-0000-4000-9000-000000000030',
+    '2026-10-15',1000,
+    pg_catalog.jsonb_build_array(v_line),'[]'::jsonb,'[]'::jsonb,
+    'cash',500
+  );
+end;
+$combined$;
 reset role;
 
 do $integrity$
@@ -176,18 +216,32 @@ begin
  select id into strict v_business from private.businesses
  where legacy_singleton is true;
  if (select amount from public.money_owed where
-   customer_id='88000000-0000-4000-9000-000000000030')<>2500 then
-   raise exception 'Combined debt and sale were not recorded correctly';
+   customer_id='88000000-0000-4000-9000-000000000030')<>2000 then
+   raise exception 'Combined checkout did not preserve old-debt payments';
  end if;
  if (select total_bottles from public.stock where
-   product_id='88000000-0000-4000-9000-000000000020')<>119 then
-   raise exception 'Sale changed stock incorrectly';
+   product_id='88000000-0000-4000-9000-000000000020')<>118 then
+   raise exception 'Combined checkout changed stock incorrectly';
  end if;
  if (select count(*) from public.customer_payments where
    request_id='88000000-0000-4000-8000-000000000040')<>1
    or (select count(*) from public.sales where
    request_id='88000000-0000-4000-8000-000000000050')<>1 then
    raise exception 'Idempotent payment or sale was duplicated';
+ end if;
+ if (select count(*) from public.sales where
+    request_id='88000000-0000-4000-8000-000000000051')<>1
+    or (select count(*) from public.customer_payments where
+    customer_id='88000000-0000-4000-9000-000000000030')<>2 then
+   raise exception 'Combined checkout duplicated a sale or old debt payment';
+ end if;
+ if not exists (
+   select 1 from public.sales s where
+   s.request_id='88000000-0000-4000-8000-000000000051'
+     and s.account_receipt->>'bd'='2500'
+     and s.account_receipt->>'cd'='2000'
+ ) then
+   raise exception 'Combined checkout customer statement snapshot changed';
  end if;
  if not exists(
    select 1 from public.customer_payments where
