@@ -9,6 +9,7 @@ import {
   assertAllReturnedConfirmed,
   hasConfirmedAllReturned,
   hasNoExpectedSaleEmpties,
+  isQuickRetailEmptiesSale,
   paymentStepAfterEmpties,
   hasUnmatchedSaleEmpties,
   depositSetupIssues,
@@ -720,4 +721,21 @@ test("bulk shortcut updates exact physical counts without inventing empties or l
   assert.equal(updateBulkReturnParts(parts, "looseBottles", "", 12), null);
   assert.equal(bulkReturnParts("abc", "12", 12), null);
   assert.equal(bulkReturnParts("1", "6", 12)?.completeSets, 0);
+});
+
+test("quick retail path only applies to a single small loose-bottle purchase", () => {
+  const single = sale("goldberg", 0);
+  single.lines[0].quantity = { crates: 0, fraction: 0, bottles: 1 };
+  assert.equal(isQuickRetailEmptiesSale(single), true);
+  single.lines[0].quantity.bottles = 6;
+  assert.equal(isQuickRetailEmptiesSale(single), true);
+  single.lines[0].quantity.bottles = 7;
+  assert.equal(isQuickRetailEmptiesSale(single), false);
+  single.lines[0].quantity = { crates: 1, fraction: 0, bottles: 0 };
+  assert.equal(isQuickRetailEmptiesSale(single), false);
+  single.lines[0].quantity = { crates: 0, fraction: 1, bottles: 0 };
+  assert.equal(isQuickRetailEmptiesSale(single), false);
+  single.lines[0].quantity = { crates: 0, fraction: 0, bottles: 1 };
+  single.lines.push({ productId: "trophy", quantity: { crates: 0, fraction: 0, bottles: 1 } });
+  assert.equal(isQuickRetailEmptiesSale(single), false);
 });
