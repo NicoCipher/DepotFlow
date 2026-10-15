@@ -208,6 +208,35 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
   const missingDepositSetup =
     depositBlocked && result ? depositSetupIssues(result, catalog) : [];
 
+  const actualCratesDiffer = [...expectedCrates].some(
+    ([type, count]) => state.returnedCrates[type] !== undefined && Number(state.returnedCrates[type]) !== count,
+  ) || Object.entries(state.returnedCrates).some(([type, value]) => !expectedCrates.has(type) && Number(value) > 0);
+  const actualBottlesDiffer = [...expectedBottles].some(
+    ([type, count]) => state.returnedBottles[type] !== undefined && Number(state.returnedBottles[type]) !== count,
+  ) || Object.entries(state.returnedBottles).some(([type, value]) => !expectedBottles.has(type) && Number(value) > 0);
+  const physicalCratesDiffer = draft.lines.some(
+    (line) => state.cratesTaken[line.productId] !== undefined && Number(state.cratesTaken[line.productId]) !== line.quantity.crates,
+  );
+  const actualHasException = actualCratesDiffer || actualBottlesDiffer || physicalCratesDiffer || (state.decisions?.length ?? 0) > 0;
+
+  const unmatchedCrateTypes = Object.entries(result?.unmatchedCrates ?? {}).filter(([, count]) => count > 0);
+  const unmatchedBottleTypes = Object.entries(result?.unmatchedBottles ?? {}).filter(([, count]) => count > 0);
+  const decisionKind = (choice.kind === "crate" && unmatchedCrateTypes.length > 0)
+    || (choice.kind === "bottle" && unmatchedBottleTypes.length > 0)
+    ? choice.kind : unmatchedCrateTypes.length > 0 ? "crate" : "bottle";
+  const availableWrongTypes = decisionKind === "crate" ? unmatchedCrateTypes : unmatchedBottleTypes;
+  const missingForChoice = (result?.lines ?? []).filter(
+    (line) => decisionKind === "crate" ? line.cratesOwed > 0 : line.bottlesOwed > 0,
+  );
+  const chosenMissing = missingForChoice.find((line) => line.productId === choice.productId) ?? missingForChoice[0];
+  const chosenWrongType = availableWrongTypes.find(([type]) => type === choice.returnedType)?.[0] ?? availableWrongTypes[0]?.[0] ?? "";
+  const selectedWasEdited = choice.kind === decisionKind && choice.productId === chosenMissing?.productId && choice.returnedType === chosenWrongType;
+  const missingQuantity = chosenMissing ? (decisionKind === "crate" ? chosenMissing.cratesOwed : chosenMissing.bottlesOwed) : 0;
+  const wrongQuantity = availableWrongTypes.find(([type]) => type === chosenWrongType)?.[1] ?? 0;
+  const suggestedQuantity = String(Math.min(missingQuantity, wrongQuantity));
+  const chosenDecisionQuantity = selectedWasEdited && choice.quantity ? choice.quantity : suggestedQuantity;
+  const decisionHasUnmatched = unmatchedCrateTypes.length > 0 || unmatchedBottleTypes.length > 0;
+
   // One wrong loose bottle type should require a decision, not another round
   // of selecting its type and re-entering the same count.
   const simpleBottleReturn = state.mode === "actual" && result
@@ -791,6 +820,12 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
         </section>
       )}
 
+      {state.mode === "actual" && !actualHasException && !hasFieldErrors && (
+        <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950">
+          These amounts still match what was expected. If everything came back correctly, choose “Yes, all returned” above.
+        </p>
+      )}
+
       <div className="sale-sticky-actions sticky z-10 -mx-4 flex items-center gap-3 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
         <button
           type="button"
@@ -803,7 +838,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
           type="button"
           className="primary min-w-0 flex-1"
           disabled={
-            hasFieldErrors || !result || (state.mode === "exact" && !exactConfirmed) || hasUnmatchedSaleEmpties(result) || Boolean(error) || depositBlocked
+            hasFieldErrors || !result || (state.mode === "exact" && !exactConfirmed) || (state.mode === "actual" && !actualHasException) || hasUnmatchedSaleEmpties(result) || Boolean(error) || depositBlocked
           }
           onClick={() => update({ step: "payment" })}
         >
