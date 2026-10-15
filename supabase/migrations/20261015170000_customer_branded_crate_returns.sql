@@ -23,7 +23,7 @@ begin
   for item in select value from jsonb_array_elements(p_crates)
     order by value->>'crateTypeId',coalesce(value->>'returnedCrateTypeId',value->>'crateTypeId') loop
     if coalesce(item->>'crateTypeId','') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-      or coalesce(item->>'returnedCrateTypeId',item->>'crateTypeId','') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      or coalesce(item->>'returnedCrateTypeId',item->>'crateTypeId','') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
       or coalesce(item->>'quantity','') !~ '^[1-9][0-9]{0,8}$'
     then raise exception using errcode='22023',message='Check the returned empties.'; end if;
     quantity:=(item->>'quantity')::integer;
