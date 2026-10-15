@@ -17,16 +17,16 @@ export function EmptyQuantityRow({
   const parsed = /^\d+$/.test(value) ? Number(value) : NaN;
   const valid = Number.isSafeInteger(parsed) && parsed >= 0;
   const delta = valid ? expected - parsed : 0;
-  const singular = unit;
-  const plural = unit + "s";
+  const singular = `empty ${unit}`;
+  const plural = `empty ${unit}s`;
   const status = error
     ? "Check the quantity"
     : !valid
       ? "Enter a whole number"
       : delta > 0
-        ? `${delta} ${delta === 1 ? singular : plural} still missing`
+        ? `${delta} ${delta === 1 ? singular : plural} still owed after this sale`
         : delta < 0
-          ? `${-delta} extra ${-delta === 1 ? singular : plural} returned`
+          ? `${-delta} extra ${-delta === 1 ? singular : plural} returned · check separately`
           : "Expected amount returned";
 
   return (
