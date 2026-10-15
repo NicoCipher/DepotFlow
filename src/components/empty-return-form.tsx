@@ -121,8 +121,11 @@ export function EmptyReturnForm({
             <label key={row.id} className="flex min-h-14 items-center gap-3 py-2">
               <input type="checkbox" name="released" value={row.id}
                 checked={collected.includes(row.id)}
-                onChange={(event) => setCollected((current) => event.currentTarget.checked
-                  ? [...current, row.id] : current.filter((id) => id !== row.id))}
+                onChange={(event) => {
+                  const checked = event.currentTarget.checked;
+                  setCollected((current) => checked
+                    ? [...current, row.id] : current.filter((id) => id !== row.id));
+                }}
                 disabled={pending} className="h-5 w-5 shrink-0" />
               <span>{row.quantity} {row.returned_name} {row.kind === "crate" ? "empty crates" : "empty bottles"} were held</span>
             </label>
