@@ -1505,6 +1505,25 @@ export function SaleBuilder({
                       return;
                     }
 
+                    if (response.code === "empties_changed") {
+                      // The server checked the latest product/empty setup before
+                      // starting the sale transaction. Keep the unfinished sale,
+                      // discard the old confirmation, and require fresh catalog
+                      // details before the operator can confirm it again.
+                      const moved = await sales.update({
+                        step: "empties",
+                        emptiesV2: { ...draft.emptiesV2, confirmedAllReturned: null },
+                      });
+                      if (!moved) {
+                        setMessage(sales.error || "Could not update the sale on this device. Try again.");
+                        return;
+                      }
+                      setVerifiedId(null);
+                      setCheckAttempt((n) => n + 1);
+                      setMessage(response.error);
+                      return;
+                    }
+
                     if (response.code === "customer_unavailable") {
                       try {
                         const refreshed = await refreshSaleCatalog();
