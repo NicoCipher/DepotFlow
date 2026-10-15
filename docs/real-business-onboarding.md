@@ -18,6 +18,18 @@ The current app is owner-only (`private.shop_owner` singleton, `shop_profile.id=
 - A person who doesn't finish setup signs in again and **resumes** at the last saved step. No accidental orphaned businesses or duplicate shops from a double tap.
 - **Pilot owner account belongs to the dad/business operator**, using an email he controls—not a recycled testing/developer login, not a shared staff password. Owner MFA and recovery should be offered/enforced according to the launch security policy.
 
+### Sole-owner account recovery (required before activation)
+
+A depot must not be permanently lost just because its only owner loses an email account or MFA device, and support must never have a secret shortcut to become owner:
+
+- Enrollment requires verified owner email and a **second independent recovery method**. Offer one-time recovery codes, generated and displayed once, stored server-side only as salted hashes, plus an optional independently verified backup contact or authenticator. The owner must confirm that they saved a recovery method before final shop activation; never collect passwords, codes or OTPs through support chat.
+- If email remains available, standard provider password reset and MFA re-verification restore account access. If an MFA device is lost, a valid unused recovery code plus re-verification of the owner-controlled email recovers access; invalidate used codes and rotate active sessions.
+- If email access is lost, start a **high-assurance recovery case**. Demand independent evidence of control of the shop and identity (using a separately secured channel), any retained recovery proof, and review by two independent, authorized platform administrators. Notify old contact routes, impose a review/cooling-off period before owner-email change, record the verified evidence reference and approvers in a tamper-resistant audit, and revoke all prior sessions when approved. No staff account or developer can unilaterally transfer ownership.
+- If ownership cannot be verified securely, deny automatic takeover and preserve the business data pending further verification. Never bypass membership/RLS or expose full customer finance data to support. Provide clear recovery status, privacy handling and a support escalation route.
+- Tests: ordinary password reset; missing email; missing MFA; single-use recovery code reuse; forged recovery request; two-reviewer separation; stale session revocation; recovered owner still restricted to their own depot.
+
+These are acceptance requirements, **not existing implemented features**. An owner-only launch is blocked until recovery and session revocation are independently verified.
+
 ### 1. About your business
 
 Primary action: **Continue**. Fields: business display/receipt name (required), address (optional during draft but confirm before receipts), contact number (confirm before receipts), logo (optional). Name spelling must be owner-confirmed; do not copy test profile automatically.
@@ -45,7 +57,7 @@ Primary action: **Save opening stock**. Show selected drinks with simple per-pro
 ### 4. Add customers and what they already owe
 
 Primary action: **Add a customer**, secondary **Skip for now**. A depot can start trading without importing its full customer book. A walk-in / retail customer flow is a separate sale decision, not a fake customer created during onboarding.
-- Add name and identifying contact where available; review whether phone can be genuinely optional as the current DB requires it. Never fabricate a phone number to satisfy validation. Detect possible duplicates before saving and allow later edit.
+- Add a customer's real name; **phone is optional** for owner-onboarded customer records. Before release, update the current `customers.phone NOT NULL` schema and add/edit/search validation to permit a missing phone stored as `NULL`, without fake contact details; compare name and available phone for possible duplicates and let the owner distinguish namesakes before saving. If the optional-phone migration and regressions have not shipped, **do not launch this onboarding step**. Never invent a phone number.
 - For each customer, **starting money owed**, **crates owed by exact crate type**, **bottles owed by exact bottle type**, and **deposit held** are *separate fields*. Each nonzero starting obligation is explicitly confirmed; zero means none, blank means not entered/unknown.
 - Opening balances represent what the customer already owes **as of the go-live date**, not a new sale or repayment. Do not recreate historical test receipts or use prior test sale totals as the opening amount. A customer starting at zero needs no historical payment receipt.
 - Onboard only real, owner-verified data; test customers can be manually re-entered selectively or imported through a later, reviewed **preview → choose → reconcile → confirm** tool. No automatic bulk copy from the test database. Phone numbers and private balances must not appear in public PRs, logs or error reports.
