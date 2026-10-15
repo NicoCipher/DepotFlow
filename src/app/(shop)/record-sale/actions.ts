@@ -30,6 +30,7 @@ async function loadCatalog(supabase: OwnerClient): Promise<SaleCatalog> {
         .select(
           "id,name,size,image_url,bottles_per_crate,full_crate_price,half_crate_price,quarter_crate_price,bottle_price,bottles_returnable,bottle_type,crate_type_id,crate_type:crate_types(name,is_legacy,pocket_count,empty_family),stock(total_bottles)",
         )
+        .eq("is_active", true)
         .order("name")
         .order("id")
         .range(offset, offset + 999);
@@ -231,6 +232,9 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
         error: inactiveSaleCustomerMessage,
         code: "customer_unavailable" as const,
       };
+
+    if (draft.lines.some((line) => !fresh.products.some((p) => p.id === line.productId)))
+      return { error: "A drink in this sale is no longer available. Go back to Drinks and remove it before saving.", code: "product_unavailable" as const };
 
     const empties = matchSaleEmpties(draft, fresh);
     if (draft.emptiesV2.mode === "exact" && !hasConfirmedAllReturned(draft, empties))
