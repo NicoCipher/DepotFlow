@@ -5,6 +5,7 @@ import {
   matchesSaleCustomer,
   modeForSaleDrink,
   changeSaleCustomer,
+  hasCustomerBoundSaleWork,
   saleSaveConfirmationKey,
   priceQuantity,
   putSaleLine,
@@ -437,4 +438,18 @@ test("changing customer preserves drinks but clears previous account's money and
   assert.deepEqual(changed.emptiesV2.returnedBottles, {});
   assert.deepEqual(changed.emptiesV2.cratesTaken, {});
   assert.deepEqual(changeSaleCustomer(draft, "customer-old"), { customerId: "customer-old", step: "drinks" });
+});
+
+test("customer-change confirmation remains necessary after the final drink is removed", () => {
+  assert.equal(hasCustomerBoundSaleWork({ ...emptySaleDraft }), false);
+  assert.equal(hasCustomerBoundSaleWork({ ...emptySaleDraft, paid: "500" }), true);
+  assert.equal(hasCustomerBoundSaleWork({ ...emptySaleDraft, oldDebtPaid: "500" }), true);
+  assert.equal(hasCustomerBoundSaleWork({ ...emptySaleDraft, paymentMethod: "cash" }), true);
+  assert.equal(hasCustomerBoundSaleWork({ ...emptySaleDraft, emptiesV2: {
+    ...emptySaleDraft.emptiesV2, returnedBottles: { glass: "2" },
+  } }), true);
+  assert.equal(hasCustomerBoundSaleWork({ ...emptySaleDraft, emptiesV2: {
+    ...emptySaleDraft.emptiesV2, confirmedAllReturned: "some-signed-key",
+  } }), true);
+  assert.equal(hasCustomerBoundSaleWork({ ...emptySaleDraft, lines: [{ productId: "one", quantity: q(1) }] }), true);
 });
