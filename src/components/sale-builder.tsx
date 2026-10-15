@@ -897,7 +897,7 @@ export function SaleBuilder({
                   const line = draft.lines.find((item) => item.productId === p.id);
                   const setupIssue = saleProductSetupIssue(p);
                   const shownPrice = saleCardPrice(p, browsingMode);
-                  const selectable = Boolean(p.available) && !setupIssue;
+                  const selectable = Boolean(p.available) && !setupIssue && (browsingMode !== "retail" || shownPrice.available);
                   return (
                     <li key={p.id} className="min-w-0">
                       <div className={line
@@ -922,15 +922,15 @@ export function SaleBuilder({
                             </span>
                             <span className="block text-xs text-stone-600">{shownPrice.secondary}</span>
                             <span className={line ? "mt-2 flex items-center gap-1 text-sm font-bold text-emerald-900" : "mt-2 flex items-center gap-1 text-sm font-bold text-emerald-800"}>
-                              {setupIssue ? "Setup needed" : !p.available ? "Cannot add" : line
+                              {setupIssue ? "Setup needed" : !p.available ? "Cannot add" : browsingMode === "retail" && !shownPrice.available ? "Set retail bottle price" : line
                                 ? <><SaleIcon name="check" className="h-4 w-4" /> In this sale · Change</>
                                 : <><SaleIcon name="plus" className="h-4 w-4" /> Add this drink</>}
                             </span>
                           </span>
                         </button>
-                        {setupIssue && (
+                        {(setupIssue || (browsingMode === "retail" && !shownPrice.available)) && (
                           <Link className="quiet-link mx-3 mb-2 inline-block text-sm" href={"/products/" + p.id + "/edit"}>
-                            Finish drink setup
+                            {setupIssue ? "Finish drink setup" : "Set retail bottle price"}
                           </Link>
                         )}
                       </div>
