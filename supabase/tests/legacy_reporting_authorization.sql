@@ -60,6 +60,9 @@ insert into report_calls(name,rpc_sql) values
  'select * from public.manager_snapshot(''2026-10-15''::date)'),
 ('store_activity',
  'select * from public.store_activity(''2026-10-15''::date,''2026-10-15''::date,null,''all'',20,0)');
+-- pg_temp data was created by the test admin role. The mocked PostgREST
+-- authenticated role needs READ on these test-only call definitions.
+grant select on pg_temp.report_calls to authenticated;
 
 -- Preactivation legacy reads stay compatible.
 set local role authenticated;
