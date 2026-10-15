@@ -38,6 +38,17 @@ export default async function CrateTypesPage({
     (crate) => crate.is_legacy && !currentCrateIds.has(crate.id),
   );
   const activeTypes = types.filter((crate) => !olderRecords.includes(crate));
+  // A generic brewery-shaped crate ID assigned to several drinks is not
+  // proof of separate physical brands. Surface reconciliation explicitly.
+  // Never infer or automatically split physical stock or customer obligations.
+  const pooled = activeTypes.filter((crate) => {
+    const assigned = products.filter((p) => p.crate_type_id === crate.id);
+    if (assigned.length < 2) return false;
+    const name = crate.name.trim().toLowerCase();
+    if (["nb", "nbl", "nigerian breweries"].includes(name)) return true;
+    return !assigned.some((product) =>
+      product.name.toLowerCase().includes(name));
+  });
   const groups = Map.groupBy(activeTypes, (crate) =>
     crateNeedsSetup(crate) ? "Needs setup" : canonicalCrateFamily(crate.empty_family!),
   );
@@ -54,6 +65,32 @@ export default async function CrateTypesPage({
       )}
       {status.deleted === "1" && <p role="status" className="mt-3 text-emerald-900">Unused crate deleted.</p>}
       <p className="mt-4 text-stone-600">Set up the crates your drinks use. This page describes each crate; record the number in your shop under Empty Crates.</p>
+      <p className="mt-3 text-sm text-stone-600">A brewery is a group, not a physical crate. Every identifiable branded crate must have its own identity. Replacements require separate approved rules.</p>
+      {pooled.length > 0 && (
+        <section aria-label="Shared crate identities need review" className="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-4">
+          <h2 className="text-lg font-semibold text-amber-950">{pooled.length} shared crate {pooled.length === 1 ? "identity" : "identities"} need review</h2>
+          <p className="mt-2 text-sm text-amber-950">
+            Generic crate identities are attached to different drinks. Check the actual brand marked on each physical crate. Create the missing branded identities, then update each drink to use its own correct crate.
+            Keep historic customer debts and recorded counts on their original IDs until physically reconciled.
+          </p>
+          <ul className="mt-3 space-y-3">
+            {pooled.map((crate) => (
+              <li key={crate.id} className="border-t border-amber-200 pt-2 text-sm">
+                <strong>{crate.name} · {crate.pocket_count ?? "?"} bottle spaces</strong>
+                <span className="ml-2">{products.filter(p => p.crate_type_id === crate.id).length} drinks assigned</span>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+                  {products.filter(p => p.crate_type_id === crate.id).map((p) => (
+                    <Link key={p.id} href={`/products/${p.id}/edit`} className="font-medium underline text-amber-950">
+                      Correct {p.name}{p.size ? ` ${p.size}` : ""}
+                    </Link>
+                  ))}
+                </div>
+              </li>
+            ))}
+          </ul>
+          <Link href="/crate-types/new" className="secondary mt-4 inline-flex">Create a branded crate</Link>
+        </section>
+      )}
       {!types.length && <p className="mt-6">No crates set up yet. Add your first crate above, then select it when setting up a drink.</p>}
       {Array.from(groups)
         .sort(([a], [b]) =>
@@ -112,10 +149,10 @@ export default async function CrateTypesPage({
       {olderRecords.length > 0 && (
         <details className="mt-8 border-t border-stone-300 pt-3">
           <summary className="min-h-12 cursor-pointer py-3 font-semibold text-emerald-900">
-            Older crate records ({olderRecords.length})
+            Historical crate records ({olderRecords.length})
           </summary>
           <p className="mb-2 text-sm text-stone-600">
-            No current drinks use these records. They may still belong to past
+            These are legacy identities, not deleted crates. No current drinks use them, but they may still belong to past
             stock or sales, so they stay available here for reference.
           </p>
           <ul className="divide-y divide-stone-200">
