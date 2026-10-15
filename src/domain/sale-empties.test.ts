@@ -8,6 +8,7 @@ import {
   assertAllReturnedConfirmed,
   hasConfirmedAllReturned,
   hasNoExpectedSaleEmpties,
+  paymentStepAfterEmpties,
   hasUnmatchedSaleEmpties,
   depositSetupIssues,
   emptyEmptiesV2,
@@ -631,4 +632,48 @@ test("no-empties fast path survives draft reload, but changed obligations are no
   assert.equal(hasNoExpectedSaleEmpties(changed), false);
   assert.equal(hasConfirmedAllReturned(resumedReview, changed), false);
   assert.throws(() => assertAllReturnedConfirmed(resumedReview, changed), /Confirm the crates and bottles/);
+});
+
+test("in-step zero-obligation return saves a durable confirmation when proceeding to payment", () => {
+  const withoutBottles = {
+    ...goldberg,
+    bottles_returnable: false,
+    bottle_type: null,
+  };
+  const dryCatalog = { ...catalog, products: [withoutBottles, trophy, big] };
+  const draft = sale("goldberg");
+  draft.emptiesV2.mode = "exact";
+  // Whole crate sold, but customer carries its bottles without plastic crate.
+  draft.emptiesV2.cratesTaken = { goldberg: "0" };
+  const preview = matchSaleEmpties(draft, dryCatalog);
+  assert.equal(hasNoExpectedSaleEmpties(preview), true);
+  assert.equal(draft.emptiesV2.confirmedAllReturned ?? null, null);
+  const patch = paymentStepAfterEmpties(draft, preview);
+  const resumed = readSaleDraft(JSON.stringify({ ...draft, ...patch }));
+  assert.equal(resumed.step, "payment");
+  assert.equal(resumed.emptiesV2.mode, "exact");
+  assert.equal(hasConfirmedAllReturned(resumed, matchSaleEmpties(resumed, dryCatalog)), true);
+
+  const updatedCatalog = {
+    ...dryCatalog,
+    products: [goldberg, trophy, big],
+  };
+  const changed = matchSaleEmpties(resumed, updatedCatalog);
+  assert.equal(hasNoExpectedSaleEmpties(changed), false);
+  assert.equal(hasConfirmedAllReturned(resumed, changed), false);
+  assert.throws(() => assertAllReturnedConfirmed(resumed, changed), /Confirm the crates and bottles/);
+});
+
+test("continuing from unconfirmed all-returned crates cannot forge confirmation", () => {
+  const draft = sale("goldberg");
+  draft.emptiesV2.mode = "exact";
+  const preview = matchSaleEmpties(draft, catalog);
+  assert.throws(() => paymentStepAfterEmpties(draft, preview), /Confirm the crates and bottles/);
+  draft.emptiesV2.confirmedAllReturned = allReturnedConfirmationKey(draft, preview);
+  const patch = paymentStepAfterEmpties(draft, preview);
+  assert.equal(readSaleDraft(JSON.stringify({ ...draft, ...patch })).step, "payment");
+
+  draft.emptiesV2.mode = "actual";
+  const actual = paymentStepAfterEmpties(draft, matchSaleEmpties(draft, catalog));
+  assert.deepEqual(actual, { step: "payment" });
 });
