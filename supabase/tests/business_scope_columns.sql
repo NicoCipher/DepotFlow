@@ -60,10 +60,10 @@ begin
         and conkey=array[att_no]::smallint[]) then
       raise exception 'Missing business FK: %.%',rec.s,rec.n;
     end if;
-    if has_column_privilege('authenticated',rel_oid,att_no::int,'UPDATE')
-       or has_column_privilege('authenticated',rel_oid,att_no::int,'INSERT')
-       or has_column_privilege('anon',rel_oid,att_no::int,'UPDATE')
-       or has_column_privilege('anon',rel_oid,att_no::int,'INSERT') then
+    if has_column_privilege('authenticated',rel_oid,att_no,'UPDATE')
+       or has_column_privilege('authenticated',rel_oid,att_no,'INSERT')
+       or has_column_privilege('anon',rel_oid,att_no,'UPDATE')
+       or has_column_privilege('anon',rel_oid,att_no,'INSERT') then
       raise exception 'Client can forge business_id on %.%',rec.s,rec.n;
     end if;
     total := total + 1;
