@@ -19,8 +19,21 @@ insert into private.business_memberships(business_id,user_id,member_kind)
 values ('80000000-0000-4000-9000-000000000002',
         '80000000-0000-4000-8000-000000000002','owner');
 
-do $$
+do $
 begin
+  begin
+    insert into private.business_memberships
+      (business_id,user_id,member_kind,status)
+    values ('80000000-0000-4000-9000-000000000001',
+            '80000000-0000-4000-8000-000000000002',
+            'owner','active');
+    raise exception 'A second owner gained the same shop' using errcode='PT001';
+  exception when unique_violation then null;
+  end;
+  if (select count(*) from private.business_memberships
+      where business_id='80000000-0000-4000-9000-000000000001') <> 1 then
+    raise exception 'More than one owner attached to same depot';
+  end if;
   if exists(select 1 from private.business_memberships
        where member_kind <> 'owner') then
     raise exception 'V1 may not contain any staff membership';
