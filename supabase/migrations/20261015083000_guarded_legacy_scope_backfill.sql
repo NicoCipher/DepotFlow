@@ -8,6 +8,15 @@ begin;
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 
+-- Existing crate metadata may legitimately contain a historic product/pocket
+-- mismatch. The old blanket UPDATE trigger also fired for a business_id-only
+-- tag, even though no packaging metadata changed. Keep validation on every
+-- pocket_count edit; never disable it during ordinary crate editing.
+drop trigger crate_product_pockets on public.crate_types;
+create trigger crate_product_pockets
+before update of pocket_count on public.crate_types
+for each row execute function private.check_crate_product_pockets();
+
 -- Explicit allowlist: product_catalogue is global, never legacy-tagged.
 create function private.legacy_scope_tables()
 returns table(schema_name text, table_name text)
