@@ -14,7 +14,7 @@ The current app is owner-only (`private.shop_owner` singleton, `shop_profile.id=
 
 - Clear choice: **Sign in** or **Create an account** (not an employee invitation). Use a verified email + password for v1, with recoverable account identity and strong password requirements; no passwords or reset codes in DepotFlow tables.
 - Confirmation via verification email; friendly expired-link, already-registered and retry handling. Only after verified identity may the server create an owner membership. Password reset and session expiry must be recoverable.
-- New owners can own a business; an existing user may later join another business, without mixing data. Business creation must be idempotent, rate limited, auditable, and tied to `auth.uid()`; never trust a client-supplied owner UUID or `is_owner` flag.
+- For the initial owner-only release, each newly registered owner creates one independent business. Multi-business account switching and staff invitations are a later release; isolation is tested using two separate owner identities. Business creation must be idempotent, rate limited, auditable, and tied to `auth.uid()`; never trust a client-supplied owner UUID or `is_owner` flag.
 - A person who doesn't finish setup signs in again and **resumes** at the last saved step. No accidental orphaned businesses or duplicate shops from a double tap.
 - **Pilot owner account belongs to the dad/business operator**, using an email he controls—not a recycled testing/developer login, not a shared staff password. Owner MFA and recovery should be offered/enforced according to the launch security policy.
 
@@ -36,11 +36,11 @@ Primary action: **Add drinks**. Search/select from shared master catalogue; also
 ### 3. Count what is already in the shop
 
 Primary action: **Save opening stock**. Show selected drinks with simple per-product **Crates / Loose bottles**, stock displayed in natural units.
-- “Opening stock” is a **snapshot of today's existing goods**, not a new delivery, sale, or recount correction. Create an idempotent, tenant-scoped opening event and set initial quantities only once, after owner review. Do not call a routine receiving RPC (could require empty crates) or ordinary stock-adjustment RPC (could mislabel the reason).
+- “Opening stock” is a **snapshot of today's existing goods**, not a new delivery, sale, or recount correction. Keep initial quantities in **editable, versioned draft opening positions** until activation. An owner may correct a physical count on the review screen without changing live stock or recording a misleading adjustment. Upon activation, commit final counts once with idempotent opening events; retries return the first result and changed or stale payloads fail safely. Do not call a routine receiving RPC (could require empty crates) or ordinary stock-adjustment RPC (could mislabel the reason).
 - Distinguish **Not counted yet** from **0 in stock**. Counted zero is explicit; never silently assume 0 or positive stock from test data.
 - Include **empty crates physically here** and **empty bottles physically here** as separate opening inventories, by **exact crate/bottle type**. Do not turn unopened full-drink stock into empty-crate stock automatically. Each item has its own optional confirmation.
 - For a new business with no existing stock, owner may start with zero stock and receive actual deliveries later, but warning makes that intentional. A selected product cannot be sold if stock is unconfirmed/unavailable.
-- All opening events save `business_id`, verified `actor_user_id`, effective business date, request ID and a readable audit source. Replays never double stock.
+- Distinguish **Not counted**, **Counted zero** and positive counted quantities through setup and reload. Only confirmed final counts become immutable opening events, with `business_id`, verified `actor_user_id`, effective date, request ID and readable audit origin. Replays never double stock.
 
 ### 4. Add customers and what they already owe
 
@@ -49,7 +49,7 @@ Primary action: **Add a customer**, secondary **Skip for now**. A depot can star
 - For each customer, **starting money owed**, **crates owed by exact crate type**, **bottles owed by exact bottle type**, and **deposit held** are *separate fields*. Each nonzero starting obligation is explicitly confirmed; zero means none, blank means not entered/unknown.
 - Opening balances represent what the customer already owes **as of the go-live date**, not a new sale or repayment. Do not recreate historical test receipts or use prior test sale totals as the opening amount. A customer starting at zero needs no historical payment receipt.
 - Onboard only real, owner-verified data; test customers can be manually re-entered selectively or imported through a later, reviewed **preview → choose → reconcile → confirm** tool. No automatic bulk copy from the test database. Phone numbers and private balances must not appear in public PRs, logs or error reports.
-- Save each starting obligation idempotently, validate allowed types, and preserve source/date/actor. No duplicate debt on resume/retry.
+- Keep **one editable, versioned opening-position draft per customer**, containing their starting money owed, held deposit, all exact crate/bottle obligations, an explicit completeness manifest, source and date. Do **not** separately commit money before crates/bottles/deposits. Upon activation, a **single atomic and idempotent database transaction** commits the customer's entire verified opening position or nothing. Missing/unverified fields leave the customer incomplete and block activation; a retry checks the original result, never creates part of a ledger or doubles debt.
 
 ### 5. Review and begin selling
 
@@ -61,8 +61,8 @@ A brief summary with **Edit** beside every section:
 - Go-live date, timezone **Africa/Lagos**, and reminder that old test sales are not official shop history.
 
 A single clear **Start using DepotFlow** action:
-1. Validate the live business, owner, required fields, price/packaging validity, completion of all committed starting events and idempotency.
-2. Atomically mark the **business active** with an immutable activation timestamp and effective business date; double taps return the same activation.
+1. Validate the business, owner, required fields and price/packaging. Validate final revision of all **draft** opening stock and each customer's **complete money/deposit/empties manifest**. No partial opening record is acceptable.
+2. In one authorized business-scoped activation transaction, commit all confirmed opening stock/empties and full customer starting positions exactly once, and mark the business active with an immutable timestamp and date. Double taps return the same activation; conflicting versions fail and require review.
 3. Redirect to Home with a short success welcome. Do not create a fake celebratory sale or inject synthetic financial transactions.
 4. Optional, unobtrusive “Record your first sale” action. Staff invitations and advanced settings are postponed.
 
@@ -97,6 +97,12 @@ Suggested pilot order:
 - Platform developers silently see customers' money records or use a hidden owner backdoor.
 - Launch requires employee invites, accountancy knowledge or a long training session.
 
+## Anonymous receipt-verification privacy
+
+Holding a forwarded receipt link is **not** permission to inspect a customer's account. Anonymous `verify_receipt` responses must have an **exact allowlist**: receipt number, shop display name, business date, receipt kind (sale or payment), verification status (valid/voided), and the transaction's sale total or payment amount. All other fields are forbidden: customer name/phone, business phone/address, line items, linked records, internal UUIDs, cost prices, any `balance`, `account`, or old/new debt summary. A signed-in authorized business owner retains the full historical receipt with purchases, customer identity and account context. If later we design a customer-facing shared full receipt, it needs separately approved disclosure and permission rules.
+
+**Current exception requiring code change:** the production `public.verify_receipt` RPC includes customer and balance/account data, so it does **not** yet meet this allowlist. Before public self-serve onboarding, introduce a reviewed, backward-compatible response update and negative tests for every forbidden key for sale, partial sale, payment and voided receipts. Do not remove the underlying receipt data.
+
 ## Product dependencies and delivery order
 
 1. Review the Phase 1 access/security matrix (PR #80) and M1 foundation (PR #81).
@@ -105,5 +111,7 @@ Suggested pilot order:
 4. Build the mobile-first guided UI; test at 320px, normal phones, tablets, desktop and slow/lost internet.
 5. Regression tests for idempotency, unknown stock, opening balances, exact empties, duplicate customer names, historical receipts, cross-business requests, and fallback/recovery.
 6. Real pilot acceptance and approved production release. No Vercel preview deployments, no changing the current test account during development.
+
+Multi-business **data isolation** is required for signup, but a multi-business **switcher** and extra staff roles are explicitly postponed beyond V1.
 
 This is a *requirements contract*. Nothing described above claims to have been implemented.
