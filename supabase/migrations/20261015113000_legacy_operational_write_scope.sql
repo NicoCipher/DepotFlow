@@ -36,6 +36,9 @@ begin
   if v_business is null then
     -- Existing owner-only operation remains unchanged until a reviewed
     -- backfill + manual activation. No other business may sign up yet.
+    if tg_op='DELETE' then
+      return old;
+    end if;
     return new;
   end if;
 
@@ -58,7 +61,13 @@ begin
       using errcode='42501';
   end if;
 
-  if tg_op='UPDATE' then
+  if tg_op='DELETE' then
+    if old.business_id is distinct from v_business then
+      raise exception 'Cannot delete another business record'
+        using errcode='42501';
+    end if;
+    return old;
+  elsif tg_op='UPDATE' then
     if old.business_id is distinct from v_business
        or new.business_id is distinct from old.business_id then
       raise exception 'Operational business identity cannot be changed'
@@ -84,7 +93,7 @@ begin
   for r in select * from private.legacy_scope_tables() loop
     execute pg_catalog.format(
       'create trigger legacy_scope_business_write
-       before insert or update on %I.%I
+       before insert or update or delete on %I.%I
        for each row execute function private.scope_legacy_operational_write()',
       r.schema_name,r.table_name
     );
@@ -95,6 +104,52 @@ begin
   end if;
 end;
 $install$;
+
+-- The shared master catalogue is NOT tenant-owned and must not receive
+-- business_id. Nevertheless, its one authenticated edit surface (image_path)
+-- must lose write access if the old owner is suspended after gate activation.
+-- Keep the legacy owner policy for preactivation compatibility; the trigger
+-- hardens it without changing catalogue ownership or admin seed imports.
+create function private.guard_legacy_catalogue_image_write()
+returns trigger
+language plpgsql security definer set search_path=''
+as $
+declare
+  v_business uuid;
+  v_actor uuid;
+begin
+  select g.business_id into v_business
+  from private.legacy_write_scope_gate g
+  where g.enabled is true
+  for share;
+  if v_business is null then
+    return new;
+  end if;
+  v_actor := auth.uid();
+  if v_actor is null then
+    raise exception 'A verified owner session is required for catalogue photo updates'
+      using errcode='42501';
+  end if;
+  perform 1 from private.business_memberships m
+    join private.businesses b on b.id=m.business_id
+    join private.shop_owner so on so.user_id=m.user_id
+    where m.business_id=v_business and m.user_id=v_actor
+      and m.member_kind='owner' and m.status='active'
+      and b.legacy_singleton is true and b.status='active'
+    for share of m,b,so;
+  if not found then
+    raise exception 'Only the verified active legacy owner may update a catalogue photo'
+      using errcode='42501';
+  end if;
+  return new;
+end;
+$;
+revoke all on function private.guard_legacy_catalogue_image_write()
+  from public, anon, authenticated, service_role;
+
+create trigger legacy_scope_catalogue_image_write
+  before update of image_path on public.product_catalogue
+  for each row execute function private.guard_legacy_catalogue_image_write();
 
 -- Administrative, SECURITY INVOKER activation: a manually approved snapshot
 -- of all 29 tables must match exactly, with no NULL or foreign tags. Holds
