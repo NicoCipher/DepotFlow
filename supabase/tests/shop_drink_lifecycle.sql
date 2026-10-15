@@ -15,11 +15,48 @@ insert into public.stock(product_id,total_bottles)
 values ('89000000-0000-4000-9000-000000000020',120);
 insert into public.empty_crate_stock(crate_type_id,quantity)
 values ('89000000-0000-4000-9000-000000000010',2);
+-- Separate active uncounted drink to prove dashboard warnings are scoped.
+insert into public.products(id,name,bottles_per_crate,full_crate_price,bottles_returnable,crate_type_id)
+values ('89000000-0000-4000-9000-000000000021','Uncounted drink',12,12000,false,'89000000-0000-4000-9000-000000000010');
+
 insert into public.customers(id,name,phone,empties_deposit_required)
 values ('89000000-0000-4000-9000-000000000030','Shop customer','08000008900',false);
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub','89000000-0000-4000-8000-000000000001',true);
+
+do $dashboard$
+declare
+  p uuid := '89000000-0000-4000-9000-000000000021';
+  original jsonb;
+  hidden jsonb;
+  restored jsonb;
+begin
+  original:=public.manager_snapshot(current_date);
+  if (original->>'low_stock')::integer<>1
+    or (original->>'missing_counts')::integer<>1 then
+    raise exception 'Active uncounted stock warning missing';
+  end if;
+  perform public.set_shop_drink_active(p,false,true);
+  hidden:=public.manager_snapshot(current_date);
+  if (hidden->>'low_stock')::integer<>0
+    or (hidden->>'missing_counts')::integer<>0 then
+    raise exception 'Removed drink still contributes stock alerts';
+  end if;
+  if hidden->>'sales_count' is distinct from original->>'sales_count'
+    or hidden->>'outstanding' is distinct from original->>'outstanding'
+    or hidden->>'customers_owing' is distinct from original->>'customers_owing'
+    or hidden->>'received' is distinct from original->>'received' then
+    raise exception 'Removing a drink changed historical business totals';
+  end if;
+  perform public.set_shop_drink_active(p,true,false);
+  restored:=public.manager_snapshot(current_date);
+  if (restored->>'low_stock')::integer<>1
+     or (restored->>'missing_counts')::integer<>1 then
+    raise exception 'Restored drink did not return to active stock warnings';
+  end if;
+  perform public.set_shop_drink_active(p,false,true);
+end $dashboard$;
 
 do $lifecycle$
 declare
