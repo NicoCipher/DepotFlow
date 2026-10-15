@@ -377,6 +377,11 @@ export function SaleBuilder({
   })();
   const reviewKey = saleSaveConfirmationKey(draft, oldDebtAmount, reviewTotal);
   const finalSaveConfirmed = confirmedSaveKey === reviewKey;
+  const reviewSaveBlocked = pending || !draft.businessDate ||
+    reviewTotal === undefined || !emptiesReview || emptiesNeedConfirmation ||
+    hasUnmatchedSaleEmpties(emptiesReview) || Number(draft.paid) > reviewTotal ||
+    (!saveUncertain && (!paymentBreakdown || debtChecking || Boolean(oldDebtInputError) ||
+      (paymentBreakdown.collectNow > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))));
   const progressStep =
     step === "customer"
       ? 0
@@ -1620,48 +1625,16 @@ export function SaleBuilder({
             )}
             {!saveUncertain && !finalSaveConfirmed && (
               <button type="button" className="primary w-full"
-                disabled={                pending ||
-                !draft.businessDate ||
-                reviewTotal === undefined ||
-                !emptiesReview ||
-                emptiesNeedConfirmation ||
-                hasUnmatchedSaleEmpties(emptiesReview) ||
-                Number(draft.paid) > reviewTotal ||
-                (!saveUncertain && (
-                  !paymentBreakdown || debtChecking || Boolean(oldDebtInputError) ||
-                  (paymentBreakdown.collectNow > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))
-                ))}
+                disabled={reviewSaveBlocked}
                 onClick={() => { setSaveAcknowledged(false); setConfirmedSaveKey(reviewKey); }}>
                 Review final confirmation
               </button>
             )}
             {(saveUncertain || finalSaveConfirmed) && (
-            <button
-              className="primary w-full"
-              disabled={
-                                pending ||
-                !draft.businessDate ||
-                reviewTotal === undefined ||
-                !emptiesReview ||
-                emptiesNeedConfirmation ||
-                hasUnmatchedSaleEmpties(emptiesReview) ||
-                Number(draft.paid) > reviewTotal ||
-                (!saveUncertain && (
-                  !paymentBreakdown || debtChecking || Boolean(oldDebtInputError) ||
-                  (paymentBreakdown.collectNow > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))
-                )) ||
-                (!saveUncertain && !saveAcknowledged)
-                !draft.businessDate ||
-                reviewTotal === undefined ||
-                !emptiesReview ||
-                emptiesNeedConfirmation ||
-                hasUnmatchedSaleEmpties(emptiesReview) ||
-                Number(draft.paid) > reviewTotal ||
-                (!saveUncertain && (
-                  !paymentBreakdown || debtChecking || Boolean(oldDebtInputError) ||
-                  (paymentBreakdown.collectNow > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))
-                ))
-              }
+              <button
+                type="button"
+                className="primary w-full"
+                disabled={reviewSaveBlocked || (!saveUncertain && !saveAcknowledged)}
               onClick={() => {
                 startTransition(async () => {
                   const activeDraftId = sales.state.active?.id;
