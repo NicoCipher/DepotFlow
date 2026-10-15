@@ -40,6 +40,8 @@ begin
   end if;
   if has_table_privilege('authenticated','private.businesses','SELECT')
     or has_table_privilege('authenticated','private.businesses','INSERT')
+    or has_table_privilege('authenticated','private.businesses','UPDATE')
+    or has_table_privilege('authenticated','private.businesses','DELETE')
     or has_table_privilege('authenticated','private.business_memberships','SELECT')
     or has_table_privilege('authenticated','private.business_memberships','INSERT')
     or has_table_privilege('authenticated','private.business_memberships','UPDATE')
@@ -79,6 +81,16 @@ begin
   begin
     perform count(*) from private.businesses;
     raise exception 'Authenticated clients could read private businesses';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    update private.businesses set status='active';
+    raise exception 'Authenticated client could change another business';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    delete from private.businesses;
+    raise exception 'Authenticated client could delete businesses';
   exception when insufficient_privilege then null;
   end;
   begin
