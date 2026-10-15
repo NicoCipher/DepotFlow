@@ -44,6 +44,8 @@ export default async function EmptyCratesPage({
   const relevant = rows.filter(crate => crate.crate_type_id &&
     showInDailyEmptyCrates(crate, usedByProducts.has(crate.crate_type_id!)));
   const summary = summarizeEmptyCrates(relevant);
+  const olderCounted = relevant.filter(crate =>
+    crateNeedsSetup(crate) && crate.quantity !== null && crate.quantity > 0).length;
 
   return (
     <>
@@ -70,6 +72,21 @@ export default async function EmptyCratesPage({
       <p className="mb-4 text-sm text-stone-600">
         Brewery subtotals and the depot total are calculated from the individually recorded crate counts, not from drinks sold or customer crates owed.
       </p>
+      {olderCounted > 0 && (
+        <section aria-label="Older crate stock needs review"
+          className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <h2 className="font-semibold text-amber-950">Older crate counts need review</h2>
+          <p className="mt-1 text-sm text-amber-950">
+            {olderCounted} older crate {olderCounted === 1 ? "type still has" : "types still have"} stock.
+            Before recording separate branded counts for these crates, check the physical
+            crates and correct the old count too. Otherwise the depot total may count
+            the same crates twice.
+          </p>
+          <Link href="/crate-types" className="mt-3 inline-flex min-h-11 items-center font-semibold text-amber-950 underline">
+            Review crate identities →
+          </Link>
+        </section>
+      )}
       <EmptyCrateInventory groups={summary.groups} />
       <div className="mt-6 divide-y divide-stone-200 border-t border-stone-200">
         <Link className="flex min-h-14 items-center justify-between py-3 font-medium text-emerald-900"
