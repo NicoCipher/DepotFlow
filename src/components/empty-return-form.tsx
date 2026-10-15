@@ -38,7 +38,7 @@ export function EmptyReturnForm({
   const swapAmount = (swap: Swap) => counts[swapField(swap)] ?? "0";
   const rawSwapCount = (swap: Swap) => {
     const raw = swapAmount(swap);
-    if (!/^\\d{1,9}$/.test(raw)) return null;
+    if (!/^\d{1,9}$/.test(raw)) return null;
     const amount = Number(raw);
     const owed = crates.find(row => row.id === swap.owedId)?.owed;
     return Number.isSafeInteger(amount) && owed !== undefined && amount <= owed ? amount : null;
