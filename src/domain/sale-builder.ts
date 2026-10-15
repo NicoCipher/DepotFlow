@@ -294,6 +294,7 @@ export type SaleDraft = {
   emptiesV2: {
     decisions?: { productId: string; kind: "crate" | "bottle"; returnedType: string; quantity: string; decision: "accept" | "hold" }[];
     mode: "exact" | "actual";
+    confirmedAllReturned?: string | null;
     cratesTaken: Record<string, string>;
     returnedCrates: Record<string, string>;
     returnedBottles: Record<string, string>;
@@ -320,6 +321,7 @@ export const emptySaleDraft: SaleDraft = {
   emptiesV2: {
     decisions: [],
     mode: "exact",
+    confirmedAllReturned: null,
     cratesTaken: {},
     returnedCrates: {},
     returnedBottles: {},
@@ -406,11 +408,13 @@ export function readSaleDraft(raw: string | null): SaleDraft {
       !Array.isArray(d.emptiesV2);
     const rawEmpties = hasV2Empties ? d.emptiesV2 : {};
     const legacyNeedsReentry = !hasV2Empties && d.allEmpties === false;
+    const unconfirmedExact = !legacyNeedsReentry && rawEmpties.mode !== "actual" &&
+      (typeof rawEmpties.confirmedAllReturned !== "string" || !rawEmpties.confirmedAllReturned);
     return {
       ...emptySaleDraft,
       ...d,
       step:
-        legacyNeedsReentry && (d.step === "payment" || d.step === "review")
+        (legacyNeedsReentry || unconfirmedExact) && (d.step === "payment" || d.step === "review")
           ? "empties"
           : d.step === "check"
             ? "drinks"
@@ -434,6 +438,8 @@ export function readSaleDraft(raw: string | null): SaleDraft {
           const row = entry as Record<string, unknown>;
           return typeof row.productId === "string" && typeof row.returnedType === "string" && typeof row.quantity === "string" && ["crate", "bottle"].includes(String(row.kind)) && ["accept", "hold"].includes(String(row.decision));
         }) ? rawEmpties.decisions : [],
+        confirmedAllReturned: typeof rawEmpties.confirmedAllReturned === "string" && rawEmpties.confirmedAllReturned.length <= 250_000
+          ? rawEmpties.confirmedAllReturned : null,
         cratesTaken: stringMap(rawEmpties.cratesTaken),
         returnedCrates: stringMap(rawEmpties.returnedCrates),
         returnedBottles: stringMap(rawEmpties.returnedBottles),
