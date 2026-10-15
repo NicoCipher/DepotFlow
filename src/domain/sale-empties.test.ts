@@ -3,6 +3,10 @@ import { test } from "node:test";
 import {
   crateReturnIssues,
   assertSaleEmptiesResolved,
+  actualSaleEmpties,
+  allReturnedConfirmationKey,
+  assertAllReturnedConfirmed,
+  hasConfirmedAllReturned,
   hasUnmatchedSaleEmpties,
   depositSetupIssues,
   emptyEmptiesV2,
@@ -12,6 +16,7 @@ import {
 } from "./sale-empties.ts";
 import {
   emptySaleDraft,
+  readSaleDraft,
   type SaleCatalog,
   type SaleDraft,
   type SaleProduct,
@@ -495,4 +500,73 @@ test("unmatched wrong returns require an explicit choice before saving", () => {
   assert.throws(() => assertSaleEmptiesResolved(result), /Choose Accept or Hold/);
   draft.emptiesV2.decisions = [{ productId: "goldberg", kind: "crate", returnedType: "trophy-crate", quantity: "1", decision: "hold" }];
   assert.doesNotThrow(() => assertSaleEmptiesResolved(matchSaleEmpties(draft, catalog)));
+});
+
+test("all-returned mode requires an explicit confirmation, even when every expected empty matches", () => {
+  const draft = sale("goldberg", 2);
+  draft.emptiesV2.mode = "exact";
+  const match = matchSaleEmpties(draft, catalog);
+  assert.equal(match.hasShortage, false);
+  assert.equal(match.lines[0].cratesSettled, 2);
+  assert.equal(match.lines[0].bottlesSettled, 24);
+  assert.equal(hasConfirmedAllReturned(draft, match), false);
+  assert.throws(() => assertAllReturnedConfirmed(draft, match), /Confirm the crates and bottles/);
+  assert.throws(() => actualSaleEmpties(draft, catalog), /Confirm the crates and bottles/);
+});
+
+test("confirmed complete return records physical stock by exact crate and bottle type with no shortage", () => {
+  const draft = sale("goldberg", 2);
+  draft.lines.push({ productId: "trophy", quantity: { crates: 1, fraction: 0, bottles: 0 } });
+  draft.emptiesV2.mode = "exact";
+  const match = matchSaleEmpties(draft, catalog);
+  draft.emptiesV2.confirmedAllReturned = allReturnedConfirmationKey(draft, match);
+  assert.equal(hasConfirmedAllReturned(draft, match), true);
+  assert.doesNotThrow(() => assertAllReturnedConfirmed(draft, match));
+  const actual = actualSaleEmpties(draft, catalog);
+  assert.deepEqual(actual.crates, [
+    { crateTypeId: "goldberg-crate", quantity: 2 },
+    { crateTypeId: "trophy-crate", quantity: 1 },
+  ]);
+  assert.deepEqual(actual.bottles, [
+    { bottleType: "Goldberg bottle", quantity: 24 },
+    { bottleType: "Trophy bottle", quantity: 12 },
+  ]);
+  assert.equal(match.hasShortage, false);
+  assert.deepEqual(match.lines.map(line => [line.cratesOwed, line.bottlesOwed]), [[0, 0], [0, 0]]);
+});
+
+test("changing customer, quantity, crate carried or expected bottle type invalidates all-returned confirmation", () => {
+  const draft = sale("goldberg");
+  draft.emptiesV2.mode = "exact";
+  draft.emptiesV2.confirmedAllReturned = allReturnedConfirmationKey(draft, matchSaleEmpties(draft, catalog));
+  const changedCustomer = { ...draft, customerId: "different customer" };
+  assert.equal(hasConfirmedAllReturned(changedCustomer, matchSaleEmpties(changedCustomer, catalog)), false);
+  const changedQuantity = { ...draft, lines: [{ ...draft.lines[0], quantity: { crates: 2, fraction: 0 as const, bottles: 0 } }] };
+  assert.equal(hasConfirmedAllReturned(changedQuantity, matchSaleEmpties(changedQuantity, catalog)), false);
+  const changedCrates = { ...draft, emptiesV2: { ...draft.emptiesV2, cratesTaken: { goldberg: "0" } } };
+  assert.equal(hasConfirmedAllReturned(changedCrates, matchSaleEmpties(changedCrates, catalog)), false);
+  const changedCatalog = { ...catalog, products: catalog.products.map(p => p.id === "goldberg" ? { ...p, bottle_type: "New Goldberg bottle" } : p) };
+  assert.equal(hasConfirmedAllReturned(draft, matchSaleEmpties(draft, changedCatalog)), false);
+});
+
+test("resumed all-returned drafts retain confirmation; older unconfirmed drafts return to the empties step", () => {
+  const draft = sale("goldberg");
+  draft.emptiesV2.mode = "exact";
+  draft.step = "review";
+  draft.emptiesV2.confirmedAllReturned = allReturnedConfirmationKey(draft, matchSaleEmpties(draft, catalog));
+  const resumed = readSaleDraft(JSON.stringify(draft));
+  assert.equal(resumed.step, "review");
+  assert.equal(hasConfirmedAllReturned(resumed, matchSaleEmpties(resumed, catalog)), true);
+
+  const olderDraft = { ...draft, emptiesV2: { ...draft.emptiesV2, confirmedAllReturned: null } };
+  assert.equal(readSaleDraft(JSON.stringify(olderDraft)).step, "empties");
+});
+
+test("manual actual-return path remains available without all-returned confirmation", () => {
+  const draft = sale("goldberg");
+  draft.emptiesV2.returnedCrates["goldberg-crate"] = "1";
+  draft.emptiesV2.returnedBottles["Goldberg bottle"] = "12";
+  const match = matchSaleEmpties(draft, catalog);
+  assert.doesNotThrow(() => assertAllReturnedConfirmed(draft, match));
+  assert.equal(actualSaleEmpties(draft, catalog).crates[0].quantity, 1);
 });
