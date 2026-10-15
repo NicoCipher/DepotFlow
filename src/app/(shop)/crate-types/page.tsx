@@ -17,11 +17,12 @@ export default async function CrateTypesPage({
       name: string;
       size: string | null;
       crate_type_id: string;
+      is_active: boolean;
     }[] = [];
     for (let offset = 0; ; offset += 1000) {
       const { data, error } = await supabase
         .from("products")
-        .select("id,name,size,crate_type_id")
+        .select("id,name,size,crate_type_id,is_active")
         .order("id")
         .range(offset, offset + 999);
       if (error) throw new Error("Could not load products.");
@@ -33,7 +34,8 @@ export default async function CrateTypesPage({
     getCrateTypes(),
     productsPromise,
   ]);
-  const currentCrateIds = new Set(products.map((product) => product.crate_type_id));
+  const activeProducts = products.filter((product) => product.is_active);
+  const currentCrateIds = new Set(activeProducts.map((product) => product.crate_type_id));
   const olderRecords = types.filter(
     (crate) => crate.is_legacy && !currentCrateIds.has(crate.id),
   );
@@ -42,7 +44,7 @@ export default async function CrateTypesPage({
   // proof of separate physical brands. Surface reconciliation explicitly.
   // Never infer or automatically split physical stock or customer obligations.
   const pooled = activeTypes.filter((crate) => {
-    const assigned = products.filter((p) => p.crate_type_id === crate.id);
+    const assigned = activeProducts.filter((p) => p.crate_type_id === crate.id);
     if (assigned.length < 2) return false;
     const name = crate.name.trim().toLowerCase();
     // Only verified generic historical labels; packaging-variant names can
@@ -77,9 +79,9 @@ export default async function CrateTypesPage({
             {pooled.map((crate) => (
               <li key={crate.id} className="border-t border-amber-200 pt-2 text-sm">
                 <strong>{crate.name} · {crate.pocket_count ?? "?"} bottle spaces</strong>
-                <span className="ml-2">{products.filter(p => p.crate_type_id === crate.id).length} drinks assigned</span>
+                <span className="ml-2">{activeProducts.filter(p => p.crate_type_id === crate.id).length} active drinks assigned</span>
                 <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
-                  {products.filter(p => p.crate_type_id === crate.id).map((p) => (
+                  {activeProducts.filter(p => p.crate_type_id === crate.id).map((p) => (
                     <Link key={p.id} href={`/products/${p.id}/edit`} className="font-medium underline text-amber-950">
                       Correct {p.name}{p.size ? ` ${p.size}` : ""}
                     </Link>
@@ -109,7 +111,7 @@ export default async function CrateTypesPage({
                   <CrateDisplay crate={crate} includeFamily={false} />
                   <p className="mt-2 text-sm">
                     Used by:{" "}
-                    {products
+                    {activeProducts
                       .filter((p) => p.crate_type_id === crate.id)
                       .map((p) => [p.name, p.size].filter(Boolean).join(" "))
                       .join(", ") || "None yet"}
@@ -152,7 +154,7 @@ export default async function CrateTypesPage({
             Historical crate records ({olderRecords.length})
           </summary>
           <p className="mb-2 text-sm text-stone-600">
-            These are legacy identities, not deleted crates. No current drinks use them, but they may still belong to past
+            These are legacy identities, not deleted crates. No active drinks use them, but they may still belong to past
             stock or sales, so they stay available here for reference.
           </p>
           <ul className="divide-y divide-stone-200">
