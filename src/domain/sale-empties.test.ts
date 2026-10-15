@@ -7,6 +7,7 @@ import {
   allReturnedConfirmationKey,
   assertAllReturnedConfirmed,
   hasConfirmedAllReturned,
+  hasNoExpectedSaleEmpties,
   hasUnmatchedSaleEmpties,
   depositSetupIssues,
   emptyEmptiesV2,
@@ -569,4 +570,36 @@ test("manual actual-return path remains available without all-returned confirmat
   const match = matchSaleEmpties(draft, catalog);
   assert.doesNotThrow(() => assertAllReturnedConfirmed(draft, match));
   assert.equal(actualSaleEmpties(draft, catalog).crates[0].quantity, 1);
+});
+
+test("sales with no crates or returnable bottles can skip empties confirmation safely", () => {
+  const dry = {
+    ...goldberg,
+    id: "can",
+    name: "Nonreturnable can",
+    crate_type_id: "goldberg-crate",
+    bottles_returnable: false,
+    bottle_type: null,
+  };
+  const nonreturnableCatalog = { ...catalog, products: [...catalog.products, dry] };
+  const draft = sale("can", 0);
+  draft.lines[0].quantity = { crates: 0, fraction: 0, bottles: 3 };
+  draft.emptiesV2.mode = "exact";
+  const match = matchSaleEmpties(draft, nonreturnableCatalog);
+  assert.equal(hasNoExpectedSaleEmpties(match), true);
+  assert.equal(hasConfirmedAllReturned(draft, match), true);
+  assert.deepEqual(actualSaleEmpties(draft, nonreturnableCatalog), { crates: [], bottles: [] });
+});
+
+test("returnable loose bottles and full crates still require checking", () => {
+  const loose = sale("goldberg", 0);
+  loose.lines[0].quantity = { crates: 0, fraction: 0, bottles: 3 };
+  loose.emptiesV2.mode = "exact";
+  const looseMatch = matchSaleEmpties(loose, catalog);
+  assert.equal(hasNoExpectedSaleEmpties(looseMatch), false);
+  assert.equal(hasConfirmedAllReturned(loose, looseMatch), false);
+
+  const full = sale("goldberg", 1);
+  full.emptiesV2.mode = "exact";
+  assert.equal(hasNoExpectedSaleEmpties(matchSaleEmpties(full, catalog)), false);
 });
