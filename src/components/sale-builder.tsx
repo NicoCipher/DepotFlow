@@ -18,6 +18,7 @@ import { SaleEmptiesStep } from "./sale-empties-step";
 import {
   matchSaleEmpties,
   hasConfirmedAllReturned,
+  hasNoExpectedSaleEmpties,
   hasUnmatchedSaleEmpties,
   missingEmptiesMessage,
 } from "@/domain/sale-empties";
@@ -266,7 +267,14 @@ export function SaleBuilder({
           setMessage(checked.warnings[0]);
           return;
         }
-        await sales.update({ step: "empties" });
+        // No returned crates or bottles are required for this sale.
+        // Skip questions the operator does not need to answer.
+        const preview = matchSaleEmpties(
+          { ...draft, emptiesV2: { ...draft.emptiesV2, mode: "exact", decisions: [] } },
+          fresh,
+        );
+        const skipEmpties = draft.emptiesV2.mode === "exact" && hasNoExpectedSaleEmpties(preview);
+        await sales.update({ step: skipEmpties ? "payment" : "empties" });
         setMessage("");
       } catch {
         setMessage(saleNetworkMessage);
