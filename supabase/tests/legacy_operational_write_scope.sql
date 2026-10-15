@@ -43,7 +43,22 @@ begin
     join pg_namespace ns on ns.oid=cls.relnamespace
     join private.legacy_scope_tables() scope
       on scope.schema_name=ns.nspname and scope.table_name=cls.relname
+    join pg_constraint original
+      on original.conrelid=c.conrelid and original.confrelid=c.confrelid
+     and original.contype='f' and c.conname='tenant_'||original.conname
+     and array_length(original.conkey,1)=1
+     and array_length(original.confkey,1)=1
+    join pg_attribute child_scope
+      on child_scope.attrelid=c.conrelid
+     and child_scope.attname='business_id'
+     and not child_scope.attisdropped
+    join pg_attribute parent_scope
+      on parent_scope.attrelid=c.confrelid
+     and parent_scope.attname='business_id'
+     and not parent_scope.attisdropped
     where c.contype='f'
+      and c.conkey=ARRAY[child_scope.attnum,original.conkey[1]]::smallint[]
+      and c.confkey=ARRAY[parent_scope.attnum,original.confkey[1]]::smallint[]
       and left(c.conname,7)='tenant_'
       and c.confrelid in (
         'public.customers'::regclass,
@@ -152,7 +167,22 @@ begin
       join pg_namespace ns on ns.oid=cls.relnamespace
       join private.legacy_scope_tables() sc
         on sc.schema_name=ns.nspname and sc.table_name=cls.relname
+      join pg_constraint original
+        on original.conrelid=c.conrelid and original.confrelid=c.confrelid
+       and original.contype='f' and c.conname='tenant_'||original.conname
+       and array_length(original.conkey,1)=1
+       and array_length(original.confkey,1)=1
+      join pg_attribute child_scope
+        on child_scope.attrelid=c.conrelid
+       and child_scope.attname='business_id'
+       and not child_scope.attisdropped
+      join pg_attribute parent_scope
+        on parent_scope.attrelid=c.confrelid
+       and parent_scope.attname='business_id'
+       and not parent_scope.attisdropped
       where c.contype='f' and left(c.conname,7)='tenant_'
+        and c.conkey=ARRAY[child_scope.attnum,original.conkey[1]]::smallint[]
+        and c.confkey=ARRAY[parent_scope.attnum,original.confkey[1]]::smallint[]
         and c.confrelid in (
           'public.customers'::regclass,
           'public.crate_types'::regclass,
