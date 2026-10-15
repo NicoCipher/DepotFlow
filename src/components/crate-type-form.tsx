@@ -3,7 +3,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { saveCrateType } from "@/app/(shop)/crate-types/actions";
-import { validateCrateType, type CrateChoice } from "@/domain/crate-types";
+import { canonicalCrateFamily, validateCrateType, type CrateChoice } from "@/domain/crate-types";
 export function CrateTypeForm({
   id,
   editing = false,
@@ -18,7 +18,10 @@ export function CrateTypeForm({
   onCancel?: () => void;
 }) {
   const [submissionId] = useState(id);
-  const [values, setValues] = useState(initial);
+  const [values, setValues] = useState(() => ({
+    ...initial,
+    empty_family: canonicalCrateFamily(initial.empty_family),
+  }));
   const [pocket, setPocket] = useState(
     ["12", "20", "24"].includes(initial.pocket_count)
       ? initial.pocket_count
@@ -69,7 +72,7 @@ export function CrateTypeForm({
         } catch {
           const nextErrors: typeof errors = {};
           if (!values.name.trim()) nextErrors.name = "Enter the crate name.";
-          if (!values.empty_family.trim()) nextErrors.empty_family = "Enter its brewery, such as NBL or Guinness.";
+          if (!values.empty_family.trim()) nextErrors.empty_family = "Enter its brewery, such as NB or Guinness.";
           if (!/^\d+$/.test(values.pocket_count.trim()) || Number(values.pocket_count) < 1 || Number(values.pocket_count) > 2147483647) {
             nextErrors.pocket_count = "Enter a whole number of bottle spaces greater than zero.";
           }

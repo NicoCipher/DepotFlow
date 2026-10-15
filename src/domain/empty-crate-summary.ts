@@ -1,3 +1,5 @@
+import { canonicalCrateFamily } from "./crate-types.ts";
+
 export type StockCrate = {
   crate_type_id: string | null;
   name: string | null;
@@ -38,7 +40,7 @@ export function summarizeEmptyCrates<T extends StockCrate>(
       throw new Error("Invalid empty crate count.");
     const brewery = crate.is_legacy || !crate.empty_family?.trim() || crate.pocket_count === null
       ? "Needs setup"
-      : crate.empty_family.trim();
+      : canonicalCrateFamily(crate.empty_family);
     const types = buckets.get(brewery) ?? [];
     types.push(crate);
     buckets.set(brewery, types);
