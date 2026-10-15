@@ -1441,6 +1441,9 @@ export function SaleBuilder({
                   const bottlesOwed = emptiesReview.lines.reduce((sum, line) => sum + line.bottlesOwed, 0);
                   const needed = emptiesReview.lines.some((line) => line.cratesOut > 0 || line.bottlesOut > 0);
                   if (!needed) return <p className="mt-2 text-sm text-stone-700">No empty crates or empty bottles required for this sale.</p>;
+                  if (emptiesNeedConfirmation) {
+                    return <p role="alert" className="mt-2 text-sm font-semibold text-amber-950">The empty crate or empty bottle requirements changed. Confirm what came back before saving.</p>;
+                  }
                   return cratesOwed || bottlesOwed
                     ? <p className="mt-2 text-sm font-semibold text-amber-950">
                         After this sale, the customer will still owe {cratesOwed} {cratesOwed === 1 ? "empty crate" : "empty crates"} and {bottlesOwed} {bottlesOwed === 1 ? "empty bottle" : "empty bottles"} from these drinks.
