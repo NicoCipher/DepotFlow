@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { SaleIcon } from "@/components/sale-icon";
 import { EmptyQuantityRow } from "@/components/empty-quantity-row";
+import { BulkEmptyReturnGroup } from "@/components/bulk-empty-return-group";
+import { bulkReturnGroups, bulkReturnParts } from "@/domain/bulk-empties";
 import {
   crateReturnIssues,
   allReturnedConfirmationKey,
@@ -136,7 +138,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
       if (raw === undefined) continue;
       const message = wholeNumberInputMessage(
         raw,
-        `${crate.name} crates returned`,
+        `${crate.name} empty crates returned`,
       );
       if (message) returnedCrateErrors[crate.id] = message;
     }
@@ -145,7 +147,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
       if (raw === undefined) continue;
       const message = wholeNumberInputMessage(
         raw,
-        `${bottleType} bottles returned`,
+        `${bottleType} empty bottles returned`,
       );
       if (message) returnedBottleErrors[bottleType] = message;
     }
@@ -200,6 +202,22 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
   }
   const totalExpectedCrates = [...expectedCrates.values()].reduce((sum, n) => sum + n, 0);
   const totalExpectedBottles = [...expectedBottles.values()].reduce((sum, n) => sum + n, 0);
+  const bulkGroups = expected ? bulkReturnGroups(expected, catalog) : [];
+  const visibleBulkGroups = bulkGroups.filter((group) =>
+    bulkReturnParts(
+      state.returnedCrates[group.crateTypeId] ?? "0",
+      state.returnedBottles[group.bottleType] ?? "0",
+      group.pocketCount,
+    ),
+  );
+  const bulkCrateIds = new Set(visibleBulkGroups.map((group) => group.crateTypeId));
+  const bulkBottleTypes = new Set(visibleBulkGroups.map((group) => group.bottleType));
+  const quickRetailSale = draft.lines.length === 1 &&
+    draft.lines[0].quantity.crates === 0 &&
+    draft.lines[0].quantity.fraction === 0 &&
+    !draft.lines[0].quantity.eighths &&
+    draft.lines[0].quantity.bottles > 0 &&
+    draft.lines[0].quantity.bottles <= 6;
 
   const shortages =
     result?.lines.filter((line) => line.cratesOwed || line.bottlesOwed) ?? [];
@@ -271,7 +289,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
         <div>
           <h2 id="empties-choice-heading" className="text-xl font-bold text-stone-950">What came back?</h2>
           <p className="mt-1 text-sm leading-6 text-stone-600">
-            Check what came back with these drinks. Nothing is recorded until you save the sale.
+            Check the empty crates and empty bottles returned for this sale. Nothing is recorded until you save.
           </p>
         </div>
         {expected && (
@@ -307,6 +325,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
               setExtraCrates([]);
               setExtraBottles([]);
               update({
+                ...(quickRetailSale ? { step: "payment" as const } : {}),
                 emptiesV2: {
                   ...state,
                   mode: "exact",
@@ -320,7 +339,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
           >
             <span>
               <strong className="block text-base">{exactConfirmed ? "All returned · Confirmed" : "Yes, all returned"}</strong>
-              <span className="mt-1 block text-sm leading-5">I checked: every expected crate and bottle came back</span>
+              <span className="mt-1 block text-sm leading-5">I checked: all expected empty crates and empty bottles came back</span>
             </span>
             <span className={"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 " + (exactConfirmed ? "border-emerald-800 bg-emerald-800 text-white" : "border-stone-400")} aria-hidden="true">
               {exactConfirmed && <SaleIcon name="check" className="h-4 w-4" />}
@@ -334,7 +353,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
           >
             <span>
               <strong className="block text-base">Something is different</strong>
-              <span className="mt-1 block text-sm leading-5">Some missing, extra or different empties</span>
+              <span className="mt-1 block text-sm leading-5">Some empty crates or empty bottles are missing, extra or different</span>
             </span>
             <span className={"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 " + (state.mode === "actual" ? "border-emerald-800 bg-emerald-800 text-white" : "border-stone-400")} aria-hidden="true">
               {state.mode === "actual" && <SaleIcon name="check" className="h-4 w-4" />}
@@ -346,7 +365,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
             <SaleIcon name={exactConfirmed ? "check" : "shield"} className="h-4 w-4 shrink-0" />
             {exactConfirmed
               ? "Confirmed. All expected returns will be recorded when the sale is saved."
-              : "Not yet confirmed. Tap “Yes, all returned” after checking the crates and bottles."}
+              : "Not yet confirmed. Check the empty crates and empty bottles, then tap “Yes, all returned”."}
           </p>
         )}
       </section>
@@ -425,14 +444,34 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
               We filled in the expected amounts to save time. Change only what is missing, extra, or different. Set 0 when none came back.
             </p>
           </div>
-          {visibleCrateIds.size > 0 && (
+          {visibleBulkGroups.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-sm font-bold text-stone-950">Large empty returns · count complete sets first</p>
+              {visibleBulkGroups.map((group) => (
+                <BulkEmptyReturnGroup
+                  key={group.crateTypeId}
+                  group={group}
+                  returnedCrates={state.returnedCrates[group.crateTypeId] ?? "0"}
+                  returnedBottles={state.returnedBottles[group.bottleType] ?? "0"}
+                  onChange={({ crates, bottles }) => update({
+                    emptiesV2: {
+                      ...state,
+                      returnedCrates: { ...state.returnedCrates, [group.crateTypeId]: crates },
+                      returnedBottles: { ...state.returnedBottles, [group.bottleType]: bottles },
+                    },
+                  })}
+                />
+              ))}
+            </div>
+          )}
+          {visibleCrateIds.size > bulkCrateIds.size && (
             <div className="space-y-2">
-              <h4 className="text-sm font-bold text-stone-900">Crates returned</h4>
-              {catalog.crateTypes.filter((crate) => visibleCrateIds.has(crate.id)).map((crate) => (
+              <h4 className="text-sm font-bold text-stone-900">Empty crates returned</h4>
+              {catalog.crateTypes.filter((crate) => visibleCrateIds.has(crate.id) && !bulkCrateIds.has(crate.id)).map((crate) => (
                 <EmptyQuantityRow
                   key={crate.id}
                   id={`returned-crate-${crate.id}`}
-                  name={crate.name}
+                  name={`${crate.name} empty crates`}
                   detail={crate.pocket_count ? `${crate.pocket_count} pockets` : undefined}
                   expected={expectedCrates.get(crate.id) ?? 0}
                   value={state.returnedCrates[crate.id] ?? "0"}
@@ -443,14 +482,14 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
               ))}
             </div>
           )}
-          {visibleBottleTypes.size > 0 && (
+          {visibleBottleTypes.size > bulkBottleTypes.size && (
             <div className="space-y-2">
-              <h4 className="text-sm font-bold text-stone-900">Bottles returned</h4>
-              {bottleTypes.filter((type) => visibleBottleTypes.has(type)).map((bottleType) => (
+              <h4 className="text-sm font-bold text-stone-900">Empty bottles returned</h4>
+              {bottleTypes.filter((type) => visibleBottleTypes.has(type) && !bulkBottleTypes.has(type)).map((bottleType) => (
                 <EmptyQuantityRow
                   key={bottleType}
                   id={`returned-bottle-${bottleTypes.indexOf(bottleType)}`}
-                  name={bottleType}
+                  name={`Empty bottles · ${bottleType}`}
                   expected={expectedBottles.get(bottleType) ?? 0}
                   value={state.returnedBottles[bottleType] ?? "0"}
                   unit="bottle"
@@ -468,7 +507,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
               <div className="grid gap-3 border-t border-stone-200 py-3 sm:grid-cols-2">
                 {otherCrates.length > 0 && (
                   <label htmlFor="other-returned-crate" className="text-sm font-semibold text-stone-800">
-                    Different crate type
+                    Different empty crate type
                     <select
                       id="other-returned-crate"
                       className="mt-2"
@@ -484,7 +523,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                 )}
                 {otherBottles.length > 0 && (
                   <label htmlFor="other-returned-bottle" className="text-sm font-semibold text-stone-800">
-                    Different bottle type
+                    Different empty bottle type
                     <select
                       id="other-returned-bottle"
                       className="mt-2"
