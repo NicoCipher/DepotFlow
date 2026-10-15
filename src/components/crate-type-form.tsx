@@ -69,7 +69,7 @@ export function CrateTypeForm({
         } catch {
           const nextErrors: typeof errors = {};
           if (!values.name.trim()) nextErrors.name = "Enter the crate name.";
-          if (!values.empty_family.trim()) nextErrors.empty_family = "Enter the crate group, such as NB or Guinness.";
+          if (!values.empty_family.trim()) nextErrors.empty_family = "Enter its brewery, such as NBL or Guinness.";
           if (!/^\d+$/.test(values.pocket_count.trim()) || Number(values.pocket_count) < 1 || Number(values.pocket_count) > 2147483647) {
             nextErrors.pocket_count = "Enter a whole number of bottle spaces greater than zero.";
           }
@@ -98,11 +98,11 @@ export function CrateTypeForm({
         });
       }}
     >
-      <p className="text-stone-600">Set up the physical crate once, then select it for any drink that uses it.</p>
+      <p className="text-stone-600">Create a separate branded crate identity for each drink's physical crate, even if other brands use the same shape or pocket count. Approved replacements are set separately.</p>
       <fieldset disabled={pending} className="space-y-5">
         {field("name", "Crate name", 120)}
         <div>
-          {field("empty_family", "Which group is the crate?", 80)}
+          {field("empty_family", "Which brewery does this crate belong to?", 80)}
           <div className="mt-2 flex flex-wrap gap-2" aria-label="Common crate groups">
             {["NB", "Guinness", "Trophy"].map((group) => (
               <button key={group} type="button" className="secondary" aria-pressed={values.empty_family === group}
