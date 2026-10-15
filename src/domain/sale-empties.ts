@@ -70,9 +70,14 @@ export function allReturnedConfirmationKey(draft: SaleDraft, result: EmptiesMatc
   });
 }
 
+export function hasNoExpectedSaleEmpties(result: EmptiesMatchResult): boolean {
+  return result.lines.every((line) => line.cratesOut === 0 && line.bottlesOut === 0);
+}
+
 export function hasConfirmedAllReturned(draft: SaleDraft, result: EmptiesMatchResult): boolean {
   return draft.emptiesV2?.mode === "exact" &&
-    draft.emptiesV2.confirmedAllReturned === allReturnedConfirmationKey(draft, result);
+    (hasNoExpectedSaleEmpties(result) ||
+      draft.emptiesV2.confirmedAllReturned === allReturnedConfirmationKey(draft, result));
 }
 
 export function assertAllReturnedConfirmed(draft: SaleDraft, result: EmptiesMatchResult): void {
