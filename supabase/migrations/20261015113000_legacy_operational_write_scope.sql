@@ -40,14 +40,20 @@ begin
   end if;
 
   v_actor := auth.uid();
-  if v_actor is null or not exists (
-    select 1 from private.business_memberships m
+  -- Lock the authorization rows until the write transaction completes.
+  -- A concurrent owner revocation or suspension cannot sneak in after check.
+  if v_actor is null then
+    raise exception 'A verified owner session is required for shop writes'
+      using errcode='42501';
+  end if;
+  perform 1 from private.business_memberships m
     join private.businesses b on b.id=m.business_id
     join private.shop_owner so on so.user_id=m.user_id
     where m.business_id=v_business and m.user_id=v_actor
       and m.member_kind='owner' and m.status='active'
       and b.legacy_singleton is true and b.status='active'
-  ) then
+    for share of m,b,so;
+  if not found then
     raise exception 'Only the verified active legacy owner may change shop records'
       using errcode='42501';
   end if;
