@@ -44,8 +44,21 @@ begin
  and pol.polname in ('owner_read','owner_profile','owner_empty_choices')
  and pg_get_expr(pol.polqual,pol.polrelid)
    like '%is_shop_owner%';
- if v_count<>26 then
-   raise exception 'M2d2 must protect 26 SELECT policies; got %',v_count;
+ -- M2e-2 strengthens the customer SELECT policy to check exact
+ -- business_id membership rather than a global is_shop_owner() predicate.
+ -- The other 25 original shop read policies must stay owner protected.
+ if v_count<>25 or not exists (
+   select 1 from pg_policy pol
+   join pg_class cls on cls.oid=pol.polrelid
+   join pg_namespace ns on ns.oid=cls.relnamespace
+   where ns.nspname='public' and cls.relname='customers'
+     and pol.polname='owner_read' and pol.polcmd='r'
+     and pg_get_expr(pol.polqual,pol.polrelid)
+         like '%can_read_legacy_customer%'
+     and pg_get_expr(pol.polqual,pol.polrelid)
+         like '%can_manage_new_customer%'
+ ) then
+   raise exception 'All original read policies must remain tenant protected (legacy %)',v_count;
  end if;
 end;
 $metadata$;
