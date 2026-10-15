@@ -11,8 +11,11 @@ declare
   v_count integer;
   v_business uuid;
 begin
-  select count(*), max(user_id)
-    into v_count,v_owner from private.shop_owner;
+  select count(*) into v_count from private.shop_owner;
+  if v_count <> 1 then
+    raise exception 'Legacy owner mapping failed preflight' using errcode='P0001';
+  end if;
+  select user_id into strict v_owner from private.shop_owner;
   if v_count <> 1 or v_owner is null then
     raise exception 'Legacy owner mapping failed preflight'
       using errcode='P0001';
