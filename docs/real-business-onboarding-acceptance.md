@@ -23,17 +23,21 @@
 | Owner verifies and taps Create Business twice | Exactly one business and owner membership; no duplicated setup |
 | Owner leaves midway, comes back tomorrow | Returns to last completed setup step with data saved |
 | Owner enters receipt name “Warlink Venture” | That business displays exactly the owner-confirmed name; no inherited name from test account |
-| Owner already has a business and creates another | Memberships and accounting are separate; switching never reveals previous depot state |
+| A different owner registers a separate depot | Completely isolated owner membership, shop data, catalog pricing, stock, customers and receipts; no V1 business switching |
 | Owner selects Goldberg from master catalogue | Adds to **this** business; does not change another shop's prices or product list |
 | Owner saves product with missing bottle/crate type | Honest “Needs details” state, no fake empty type and cannot sell invalid configured units |
-| Owner counts 3 crates and 4 bottles before opening | Initial quantity saved once; no phantom delivery, sale or empty-crate movement |
+| Owner counts 3 crates and 4 bottles before opening | **Editable draft** recorded; nothing added to live stock until final activation; no phantom receiving or empty movement |
 | Owner leaves a drink uncounted | It remains “Not counted,” not misleading “0 in stock” |
 | Owner explicitly counts zero | Shows “Out of stock,” not “Not counted” |
 | Owner confirms 5 exact empty crates in shop | Records real physical empty-crate opening inventory; no generated customer obligation |
-| Owner reopens setup and saves same stock again | Same opening event; quantities not doubled |
+| Owner reopens setup and corrects a counted quantity | Updates the versioned draft only, and review reflects the new quantity; activation creates exactly one opening event for final value |
+| Owner tries activation from a stale setup tab | Rejected with a clear refresh/review message; no partial stock postings |
+| Owner retries activation after a connection failure | Original completion returned safely; no duplicate stock or debts |
 | Owner adds a real customer with ₦12,000 starting debt | Shows starting amount as money owed; does not invent historical sale |
 | Customer owes 2 crates of Type A and 3 bottles of Type B | Distinct obligations preserved, no substitution by family |
 | Customer has an existing deposit | Deposit held recorded separately and not silently treated as income or debt |
+| Network fails while saving customer's starting money, deposit and empties | No partial customer opening ledger: all values remain one complete draft until a single atomic activation commit |
+| Owner tries to activate a customer with missing crate/deposit review | Activation fails with the incomplete customer's name and missing section; does not post money only |
 | Existing test account has customer with same name | No auto-import, no association without explicit owner verification |
 | Owner begins selling without any existing customers | Can use supported sale/customer flows without setting up a customer book first |
 | User has no customer phone number | Do not invent one; either allow optional phone after schema review or show an honest, non-blocking alternative defined by product owner |
@@ -42,7 +46,9 @@
 | First sale includes old-debt payment | One visit in All Records, original sale and payment receipts separately auditable, no double count |
 | Customer returns some empties | Exact whole-crate obligations and bottle obligations updated; unknown types rejected |
 | Connection fails during Save Sale | Check Sale/uncertain-save recovery; retry cannot create second sale |
-| Another user guesses owner/customer/receipt IDs | No access to tenant-private data; public receipt token reveals only minimal permitted verification details |
+| Another user guesses owner/customer/receipt IDs | No access to tenant-private data; a token can only verify the specific receipt, never the customer's wider account |
+| Someone forwards a valid receipt verification link | Anonymous response contains **only** receipt number, shop name, business date, kind, status and sale total or payment amount; no customer, phone, line items, balances, account, costs, internal IDs or shop address |
+| Old sale, partial sale, payment and voided receipt tokens | Each receives the same strict anonymous allowlist; every forbidden field absent, not simply null |
 | Owner signs out and signs back in | Returns to their business dashboard; active business identity visible and unambiguous |
 | New business setup is incomplete | Public links do not expose any partial customer/financial data |
 
@@ -57,6 +63,10 @@
 - Explicit **“Counted zero” vs “Not counted”** is required everywhere quantities are entered, including after reload.
 - Final review groups financial quantities separately, never total money plus crates or show a misleading “₦0 owed” where a balance is unverified.
 - Mobile (320–430px), tablet and laptop checked, including keyboard, screen reader, poor connectivity and full-page reload.
+
+## V1 scope rule
+
+Self-serve signup creates one independent business per newly registered owner. Two separate owner accounts prove isolation. One account switching among multiple owned businesses, staff invitations and Team & Access are future enhancements, **not** required to activate Warlink Venture.
 
 ## Controlled Warlink Venture cutover checklist
 
