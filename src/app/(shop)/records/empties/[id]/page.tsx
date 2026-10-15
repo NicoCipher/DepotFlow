@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireOwner } from "@/lib/auth/owner";
 import { formatBusinessDate } from "@/domain/sales";
 
-type ReturnLine = { name: string; quantity: number };
+type ReturnLine = { name: string; quantity: number; owed_name?: string | null };
 type ReleasedLine = ReturnLine & { kind: "crate" | "bottle" };
 type ReturnRecord = {
   id: string; customer_id: string; customer_name: string;
@@ -16,7 +16,7 @@ function ReturnSection({
 }: {
   label: string;
   description: string;
-  entries: { name: string; quantity: number; unit: string }[];
+  entries: { name: string; quantity: number; unit: string; owed_name?: string | null }[];
   tone?: "normal" | "caution";
 }) {
   return (
@@ -30,6 +30,9 @@ function ReturnSection({
           <div key={index} className="flex items-center justify-between gap-4 py-4">
             <dt className="min-w-0 break-words text-sm font-medium text-stone-800">
               {row.name} <span className="text-stone-500">· {row.unit}</span>
+              {row.owed_name && <span className="mt-1 block text-xs font-normal text-stone-600">
+                Accepted instead of {row.owed_name} to settle this customer's crate debt
+              </span>}
             </dt>
             <dd className="shrink-0 rounded-lg bg-stone-100 px-3 py-1 text-base font-extrabold tabular-nums text-stone-950">
               {row.quantity}
@@ -117,7 +120,7 @@ export default async function EmptiesRecordPage({ params }: { params: Promise<{ 
         View customer account <span aria-hidden="true">→</span>
       </Link>
       {returns.length > 0 && (
-        <ReturnSection label="Empties returned" description="These reduced the customer's outstanding empties."
+        <ReturnSection label="Empties returned" description="These are the actual branded crates and bottles received. Approved replacements identify the original crate debt they settled."
           entries={returns}/>
       )}
       {saved.released.length > 0 && (
