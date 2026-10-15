@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { bulkReturnGroups, bulkReturnParts, updateBulkReturnParts } from "./bulk-empties.ts";
 import { test } from "node:test";
 import {
   crateReturnIssues,
@@ -676,4 +677,47 @@ test("continuing from unconfirmed all-returned crates cannot forge confirmation"
   draft.emptiesV2.mode = "actual";
   const actual = paymentStepAfterEmpties(draft, matchSaleEmpties(draft, catalog));
   assert.deepEqual(actual, { step: "payment" });
+});
+
+test("bulk empty returns group only unambiguous exact empty-crate and empty-bottle types", () => {
+  const draft = sale("goldberg", 40);
+  draft.emptiesV2.mode = "exact";
+  const expected = matchSaleEmpties(draft, catalog);
+  const groups = bulkReturnGroups(expected, catalog);
+  assert.equal(groups.length, 1);
+  assert.deepEqual(groups[0], {
+    crateTypeId: "goldberg-crate",
+    crateName: "Goldberg",
+    bottleType: "Goldberg bottle",
+    pocketCount: 12,
+    expectedCrates: 40,
+    expectedBottles: 480,
+  });
+  assert.equal(bulkReturnGroups(expected, catalog, 41).length, 0);
+
+  const conflictingBottle = { ...trophy, bottle_type: "Goldberg bottle" };
+  const conflictingCatalog = { ...catalog, products: [goldberg, conflictingBottle, big] };
+  draft.lines.push({ productId: "trophy", quantity: { crates: 12, fraction: 0, bottles: 0 } });
+  const sharedBottle = matchSaleEmpties(draft, conflictingCatalog);
+  assert.equal(bulkReturnGroups(sharedBottle, conflictingCatalog).length, 0);
+});
+
+test("bulk shortcut updates exact physical counts without inventing empties or losing loose ones", () => {
+  assert.deepEqual(bulkReturnParts("40", "480", 12), {
+    completeSets: 40,
+    looseCrates: 0,
+    looseBottles: 0,
+  });
+  const parts = { completeSets: 39, looseCrates: 1, looseBottles: 6 };
+  const physical = updateBulkReturnParts(parts, "completeSets", "38", 12);
+  assert.deepEqual(physical, { crates: "39", bottles: "462" });
+  assert.deepEqual(bulkReturnParts(physical!.crates, physical!.bottles, 12), {
+    completeSets: 38,
+    looseCrates: 1,
+    looseBottles: 6,
+  });
+  assert.equal(updateBulkReturnParts(parts, "completeSets", "-1", 12), null);
+  assert.equal(updateBulkReturnParts(parts, "looseBottles", "", 12), null);
+  assert.equal(bulkReturnParts("abc", "12", 12), null);
+  assert.equal(bulkReturnParts("1", "6", 12)?.completeSets, 0);
 });
