@@ -115,6 +115,12 @@ Historical rows with no verified actor must remain `legacy/unattributed`, not as
 - All three grants permit a mixed checkout. Every allowed checkout is still atomic and idempotent, with no partial stock/debt/payment writes if a permission is missing.
 - A staff user with `records.view_own` sees only business-matched records explicitly attributed to that user; legacy/unattributed records and another employee's receipts remain hidden, while authorized Owner/Manager/Accounts `records.view_all` can see them. Attribution cannot be spoofed with a JSON or RPC parameter.
 
+## Product editing versus selling-price authority
+
+Today `src/app/(shop)/products/actions.ts` submits product metadata and selling-price fields in one update. That combined entry point **must be split before staff roles are enabled**. A user with only `products.manage` may edit approved non-price fields (name, size, catalogue assortment, permitted pack metadata), but cannot change `full_crate_price`, `half_crate_price`, `quarter_crate_price`, `bottle_price` or derived selling-price configuration. A price change uses a separate `pricing.selling_edit`-guarded RPC/action, writes an immutable before/after audit event and validates current stock/product metadata. The database rejects price-field updates through the metadata endpoint and direct PostgREST updates. If a combined interface remains, the DB checks **both grants** when any selling-price field changes. Preserve a product's unchanged prices when a metadata-only editor saves.
+
+Negative tests: metadata-only Manager edits a product name successfully but a forged price field is denied, without partial metadata/price writes; a selling-price editor can change prices under its separate grant and audit; a direct price-column UPDATE and modified form cannot bypass the check.
+
 ## Approval and audit rules
 
 A task can be handled by one person, two people or a larger team.
@@ -124,6 +130,12 @@ A task can be handled by one person, two people or a larger team.
 3. **High-impact transactions** (voiding money records, finalizing stock variances, creating historical opening balances, ownership transfer): explicit separately granted permission, a reason, audit and step-up authentication. For multi-person teams, optionally require another qualified approver.
 4. **One-person depot**: never block core operation due to absent second employee. Owner can perform sensitive actions with step-up confirmation, documented reason and tamper-resistant audit. This is *not* automatic permission for non-owner staff to self-approve.
 5. **No approval through editable UI state**: check approval status, actor permission and target business in the same database transaction as the change. Record both requester and approver where a two-person approval is used.
+
+### Step-up authentication must precede delegated high-impact actions
+
+Before M4 enables **any staff** grant for `stock.finalize_variance`, `empties.finalize_variance`, `balances.create_opening`, `sales.correct`, `business.transfer_ownership` or other high-impact operations, the DB write path must validate a recent trusted step-up authentication event, the active member and explicit capability **within the same authorized transaction**. Do not accept a checkbox, request-supplied authentication time or stale JWT-only flag. If step-up and approval have not been implemented and tested, these operations **remain owner-only and cannot be delegated**, even if the UI lists a potential opt-in grant. For an owner, requiring recent reauthentication and an audit reason is an acceptable first step; optional two-person approval is separate.
+
+Negative tests: a Manager with a nominally configured high-impact grant but no recent verified step-up cannot finalize stock or add opening debts; a forged confirmation fails; an expired step-up fails; approved owner operation succeeds with immutable reason and audit.
 
 ### Audit precondition for delegation
 
