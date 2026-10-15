@@ -21,7 +21,7 @@ export default async function CataloguePage({
   }).format(new Date());
   const [catalogue, assortment, history] = await Promise.all([
     supabase.from("product_catalogue").select("id,name,manufacturer,image_path").order("name").limit(1000),
-    supabase.from("products").select("id,catalogue_product_id,full_crate_price,image_url").not("catalogue_product_id", "is", null).limit(1000),
+    supabase.from("products").select("id,catalogue_product_id,full_crate_price,image_url,is_active").not("catalogue_product_id", "is", null).limit(1000),
     supabase.from("product_cost_history")
       .select("catalogue_product_id,cost_price,effective_on,recorded_at")
       .lte("effective_on", today)
@@ -101,7 +101,7 @@ export default async function CataloguePage({
                           <h3 className="min-w-0 break-words text-lg font-semibold">{item.name}</h3>
                         </div>
                         <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${product ? "bg-emerald-50 text-emerald-900" : "bg-stone-100 text-stone-700"}`}>
-                          {product ? "In your shop" : "Not added yet"}
+                          {product ? product.is_active ? "In your shop" : "Removed from shop" : "Not added yet"}
                         </span>
                         <dl className="mt-4 space-y-3 border-t border-stone-200 pt-3">
                           <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -118,7 +118,7 @@ export default async function CataloguePage({
                         </dl>
                         {cost && <p className="mt-3 text-xs text-stone-600">Buying cost from {cost.effective_on}</p>}
                         {!product && selling && <p className="text-xs text-stone-600">Selling price from {selling.effective_on}</p>}
-                        {product ? <Link href={`/products/${product.id}/edit`} className="secondary mt-4 w-full">Edit drink</Link>
+                        {product ? <Link href={`/products/${product.id}`} className="secondary mt-4 w-full">{product.is_active ? "View drink" : "View and restore drink"}</Link>
                           : <Link href={`/products/new?catalogue=${item.id}`} className="primary mt-4 w-full">Add this drink</Link>}
                         <DrinkPhotoUpload id={item.id} hasPhoto={Boolean(item.image_path)} />
                       </li>
