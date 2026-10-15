@@ -13,6 +13,8 @@ insert into public.products(id,name,bottles_per_crate,full_crate_price,half_crat
 values ('89000000-0000-4000-9000-000000000020','Goldberg',12,12000,6000,3000,1000,false,'89000000-0000-4000-9000-000000000010');
 insert into public.stock(product_id,total_bottles)
 values ('89000000-0000-4000-9000-000000000020',120);
+insert into public.empty_crate_stock(crate_type_id,quantity)
+values ('89000000-0000-4000-9000-000000000010',2);
 insert into public.customers(id,name,phone,empties_deposit_required)
 values ('89000000-0000-4000-9000-000000000030','Shop customer','08000008900',false);
 
@@ -91,6 +93,38 @@ begin
   if replay->>'id' is distinct from sale->>'id'
     or (select total_bottles from public.stock where product_id=p)<>108 then
     raise exception 'Removing drink broke saved-sale idempotent recovery';
+  end if;
+  -- The receiving RPC also must reject a stale, previously reviewed form.
+  begin
+    perform public.receive_stock(
+      '89000000-0000-4000-9000-000000000042',p,
+      1,108,2,12,'89000000-0000-4000-9000-000000000010','2026-10-15'
+    );
+    raise exception 'Received stock for removed drink' using errcode='PT001';
+  exception when sqlstate '22023' then
+    get stacked diagnostics err=message_text;
+    if err not like '%removed from the shop%' then
+      raise exception 'Wrong removal error while receiving: %',err;
+    end if;
+  end;
+  if (select total_bottles from public.stock where product_id=p)<>108 or
+     (select quantity from public.empty_crate_stock where crate_type_id='89000000-0000-4000-9000-000000000010')<>2 then
+    raise exception 'Failed receiving changed stock or empty crates';
+  end if;
+  perform public.set_shop_drink_active(p,true,false);
+  perform public.receive_stock(
+    '89000000-0000-4000-9000-000000000043',p,
+    1,108,2,12,'89000000-0000-4000-9000-000000000010','2026-10-15'
+  );
+  perform public.set_shop_drink_active(p,false,true);
+  -- An already committed receiving request can safely be retried after removal.
+  perform public.receive_stock(
+    '89000000-0000-4000-9000-000000000043',p,
+    1,108,2,12,'89000000-0000-4000-9000-000000000010','2026-10-15'
+  );
+  if (select total_bottles from public.stock where product_id=p)<>120 or
+     (select quantity from public.empty_crate_stock where crate_type_id='89000000-0000-4000-9000-000000000010')<>1 then
+    raise exception 'Receiving retry changed stock or empties twice';
   end if;
 end $lifecycle$;
 
