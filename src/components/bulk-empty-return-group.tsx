@@ -52,6 +52,7 @@ export function BulkEmptyReturnGroup({ group, returnedCrates, returnedBottles, o
       <div className="mb-2">
         <h4 className="font-bold text-stone-950">{group.crateName} · Bulk empty returns</h4>
         <p className="mt-1 text-sm text-stone-600">Count complete empty crates with their matching empty bottles first. Each full set has {group.pocketCount} empty bottles.</p>
+        <p className="mt-1 text-xs font-semibold text-stone-700">Empty bottle type: {group.bottleType}</p>
       </div>
       {quantity("Complete empty-crate sets", "completeSets")}
       {!showMore && (
