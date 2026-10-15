@@ -538,7 +538,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                   Kept aside · Correct type still owed
                 </button>
                 <button type="button" className="secondary min-h-14 w-full text-sm" onClick={() => decideSimpleBottleReturn("accept")}>
-                  Accepted as replacement · Clears this bottle balance
+                  Accepted as replacement · Reduces bottles still owed
                 </button>
               </div>
               {choiceError && <p role="alert" className="mt-2 text-sm text-red-800">{choiceError}</p>}
