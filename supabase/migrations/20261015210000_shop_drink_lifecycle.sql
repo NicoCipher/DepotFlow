@@ -99,4 +99,27 @@ create trigger block_removed_drink_receive
   before insert on public.stock_movements
   for each row execute function private.prevent_removed_shop_drink_receive();
 
+-- Home stock alerts describe products available for new sales only.
+-- Revenue, outstanding debt, payment and customer counts remain historic.
+create or replace function public.manager_snapshot(p_day date)
+returns jsonb language plpgsql security definer set search_path='' as $
+declare v_result jsonb;
+begin
+  if auth.uid() is null or not exists(select 1 from private.shop_owner where user_id=auth.uid()) then
+    raise exception using errcode='42501',message='Owner only';
+  end if;
+  select jsonb_build_object(
+    'sales_count',(select count(*) from public.sales where business_date=p_day),
+    'sales_value',(select coalesce(sum(total_amount),0) from public.sales where business_date=p_day),
+    'received',(select coalesce(sum(paid_amount),0) from public.sales where business_date=p_day) +
+      (select coalesce(sum(amount),0) from public.customer_payments where business_date=p_day),
+    'outstanding',(select coalesce(sum(amount),0) from public.money_owed),
+    'customers_owing',(select count(*) from public.money_owed where amount>0),
+    'low_stock',(select count(*) from public.products p left join public.stock st on st.product_id=p.id
+      where p.is_active is true and (st.total_bottles is null or st.total_bottles<=p.bottles_per_crate)),
+    'missing_counts',(select count(*) from public.products p left join public.stock st on st.product_id=p.id where p.is_active is true and st.total_bottles is null)
+  ) into v_result;
+  return v_result;
+end $;
+
 commit;
