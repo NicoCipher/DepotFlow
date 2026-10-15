@@ -35,7 +35,7 @@ export function CrateTypeSelector({
     <div className="space-y-3">
       <label htmlFor="crate_type_id">Which branded crate does this drink use?</label>
       <p className="text-sm text-stone-600">
-        Choose this drink's exact branded crate. Other brands keep their own crate identities, even when the physical crates can be swapped.
+        Choose this drink&apos;s exact branded crate. Other brands keep their own crate identities, even when the physical crates can be swapped.
       </p>
       <select
         id="crate_type_id"
