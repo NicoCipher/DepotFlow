@@ -165,9 +165,15 @@ export default async function CrateTypesPage({
                   Older records cannot be edited into a new crate type. Create
                   an exact type for current drinks. It is preserved for history. A never-used setup can be discarded only when no stock, sales, counts, or other records refer to it.
                 </p>
-                <div className="mt-3">
-                  <DeleteCrateType id={crate.id} name={crate.name} />
-                </div>
+                {products.some((p) => p.crate_type_id === crate.id) ? (
+                  <p className="mt-3 text-sm text-stone-600">
+                    This crate is linked to a recorded drink, including removed drinks. Its setup cannot be discarded.
+                  </p>
+                ) : (
+                  <div className="mt-3">
+                    <DeleteCrateType id={crate.id} name={crate.name} />
+                  </div>
+                )}
               </li>
             ))}
           </ul>
