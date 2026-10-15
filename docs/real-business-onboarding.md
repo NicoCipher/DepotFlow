@@ -1,6 +1,6 @@
 # DepotFlow — Real business onboarding and first-depot launch
 
-**Status:** Product and engineering contract for review. Not built or enabled. First pilot: **Warlink Venture** (working name supplied by the user; the owner must confirm the precise spelling/legal or receipt name during setup). No test-record deletion, account transfer, or production changes are authorized by this document.
+**Status:** Product and engineering contract for review. Not built or enabled. First pilot: **Walnik Ventures** (working name supplied by the user; the owner must confirm the precise spelling/legal or receipt name during setup). No test-record deletion, account transfer, or production changes are authorized by this document.
 
 ## Product goal
 
@@ -80,7 +80,7 @@ A single clear **Start using DepotFlow** action:
 
 If the owner needs to leave midway, autosave and show “Continue setting up” on their next login. Feedback should be short and disappear; a real error should remain visible until addressed. Avoid a wall of setup widgets on the main product-search screen.
 
-## Warlink Venture pilot: clean data and genuine experience
+## Walnik Ventures pilot: clean data and genuine experience
 
 The current shop profile uses a name similar to the intended business and has a mixture of real names with experimental transactions. Treat the **entire existing database context as a test workspace** until records are reconciled; similarity of customer names does **not** make its sales, debts, counts or receipts official.
 
