@@ -74,6 +74,7 @@ export function SaleBuilder({
   const [removeLineId, setRemoveLineId] = useState<string | null>(null);
   const [requestedMode, setRequestedMode] = useState<"wholesale" | "retail" | null>(null);
   const [requestedCustomerId, setRequestedCustomerId] = useState<string | null>(null);
+  const [confirmNewCustomer, setConfirmNewCustomer] = useState(false);
   const [confirmedSaveKey, setConfirmedSaveKey] = useState<string | null>(null);
   const pricingMode = draft.sellingMode === "retail" ? "retail" : "wholesale";
   const [catalog, setCatalog] = useState(initialCatalog);
@@ -162,6 +163,7 @@ export function SaleBuilder({
     setRemoveLineId(null);
     setRequestedMode(null);
     setRequestedCustomerId(null);
+    setConfirmNewCustomer(false);
     setMessage("");
     setNotice("");
     setCancelDraftId(null);
@@ -710,10 +712,26 @@ export function SaleBuilder({
             <button
               type="button"
               className="secondary w-full gap-2 border-emerald-200 text-emerald-900"
-              onClick={() => setNewCustomer({ id: crypto.randomUUID(), draftId: sales.state.active?.id ?? null })}
+              onClick={() => {
+                if (draft.customerId && draft.lines.length > 0) setConfirmNewCustomer(true);
+                else setNewCustomer({ id: crypto.randomUUID(), draftId: sales.state.active?.id ?? null });
+              }}
             >
               <SaleIcon name="plus" className="h-5 w-5" /> Add new customer
             </button>
+            {confirmNewCustomer && (
+              <div role="group" aria-label="Confirm creating a new customer for this sale" className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <p className="font-bold text-amber-950">Create a different customer for this sale?</p>
+                <p className="mt-1 text-sm text-amber-950">Your drinks will stay, but payments and empty-return choices for the current customer will be cleared after the new customer is created.</p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button type="button" className="secondary min-h-11" onClick={() => setConfirmNewCustomer(false)}>Keep customer</button>
+                  <button type="button" className="primary min-h-11" onClick={() => {
+                    setConfirmNewCustomer(false);
+                    setNewCustomer({ id: crypto.randomUUID(), draftId: sales.state.active?.id ?? null });
+                  }}>Continue</button>
+                </div>
+              </div>
+            )
             {catalog.customers.length > 0 && (
               <p className="text-sm font-medium text-stone-600">
                 {matchedCustomers.length} {matchedCustomers.length === 1 ? "customer" : "customers"} found
