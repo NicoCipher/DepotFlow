@@ -16,6 +16,25 @@ values ('89100000-0000-4000-9000-000000000012',
         '89100000-0000-4000-9000-000000000011',
         900,500,'2026-10-15');
 
+-- Return lookup must exercise an EXISTING non-empty record, rather than
+-- comparing a null lookup with itself. Use one crate and two loose bottles.
+insert into public.crate_types(id,name,empty_family,pocket_count)
+values ('89100000-0000-4000-9000-000000000014',
+ '12-pocket return crate','M2d3',12);
+insert into private.customer_empty_returns(
+ request_id,customer_id,request_payload
+) values (
+ '89100000-0000-4000-9000-000000000013',
+ '89100000-0000-4000-9000-000000000011',
+ jsonb_build_object(
+   'crates',jsonb_build_array(jsonb_build_object(
+     'crateTypeId','89100000-0000-4000-9000-000000000014','quantity',1)),
+   'bottles',jsonb_build_array(jsonb_build_object(
+     'bottleType','Life','quantity',2)),
+   'released','[]'::jsonb
+ )
+);
+
 create function pg_temp.check_ok(v boolean,message text)
 returns void language plpgsql as $$
 begin if v is distinct from true then raise exception '%',message; end if;end;$$;
@@ -75,7 +94,7 @@ grant select,insert on pg_temp.report_snapshots to authenticated;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','89100000-0000-4000-8000-000000000001',true);
 do $legacy_owner$
-declare r record; v_payload jsonb; v_manager jsonb;
+declare r record; v_payload jsonb; v_manager jsonb; v_return jsonb;
 begin
  for r in select * from pg_temp.report_calls order by name loop
    execute 'select coalesce(jsonb_agg(to_jsonb(x) order by to_jsonb(x)::text),''[]''::jsonb) from ('||
@@ -85,6 +104,18 @@ begin
    end if;
    insert into pg_temp.report_snapshots(name,payload) values(r.name,v_payload);
  end loop;
+ v_return:=public.customer_return_record(
+   '89100000-0000-4000-9000-000000000013'::uuid
+ );
+ if v_return is null
+   or v_return->>'customer_name'<>'Privileged report fixture'
+   or v_return->'crates'->0->>'name'<>'12-pocket return crate'
+   or (v_return->'crates'->0->>'quantity')::integer<>1
+   or v_return->'bottles'->0->>'name'<>'Life'
+   or (v_return->'bottles'->0->>'quantity')::integer<>2
+   or v_return->'released'<>'[]'::jsonb then
+   raise exception 'Actual return detail changed: %',v_return;
+ end if;
  v_manager:=public.manager_snapshot('2026-10-15');
  if (v_manager->>'sales_count')::int<>1
     or (v_manager->>'sales_value')::int<>900
