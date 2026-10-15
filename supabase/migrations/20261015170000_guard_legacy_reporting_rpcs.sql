@@ -18,9 +18,8 @@ declare
   v_source text;
   v_updated text;
   v_count integer:=0;
-  v_old constant text:='if auth.uid() is null or not exists';
-  v_replacement constant text:=
-    'if not private.verified_legacy_owner_read() or not exists';
+  v_old text;
+  v_replacement text;
 begin
   for r in
     select * from (values
@@ -45,15 +44,40 @@ begin
     end if;
 
     v_source:=pg_catalog.pg_get_functiondef(v_oid);
-    -- Deliberate fail-closed guard against upstream body/API changes:
-    -- exactly one original authorization check, and no prior replacement.
-    if pg_catalog.strpos(v_source,v_old)=0
+    -- Require the FULL executable legacy authorization block immediately
+    -- after the routine's BEGIN. A matching phrase in a comment or a string
+    -- can never satisfy this migration's security precondition.
+    if r.name in ('customer_account_snapshot','customer_recent_activity',
+                  'customer_records') then
+      v_old:=E'  if auth.uid() is null or not exists (\\n'
+        ||E'    select 1 from private.shop_owner where user_id=auth.uid()\\n'
+        ||E'  ) then\\n'
+        ||E'    raise exception using errcode=\'42501\',message=\'Owner only\';\\n'
+        ||'  end if;';
+    elsif r.name='customer_return_record' then
+      v_old:=E'  if auth.uid() is null or not exists(\\n'
+        ||E'    select 1 from private.shop_owner where user_id=auth.uid()\\n'
+        ||E'  ) then\\n'
+        ||E'    raise exception using errcode=\'42501\',message=\'Owner only\';\\n'
+        ||'  end if;';
+    else
+      v_old:=E'  if auth.uid() is null or not exists(select 1 from private.shop_owner where user_id=auth.uid()) then\\n'
+        ||E'    raise exception using errcode=\'42501\',message=\'Owner only\';\\n'
+        ||'  end if;';
+    end if;
+    v_replacement:=pg_catalog.replace(
+      v_old,
+      'if auth.uid() is null or not exists',
+      'if not private.verified_legacy_owner_read() or not exists'
+    );
+    if pg_catalog.strpos(v_source,E'\\nbegin\\n'||v_old)=0
       or pg_catalog.strpos(
         pg_catalog.substr(v_source,pg_catalog.strpos(v_source,v_old)+1),
         v_old
       )<>0
       or pg_catalog.strpos(v_source,v_replacement)<>0 then
-      raise exception 'Owner check drift in privileged report: %',r.name;
+      raise exception 'Executable legacy owner guard changed in report: %',
+        r.name;
     end if;
     v_updated:=pg_catalog.replace(v_source,v_old,v_replacement);
     execute v_updated;
