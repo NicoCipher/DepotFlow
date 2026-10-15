@@ -35,6 +35,7 @@ import { saleCardPrice } from "@/domain/sale-card-price";
 import { formatQuantity } from "@/domain/quantity";
 import {
   matchesSaleCustomer,
+  currentSaleFeedback,
   modeForSaleDrink,
   changeSaleCustomer,
   hasCustomerBoundSaleWork,
@@ -114,6 +115,10 @@ export function SaleBuilder({
   const activeId = sales.state.active
     ? `${sales.state.active.id}:${sales.state.active.resumedAt ?? ""}`
     : null;
+  const checkoutContext = useRef({ customerId: draft.customerId, activeId, step: draft.step });
+  useEffect(() => {
+    checkoutContext.current = { customerId: draft.customerId, activeId, step: draft.step };
+  }, [draft.customerId, draft.step, activeId]);
   const [verifiedId, setVerifiedId] = useState<string | null>(null);
   const [checkError, setCheckError] = useState("");
   const [checkAttempt, setCheckAttempt] = useState(0);
@@ -153,6 +158,7 @@ export function SaleBuilder({
   }, [activeId, checkAttempt]);
 
   const customer = catalog.customers.find((c) => c.id === draft.customerId);
+  const visibleMessage = currentSaleFeedback(message, customer?.id ?? null);
   const product = catalog.products.find((p) => p.id === draft.editingId);
   function update(patch: Partial<SaleDraft>) {
     if (sessionExpired) {
@@ -507,6 +513,7 @@ export function SaleBuilder({
               throw new Error("Could not select customer.");
             setCatalog(fresh);
             setCustomerQuery("");
+            setMessage("");
             setNewCustomer(null);
           }}
         />
@@ -685,14 +692,14 @@ export function SaleBuilder({
             )}
           </div>
         )}
-        {message && (
+        {visibleMessage && (
           <p
             role="alert"
             className={saveUncertain ? "text-amber-900" : "text-red-800"}
           >
-            {message}
+            {visibleMessage}
           </p>
-        )}
+        )
         {step === "customer" && (
           <section aria-labelledby="sale-customer-heading" className="space-y-4">
             <div>
@@ -1403,10 +1410,21 @@ export function SaleBuilder({
               }
               onClick={() =>
                 startTransition(async () => {
+                  const customerForReview = customer?.id;
+                  const saleForReview = activeId;
+                  if (!customerForReview) {
+                    setMessage("Choose a customer first.");
+                    return;
+                  }
                   let fresh: SaleCatalog;
                   let latestDebt: number;
                   try {
-                    const response = await reviewSaleInputs(draft.customerId);
+                    const response = await reviewSaleInputs(customerForReview);
+                    // A customer or draft may change while a server response is in flight.
+                    // Never display a late error or apply another customer\u0027s balance.
+                    if (checkoutContext.current.customerId !== customerForReview ||
+                        checkoutContext.current.activeId !== saleForReview ||
+                        checkoutContext.current.step !== "payment") return;
                     if ("error" in response) {
                       const errorMessage = response.error ?? saleNetworkMessage;
                       if (response.code === "session_expired") {
