@@ -18,7 +18,7 @@ export default async function ChooseCountProductPage({
   );
   let request = supabase
     .from("products")
-    .select("id,name,size,image_url,bottles_per_crate", { count: "exact" })
+    .select("id,name,size,image_url,bottles_per_crate,is_active", { count: "exact" })
     .order("name")
     .order("id")
     .range((page - 1) * 30, page * 30 - 1);
@@ -67,6 +67,7 @@ export default async function ChooseCountProductPage({
           {data.map((product) => (
             <li key={product.id}>
               <StockProductChoice product={product} action="count" />
+              {!product.is_active && <p className="text-sm text-amber-900">Removed from sales · counting is still allowed to correct physical stock</p>}
             </li>
           ))}
         </ul>
