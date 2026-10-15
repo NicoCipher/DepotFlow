@@ -217,6 +217,96 @@ update public.customers set name='B customer updated'
 where id='89300000-0000-4000-9000-000000000041';
 reset role;
 
+-- A new business cannot use the original owner's privileged reporting
+-- APIs, even when requesting only its own customer.
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89300000-0000-4000-8000-000000000003',true);
+do $new_owner_legacy_rpc$
+begin
+ begin
+   perform public.customer_recent_activity(
+     '89300000-0000-4000-9000-000000000041'::uuid);
+   raise exception 'New-business owner accessed old report'
+      using errcode='PT001';
+ exception when insufficient_privilege then null;
+ end;
+end;
+$new_owner_legacy_rpc$;
+reset role;
+
+-- Disposable fixture representing a FUTURE properly tenant-tagged return.
+-- Customer/return financial RPCs are NOT open to new owners yet; temporarily
+-- disable ONLY this write trigger as the test administrator to seed a foreign
+-- business return without granting a real checkout/return capability.
+-- Re-enable immediately, and roll the entire fixture back after assertions.
+alter table private.customer_empty_returns
+  disable trigger legacy_scope_business_write;
+insert into private.customer_empty_returns(
+  request_id,customer_id,business_id,request_payload
+) values(
+ '89300000-0000-4000-9000-000000000051',
+ '89300000-0000-4000-9000-000000000041',
+ '89300000-0000-4000-9000-000000000022',
+ '{"crates":[],"bottles":[{"bottleType":"Life","quantity":2}],"released":[]}'::jsonb
+);
+alter table private.customer_empty_returns
+  enable trigger legacy_scope_business_write;
+
+-- Create a real legacy return as the verified pilot owner so positive legacy
+-- reporting is exercised alongside the foreign-business rejection.
+select set_config('request.jwt.claim.sub',
+ '89300000-0000-4000-8000-000000000001',true);
+insert into private.customer_empty_returns(
+  request_id,customer_id,request_payload
+) values(
+ '89300000-0000-4000-9000-000000000052',
+ '89300000-0000-4000-9000-000000000011',
+ '{"crates":[],"bottles":[{"bottleType":"Goldberg","quantity":1}],"released":[]}'::jsonb
+);
+set local role authenticated;
+do $legacy_report_boundary$
+declare
+  v_foreign uuid:='89300000-0000-4000-9000-000000000051';
+  v_foreign_customer uuid:='89300000-0000-4000-9000-000000000041';
+  v_legacy uuid:='89300000-0000-4000-9000-000000000052';
+  v_today date:=(now() at time zone 'Africa/Lagos')::date;
+  v_recent jsonb;
+  v_records jsonb;
+  v_store jsonb;
+  v_leg_record jsonb;
+begin
+  if public.customer_return_record(v_foreign) is not null then
+    raise exception 'Legacy owner can retrieve foreign business return';
+  end if;
+  v_recent:=public.customer_recent_activity(v_foreign_customer);
+  if v_recent->'items' is distinct from '[]'::jsonb then
+    raise exception 'Foreign customer events leaked through recent activity: %',
+      v_recent;
+  end if;
+  v_records:=public.customer_records(
+    v_today-1,v_today+1,'all','all','',100,null,false);
+  if pg_catalog.strpos(v_records::text,'B customer updated')<>0
+    or pg_catalog.strpos(v_records::text,v_foreign::text)<>0 then
+    raise exception 'Foreign customer leaked through records hub';
+  end if;
+  v_store:=public.store_activity(
+    v_today-1,v_today+1,null,'all',100,0);
+  if pg_catalog.strpos(v_store::text,'B customer updated')<>0
+    or pg_catalog.strpos(v_store::text,v_foreign::text)<>0 then
+    raise exception 'Foreign customer leaked through store activity';
+  end if;
+  v_leg_record:=public.customer_return_record(v_legacy);
+  if v_leg_record is null
+    or v_leg_record->>'customer_name'<>'Original shop customer'
+    or v_leg_record->'bottles'->0->>'name'<>'Goldberg' then
+    raise exception 'Legitimate original shop return was blocked: %',
+      v_leg_record;
+  end if;
+end;
+$legacy_report_boundary$;
+reset role;
+
 -- The old shop still sees only its original tagged customer, and its
 -- previously permitted post-backfill editing continues.
 set local role authenticated;
