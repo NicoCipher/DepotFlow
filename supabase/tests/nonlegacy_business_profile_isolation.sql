@@ -41,6 +41,8 @@ begin
   or has_table_privilege('authenticated','public.business_profiles','DELETE')
   or has_column_privilege('authenticated','public.business_profiles','business_id','UPDATE')
   or has_column_privilege('authenticated','public.business_profiles','created_at','UPDATE')
+  or has_column_privilege('authenticated','public.business_profiles','created_at','INSERT')
+  or has_column_privilege('authenticated','public.business_profiles','updated_at','INSERT')
   or has_table_privilege('authenticated','private.business_memberships','SELECT')
   or not has_function_privilege('authenticated','private.owns_new_business(uuid)','EXECUTE') then
    raise exception 'Cross-business table/identity permissions are unsafe';
@@ -56,6 +58,29 @@ select pg_temp.assert_is(
   'Owner A is missing or could claim owner B business');
 insert into public.business_profiles(business_id,name,address,phone)
 values ('89200000-0000-4000-9000-000000000011','Owner A Shop','A road','08000000001');
+-- The DB, never the browser, owns both created/updated timestamps.
+do $timestamp_attack$
+begin
+  begin
+    insert into public.business_profiles(
+      business_id,name,created_at,updated_at
+    ) values (
+      '89200000-0000-4000-9000-000000000012',
+      'Forged timestamp', '2020-01-01'::timestamptz,
+      '2020-01-01'::timestamptz
+    );
+    raise exception 'Client supplied arbitrary business profile timestamps'
+      using errcode='PT001';
+  exception when insufficient_privilege then null;
+  end;
+end;
+$timestamp_attack$;
+select pg_temp.assert_is(
+ (select count(*)=1 from public.business_profiles where
+ business_id='89200000-0000-4000-9000-000000000011'
+ and created_at is not null and updated_at is not null),
+ 'Business profile server timestamps missing'
+);
 select pg_temp.assert_is(
  (select count(*)=1 from public.business_profiles)
  and not public.is_shop_owner()
