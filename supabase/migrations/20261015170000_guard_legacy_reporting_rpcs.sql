@@ -38,7 +38,7 @@ begin
     where ns.nspname='public' and p.proname=r.name
       and pg_catalog.pg_get_function_identity_arguments(p.oid)=r.signature
       and p.prokind='f' and p.prosecdef
-      and p.prolang='plpgsql'::regproc;
+      and p.prolang=(select oid from pg_catalog.pg_language where lanname='plpgsql');
     if v_oid is null then
       raise exception 'Expected SECURITY DEFINER report missing or altered: %(%)',
         r.name,r.signature;
