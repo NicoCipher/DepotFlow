@@ -37,7 +37,8 @@ Status: **proposed product defaults, not live authorization**. Confirm these def
 | Create historical opening money/crate/bottle obligations | ✓† | ○† | — | — | ○† |
 | Record physical empties returns / release held empties | ✓ | ✓ | ✓ | ✓ | — |
 | Configure crate compatibility/deposit rules | ✓† | ○† | — | — | — |
-| Add/edit products and selling assortment | ✓ | ✓ | — | ○ | — |
+| Create fully priced, sale-ready product | ✓† | ○† | — | — | — |
+| Edit only non-financial, non-packaging product descriptions | ✓ | ○ | — | — | — |
 | Change selling prices | ✓† | ○† | — | — | — |
 | View business **purchase cost / margin / profit** | ✓ | ○ | — | — | ○ |
 | Change business purchase costs | ✓† | ○† | — | — | ○† |
@@ -117,9 +118,13 @@ Historical rows with no verified actor must remain `legacy/unattributed`, not as
 
 ## Product editing versus selling-price authority
 
-Today `src/app/(shop)/products/actions.ts` submits product metadata and selling-price fields in one update. That combined entry point **must be split before staff roles are enabled**. A user with only `products.manage` may edit approved non-price fields (name, size, catalogue assortment, permitted pack metadata), but cannot change `full_crate_price`, `half_crate_price`, `quarter_crate_price`, `bottle_price` or derived selling-price configuration. A price change uses a separate `pricing.selling_edit`-guarded RPC/action, writes an immutable before/after audit event and validates current stock/product metadata. The database rejects price-field updates through the metadata endpoint and direct PostgREST updates. If a combined interface remains, the DB checks **both grants** when any selling-price field changes. Preserve a product's unchanged prices when a metadata-only editor saves.
+Today `src/app/(shop)/products/actions.ts` submits product metadata and selling-price fields in one update. That combined entry point **must be split before staff roles are enabled**. A user with only `products.manage` may edit **only** harmless descriptive fields (name, size, approved image, plain product description), but cannot change `full_crate_price`, `half_crate_price`, `quarter_crate_price`, `bottle_price` or derived selling-price configuration. A price change uses a separate `pricing.selling_edit`-guarded RPC/action, writes an immutable before/after audit event and validates current stock/product metadata. The database rejects price-field updates through the metadata endpoint and direct PostgREST updates. If a combined interface remains, the DB checks **both grants** when any selling-price field changes. Preserve a product's unchanged prices when a metadata-only editor saves.
 
-Negative tests: metadata-only Manager edits a product name successfully but a forged price field is denied, without partial metadata/price writes; a selling-price editor can change prices under its separate grant and audit; a direct price-column UPDATE and modified form cannot bypass the check.
+**Packaging fields are never descriptive-only:** `bottles_per_crate`, `crate_type_id`, `bottles_returnable`, `bottle_type`, units, empties requirements and compatible replacements all affect stock conversion and obligations. Editing these requires independent `packaging.configure_product`, explicit pre/post audit, verification of existing stock/sales/empties balances and a protected conversion/reconciliation path. For stocked/sold products, a casual UPDATE is rejected; historical snapshots remain immutable. `products.manage` does not grant these changes.
+
+**Initial product price is not an exception:** Existing `products.full_crate_price` is NOT NULL, so ordinary staff may **not** create a new product with `products.manage` alone. Creation of a sellable product must atomically require `products.create_sellable` plus `pricing.selling_edit` and `packaging.configure_product` (or Owner's full capability). Default Manager is **not** a product creator. Draft product creation without a required initial selling price would need a separate future schema/UI change and is not assumed for this release. Direct INSERT and API requests must enforce the same rules.
+
+Negative tests: a metadata-only editor cannot set pack size, bottle returnability or crate type; no resulting change to stock or obligations. A user with only `products.manage` cannot INSERT a sellable product with `full_crate_price`; an explicitly authorized product creator with the correct selling-price and packaging grants can. Stocked product pack changes require a separately approved conversion with audit. Metadata-only Manager edits a product name successfully but a forged price field is denied, without partial metadata/price writes; a selling-price editor can change prices under its separate grant and audit; a direct price-column UPDATE and modified form cannot bypass the check.
 
 ## Approval and audit rules
 
