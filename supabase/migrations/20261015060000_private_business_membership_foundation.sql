@@ -23,7 +23,10 @@ create table private.business_memberships (
     check (status in ('active', 'disabled')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  primary key (business_id, user_id)
+  primary key (business_id, user_id),
+  -- V1 allows only one owner identity per depot; a future staff migration
+  -- will deliberately replace this constraint after access controls exist.
+  constraint v1_one_owner_per_business unique (business_id)
 );
 create index business_memberships_by_user_idx
   on private.business_memberships (user_id, business_id);
