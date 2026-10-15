@@ -32,6 +32,23 @@ $before_gate$;
 reset role;
 
 select private.backfill_legacy_shop_rows(private.legacy_scope_snapshot());
+
+-- The existing shop must remain usable while a separately reviewed
+-- backfill transaction has committed but write-gate activation is pending.
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89300000-0000-4000-8000-000000000001',true);
+do $between_backfill_and_activation$
+begin
+ if (select count(*) from public.customers where
+       id='89300000-0000-4000-9000-000000000011')<>1
+    or (select count(*) from public.customers where business_id is null)<>0 then
+   raise exception 'Existing owner lost tagged customers before activation';
+ end if;
+end;
+$between_backfill_and_activation$;
+reset role;
+
 do $validate_tenant_fk$
 declare r record;v_count integer:=0;
 begin
@@ -144,6 +161,32 @@ begin
 end;
 $forgery_a$;
 reset role;
+
+-- Test the SERVER trigger itself in addition to the ordinary missing
+-- UPDATE privilege. This is a transaction-local elevated grant, rolled back.
+grant update(business_id) on public.customers to authenticated;
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89300000-0000-4000-8000-000000000002',true);
+do $trigger_reassignment_guard$
+declare v_message text;
+begin
+ begin
+   update public.customers
+     set business_id='89300000-0000-4000-9000-000000000022'
+   where id='89300000-0000-4000-9000-000000000031';
+   raise exception 'Cross-business reassignment trigger was bypassed'
+     using errcode='PT001';
+ exception when insufficient_privilege then
+   get stacked diagnostics v_message=message_text;
+   if v_message<>'Customer business identity cannot be changed' then
+     raise exception 'Unexpected reassignment failure: %',v_message;
+   end if;
+ end;
+end;
+$trigger_reassignment_guard$;
+reset role;
+revoke update(business_id) on public.customers from authenticated;
 
 -- Owner B is independent of owner A and the original pilot.
 set local role authenticated;
