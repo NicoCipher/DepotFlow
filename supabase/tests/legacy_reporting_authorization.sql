@@ -64,18 +64,33 @@ insert into report_calls(name,rpc_sql) values
 -- authenticated role needs READ on these test-only call definitions.
 grant select on pg_temp.report_calls to authenticated;
 
+-- Capture ACTUAL report payloads before activation, including monetary
+-- amounts and customer details. Row counts alone are never sufficient.
+create temp table report_snapshots(
+  name text primary key,payload jsonb not null
+);
+grant select,insert on pg_temp.report_snapshots to authenticated;
+
 -- Preactivation legacy reads stay compatible.
 set local role authenticated;
 select set_config('request.jwt.claim.sub','89100000-0000-4000-8000-000000000001',true);
 do $legacy_owner$
-declare r record;v_count integer;
+declare r record; v_payload jsonb; v_manager jsonb;
 begin
  for r in select * from pg_temp.report_calls order by name loop
-   execute 'select count(*) from ('||r.rpc_sql||') x' into v_count;
-   if v_count is null then
-     raise exception 'Legacy owner report was blocked: %',r.name;
+   execute 'select coalesce(jsonb_agg(to_jsonb(x) order by to_jsonb(x)::text),''[]''::jsonb) from ('||
+     r.rpc_sql||') x' into v_payload;
+   if v_payload is null then
+     raise exception 'Legacy report returned invalid payload: %',r.name;
    end if;
+   insert into pg_temp.report_snapshots(name,payload) values(r.name,v_payload);
  end loop;
+ v_manager:=public.manager_snapshot('2026-10-15');
+ if (v_manager->>'sales_count')::int<>1
+    or (v_manager->>'sales_value')::int<>900
+    or (v_manager->>'received')::int<>500 then
+   raise exception 'Preactivation money/sales totals changed: %',v_manager;
+ end if;
 end;
 $legacy_owner$;
 reset role;
@@ -106,12 +121,16 @@ select private.enable_legacy_write_scope(private.legacy_scope_snapshot());
 set local role authenticated;
 select set_config('request.jwt.claim.sub','89100000-0000-4000-8000-000000000001',true);
 do $active_owner$
-declare r record;v_count integer;
+declare r record; v_payload jsonb; v_before jsonb;
 begin
  for r in select * from pg_temp.report_calls order by name loop
-   execute 'select count(*) from ('||r.rpc_sql||') x' into v_count;
-   if v_count is null then
-     raise exception 'Active owner reporting failed: %',r.name;
+   execute 'select coalesce(jsonb_agg(to_jsonb(x) order by to_jsonb(x)::text),''[]''::jsonb) from ('||
+     r.rpc_sql||') x' into v_payload;
+   select payload into strict v_before
+     from pg_temp.report_snapshots where name=r.name;
+   if v_payload is distinct from v_before then
+     raise exception 'Report result changed during activation: %, before %, after %',
+       r.name,v_before,v_payload;
    end if;
  end loop;
 end;
@@ -168,8 +187,29 @@ begin
 end;
 $data_check$;
 
+-- Store the actual GENERATED token in a test-local setting before
+-- assuming the anonymous caller (which rightly cannot SELECT from sales).
+select set_config('test.verified_sale_token',
+  (select verification_token::text from public.sales
+   where id='89100000-0000-4000-9000-000000000012'),true);
 set local role anon;
 select pg_temp.check_ok(
- public.verify_receipt('89100000-0000-4000-9000-000000000099') is null,
- 'Unknown public verification token should return no receipt');
+  public.verify_receipt('89100000-0000-4000-9000-000000000099') is null,
+  'Unknown public verification token should return no receipt');
+do $verified_receipt$
+declare v_public jsonb;
+begin
+ v_public:=public.verify_receipt(
+   current_setting('test.verified_sale_token')::uuid
+ );
+ if v_public is null
+    or v_public->>'kind'<>'sale'
+    or (v_public->>'total')::int<>900
+    or (v_public->>'amount')::int<>500
+    or (v_public->>'balance')::int<>400
+    or v_public->>'number' is null then
+   raise exception 'Anonymous valid receipt was lost or changed: %',v_public;
+ end if;
+end;
+$verified_receipt$;
 rollback;
