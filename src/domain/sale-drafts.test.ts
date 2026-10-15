@@ -348,3 +348,32 @@ test("old sale drafts without previous debt payment default to zero", () => {
   const serialized = JSON.stringify(legacy);
   assert.equal(readSaleDraft(serialized).oldDebtPaid, "0");
 });
+
+test("adding a new customer during checkout cannot carry the earlier customer's payment or empties data", () => {
+  const oldDraft = {
+    ...emptySaleDraft,
+    customerId: "old",
+    paid: "1500",
+    oldDebtPaid: "500",
+    paymentMethod: "transfer",
+    lines: [line],
+    emptiesV2: {
+      ...emptySaleDraft.emptiesV2, mode: "actual" as const,
+      decisions: [{ productId: "p", kind: "bottle" as const, returnedType: "other", quantity: "1", decision: "hold" as const }],
+      confirmedAllReturned: "old-confirmation",
+      returnedCrates: { crate: "1" },
+      returnedBottles: { glass: "12" },
+      cratesTaken: { p: "1" },
+    },
+  };
+  const state = { ...emptySaleDrafts, active: { id: "active", pausedAt: null, draft: oldDraft } };
+  const next = selectSaleCustomer(state, "active", "new", "unused");
+  assert.equal(next.active?.draft.customerId, "new");
+  assert.deepEqual(next.active?.draft.lines, oldDraft.lines);
+  assert.equal(next.active?.draft.paid, "0");
+  assert.equal(next.active?.draft.oldDebtPaid, "0");
+  assert.equal(next.active?.draft.paymentMethod, "");
+  assert.equal(next.active?.draft.emptiesV2.confirmedAllReturned, null);
+  assert.deepEqual(next.active?.draft.emptiesV2.returnedBottles, {});
+  assert.deepEqual(next.active?.draft.emptiesV2.decisions, []);
+});
