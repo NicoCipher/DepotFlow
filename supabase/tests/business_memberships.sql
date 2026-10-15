@@ -35,7 +35,13 @@ begin
     or has_table_privilege('authenticated','private.business_memberships','UPDATE')
     or has_table_privilege('authenticated','private.business_memberships','DELETE')
     or has_table_privilege('anon','private.businesses','SELECT')
-    or has_table_privilege('anon','private.business_memberships','SELECT') then
+    or has_table_privilege('anon','private.businesses','INSERT')
+    or has_table_privilege('anon','private.businesses','UPDATE')
+    or has_table_privilege('anon','private.businesses','DELETE')
+    or has_table_privilege('anon','private.business_memberships','SELECT')
+    or has_table_privilege('anon','private.business_memberships','INSERT')
+    or has_table_privilege('anon','private.business_memberships','UPDATE')
+    or has_table_privilege('anon','private.business_memberships','DELETE') then
     raise exception 'Private business data accidentally granted to clients';
   end if;
   if exists(
@@ -89,6 +95,32 @@ begin
   exception when insufficient_privilege then null;
   end;
 end $$;
+reset role;
+set local role anon;
+do $
+begin
+  begin
+    perform count(*) from private.businesses;
+    raise exception 'Anonymous role could read the business registry';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into private.businesses(status) values('setup');
+    raise exception 'Anonymous role could create a business';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    update private.business_memberships
+       set status='active';
+    raise exception 'Anonymous role could modify memberships';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    delete from private.business_memberships;
+    raise exception 'Anonymous role could delete memberships';
+  exception when insufficient_privilege then null;
+  end;
+end $;
 reset role;
 
 -- IDs and balances in the existing shop are never edited by this migration.
