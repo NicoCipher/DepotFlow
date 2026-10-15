@@ -724,6 +724,26 @@ export function SaleBuilder({
                 <p className="mt-1 text-sm text-stone-600">Add your first customer to start recording sales.</p>
               </div>
             )}
+            {requestedCustomerId && requestedCustomerId !== draft.customerId && (
+              <div role="group" aria-label="Confirm changing customer" className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <p className="font-bold text-amber-950">
+                  Change this sale to {catalog.customers.find((c) => c.id === requestedCustomerId)?.name ?? "another customer"}?
+                </p>
+                <p className="mt-1 text-sm text-amber-950">The drinks will stay. The amounts paid and empty-return choices will be cleared so they cannot be put on the wrong customer&apos;s account.</p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button type="button" className="secondary min-h-11" onClick={() => setRequestedCustomerId(null)}>Keep customer</button>
+                  <button type="button" className="primary min-h-11" onClick={() => {
+                    update({
+                      customerId: requestedCustomerId,
+                      paid: "0", oldDebtPaid: "0", paymentMethod: "",
+                      emptiesV2: { ...draft.emptiesV2, mode: "exact", confirmedAllReturned: null,
+                        decisions: [], returnedCrates: {}, returnedBottles: {}, cratesTaken: {} },
+                      step: "drinks",
+                    });
+                  }}>Yes, change customer</button>
+                </div>
+              </div>
+            )}
             <ul className="grid gap-2" aria-label="Choose a customer">
               {matchedCustomers.map((c) => (
                 <li key={c.id}>
@@ -733,7 +753,13 @@ export function SaleBuilder({
                       ? "flex min-h-20 w-full items-center gap-3 rounded-xl border-2 border-emerald-700 bg-emerald-50 px-4 py-3 text-left"
                       : "flex min-h-20 w-full items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-left hover:border-emerald-500 hover:bg-emerald-50"}
                     aria-pressed={draft.customerId === c.id}
-                    onClick={() => update({ customerId: c.id, oldDebtPaid: c.id === draft.customerId ? draft.oldDebtPaid : "0", step: "drinks" })}
+                    onClick={() => {
+                      if (draft.customerId && draft.customerId !== c.id && draft.lines.length > 0) {
+                        setRequestedCustomerId(c.id);
+                        return;
+                      }
+                      update({ customerId: c.id, oldDebtPaid: c.id === draft.customerId ? draft.oldDebtPaid : "0", step: "drinks" });
+                    }}
                   >
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-stone-100 text-stone-700">
                       <SaleIcon name="user" />
