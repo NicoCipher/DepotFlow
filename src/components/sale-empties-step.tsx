@@ -5,6 +5,8 @@ import Link from "next/link";
 import { SaleIcon } from "@/components/sale-icon";
 import {
   crateReturnIssues,
+  allReturnedConfirmationKey,
+  hasConfirmedAllReturned,
   depositSetupIssues,
   matchSaleEmpties,
   hasUnmatchedSaleEmpties,
@@ -175,15 +177,27 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
         emptiesV2: {
           ...state,
           mode: "actual",
+          confirmedAllReturned: null,
           decisions: [],
           returnedCrates,
           returnedBottles,
         },
       });
     } catch {
-      update({ emptiesV2: { ...state, mode: "actual" } });
+      update({ emptiesV2: { ...state, mode: "actual", confirmedAllReturned: null } });
     }
   }
+
+  const exactConfirmed = Boolean(expected && hasConfirmedAllReturned(draft, expected));
+  const expectedCrates = new Map<string, number>();
+  const expectedBottles = new Map<string, number>();
+  for (const line of expected?.lines ?? []) {
+    expectedCrates.set(line.crateTypeId, (expectedCrates.get(line.crateTypeId) ?? 0) + line.cratesOut);
+    if (line.bottleType)
+      expectedBottles.set(line.bottleType, (expectedBottles.get(line.bottleType) ?? 0) + line.bottlesOut);
+  }
+  const totalExpectedCrates = [...expectedCrates.values()].reduce((sum, n) => sum + n, 0);
+  const totalExpectedBottles = [...expectedBottles.values()].reduce((sum, n) => sum + n, 0);
 
   const shortages =
     result?.lines.filter((line) => line.cratesOwed || line.bottlesOwed) ?? [];
@@ -226,21 +240,46 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
         <div>
           <h2 id="empties-choice-heading" className="text-xl font-bold text-stone-950">What came back?</h2>
           <p className="mt-1 text-sm leading-6 text-stone-600">
-            Check the empty crates and bottles the customer returned with these drinks.
+            Check what came back with these drinks. Nothing is recorded until you save the sale.
           </p>
         </div>
+        {expected && (
+          <div className="rounded-xl border border-stone-200 bg-stone-50 p-4">
+            <p className="text-sm font-semibold text-stone-700">Expected with this sale</p>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <div><strong className="block text-3xl tabular-nums text-stone-950">{totalExpectedCrates}</strong><span className="text-sm text-stone-600">Empty crates</span></div>
+              <div><strong className="block text-3xl tabular-nums text-stone-950">{totalExpectedBottles}</strong><span className="text-sm text-stone-600">Empty bottles</span></div>
+            </div>
+            {(expectedCrates.size > 0 || expectedBottles.size > 0) && (
+              <details className="mt-3 border-t border-stone-200 pt-2 text-sm">
+                <summary className="cursor-pointer py-2 font-semibold text-emerald-900">View expected types</summary>
+                <ul className="mt-2 space-y-1 text-stone-700">
+                  {[...expectedCrates].filter(([, count]) => count > 0).map(([type, count]) => (
+                    <li key={"crate-" + type}>{count} {crateName.get(type) ?? "Unknown"} {count === 1 ? "crate" : "crates"}</li>
+                  ))}
+                  {[...expectedBottles].filter(([, count]) => count > 0).map(([type, count]) => (
+                    <li key={"bottle-" + type}>{count} {type} {count === 1 ? "bottle" : "bottles"}</li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </div>
+        )}
         <div role="group" aria-label="Empties returned" className="grid gap-3 sm:grid-cols-2">
           <button
             type="button"
-            aria-pressed={state.mode === "exact"}
-            className={"flex min-h-24 items-start justify-between gap-3 rounded-xl border-2 p-4 text-left " + (state.mode === "exact" ? "border-emerald-800 bg-emerald-50 text-emerald-950" : "border-stone-200 bg-white text-stone-900 hover:border-emerald-300")}
+            aria-pressed={exactConfirmed}
+            className={"flex min-h-24 items-start justify-between gap-3 rounded-xl border-2 p-4 text-left disabled:opacity-60 " + (exactConfirmed ? "border-emerald-800 bg-emerald-50 text-emerald-950" : "border-stone-200 bg-white text-stone-900 hover:border-emerald-300")}
+            disabled={!expected || hasFieldErrors}
             onClick={() => {
+              if (!expected) return;
               setExtraCrates([]);
               setExtraBottles([]);
               update({
                 emptiesV2: {
                   ...state,
                   mode: "exact",
+                  confirmedAllReturned: allReturnedConfirmationKey(draft, expected),
                   decisions: [],
                   returnedCrates: {},
                   returnedBottles: {},
@@ -249,11 +288,11 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
             }}
           >
             <span>
-              <strong className="block text-base">All returned</strong>
-              <span className="mt-1 block text-sm leading-5">Every expected crate and bottle came back</span>
+              <strong className="block text-base">{exactConfirmed ? "All returned · Confirmed" : "Yes, all returned"}</strong>
+              <span className="mt-1 block text-sm leading-5">I checked: every expected crate and bottle came back</span>
             </span>
-            <span className={"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 " + (state.mode === "exact" ? "border-emerald-800 bg-emerald-800 text-white" : "border-stone-400")} aria-hidden="true">
-              {state.mode === "exact" && <SaleIcon name="check" className="h-4 w-4" />}
+            <span className={"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 " + (exactConfirmed ? "border-emerald-800 bg-emerald-800 text-white" : "border-stone-400")} aria-hidden="true">
+              {exactConfirmed && <SaleIcon name="check" className="h-4 w-4" />}
             </span>
           </button>
           <button
@@ -272,9 +311,11 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
           </button>
         </div>
         {state.mode === "exact" && (
-          <p className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-950">
-            <SaleIcon name="check" className="h-4 w-4 shrink-0" />
-            All expected empties marked as returned. Continue if this is correct.
+          <p role="status" className={"flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium " + (exactConfirmed ? "bg-emerald-50 text-emerald-950" : "bg-amber-50 text-amber-950")}>
+            <SaleIcon name={exactConfirmed ? "check" : "shield"} className="h-4 w-4 shrink-0" />
+            {exactConfirmed
+              ? "Confirmed. All expected returns will be recorded when the sale is saved."
+              : "Not yet confirmed. Tap “Yes, all returned” after checking the crates and bottles."}
           </p>
         )}
       </section>
@@ -318,6 +359,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                       update({
                         emptiesV2: {
                           ...state,
+                          confirmedAllReturned: null,
                           cratesTaken: {
                             ...state.cratesTaken,
                             [line.productId]: event.target.value,
@@ -718,7 +760,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
         </p>
       )}
 
-      {result && (
+      {result && (state.mode === "actual" || exactConfirmed) && (
         <section
           aria-live="polite"
           className="rounded-lg border border-stone-200 bg-white p-4"
@@ -854,7 +896,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
           type="button"
           className="primary min-w-0 flex-1"
           disabled={
-            hasFieldErrors || !result || hasUnmatchedSaleEmpties(result) || Boolean(error) || depositBlocked
+            hasFieldErrors || !result || (state.mode === "exact" && !exactConfirmed) || hasUnmatchedSaleEmpties(result) || Boolean(error) || depositBlocked
           }
           onClick={() => update({ step: "payment" })}
         >

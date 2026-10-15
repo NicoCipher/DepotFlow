@@ -8,7 +8,7 @@ import {
   type SaleProduct,
   type SaleDraft,
 } from "@/domain/sale-builder";
-import { actualSaleEmpties, matchSaleEmpties, assertSaleEmptiesResolved } from "@/domain/sale-empties";
+import { actualSaleEmpties, matchSaleEmpties, assertSaleEmptiesResolved, hasConfirmedAllReturned } from "@/domain/sale-empties";
 import {
   isSaleSessionExpired,
   safeCaughtSaleErrorMessage,
@@ -194,6 +194,11 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
       };
 
     const empties = matchSaleEmpties(draft, fresh);
+    if (draft.emptiesV2.mode === "exact" && !hasConfirmedAllReturned(draft, empties))
+      return {
+        error: "The expected empties have changed. Check the updated crates and bottles, then confirm again.",
+        code: "empties_changed" as const,
+      };
     assertSaleEmptiesResolved(empties);
     if (customer.empties_deposit_required && empties.hasShortage)
       throw new Error(

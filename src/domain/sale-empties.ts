@@ -10,6 +10,7 @@ import { parseWholeNumberInput } from "./sale-input.ts";
 export type EmptiesV2State = {
   decisions?: SaleDraft["emptiesV2"]["decisions"];
   mode: "exact" | "actual";
+  confirmedAllReturned?: string | null;
   cratesTaken: Record<string, string>;
   returnedCrates: Record<string, string>;
   returnedBottles: Record<string, string>;
@@ -17,6 +18,7 @@ export type EmptiesV2State = {
 
 export const emptyEmptiesV2: EmptiesV2State = {
   mode: "exact",
+  confirmedAllReturned: null,
   cratesTaken: {},
   returnedCrates: {},
   returnedBottles: {},
@@ -48,6 +50,35 @@ export type EmptiesMatchResult = {
   unmatchedBottles: Record<string, number>;
   hasShortage: boolean;
 };
+
+/**
+ * The confirmation belongs to the precise customer, sale quantities and
+ * physical empty obligations the operator checked. A changed sale or catalog
+ * makes an earlier confirmation invalid without an extra reset mechanism.
+ */
+export function allReturnedConfirmationKey(draft: SaleDraft, result: EmptiesMatchResult): string {
+  return JSON.stringify({
+    customerId: draft.customerId,
+    lines: draft.lines.map((line) => ({ productId: line.productId, quantity: line.quantity })),
+    expected: result.lines.map((line) => ({
+      productId: line.productId,
+      crateTypeId: line.crateTypeId,
+      bottleType: line.bottleType,
+      cratesOut: line.cratesOut,
+      bottlesOut: line.bottlesOut,
+    })),
+  });
+}
+
+export function hasConfirmedAllReturned(draft: SaleDraft, result: EmptiesMatchResult): boolean {
+  return draft.emptiesV2?.mode === "exact" &&
+    draft.emptiesV2.confirmedAllReturned === allReturnedConfirmationKey(draft, result);
+}
+
+export function assertAllReturnedConfirmed(draft: SaleDraft, result: EmptiesMatchResult): void {
+  if (draft.emptiesV2?.mode === "exact" && !hasConfirmedAllReturned(draft, result))
+    throw new Error("Confirm the crates and bottles returned before saving this sale.");
+}
 
 /**
  * Suggest a one-tap decision only when exactly one owed bottle type and one
@@ -251,6 +282,7 @@ export function cratesTakenFor(draft: SaleDraft, line: DraftLine): number {
 
 export function actualSaleEmpties(draft: SaleDraft, catalog: SaleCatalog) {
   const match = matchSaleEmpties(draft, catalog);
+  assertAllReturnedConfirmed(draft, match);
   const state = draft.emptiesV2 ?? emptyEmptiesV2;
   const crates = new Map<string, number>();
   const bottles = new Map<string, number>();

@@ -22,6 +22,7 @@ export const saleUnexpectedErrorMessage =
   "Something went wrong. Your sale is still here. Try again.";
 
 const safeCaughtSaleMessages: RegExp[] = [
+  /^Confirm the crates and bottles returned before saving this sale\.$/,
   /^Choose Accept or Hold for the different empties before saving\.$/,
   /^Check the empties choices\.$/,
   /^Choose different empties only for what is still owed\.$/,
