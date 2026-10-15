@@ -19,7 +19,7 @@ insert into private.business_memberships(business_id,user_id,member_kind)
 values ('80000000-0000-4000-9000-000000000002',
         '80000000-0000-4000-8000-000000000002','owner');
 
-do $
+do $duplicate_owner$
 begin
   begin
     insert into private.business_memberships
@@ -79,7 +79,7 @@ begin
   if (select count(*) from private.businesses where legacy_singleton is true) <> 1 then
     raise exception 'Expected exactly one marked legacy business';
   end if;
-end $$;
+end $duplicate_owner$;
 
 -- Preserve the current owner-only login gate without granting access
 -- to the new private business tables.
