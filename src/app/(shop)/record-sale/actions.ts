@@ -150,6 +150,45 @@ export async function loadCustomerMoneyOwed(customerId: string) {
   }
 }
 
+/**
+ * Check the catalogue and this customer's money balance in one Server
+ * Function. Client-side Server Function calls are dispatched sequentially,
+ * so running Promise.all on the client still makes checkout wait twice.
+ * Both reads share one verified owner session and run concurrently here.
+ * SaveSale performs its own authoritative revalidation.
+ */
+export async function reviewSaleInputs(customerId: string) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(customerId))
+    return { error: "Choose a customer first.", code: "customer_invalid" as const };
+  const session = await ownerSession();
+  if (!session.user) {
+    if (isSaleSessionExpired(false, session.authError))
+      return { error: saleSessionExpiredMessage, code: "session_expired" as const };
+    return { error: saleNetworkMessage, code: "network_error" as const };
+  }
+  if (!session.allowed)
+    return { error: saleNetworkMessage, code: "network_error" as const };
+
+  try {
+    const [catalog, owed] = await Promise.all([
+      loadCatalog(session.supabase),
+      session.supabase
+        .from("money_owed")
+        .select("amount")
+        .eq("customer_id", customerId)
+        .maybeSingle(),
+    ]);
+    if (owed.error)
+      return { error: "Could not verify the customer's current balance. Try again.", code: "debt_unavailable" as const };
+    const amount = owed.data?.amount ?? 0;
+    if (!Number.isSafeInteger(amount) || amount < 0)
+      return { error: "Could not verify the customer balance. Try again.", code: "debt_unavailable" as const };
+    return { catalog, amount };
+  } catch {
+    return { error: saleNetworkMessage, code: "network_error" as const };
+  }
+}
+
 export async function saveSale(requestId: string, draft: SaleDraft) {
   const session = await ownerSession();
   if (!session.user) {
