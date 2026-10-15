@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
   refreshSaleCatalog,
+  reviewSaleInputs,
   loadCustomerMoneyOwed,
   saveSale,
 } from "@/app/(shop)/record-sale/actions";
@@ -30,6 +31,7 @@ import {
   saleSessionExpiredMessage,
 } from "@/domain/sale-errors";
 import { formatNaira } from "@/domain/products";
+import { saleCardPrice } from "@/domain/sale-card-price";
 import { formatQuantity } from "@/domain/quantity";
 import {
   matchesSaleCustomer,
@@ -79,6 +81,7 @@ export function SaleBuilder({
   const [confirmedSaveKey, setConfirmedSaveKey] = useState<string | null>(null);
   const [saveAcknowledged, setSaveAcknowledged] = useState(false);
   const pricingMode = draft.sellingMode === "retail" ? "retail" : "wholesale";
+  const browsingMode = draft.preferredSellingMode === "retail" ? "retail" : "wholesale";
   const [catalog, setCatalog] = useState(initialCatalog);
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState("");
@@ -276,65 +279,41 @@ export function SaleBuilder({
     return "";
   })();
 
-  function quickCheck() {
-    startTransition(async () => {
-      try {
-        const response = await refreshSaleCatalog();
-        if ("error" in response) {
-          if (response.code === "session_expired") {
-            setSessionExpired(true);
-            setMessage(saleSessionExpiredMessage);
-          } else {
-            setMessage(response.error ?? saleNetworkMessage);
-          }
-          return;
+  async function quickCheck() {
+    // The catalogue was loaded by the server for this visit and refreshed in
+    // the background. Don't wait for another full network fetch just to show
+    // empty-return questions. The payment review fetches fresh prices, stock
+    // and customer debt, and the sale RPC independently validates again.
+    const checked = revalidateSaleDraft(draft, catalog);
+    if (checked.warnings.length) {
+      setMessage(checked.warnings[0]);
+      return;
+    }
+    let expected: ReturnType<typeof matchSaleEmpties>;
+    try {
+      expected = matchSaleEmpties({
+        ...draft, emptiesV2: { ...draft.emptiesV2, mode: "exact", decisions: [] },
+      }, catalog);
+    } catch (cause) {
+      await sales.update({ step: "empties" });
+      setMessage(cause instanceof Error ? cause.message : "Check the empty crates and empty bottles.");
+      return;
+    }
+    const skipEmpties = draft.emptiesV2.mode === "exact" && hasNoExpectedSaleEmpties(expected);
+    const updated = await sales.update(skipEmpties
+      ? {
+          step: "payment",
+          emptiesV2: {
+            ...draft.emptiesV2, mode: "exact", decisions: [],
+            confirmedAllReturned: allReturnedConfirmationKey(draft, expected),
+          },
         }
-        const fresh = response.catalog;
-        setCatalog(fresh);
-        const checked = revalidateSaleDraft(draft, fresh);
-        if (checked.warnings.length) {
-          setMessage(checked.warnings[0]);
-          return;
-        }
-        // No empty crates or empty bottles are required for this sale.
-        // Skip questions the operator does not need to answer.
-        let preview: ReturnType<typeof matchSaleEmpties>;
-        try {
-          preview = matchSaleEmpties(
-            { ...draft, emptiesV2: { ...draft.emptiesV2, mode: "exact", decisions: [] } },
-            fresh,
-          );
-        } catch (cause) {
-          // Old physical-crate quantities may no longer fit an edited sale.
-          // This is not a network failure: let the operator correct the fields.
-          await sales.update({ step: "empties" });
-          setMessage(cause instanceof Error ? cause.message : "Check the empty crates and empty bottles.");
-          return;
-        }
-        const skipEmpties = draft.emptiesV2.mode === "exact" && hasNoExpectedSaleEmpties(preview);
-        // Preserve the no-empties decision across page refresh and parked sales.
-        // It is tied to the exact customer, sale lines and catalog obligations,
-        // so newly returnable drinks invalidate it at save time.
-        const updated = await sales.update(skipEmpties
-          ? {
-              step: "payment",
-              emptiesV2: {
-                ...draft.emptiesV2,
-                mode: "exact",
-                decisions: [],
-                confirmedAllReturned: allReturnedConfirmationKey(draft, preview),
-              },
-            }
-          : { step: "empties" });
-        if (!updated) {
-          setMessage("Could not save this step on your device. Try again.");
-          return;
-        }
-        setMessage("");
-      } catch {
-        setMessage(saleNetworkMessage);
-      }
-    });
+      : { step: "empties" });
+    if (!updated) {
+      setMessage("Could not save this step on your device. Try again.");
+      return;
+    }
+    setMessage("");
   }
   function available(p: SaleProduct) {
     return p.available === null
@@ -346,7 +325,7 @@ export function SaleBuilder({
   const step = customer ? draft.step : "customer";
   const customerToCheck = customer?.id ?? null;
   const debtKey = customerToCheck && (step === "payment" || step === "review")
-    ? `${customerToCheck}:${step}:${debtRefresh}`
+    ? `${customerToCheck}:${debtRefresh}`
     : null;
   useEffect(() => {
     if (!customerToCheck || !debtKey) return;
@@ -377,7 +356,9 @@ export function SaleBuilder({
   })();
   const reviewKey = saleSaveConfirmationKey(draft, oldDebtAmount, reviewTotal);
   const finalSaveConfirmed = confirmedSaveKey === reviewKey;
-  const reviewSaveBlocked = pending || !draft.businessDate ||
+  // "Check Sale" must remain usable even when catalogue refresh is offline:
+  // an uncertain save can only be resolved by the original request ID.
+  const reviewSaveBlocked = pending || (!ready && !saveUncertain) || !draft.businessDate ||
     reviewTotal === undefined || !emptiesReview || emptiesNeedConfirmation ||
     hasUnmatchedSaleEmpties(emptiesReview) || Number(draft.paid) > reviewTotal ||
     (!saveUncertain && (!paymentBreakdown || debtChecking || Boolean(oldDebtInputError) ||
@@ -403,6 +384,12 @@ export function SaleBuilder({
     }
   }
   const progressLabels = ["Customer", "Drinks", "Empties", "Payment", "Review"] as const;
+  const backStep = step === "drinks" ? "customer" :
+    step === "quantity" || step === "empties" ? "drinks" :
+    step === "payment" ? (emptiesReview && hasNoExpectedSaleEmpties(emptiesReview) ? "drinks" : "empties") :
+    step === "review" ? "payment" : null;
+  const backLabel = backStep === "customer" ? "Customer" :
+    backStep === "drinks" ? "Drinks" : backStep === "empties" ? "Empty returns" : "Payment";
   const matchedCustomers = catalog.customers.filter((c) => matchesSaleCustomer(c, customerQuery));
   useEffect(() => {
     if (previousStep.current !== null && previousStep.current !== step) {
@@ -534,8 +521,8 @@ export function SaleBuilder({
   return (
     <>
       {!ready && !sessionExpired && (
-        <div role="status" className="mb-5">
-          <p>{checkError || "Checking current prices and stock…"}</p>
+        <div role={checkError ? "alert" : "status"} className="mb-3 rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm text-stone-700">
+          <p>{checkError || "Checking current prices and stock in the background. You can keep preparing the sale."}</p>
           {checkError && (
             <button
               className="secondary mt-3"
@@ -547,7 +534,7 @@ export function SaleBuilder({
         </div>
       )}
       <fieldset
-        disabled={pending || !ready}
+        disabled={pending}
         aria-label="Sale draft"
         className="space-y-3 pb-4"
       >
@@ -591,12 +578,18 @@ export function SaleBuilder({
               </div>
             )}
           </div>
+          {backStep && !saveUncertain && (
+            <button type="button" className="inline-flex min-h-11 w-fit items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-900"
+              onClick={() => update({ step: backStep })}>
+              <span aria-hidden="true">←</span> Back to {backLabel}
+            </button>
+          )}
           <h1 ref={stepHeading} tabIndex={-1} className="outline-none">
             {step === "customer" ? "Who is buying?" : step === "drinks" ? "Choose drinks" : step === "quantity" ? "Set the quantity" : step === "empties" ? "Check the empties" : step === "payment" ? "Record payment" : "Review and save"}
           </h1>
           {step !== "drinks" && (
             <p className="text-sm leading-5 text-stone-600">
-              {step === "customer" ? "Find the customer to begin." : step === "quantity" ? "Enter the quantity, then add it to the sale." : step === "empties" ? "Check the empty crates and bottles returned." : step === "payment" ? "Enter what the customer paid today." : "Check the sale details before saving."}
+              {step === "customer" ? "Find the customer to begin." : step === "quantity" ? "Enter the quantity, then add it to the sale." : step === "empties" ? "Check the empty crates and empty bottles returned." : step === "payment" ? "Enter what the customer paid today." : "Check the sale details before saving."}
             </p>
           )}
           <nav aria-label="Sale progress">
@@ -815,8 +808,8 @@ export function SaleBuilder({
               <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label="Pricing for the next drink">
                 {(["wholesale", "retail"] as const).map((mode) => (
                   <button key={mode} type="button"
-                    aria-pressed={(draft.preferredSellingMode ?? "wholesale") === mode}
-                    className={((draft.preferredSellingMode ?? "wholesale") === mode
+                    aria-pressed={browsingMode === mode}
+                    className={(browsingMode === mode
                       ? "border-emerald-800 bg-emerald-50 text-emerald-950"
                       : "border-stone-200 bg-white text-stone-800") + " min-h-16 rounded-xl border-2 px-3 py-3 text-left"}
                     onClick={() => update({ preferredSellingMode: mode })}>
@@ -825,7 +818,10 @@ export function SaleBuilder({
                   </button>
                 ))}
               </div>
-              {draft.lines.length > 0 && <p className="mt-2 text-xs text-stone-600">Already added drinks keep their prices. This choice only affects the next new drink.</p>}
+              <p className="mt-2 text-xs text-emerald-900" role="status">
+                Showing {browsingMode === "retail" ? "retail bottle" : "wholesale crate"} prices below.
+              </p>
+              {draft.lines.length > 0 && <p className="mt-1 text-xs text-stone-600">Already added drinks keep their prices. This choice only affects the next new drink.</p>}
             </section>
             <section aria-labelledby="sale-choose-drink">
               <div className="mb-3">
@@ -903,7 +899,8 @@ export function SaleBuilder({
                 {visibleProducts.map((p) => {
                   const line = draft.lines.find((item) => item.productId === p.id);
                   const setupIssue = saleProductSetupIssue(p);
-                  const selectable = Boolean(p.available) && !setupIssue;
+                  const shownPrice = saleCardPrice(p, browsingMode);
+                  const selectable = Boolean(p.available) && !setupIssue && shownPrice.available;
                   return (
                     <li key={p.id} className="min-w-0">
                       <div className={line
@@ -923,20 +920,20 @@ export function SaleBuilder({
                             <span className={p.available === 0 ? "mt-1 block text-sm font-semibold text-red-800" : "mt-1 block text-sm text-stone-600"}>
                               {available(p)}
                             </span>
-                            <span className="mt-1 block text-sm font-semibold text-stone-800">
-                              {p.full_crate_price === null ? "Crate price not set" : formatNaira(p.full_crate_price) + " / crate"}
+                            <span className="mt-1 block text-sm font-bold text-emerald-950" aria-label={browsingMode + " price: " + shownPrice.primary}>
+                              {shownPrice.primary}
                             </span>
-                            {p.bottle_price !== null && <span className="block text-xs text-stone-600">{formatNaira(p.bottle_price)} / bottle</span>}
+                            <span className="block text-xs text-stone-600">{shownPrice.secondary}</span>
                             <span className={line ? "mt-2 flex items-center gap-1 text-sm font-bold text-emerald-900" : "mt-2 flex items-center gap-1 text-sm font-bold text-emerald-800"}>
-                              {setupIssue ? "Setup needed" : !p.available ? "Cannot add" : line
+                              {setupIssue ? "Setup needed" : !p.available ? "Cannot add" : !shownPrice.available ? "Set price for " + browsingMode : line
                                 ? <><SaleIcon name="check" className="h-4 w-4" /> In this sale · Change</>
                                 : <><SaleIcon name="plus" className="h-4 w-4" /> Add this drink</>}
                             </span>
                           </span>
                         </button>
-                        {setupIssue && (
+                        {(setupIssue || !shownPrice.available) && (
                           <Link className="quiet-link mx-3 mb-2 inline-block text-sm" href={"/products/" + p.id + "/edit"}>
-                            Finish drink setup
+                            {setupIssue ? "Finish drink setup" : browsingMode === "retail" ? "Set retail bottle price" : "Set wholesale crate price"}
                           </Link>
                         )}
                       </div>
@@ -967,7 +964,7 @@ export function SaleBuilder({
                 disabled={!draft.lines.length || pending || revalidateSaleDraft(draft, catalog).warnings.length > 0}
                 onClick={quickCheck}
               >
-                {pending ? "Checking…" : draft.lines.length ? "Next: Empties" : "Add a drink"}
+                {pending ? "Working…" : draft.lines.length ? "Next: Empty returns" : "Add a drink"}
                 {draft.lines.length > 0 && !pending && <SaleIcon name="arrow" className="h-4 w-4" />}
               </button>
             </div>
@@ -1392,7 +1389,7 @@ export function SaleBuilder({
             <div className="sale-sticky-actions sticky z-10 -mx-4 flex items-center gap-3 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
             <button
               className="secondary min-h-12 shrink-0 px-4"
-              onClick={() => update({ step: "empties" })}
+              onClick={() => update({ step: backStep ?? "empties" })}
             >
               Back
             </button>
@@ -1407,32 +1404,34 @@ export function SaleBuilder({
               onClick={() =>
                 startTransition(async () => {
                   let fresh: SaleCatalog;
+                  let latestDebt: number;
                   try {
-                    const response = await refreshSaleCatalog();
+                    const response = await reviewSaleInputs(draft.customerId);
                     if ("error" in response) {
+                      const errorMessage = response.error ?? saleNetworkMessage;
                       if (response.code === "session_expired") {
                         setSessionExpired(true);
                         setMessage(saleSessionExpiredMessage);
+                      } else if (response.code === "debt_unavailable") {
+                        if (debtKey) setDebtError({ key: debtKey, message: errorMessage });
+                        setMessage(errorMessage);
                       } else {
-                        setMessage(response.error ?? saleNetworkMessage);
+                        setMessage(errorMessage);
                       }
                       return;
                     }
                     fresh = response.catalog;
+                    latestDebt = response.amount;
+                    if (activeId) setVerifiedId(activeId);
+                    setCheckError("");
                   } catch {
                     setMessage(saleNetworkMessage);
                     return;
                   }
                   try {
-                    const latestDebt = await loadCustomerMoneyOwed(draft.customerId);
-                    if ("error" in latestDebt) {
-                      const errorMessage = latestDebt.error ?? "Could not verify the customer's balance.";
-                      if (debtKey) setDebtError({ key: debtKey, message: errorMessage });
-                      setMessage(errorMessage);
-                      return;
-                    }
-                    if (debtKey) setOldDebt({ key: debtKey, amount: latestDebt.amount });
-                    salePaymentTotals(total!, Number(draft.paid), latestDebt.amount, Number(draft.oldDebtPaid));
+                    if (debtKey) setOldDebt({ key: debtKey, amount: latestDebt });
+                    setDebtError(null);
+                    salePaymentTotals(total!, Number(draft.paid), latestDebt, Number(draft.oldDebtPaid));
                     setCatalog(fresh);
                     matchSaleEmpties(draft, fresh);
                     const lines = draft.lines.map((line) => {
