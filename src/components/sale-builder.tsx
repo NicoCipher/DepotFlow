@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
   refreshSaleCatalog,
+  reviewSaleInputs,
   loadCustomerMoneyOwed,
   saveSale,
 } from "@/app/(shop)/record-sale/actions";
@@ -899,7 +900,7 @@ export function SaleBuilder({
                   const line = draft.lines.find((item) => item.productId === p.id);
                   const setupIssue = saleProductSetupIssue(p);
                   const shownPrice = saleCardPrice(p, browsingMode);
-                  const selectable = Boolean(p.available) && !setupIssue && (browsingMode !== "retail" || shownPrice.available);
+                  const selectable = Boolean(p.available) && !setupIssue && shownPrice.available;
                   return (
                     <li key={p.id} className="min-w-0">
                       <div className={line
@@ -924,15 +925,15 @@ export function SaleBuilder({
                             </span>
                             <span className="block text-xs text-stone-600">{shownPrice.secondary}</span>
                             <span className={line ? "mt-2 flex items-center gap-1 text-sm font-bold text-emerald-900" : "mt-2 flex items-center gap-1 text-sm font-bold text-emerald-800"}>
-                              {setupIssue ? "Setup needed" : !p.available ? "Cannot add" : browsingMode === "retail" && !shownPrice.available ? "Set retail bottle price" : line
+                              {setupIssue ? "Setup needed" : !p.available ? "Cannot add" : !shownPrice.available ? "Set price for " + browsingMode : line
                                 ? <><SaleIcon name="check" className="h-4 w-4" /> In this sale · Change</>
                                 : <><SaleIcon name="plus" className="h-4 w-4" /> Add this drink</>}
                             </span>
                           </span>
                         </button>
-                        {(setupIssue || (browsingMode === "retail" && !shownPrice.available)) && (
+                        {(setupIssue || !shownPrice.available) && (
                           <Link className="quiet-link mx-3 mb-2 inline-block text-sm" href={"/products/" + p.id + "/edit"}>
-                            {setupIssue ? "Finish drink setup" : "Set retail bottle price"}
+                            {setupIssue ? "Finish drink setup" : browsingMode === "retail" ? "Set retail bottle price" : "Set wholesale crate price"}
                           </Link>
                         )}
                       </div>
@@ -1403,27 +1404,23 @@ export function SaleBuilder({
               onClick={() =>
                 startTransition(async () => {
                   let fresh: SaleCatalog;
-                  let latestDebt: Awaited<ReturnType<typeof loadCustomerMoneyOwed>>;
+                  let latestDebt: number;
                   try {
-                    // Both calls only read data. Start them together instead of
-                    // keeping the owner waiting for two consecutive round trips.
-                    const [response, debt] = await Promise.all([
-                      refreshSaleCatalog(),
-                      loadCustomerMoneyOwed(draft.customerId),
-                    ]);
-                    latestDebt = debt;
+                    const response = await reviewSaleInputs(draft.customerId);
                     if ("error" in response) {
                       if (response.code === "session_expired") {
                         setSessionExpired(true);
                         setMessage(saleSessionExpiredMessage);
+                      } else if (response.code === "debt_unavailable") {
+                        if (debtKey) setDebtError({ key: debtKey, message: response.error });
+                        setMessage(response.error);
                       } else {
-                        setMessage(response.error ?? saleNetworkMessage);
+                        setMessage(response.error);
                       }
                       return;
                     }
                     fresh = response.catalog;
-                    // Successful server refresh also clears any earlier background
-                    // catalog-check failure; the final write still revalidates.
+                    latestDebt = response.amount;
                     if (activeId) setVerifiedId(activeId);
                     setCheckError("");
                   } catch {
@@ -1431,14 +1428,9 @@ export function SaleBuilder({
                     return;
                   }
                   try {
-                    if ("error" in latestDebt) {
-                      const errorMessage = latestDebt.error ?? "Could not verify the customer's balance.";
-                      if (debtKey) setDebtError({ key: debtKey, message: errorMessage });
-                      setMessage(errorMessage);
-                      return;
-                    }
-                    if (debtKey) setOldDebt({ key: debtKey, amount: latestDebt.amount });
-                    salePaymentTotals(total!, Number(draft.paid), latestDebt.amount, Number(draft.oldDebtPaid));
+                    if (debtKey) setOldDebt({ key: debtKey, amount: latestDebt });
+                    setDebtError(null);
+                    salePaymentTotals(total!, Number(draft.paid), latestDebt, Number(draft.oldDebtPaid));
                     setCatalog(fresh);
                     matchSaleEmpties(draft, fresh);
                     const lines = draft.lines.map((line) => {
