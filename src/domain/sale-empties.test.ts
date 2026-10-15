@@ -739,3 +739,26 @@ test("quick retail path only applies to a single small loose-bottle purchase", (
   single.lines.push({ productId: "trophy", quantity: { crates: 0, fraction: 0, bottles: 1 } });
   assert.equal(isQuickRetailEmptiesSale(single), false);
 });
+
+test("bulk shortcut stays hidden when another configured drink has ambiguous empty types", () => {
+  const draft = sale("goldberg", 40);
+  draft.emptiesV2.mode = "exact";
+  const alternateBottleSameCrate = {
+    ...trophy, id: "alt-goldberg", crate_type_id: "goldberg-crate",
+    bottle_type: "Another Goldberg empty bottle",
+  };
+  const sameCrateCatalog = { ...catalog, products: [...catalog.products, alternateBottleSameCrate] };
+  const expectedForCrate = matchSaleEmpties(draft, sameCrateCatalog);
+  assert.deepEqual(bulkReturnGroups(expectedForCrate, sameCrateCatalog), []);
+
+  const sharedBottleOtherCrate = {
+    ...trophy, id: "alt-bottle", bottle_type: "Goldberg bottle",
+  };
+  const sameBottleCatalog = { ...catalog, products: [...catalog.products, sharedBottleOtherCrate] };
+  const expectedForBottle = matchSaleEmpties(draft, sameBottleCatalog);
+  assert.deepEqual(bulkReturnGroups(expectedForBottle, sameBottleCatalog), []);
+
+  // Conflicting catalog types don't vanish merely because the other
+  // product is absent from the sale.
+  assert.equal(draft.lines.length, 1);
+});
