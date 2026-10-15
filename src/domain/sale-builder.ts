@@ -301,6 +301,8 @@ export type SaleDraft = {
   };
   editingId: string;
   sellingMode?: "wholesale" | "retail";
+  /** Default for the next drink, not a rewrite of items already in this sale. */
+  preferredSellingMode?: "wholesale" | "retail";
   crates: string;
   fraction: 0 | 1 | 2 | 3;
   eighths?: 0 | 1 | 3 | 5 | 7;
@@ -308,6 +310,23 @@ export type SaleDraft = {
   customerQuery: string;
   productQuery: string;
 };
+/** Existing quantities retain their own price basis. New drinks follow the sale preference. */
+export function modeForSaleDrink(draft: SaleDraft, existing: SaleQuantity | undefined): "retail" | "wholesale" {
+  if (!existing) return draft.preferredSellingMode === "retail" ? "retail" : "wholesale";
+  return existing.crates === 0 && existing.fraction === 0 && !existing.eighths && existing.bottles > 0
+    ? "retail"
+    : "wholesale";
+}
+
+/** A review confirmation is valid only for the exact contents and checked debt. */
+export function saleSaveConfirmationKey(draft: SaleDraft, currentOldDebt: number | null, reviewedAmount: number | undefined): string {
+  return JSON.stringify([
+    draft.customerId, draft.lines, draft.emptiesV2,
+    draft.paid, draft.oldDebtPaid, draft.paymentMethod, draft.businessDate,
+    currentOldDebt, reviewedAmount,
+  ]);
+}
+
 export const emptySaleDraft: SaleDraft = {
   customerId: "",
   lines: [],
@@ -328,6 +347,7 @@ export const emptySaleDraft: SaleDraft = {
   },
   editingId: "",
   sellingMode: "wholesale",
+  preferredSellingMode: "wholesale",
   crates: "0",
   fraction: 0,
   eighths: 0,
@@ -424,6 +444,7 @@ export function readSaleDraft(raw: string | null): SaleDraft {
       paymentMethod: typeof d.paymentMethod === "string" ? d.paymentMethod : "",
       oldDebtPaid: typeof d.oldDebtPaid === "string" ? d.oldDebtPaid : "0",
       sellingMode: d.sellingMode === "retail" ? "retail" : "wholesale",
+      preferredSellingMode: d.preferredSellingMode === "retail" ? "retail" : "wholesale",
       allEmpties: typeof d.allEmpties === "boolean" ? d.allEmpties : true,
       returns,
       emptiesV2: {
