@@ -97,7 +97,7 @@ begin
 end $$;
 reset role;
 set local role anon;
-do $
+do $anonymous$
 begin
   begin
     perform count(*) from private.businesses;
@@ -120,7 +120,7 @@ begin
     raise exception 'Anonymous role could delete memberships';
   exception when insufficient_privilege then null;
   end;
-end $;
+end $anonymous$;
 reset role;
 
 -- IDs and balances in the existing shop are never edited by this migration.
