@@ -18,6 +18,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Verify unambiguous Supabase migration history
+        run: python3 supabase/tests/check_migration_versions.py
+
       - name: Install PostgreSQL 16
         run: |
           set -euo pipefail
