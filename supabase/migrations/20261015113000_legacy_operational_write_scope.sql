@@ -166,6 +166,7 @@ declare
   v_current jsonb;
   v_key text;
   v_validated integer;
+  v_unvalidated integer;
 begin
   if p_expected_snapshot is null
      or pg_catalog.jsonb_typeof(p_expected_snapshot)<>'object' then
@@ -220,12 +221,50 @@ begin
       raise exception 'All historical rows must be reconciled first: %',v_key;
     end if;
   end loop;
-  select count(*) into v_validated from pg_constraint c
-  where c.contype='f' and c.conname like 'tenant_%'
-    and c.convalidated is true;
-  if v_validated<>31 then
-    raise exception '31 M2c tenant foreign keys must be validated first (found %)',
-      v_validated;
+  -- Count ONLY exact M2c shadow FKs on shop-owned relations.
+  -- A similarly named FK elsewhere must never satisfy the release gate.
+  -- Verify that each constraint is attached to the original FK's exact
+  -- child/parent pair, with both business_id columns leading the key.
+  select
+    count(*) filter (where c.convalidated),
+    count(*) filter (where not c.convalidated)
+    into v_validated, v_unvalidated
+  from pg_catalog.pg_constraint c
+  join pg_catalog.pg_class child on child.oid=c.conrelid
+  join pg_catalog.pg_namespace child_ns on child_ns.oid=child.relnamespace
+  join private.legacy_scope_tables() sc
+    on sc.schema_name=child_ns.nspname
+   and sc.table_name=child.relname
+  join pg_catalog.pg_constraint original
+    on original.conrelid=c.conrelid
+   and original.confrelid=c.confrelid
+   and original.contype='f'
+   and c.conname='tenant_'||original.conname
+   and pg_catalog.array_length(original.conkey,1)=1
+   and pg_catalog.array_length(original.confkey,1)=1
+  join pg_catalog.pg_attribute child_id
+    on child_id.attrelid=c.conrelid
+   and child_id.attname='business_id'
+   and not child_id.attisdropped
+  join pg_catalog.pg_attribute parent_id
+    on parent_id.attrelid=c.confrelid
+   and parent_id.attname='business_id'
+   and not parent_id.attisdropped
+  where c.contype='f'
+    and pg_catalog.left(c.conname,7)='tenant_'
+    and c.confrelid in (
+      'public.customers'::regclass,
+      'public.crate_types'::regclass,
+      'public.products'::regclass,
+      'public.sales'::regclass,
+      'public.sale_empty_decisions'::regclass
+    )
+    and c.conkey=ARRAY[child_id.attnum,original.conkey[1]]::smallint[]
+    and c.confkey=ARRAY[parent_id.attnum,original.confkey[1]]::smallint[];
+  if v_validated<>31 or v_unvalidated<>0 then
+    raise exception
+      'Exactly 31 matching M2c tenant FKs must be validated (validated %, unvalidated %)',
+      v_validated,v_unvalidated;
   end if;
 
   insert into private.legacy_write_scope_gate
