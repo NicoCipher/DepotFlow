@@ -739,7 +739,7 @@ export function SaleBuilder({
                   }}>Continue</button>
                 </div>
               </div>
-            )
+            )}
             {catalog.customers.length > 0 && (
               <p className="text-sm font-medium text-stone-600">
                 {matchedCustomers.length} {matchedCustomers.length === 1 ? "customer" : "customers"} found
