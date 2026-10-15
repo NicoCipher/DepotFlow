@@ -1447,7 +1447,7 @@ export function SaleBuilder({
                       </p>
                     : <p className="mt-2 text-sm font-semibold text-emerald-900">All expected empty crates and empty bottles accounted for. This sale adds no new empties owed.</p>;
                 })()}
-                <p className="mt-2 text-xs text-stone-600">This is only for today's sale. Any older empty returns owed remain on the customer account. No records change until Save Sale.</p>
+                <p className="mt-2 text-xs text-stone-600">This is only for today&apos;s sale. Any older empty returns owed remain on the customer account. No records change until Save Sale.</p>
               </section>
             )}
             {emptiesNeedConfirmation && <div role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm"><p className="font-semibold text-amber-950">Empty crates and empty bottles need confirmation.</p><p className="mt-1 text-amber-950">Check the empty crates and empty bottles expected before saving.</p><button type="button" className="quiet-link mt-2" onClick={() => update({ step: "empties" })}>Confirm empty returns</button></div>}
