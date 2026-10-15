@@ -113,7 +113,7 @@ $install$;
 create function private.guard_legacy_catalogue_image_write()
 returns trigger
 language plpgsql security definer set search_path=''
-as $
+as $catalogue$
 declare
   v_business uuid;
   v_actor uuid;
@@ -143,7 +143,7 @@ begin
   end if;
   return new;
 end;
-$;
+$catalogue$;
 revoke all on function private.guard_legacy_catalogue_image_write()
   from public, anon, authenticated, service_role;
 
