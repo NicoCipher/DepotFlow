@@ -2,6 +2,7 @@ import { isUuid } from "./ids.ts";
 import {
   emptySaleDraft,
   readSaleDraft,
+  changeSaleCustomer,
   type SaleDraft,
 } from "./sale-builder.ts";
 export type StoredSaleDraft = {
@@ -182,7 +183,7 @@ export function selectSaleCustomer(
   return updateActiveSale(
     state,
     expectedId,
-    { customerId, step: "drinks", oldDebtPaid: "0" },
+    changeSaleCustomer(state.active?.draft ?? emptySaleDraft, customerId),
     newId,
   );
 }

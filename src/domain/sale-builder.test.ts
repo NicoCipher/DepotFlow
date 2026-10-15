@@ -3,6 +3,10 @@ import { test } from "node:test";
 import {
   emptySaleDraft,
   matchesSaleCustomer,
+  modeForSaleDrink,
+  changeSaleCustomer,
+  hasCustomerBoundSaleWork,
+  saleSaveConfirmationKey,
   priceQuantity,
   putSaleLine,
   readSaleDraft,
@@ -371,4 +375,81 @@ test("legacy snapshots retain combined partial arithmetic without false warnings
   assert.equal(salePriceChangeMessage(line, current),
     `Drink: Price for this quantity changed from ₦${oldTotal.toLocaleString("en-NG")} to ₦${newTotal.toLocaleString("en-NG")}.`);
   assert.equal(salePriceChangeMessage({ ...line, quantity: q(1), priceSnapshot: JSON.stringify([10100, null, null, null]) }, current), null);
+});
+
+test("early sale preference applies to new drinks only and survives parked draft recovery", () => {
+  const retailDraft = { ...emptySaleDraft, preferredSellingMode: "retail" as const };
+  assert.equal(modeForSaleDrink(retailDraft, undefined), "retail");
+  assert.equal(modeForSaleDrink(retailDraft, q(1)), "wholesale");
+  assert.equal(modeForSaleDrink(retailDraft, q(0, 0, 6)), "retail");
+  assert.equal(modeForSaleDrink({ ...retailDraft, preferredSellingMode: "wholesale" }, undefined), "wholesale");
+  const resumed = readSaleDraft(JSON.stringify({ ...retailDraft, step: "drinks" }));
+  assert.equal(resumed.preferredSellingMode, "retail");
+  assert.equal(modeForSaleDrink(resumed, undefined), "retail");
+  assert.equal(readSaleDraft(JSON.stringify({ ...retailDraft, preferredSellingMode: "invalid" })).preferredSellingMode, "wholesale");
+  assert.equal(readSaleDraft(JSON.stringify({ ...emptySaleDraft, preferredSellingMode: undefined })).preferredSellingMode, "wholesale");
+});
+
+test("final-sale confirmation expires when any material record or checked balance changes", () => {
+  const draft = { ...emptySaleDraft, customerId: "customer-a", step: "review" as const };
+  const first = saleSaveConfirmationKey(draft, 4000, 8500);
+  assert.equal(first, saleSaveConfirmationKey({ ...draft }, 4000, 8500));
+  assert.notEqual(first, saleSaveConfirmationKey({ ...draft, paid: "1000" }, 4000, 8500));
+  assert.notEqual(first, saleSaveConfirmationKey({ ...draft, oldDebtPaid: "100" }, 4000, 8500));
+  assert.notEqual(first, saleSaveConfirmationKey({ ...draft, customerId: "customer-b" }, 4000, 8500));
+  assert.notEqual(first, saleSaveConfirmationKey({ ...draft, paymentMethod: "cash" }, 4000, 8500));
+  assert.notEqual(first, saleSaveConfirmationKey(draft, 3000, 8500));
+  assert.notEqual(first, saleSaveConfirmationKey(draft, 4000, 8600));
+  assert.notEqual(first, saleSaveConfirmationKey({ ...draft, emptiesV2: { ...draft.emptiesV2, mode: "actual" } }, 4000, 8500));
+  assert.notEqual(first, saleSaveConfirmationKey({ ...draft, lines: [{ productId: "one", quantity: q(1) }] }, 4000, 8500));
+});
+
+test("changing customer preserves drinks but clears previous account's money and empty-return choices", () => {
+  const draft = {
+    ...emptySaleDraft,
+    customerId: "customer-old",
+    step: "payment" as const,
+    paid: "1500",
+    oldDebtPaid: "4000",
+    paymentMethod: "transfer",
+    lines: [{ productId: "one", quantity: q(1) }],
+    preferredSellingMode: "retail" as const,
+    emptiesV2: {
+      ...emptySaleDraft.emptiesV2,
+      mode: "actual" as const,
+      confirmedAllReturned: "old-customer-key",
+      decisions: [{ productId: "one", kind: "crate" as const, returnedType: "other", quantity: "1", decision: "hold" as const }],
+      cratesTaken: { one: "1" }, returnedCrates: { other: "1" }, returnedBottles: { glass: "12" },
+    },
+  };
+  const patch = changeSaleCustomer(draft, "customer-new");
+  const changed = { ...draft, ...patch };
+  assert.equal(changed.customerId, "customer-new");
+  assert.equal(changed.step, "drinks");
+  assert.deepEqual(changed.lines, draft.lines);
+  assert.equal(changed.preferredSellingMode, "retail");
+  assert.equal(changed.paid, "0");
+  assert.equal(changed.oldDebtPaid, "0");
+  assert.equal(changed.paymentMethod, "");
+  assert.equal(changed.emptiesV2.mode, "exact");
+  assert.equal(changed.emptiesV2.confirmedAllReturned, null);
+  assert.deepEqual(changed.emptiesV2.decisions, []);
+  assert.deepEqual(changed.emptiesV2.returnedCrates, {});
+  assert.deepEqual(changed.emptiesV2.returnedBottles, {});
+  assert.deepEqual(changed.emptiesV2.cratesTaken, {});
+  assert.deepEqual(changeSaleCustomer(draft, "customer-old"), { customerId: "customer-old", step: "drinks" });
+});
+
+test("customer-change confirmation remains necessary after the final drink is removed", () => {
+  assert.equal(hasCustomerBoundSaleWork({ ...emptySaleDraft }), false);
+  assert.equal(hasCustomerBoundSaleWork({ ...emptySaleDraft, paid: "500" }), true);
+  assert.equal(hasCustomerBoundSaleWork({ ...emptySaleDraft, oldDebtPaid: "500" }), true);
+  assert.equal(hasCustomerBoundSaleWork({ ...emptySaleDraft, paymentMethod: "cash" }), true);
+  assert.equal(hasCustomerBoundSaleWork({ ...emptySaleDraft, emptiesV2: {
+    ...emptySaleDraft.emptiesV2, returnedBottles: { glass: "2" },
+  } }), true);
+  assert.equal(hasCustomerBoundSaleWork({ ...emptySaleDraft, emptiesV2: {
+    ...emptySaleDraft.emptiesV2, confirmedAllReturned: "some-signed-key",
+  } }), true);
+  assert.equal(hasCustomerBoundSaleWork({ ...emptySaleDraft, lines: [{ productId: "one", quantity: q(1) }] }), true);
 });

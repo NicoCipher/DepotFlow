@@ -33,6 +33,10 @@ import { formatNaira } from "@/domain/products";
 import { formatQuantity } from "@/domain/quantity";
 import {
   matchesSaleCustomer,
+  modeForSaleDrink,
+  changeSaleCustomer,
+  hasCustomerBoundSaleWork,
+  saleSaveConfirmationKey,
   revalidateSaleDraft,
   saleProductSetupIssue,
   priceQuantity,
@@ -68,6 +72,12 @@ export function SaleBuilder({
     draftId: string | null;
   } | null>(null);
   const [customerQuery, setCustomerQuery] = useState("");
+  const [removeLineId, setRemoveLineId] = useState<string | null>(null);
+  const [requestedMode, setRequestedMode] = useState<"wholesale" | "retail" | null>(null);
+  const [requestedCustomerId, setRequestedCustomerId] = useState<string | null>(null);
+  const [confirmNewCustomer, setConfirmNewCustomer] = useState(false);
+  const [confirmedSaveKey, setConfirmedSaveKey] = useState<string | null>(null);
+  const [saveAcknowledged, setSaveAcknowledged] = useState(false);
   const pricingMode = draft.sellingMode === "retail" ? "retail" : "wholesale";
   const [catalog, setCatalog] = useState(initialCatalog);
   const [message, setMessage] = useState("");
@@ -151,6 +161,12 @@ export function SaleBuilder({
       return;
     }
     void sales.update(patch);
+    setConfirmedSaveKey(null);
+    setSaveAcknowledged(false);
+    setRemoveLineId(null);
+    setRequestedMode(null);
+    setRequestedCustomerId(null);
+    setConfirmNewCustomer(false);
     setMessage("");
     setNotice("");
     setCancelDraftId(null);
@@ -166,8 +182,10 @@ export function SaleBuilder({
       return;
     }
     const q = draft.lines.find((line) => line.productId === p.id)?.quantity;
+    const desiredMode = modeForSaleDrink(draft, q);
+    const mode = desiredMode === "retail" && p.bottle_price === null ? "wholesale" : desiredMode;
     update({
-      sellingMode: q && q.crates === 0 && q.fraction === 0 && !q.eighths && q.bottles > 0 ? "retail" : "wholesale",
+      sellingMode: mode,
       step: "quantity",
       editingId: p.id,
       crates: String(q?.crates ?? 0),
@@ -175,6 +193,16 @@ export function SaleBuilder({
       eighths: q?.eighths ?? 0,
       bottles: String(q?.bottles ?? 0),
     });
+    if (desiredMode === "retail" && mode === "wholesale")
+      setMessage("This drink has no retail bottle price. Check the wholesale price before adding it.");
+  }
+  function requestQuantityMode(next: "wholesale" | "retail") {
+    if (next === pricingMode) return;
+    if (Number(draft.crates) > 0 || Number(draft.bottles) > 0 || draft.fraction > 0 || (draft.eighths ?? 0) > 0) {
+      setRequestedMode(next);
+      return;
+    }
+    update({ sellingMode: next, crates: "0", fraction: 0, eighths: 0, bottles: "0" });
   }
   function quantity(): SaleQuantity {
     if (!/^\d+$/.test(draft.crates) || !/^\d+$/.test(draft.bottles))
@@ -347,6 +375,13 @@ export function SaleBuilder({
     try { return salePaymentTotals(total, Number(draft.paid), oldDebtAmount, Number(draft.oldDebtPaid)); }
     catch { return null; }
   })();
+  const reviewKey = saleSaveConfirmationKey(draft, oldDebtAmount, reviewTotal);
+  const finalSaveConfirmed = confirmedSaveKey === reviewKey;
+  const reviewSaveBlocked = pending || !draft.businessDate ||
+    reviewTotal === undefined || !emptiesReview || emptiesNeedConfirmation ||
+    hasUnmatchedSaleEmpties(emptiesReview) || Number(draft.paid) > reviewTotal ||
+    (!saveUncertain && (!paymentBreakdown || debtChecking || Boolean(oldDebtInputError) ||
+      (paymentBreakdown.collectNow > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))));
   const progressStep =
     step === "customer"
       ? 0
@@ -685,10 +720,26 @@ export function SaleBuilder({
             <button
               type="button"
               className="secondary w-full gap-2 border-emerald-200 text-emerald-900"
-              onClick={() => setNewCustomer({ id: crypto.randomUUID(), draftId: sales.state.active?.id ?? null })}
+              onClick={() => {
+                if (draft.customerId && hasCustomerBoundSaleWork(draft)) setConfirmNewCustomer(true);
+                else setNewCustomer({ id: crypto.randomUUID(), draftId: sales.state.active?.id ?? null });
+              }}
             >
               <SaleIcon name="plus" className="h-5 w-5" /> Add new customer
             </button>
+            {confirmNewCustomer && (
+              <div role="group" aria-label="Confirm creating a new customer for this sale" className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <p className="font-bold text-amber-950">Create a different customer for this sale?</p>
+                <p className="mt-1 text-sm text-amber-950">Your drinks will stay, but payments and empty-return choices for the current customer will be cleared after the new customer is created.</p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button type="button" className="secondary min-h-11" onClick={() => setConfirmNewCustomer(false)}>Keep customer</button>
+                  <button type="button" className="primary min-h-11" onClick={() => {
+                    setConfirmNewCustomer(false);
+                    setNewCustomer({ id: crypto.randomUUID(), draftId: sales.state.active?.id ?? null });
+                  }}>Continue</button>
+                </div>
+              </div>
+            )}
             {catalog.customers.length > 0 && (
               <p className="text-sm font-medium text-stone-600">
                 {matchedCustomers.length} {matchedCustomers.length === 1 ? "customer" : "customers"} found
@@ -700,6 +751,20 @@ export function SaleBuilder({
                 <p className="mt-1 text-sm text-stone-600">Add your first customer to start recording sales.</p>
               </div>
             )}
+            {requestedCustomerId && requestedCustomerId !== draft.customerId && (
+              <div role="group" aria-label="Confirm changing customer" className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <p className="font-bold text-amber-950">
+                  Change this sale to {catalog.customers.find((c) => c.id === requestedCustomerId)?.name ?? "another customer"}?
+                </p>
+                <p className="mt-1 text-sm text-amber-950">The drinks will stay. The amounts paid and empty-return choices will be cleared so they cannot be put on the wrong customer&apos;s account.</p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button type="button" className="secondary min-h-11" onClick={() => setRequestedCustomerId(null)}>Keep customer</button>
+                  <button type="button" className="primary min-h-11" onClick={() => {
+                    update(changeSaleCustomer(draft, requestedCustomerId));
+                  }}>Yes, change customer</button>
+                </div>
+              </div>
+            )}
             <ul className="grid gap-2" aria-label="Choose a customer">
               {matchedCustomers.map((c) => (
                 <li key={c.id}>
@@ -709,7 +774,13 @@ export function SaleBuilder({
                       ? "flex min-h-20 w-full items-center gap-3 rounded-xl border-2 border-emerald-700 bg-emerald-50 px-4 py-3 text-left"
                       : "flex min-h-20 w-full items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-left hover:border-emerald-500 hover:bg-emerald-50"}
                     aria-pressed={draft.customerId === c.id}
-                    onClick={() => update({ customerId: c.id, oldDebtPaid: c.id === draft.customerId ? draft.oldDebtPaid : "0", step: "drinks" })}
+                    onClick={() => {
+                      if (draft.customerId && draft.customerId !== c.id && hasCustomerBoundSaleWork(draft)) {
+                        setRequestedCustomerId(c.id);
+                        return;
+                      }
+                      update(changeSaleCustomer(draft, c.id));
+                    }}
                   >
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-stone-100 text-stone-700">
                       <SaleIcon name="user" />
@@ -738,6 +809,24 @@ export function SaleBuilder({
         )}
         {step === "drinks" && (
           <div className="space-y-6">
+            <section aria-labelledby="sale-price-preference" className="rounded-xl border border-stone-200 bg-white p-3 sm:p-4">
+              <h2 id="sale-price-preference" className="text-base font-bold text-stone-950">How is the customer buying?</h2>
+              <p className="mt-1 text-sm text-stone-600">Choose how to price the next drink. You can change it for each drink.</p>
+              <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label="Pricing for the next drink">
+                {(["wholesale", "retail"] as const).map((mode) => (
+                  <button key={mode} type="button"
+                    aria-pressed={(draft.preferredSellingMode ?? "wholesale") === mode}
+                    className={((draft.preferredSellingMode ?? "wholesale") === mode
+                      ? "border-emerald-800 bg-emerald-50 text-emerald-950"
+                      : "border-stone-200 bg-white text-stone-800") + " min-h-16 rounded-xl border-2 px-3 py-3 text-left"}
+                    onClick={() => update({ preferredSellingMode: mode })}>
+                    <span className="block font-bold">{mode === "retail" ? "Retail" : "Wholesale"}</span>
+                    <span className="mt-1 block text-xs">{mode === "retail" ? "Bottles at bottle price" : "Crates and parts of crates"}</span>
+                  </button>
+                ))}
+              </div>
+              {draft.lines.length > 0 && <p className="mt-2 text-xs text-stone-600">Already added drinks keep their prices. This choice only affects the next new drink.</p>}
+            </section>
             <section aria-labelledby="sale-choose-drink">
               <div className="mb-3">
                 <label id="sale-choose-drink" className="text-lg font-bold text-stone-950" htmlFor="sale-drink-search">
@@ -787,10 +876,22 @@ export function SaleBuilder({
                                 <SaleIcon name="edit" className="h-4 w-4" /> Change quantity
                               </button>
                             )}
-                            <button type="button" className="inline-flex min-h-12 items-center justify-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-red-800 hover:border-red-300 hover:bg-red-50" onClick={() => update({ lines: removeSaleLine(draft.lines, line.productId) })}>
+                            <button type="button" className="inline-flex min-h-12 items-center justify-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-red-800 hover:border-red-300 hover:bg-red-50"
+                              aria-expanded={removeLineId === line.productId}
+                              onClick={() => setRemoveLineId(removeLineId === line.productId ? null : line.productId)}>
                               <SaleIcon name="trash" className="h-4 w-4" /> Remove
                             </button>
                           </div>
+                          {removeLineId === line.productId && (
+                            <div role="group" aria-label="Confirm removing drink" className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3">
+                              <p className="text-sm font-bold text-red-950">Remove {item?.name ?? "this drink"} from the sale?</p>
+                              <p className="mt-1 text-xs text-red-900">Only this unsaved drink will be removed. The total and expected empty returns will update.</p>
+                              <div className="mt-2 grid grid-cols-2 gap-2">
+                                <button type="button" className="secondary min-h-11" onClick={() => setRemoveLineId(null)}>Keep drink</button>
+                                <button type="button" className="min-h-11 rounded-lg bg-red-800 px-3 text-sm font-bold text-white" onClick={() => update({ lines: removeSaleLine(draft.lines, line.productId) })}>Yes, remove</button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </li>
                     );
@@ -918,22 +1019,26 @@ export function SaleBuilder({
               <fieldset className="rounded-xl border border-stone-200 bg-white p-3 sm:p-4">
                 <legend className="px-1 text-lg font-bold">How are they buying?</legend>
                 <div className="grid grid-cols-2 gap-2">
-                  <button type="button" aria-pressed={pricingMode === "wholesale"} className={(pricingMode === "wholesale" ? "border-emerald-800 bg-emerald-50 text-emerald-950" : "border-stone-200 bg-white text-stone-800") + " min-h-24 rounded-lg border-2 px-3 py-3 text-left"} onClick={() => {
-                    if (pricingMode === "wholesale") return;
-                    update({ sellingMode: "wholesale", crates: "0", fraction: 0, eighths: 0, bottles: "0" });
-                  }}>
+                  <button type="button" aria-pressed={pricingMode === "wholesale"} className={(pricingMode === "wholesale" ? "border-emerald-800 bg-emerald-50 text-emerald-950" : "border-stone-200 bg-white text-stone-800") + " min-h-24 rounded-lg border-2 px-3 py-3 text-left"} onClick={() => requestQuantityMode("wholesale")}>
                     <span className="block font-bold">Wholesale</span>
                     <span className="mt-1 block text-xs leading-5">Crates and parts of a crate</span>
                   </button>
-                  <button type="button" aria-pressed={pricingMode === "retail"} className={(pricingMode === "retail" ? "border-emerald-800 bg-emerald-50 text-emerald-950" : "border-stone-200 bg-white text-stone-800") + " min-h-24 rounded-lg border-2 px-3 py-3 text-left"} disabled={product.bottle_price === null} onClick={() => {
-                    if (pricingMode === "retail") return;
-                    update({ sellingMode: "retail", crates: "0", fraction: 0, eighths: 0, bottles: "0" });
-                  }}>
+                  <button type="button" aria-pressed={pricingMode === "retail"} className={(pricingMode === "retail" ? "border-emerald-800 bg-emerald-50 text-emerald-950" : "border-stone-200 bg-white text-stone-800") + " min-h-24 rounded-lg border-2 px-3 py-3 text-left"} disabled={product.bottle_price === null} onClick={() => requestQuantityMode("retail")}>
                     <span className="block font-bold">Retail</span>
                     <span className="mt-1 block text-xs leading-5">Every bottle at bottle price</span>
                   </button>
                 </div>
-                <p className="mt-2 text-xs leading-5 text-stone-600">Switching between Wholesale and Retail clears this drink&apos;s entered quantity.</p>
+                {requestedMode && requestedMode !== pricingMode && (
+                  <div role="group" aria-label="Confirm price mode change" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                    <p className="font-bold text-amber-950">Switch this drink to {requestedMode === "retail" ? "Retail" : "Wholesale"}?</p>
+                    <p className="mt-1 text-sm text-amber-950">The quantity entered on this screen will be cleared. Any drink already saved in this sale remains unchanged until you save a new quantity.</p>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <button type="button" className="secondary min-h-11" onClick={() => setRequestedMode(null)}>Keep quantity</button>
+                      <button type="button" className="primary min-h-11" onClick={() => update({ sellingMode: requestedMode, crates: "0", fraction: 0, eighths: 0, bottles: "0" })}>Yes, switch mode</button>
+                    </div>
+                  </div>
+                )}
+                {!requestedMode && <p className="mt-2 text-xs leading-5 text-stone-600">Changing the pricing mode clears the quantity on this screen, after you confirm.</p>}
                 {product.bottle_price === null && <p className="mt-2 text-sm font-medium text-amber-900">Bottle price not set. Retail is unavailable.</p>}
               </fieldset>
               {pricingMode === "wholesale" && (
@@ -1504,22 +1609,33 @@ export function SaleBuilder({
             <div className="sale-sticky-actions sticky z-10 -mx-4 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
             <p className="mb-1 truncate text-sm font-semibold text-emerald-950">Sale for {customer?.name}</p>
             <p className="mb-2 text-xs text-stone-600">Saving updates stock, payment and any amount owed.</p>
-            <button
-              className="primary w-full"
-              disabled={
-                pending ||
-                !draft.businessDate ||
-                reviewTotal === undefined ||
-                !emptiesReview ||
-                emptiesNeedConfirmation ||
-                hasUnmatchedSaleEmpties(emptiesReview) ||
-                Number(draft.paid) > reviewTotal ||
-                (!saveUncertain && (
-                  !paymentBreakdown || debtChecking || Boolean(oldDebtInputError) ||
-                  (paymentBreakdown.collectNow > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))
-                ))
-              }
-              onClick={() =>
+            {!saveUncertain && finalSaveConfirmed && (
+              <div role="group" aria-label="Confirm saving sale" className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                <p className="font-bold text-emerald-950">Save this sale for {customer?.name}?</p>
+                <p className="mt-1 text-sm text-emerald-950">
+                  {draft.lines.length} {draft.lines.length === 1 ? "drink" : "drinks"} · Sale total {reviewTotal === undefined ? "unavailable" : formatNaira(reviewTotal)} · Collect {formatNaira(Number(draft.paid) + Number(draft.oldDebtPaid))}.
+                </p>
+                <p className="mt-1 text-xs text-stone-700">Saving updates stock and customer balances. If the connection fails, use Check Sale instead of starting another save.</p>
+                <label className="mt-3 flex min-h-11 items-center gap-3 rounded-lg border border-emerald-200 bg-white p-3 text-sm font-semibold text-emerald-950">
+                  <input type="checkbox" className="h-5 w-5 shrink-0" checked={saveAcknowledged} onChange={(event) => setSaveAcknowledged(event.currentTarget.checked)} />
+                  I have checked the customer, money and empty returns.
+                </label>
+                <button type="button" className="secondary mt-2 min-h-11 w-full" onClick={() => { setConfirmedSaveKey(null); setSaveAcknowledged(false); }}>Keep editing</button>
+              </div>
+            )}
+            {!saveUncertain && !finalSaveConfirmed && (
+              <button type="button" className="primary w-full"
+                disabled={reviewSaveBlocked}
+                onClick={() => { setSaveAcknowledged(false); setConfirmedSaveKey(reviewKey); }}>
+                Review final confirmation
+              </button>
+            )}
+            {(saveUncertain || finalSaveConfirmed) && (
+              <button
+                type="button"
+                className="primary w-full"
+                disabled={reviewSaveBlocked || (!saveUncertain && !saveAcknowledged)}
+              onClick={() => {
                 startTransition(async () => {
                   const activeDraftId = sales.state.active?.id;
                   if (!activeDraftId) return;
@@ -1613,8 +1729,8 @@ export function SaleBuilder({
                         name: customer?.name ?? "Customer",
                       });
                   }
-                })
-              }
+                });
+              }}
             >
               {pending
                 ? saveUncertain
@@ -1622,8 +1738,11 @@ export function SaleBuilder({
                   : "Saving…"
                 : saveUncertain
                   ? "Check Sale"
-                  : "Save Sale"}
+                  : finalSaveConfirmed
+                    ? "Yes, confirm & save sale"
+                    : "Confirm sale details"}
             </button>
+            )}
             </div>
             {!saveUncertain && (
               <>

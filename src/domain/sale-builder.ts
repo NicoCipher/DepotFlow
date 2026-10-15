@@ -301,6 +301,8 @@ export type SaleDraft = {
   };
   editingId: string;
   sellingMode?: "wholesale" | "retail";
+  /** Default for the next drink, not a rewrite of items already in this sale. */
+  preferredSellingMode?: "wholesale" | "retail";
   crates: string;
   fraction: 0 | 1 | 2 | 3;
   eighths?: 0 | 1 | 3 | 5 | 7;
@@ -308,6 +310,58 @@ export type SaleDraft = {
   customerQuery: string;
   productQuery: string;
 };
+/** Only customer-bound decisions require an extra confirmation when switching accounts. */
+export function hasCustomerBoundSaleWork(draft: SaleDraft): boolean {
+  const empties = draft.emptiesV2;
+  return draft.lines.length > 0 ||
+    Number(draft.paid) > 0 || Number(draft.oldDebtPaid) > 0 ||
+    Boolean(draft.paymentMethod) || Boolean(empties.confirmedAllReturned) ||
+    (empties.decisions?.length ?? 0) > 0 ||
+    Object.values(empties.cratesTaken).some((value) => Number(value) > 0) ||
+    Object.values(empties.returnedCrates).some((value) => Number(value) > 0) ||
+    Object.values(empties.returnedBottles).some((value) => Number(value) > 0);
+}
+
+/** Change customer without carrying money or empty-return choices to a different account.
+ * The drinks stay in the unfinished sale; they must be rechecked on saving.
+ */
+export function changeSaleCustomer(draft: SaleDraft, customerId: string): Partial<SaleDraft> {
+  if (draft.customerId === customerId) return { customerId, step: "drinks" };
+  return {
+    customerId,
+    step: "drinks",
+    paid: "0",
+    oldDebtPaid: "0",
+    paymentMethod: "",
+    emptiesV2: {
+      ...draft.emptiesV2,
+      mode: "exact",
+      confirmedAllReturned: null,
+      decisions: [],
+      returnedCrates: {},
+      returnedBottles: {},
+      cratesTaken: {},
+    },
+  };
+}
+
+/** Existing quantities retain their own price basis. New drinks follow the sale preference. */
+export function modeForSaleDrink(draft: SaleDraft, existing: SaleQuantity | undefined): "retail" | "wholesale" {
+  if (!existing) return draft.preferredSellingMode === "retail" ? "retail" : "wholesale";
+  return existing.crates === 0 && existing.fraction === 0 && !existing.eighths && existing.bottles > 0
+    ? "retail"
+    : "wholesale";
+}
+
+/** A review confirmation is valid only for the exact contents and checked debt. */
+export function saleSaveConfirmationKey(draft: SaleDraft, currentOldDebt: number | null, reviewedAmount: number | undefined): string {
+  return JSON.stringify([
+    draft.customerId, draft.lines, draft.emptiesV2,
+    draft.paid, draft.oldDebtPaid, draft.paymentMethod, draft.businessDate,
+    currentOldDebt, reviewedAmount,
+  ]);
+}
+
 export const emptySaleDraft: SaleDraft = {
   customerId: "",
   lines: [],
@@ -328,6 +382,7 @@ export const emptySaleDraft: SaleDraft = {
   },
   editingId: "",
   sellingMode: "wholesale",
+  preferredSellingMode: "wholesale",
   crates: "0",
   fraction: 0,
   eighths: 0,
@@ -424,6 +479,7 @@ export function readSaleDraft(raw: string | null): SaleDraft {
       paymentMethod: typeof d.paymentMethod === "string" ? d.paymentMethod : "",
       oldDebtPaid: typeof d.oldDebtPaid === "string" ? d.oldDebtPaid : "0",
       sellingMode: d.sellingMode === "retail" ? "retail" : "wholesale",
+      preferredSellingMode: d.preferredSellingMode === "retail" ? "retail" : "wholesale",
       allEmpties: typeof d.allEmpties === "boolean" ? d.allEmpties : true,
       returns,
       emptiesV2: {
