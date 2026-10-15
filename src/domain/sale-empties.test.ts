@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { bulkReturnGroups, bulkReturnParts, updateBulkReturnParts } from "./bulk-empties.ts";
 import { test } from "node:test";
 import {
   crateReturnIssues,
@@ -8,6 +9,7 @@ import {
   assertAllReturnedConfirmed,
   hasConfirmedAllReturned,
   hasNoExpectedSaleEmpties,
+  isQuickRetailEmptiesSale,
   paymentStepAfterEmpties,
   hasUnmatchedSaleEmpties,
   depositSetupIssues,
@@ -323,7 +325,7 @@ test("missing complete crate deposit price is identified without guessing", () =
     {
       key: "complete:12",
       message:
-        "Deposit price for a complete 12-pocket crate has not been set.",
+        "Deposit price for a complete 12-pocket empty-crate set has not been set.",
     },
   ]);
 });
@@ -335,7 +337,7 @@ test("missing bottle and crate-only deposit prices are identified separately", (
   assert.deepEqual(depositSetupIssues(bottlesResult, catalog), [
     {
       key: "bottle",
-      message: "Deposit price per bottle has not been set.",
+      message: "Deposit price per empty bottle has not been set.",
     },
   ]);
 
@@ -371,11 +373,11 @@ test("configured deposit prices produce no setup error", () => {
 test("missing empties message says exactly what is still missing", () => {
   assert.equal(
     missingEmptiesMessage({ cratesOwed: 0, bottlesOwed: 2 }, "Trophy"),
-    "Trophy: 2 bottles still missing.",
+    "Trophy: 2 empty bottles still owed after this sale.",
   );
   assert.equal(
     missingEmptiesMessage({ cratesOwed: 1, bottlesOwed: 2 }, "Goldberg"),
-    "Goldberg: 1 crate · 2 bottles still missing.",
+    "Goldberg: 1 empty crate · 2 empty bottles still owed after this sale.",
   );
   assert.equal(
     missingEmptiesMessage({ cratesOwed: 0, bottlesOwed: 0 }, "Trophy"),
@@ -512,8 +514,8 @@ test("all-returned mode requires an explicit confirmation, even when every expec
   assert.equal(match.lines[0].cratesSettled, 2);
   assert.equal(match.lines[0].bottlesSettled, 24);
   assert.equal(hasConfirmedAllReturned(draft, match), false);
-  assert.throws(() => assertAllReturnedConfirmed(draft, match), /Confirm the crates and bottles/);
-  assert.throws(() => actualSaleEmpties(draft, catalog), /Confirm the crates and bottles/);
+  assert.throws(() => assertAllReturnedConfirmed(draft, match), /Confirm the empty crates and empty bottles/);
+  assert.throws(() => actualSaleEmpties(draft, catalog), /Confirm the empty crates and empty bottles/);
 });
 
 test("confirmed complete return records physical stock by exact crate and bottle type with no shortage", () => {
@@ -631,7 +633,7 @@ test("no-empties fast path survives draft reload, but changed obligations are no
   const changed = matchSaleEmpties(resumedReview, returnable);
   assert.equal(hasNoExpectedSaleEmpties(changed), false);
   assert.equal(hasConfirmedAllReturned(resumedReview, changed), false);
-  assert.throws(() => assertAllReturnedConfirmed(resumedReview, changed), /Confirm the crates and bottles/);
+  assert.throws(() => assertAllReturnedConfirmed(resumedReview, changed), /Confirm the empty crates and empty bottles/);
 });
 
 test("in-step zero-obligation return saves a durable confirmation when proceeding to payment", () => {
@@ -661,14 +663,14 @@ test("in-step zero-obligation return saves a durable confirmation when proceedin
   const changed = matchSaleEmpties(resumed, updatedCatalog);
   assert.equal(hasNoExpectedSaleEmpties(changed), false);
   assert.equal(hasConfirmedAllReturned(resumed, changed), false);
-  assert.throws(() => assertAllReturnedConfirmed(resumed, changed), /Confirm the crates and bottles/);
+  assert.throws(() => assertAllReturnedConfirmed(resumed, changed), /Confirm the empty crates and empty bottles/);
 });
 
 test("continuing from unconfirmed all-returned crates cannot forge confirmation", () => {
   const draft = sale("goldberg");
   draft.emptiesV2.mode = "exact";
   const preview = matchSaleEmpties(draft, catalog);
-  assert.throws(() => paymentStepAfterEmpties(draft, preview), /Confirm the crates and bottles/);
+  assert.throws(() => paymentStepAfterEmpties(draft, preview), /Confirm the empty crates and empty bottles/);
   draft.emptiesV2.confirmedAllReturned = allReturnedConfirmationKey(draft, preview);
   const patch = paymentStepAfterEmpties(draft, preview);
   assert.equal(readSaleDraft(JSON.stringify({ ...draft, ...patch })).step, "payment");
@@ -676,4 +678,87 @@ test("continuing from unconfirmed all-returned crates cannot forge confirmation"
   draft.emptiesV2.mode = "actual";
   const actual = paymentStepAfterEmpties(draft, matchSaleEmpties(draft, catalog));
   assert.deepEqual(actual, { step: "payment" });
+});
+
+test("bulk empty returns group only unambiguous exact empty-crate and empty-bottle types", () => {
+  const draft = sale("goldberg", 40);
+  draft.emptiesV2.mode = "exact";
+  const expected = matchSaleEmpties(draft, catalog);
+  const groups = bulkReturnGroups(expected, catalog);
+  assert.equal(groups.length, 1);
+  assert.deepEqual(groups[0], {
+    crateTypeId: "goldberg-crate",
+    crateName: "Goldberg",
+    bottleType: "Goldberg bottle",
+    pocketCount: 12,
+    expectedCrates: 40,
+    expectedBottles: 480,
+  });
+  assert.equal(bulkReturnGroups(expected, catalog, 41).length, 0);
+
+  const conflictingBottle = { ...trophy, bottle_type: "Goldberg bottle" };
+  const conflictingCatalog = { ...catalog, products: [goldberg, conflictingBottle, big] };
+  draft.lines.push({ productId: "trophy", quantity: { crates: 12, fraction: 0, bottles: 0 } });
+  const sharedBottle = matchSaleEmpties(draft, conflictingCatalog);
+  assert.equal(bulkReturnGroups(sharedBottle, conflictingCatalog).length, 0);
+});
+
+test("bulk shortcut updates exact physical counts without inventing empties or losing loose ones", () => {
+  assert.deepEqual(bulkReturnParts("40", "480", 12), {
+    completeSets: 40,
+    looseCrates: 0,
+    looseBottles: 0,
+  });
+  const parts = { completeSets: 39, looseCrates: 1, looseBottles: 6 };
+  const physical = updateBulkReturnParts(parts, "completeSets", "38", 12);
+  assert.deepEqual(physical, { crates: "39", bottles: "462" });
+  assert.deepEqual(bulkReturnParts(physical!.crates, physical!.bottles, 12), {
+    completeSets: 38,
+    looseCrates: 1,
+    looseBottles: 6,
+  });
+  assert.equal(updateBulkReturnParts(parts, "completeSets", "-1", 12), null);
+  assert.equal(updateBulkReturnParts(parts, "looseBottles", "", 12), null);
+  assert.equal(bulkReturnParts("abc", "12", 12), null);
+  assert.equal(bulkReturnParts("1", "6", 12)?.completeSets, 0);
+});
+
+test("quick retail path only applies to a single small loose-bottle purchase", () => {
+  const single = sale("goldberg", 0);
+  single.lines[0].quantity = { crates: 0, fraction: 0, bottles: 1 };
+  assert.equal(isQuickRetailEmptiesSale(single), true);
+  single.lines[0].quantity.bottles = 6;
+  assert.equal(isQuickRetailEmptiesSale(single), true);
+  single.lines[0].quantity.bottles = 7;
+  assert.equal(isQuickRetailEmptiesSale(single), false);
+  single.lines[0].quantity = { crates: 1, fraction: 0, bottles: 0 };
+  assert.equal(isQuickRetailEmptiesSale(single), false);
+  single.lines[0].quantity = { crates: 0, fraction: 1, bottles: 0 };
+  assert.equal(isQuickRetailEmptiesSale(single), false);
+  single.lines[0].quantity = { crates: 0, fraction: 0, bottles: 1 };
+  single.lines.push({ productId: "trophy", quantity: { crates: 0, fraction: 0, bottles: 1 } });
+  assert.equal(isQuickRetailEmptiesSale(single), false);
+});
+
+test("bulk shortcut stays hidden when another configured drink has ambiguous empty types", () => {
+  const draft = sale("goldberg", 40);
+  draft.emptiesV2.mode = "exact";
+  const alternateBottleSameCrate = {
+    ...trophy, id: "alt-goldberg", crate_type_id: "goldberg-crate",
+    bottle_type: "Another Goldberg empty bottle",
+  };
+  const sameCrateCatalog = { ...catalog, products: [...catalog.products, alternateBottleSameCrate] };
+  const expectedForCrate = matchSaleEmpties(draft, sameCrateCatalog);
+  assert.deepEqual(bulkReturnGroups(expectedForCrate, sameCrateCatalog), []);
+
+  const sharedBottleOtherCrate = {
+    ...trophy, id: "alt-bottle", bottle_type: "Goldberg bottle",
+  };
+  const sameBottleCatalog = { ...catalog, products: [...catalog.products, sharedBottleOtherCrate] };
+  const expectedForBottle = matchSaleEmpties(draft, sameBottleCatalog);
+  assert.deepEqual(bulkReturnGroups(expectedForBottle, sameBottleCatalog), []);
+
+  // Conflicting catalog types don't vanish merely because the other
+  // product is absent from the sale.
+  assert.equal(draft.lines.length, 1);
 });

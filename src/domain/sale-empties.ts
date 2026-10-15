@@ -74,6 +74,16 @@ export function hasNoExpectedSaleEmpties(result: EmptiesMatchResult): boolean {
   return result.lines.every((line) => line.cratesOut === 0 && line.bottlesOut === 0);
 }
 
+/** One loose-bottle line: confirmation can take the owner straight to Payment.
+ * Larger, mixed or fractional sales retain the normal guided empty-returns step.
+ */
+export function isQuickRetailEmptiesSale(draft: SaleDraft): boolean {
+  if (draft.lines.length !== 1) return false;
+  const quantity = draft.lines[0].quantity;
+  return quantity.crates === 0 && quantity.fraction === 0 && !quantity.eighths &&
+    Number.isSafeInteger(quantity.bottles) && quantity.bottles > 0 && quantity.bottles <= 6;
+}
+
 export function hasConfirmedAllReturned(draft: SaleDraft, result: EmptiesMatchResult): boolean {
   return draft.emptiesV2?.mode === "exact" &&
     (hasNoExpectedSaleEmpties(result) ||
@@ -82,7 +92,7 @@ export function hasConfirmedAllReturned(draft: SaleDraft, result: EmptiesMatchRe
 
 export function assertAllReturnedConfirmed(draft: SaleDraft, result: EmptiesMatchResult): void {
   if (draft.emptiesV2?.mode === "exact" && !hasConfirmedAllReturned(draft, result))
-    throw new Error("Confirm the crates and bottles returned before saving this sale.");
+    throw new Error("Confirm the empty crates and empty bottles returned before saving this sale.");
 }
 
 /**
@@ -136,14 +146,14 @@ export function missingEmptiesMessage(
 ): string {
   const parts = [
     line.cratesOwed
-      ? `${line.cratesOwed} ${line.cratesOwed === 1 ? "crate" : "crates"}`
+      ? `${line.cratesOwed} ${line.cratesOwed === 1 ? "empty crate" : "empty crates"}`
       : "",
     line.bottlesOwed
-      ? `${line.bottlesOwed} ${line.bottlesOwed === 1 ? "bottle" : "bottles"}`
+      ? `${line.bottlesOwed} ${line.bottlesOwed === 1 ? "empty bottle" : "empty bottles"}`
       : "",
   ].filter(Boolean);
   return parts.length
-    ? `${drinkName}: ${parts.join(" · ")} still missing.`
+    ? `${drinkName}: ${parts.join(" · ")} still owed after this sale.`
     : `${drinkName}: Empties are complete.`;
 }
 
@@ -183,7 +193,7 @@ export function depositSetupIssues(
       const key = `complete:${pocket}`;
       issues.set(
         key,
-        `Deposit price for a complete ${pocket}-pocket crate has not been set.`,
+        `Deposit price for a complete ${pocket}-pocket empty-crate set has not been set.`,
       );
     }
 
@@ -199,7 +209,7 @@ export function depositSetupIssues(
   }
 
   if (bottleRateNeeded && catalog.bottleDepositPrice == null)
-    issues.set("bottle", "Deposit price per bottle has not been set.");
+    issues.set("bottle", "Deposit price per empty bottle has not been set.");
 
   return [...issues].map(([key, message]) => ({ key, message }));
 }
@@ -229,7 +239,7 @@ function take(map: Map<string, number>, key: string, amount: number) {
   if (!amount) return;
   const current = map.get(key) ?? 0;
   if (amount > current)
-    throw new Error("Empties matching exceeded what came back.");
+    throw new Error("The selected empty crates or empty bottles exceed what was returned.");
   const next = current - amount;
   if (next) map.set(key, next);
   else map.delete(key);
@@ -469,13 +479,13 @@ export function matchSaleEmpties(
     for (const [id, value] of parseActualCounts(
       state.returnedCrates,
       crateIds,
-      "Crate",
+      "Empty crate",
     ))
       actualCrates.set(id, value);
     for (const [id, value] of parseActualCounts(
       state.returnedBottles,
       bottleTypes,
-      "Bottle",
+      "Empty bottle",
     ))
       actualBottles.set(id, value);
   }
