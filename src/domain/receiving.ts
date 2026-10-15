@@ -29,6 +29,7 @@ export function receivingSaveError(code?: string, message?: string) {
       "This receiving form has already been used.": "This form may have saved a different receipt. Check stock history before trying again.",
       "This stock form has already been used.": "This form may have saved another stock change. Check stock history before trying again.",
       "Product not found.": "This product is no longer available. Choose another product.",
+      "This drink was removed from the shop; restore it before receiving stock": "This drink was removed from your shop. Restore it before receiving new stock.",
       "That would exceed the stock limit.": "Receiving these crates would exceed the stock limit. Change the amount and review again.",
       "Enter a positive whole number of crates.": "Enter a positive whole number of crates and review again.",
       "Choose a valid business date.": "Choose a valid business date and review again.",
