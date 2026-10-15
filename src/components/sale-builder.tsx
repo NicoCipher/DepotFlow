@@ -1408,14 +1408,15 @@ export function SaleBuilder({
                   try {
                     const response = await reviewSaleInputs(draft.customerId);
                     if ("error" in response) {
+                      const errorMessage = response.error ?? saleNetworkMessage;
                       if (response.code === "session_expired") {
                         setSessionExpired(true);
                         setMessage(saleSessionExpiredMessage);
                       } else if (response.code === "debt_unavailable") {
-                        if (debtKey) setDebtError({ key: debtKey, message: response.error });
-                        setMessage(response.error);
+                        if (debtKey) setDebtError({ key: debtKey, message: errorMessage });
+                        setMessage(errorMessage);
                       } else {
-                        setMessage(response.error);
+                        setMessage(errorMessage);
                       }
                       return;
                     }
