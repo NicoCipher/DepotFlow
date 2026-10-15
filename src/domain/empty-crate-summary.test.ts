@@ -40,3 +40,19 @@ test("reject duplicate stock IDs rather than silently double-counting them", () 
   ]), /repeated identity/);
   assert.throws(() => summarizeEmptyCrates([crate("bad", "33", "NBL", -1)]), /Invalid/);
 });
+
+test("NB and NBL are one brewery subtotal but five distinct branded crate counts", () => {
+  const report = summarizeEmptyCrates([
+    crate("33", "33", "NB", 2),
+    crate("life", "Life", "NBL", 3),
+    crate("goldberg", "Goldberg", "nbl", 4),
+    crate("gulder", "Gulder", "NB", 5),
+    crate("heineken", "Heineken", "NBL", null),
+  ]);
+  assert.equal(report.groups.length, 1);
+  assert.equal(report.groups[0].brewery, "NB");
+  assert.equal(report.groups[0].crates.length, 5);
+  assert.equal(report.groups[0].countedTotal, 14);
+  assert.equal(report.countedTotal, 14);
+  assert.equal(report.missingCounts, 1);
+});
