@@ -312,7 +312,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
         </div>
         {state.mode === "exact" && (
           <p role="status" className={"flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium " + (exactConfirmed ? "bg-emerald-50 text-emerald-950" : "bg-amber-50 text-amber-950")}>
-            <SaleIcon name={exactConfirmed ? "check" : "info"} className="h-4 w-4 shrink-0" />
+            <SaleIcon name={exactConfirmed ? "check" : "shield"} className="h-4 w-4 shrink-0" />
             {exactConfirmed
               ? "Confirmed. All expected returns will be recorded when the sale is saved."
               : "Not yet confirmed. Tap “Yes, all returned” after checking the crates and bottles."}
