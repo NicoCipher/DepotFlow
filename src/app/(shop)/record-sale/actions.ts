@@ -8,7 +8,7 @@ import {
   type SaleProduct,
   type SaleDraft,
 } from "@/domain/sale-builder";
-import { actualSaleEmpties, matchSaleEmpties, assertSaleEmptiesResolved } from "@/domain/sale-empties";
+import { actualSaleEmpties, matchSaleEmpties, assertSaleEmptiesResolved, assertAllReturnedConfirmed } from "@/domain/sale-empties";
 import {
   isSaleSessionExpired,
   safeCaughtSaleErrorMessage,
@@ -194,6 +194,7 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
       };
 
     const empties = matchSaleEmpties(draft, fresh);
+    assertAllReturnedConfirmed(draft, empties);
     assertSaleEmptiesResolved(empties);
     if (customer.empties_deposit_required && empties.hasShortage)
       throw new Error(
