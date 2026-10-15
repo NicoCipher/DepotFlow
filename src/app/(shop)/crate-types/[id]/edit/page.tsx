@@ -72,7 +72,7 @@ export default async function EditCrateTypePage({
       <section className="mt-10 border-t border-stone-300 pt-6">
         <h2 className="text-xl font-semibold">Crate swaps</h2>
         <p className="mt-2 text-stone-600">
-          Which different branded crates can settle this crate's debt? The same
+          Which different branded crates can settle this crate&apos;s debt? The same
           crate type is always accepted. Each choice applies in this direction
           only; set the reverse separately if the shop accepts both ways.
           Matching breweries or pocket counts do not make a swap automatic.
