@@ -1413,6 +1413,10 @@ export function SaleBuilder({
                       return;
                     }
                     fresh = response.catalog;
+                    // Successful server refresh also clears any earlier background
+                    // catalog-check failure; the final write still revalidates.
+                    if (activeId) setVerifiedId(activeId);
+                    setCheckError("");
                   } catch {
                     setMessage(saleNetworkMessage);
                     return;
