@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireOwner } from "@/lib/auth/owner";
 import { getCrateTypes } from "@/lib/crate-types/data";
-import { crateNeedsSetup } from "@/domain/crate-types";
+import { crateNeedsSetup, canonicalCrateFamily } from "@/domain/crate-types";
 import { CrateDisplay } from "@/components/crate-display";
 import { DeleteCrateType } from "@/components/delete-crate-type";
 export default async function CrateTypesPage({
@@ -39,7 +39,7 @@ export default async function CrateTypesPage({
   );
   const activeTypes = types.filter((crate) => !olderRecords.includes(crate));
   const groups = Map.groupBy(activeTypes, (crate) =>
-    crateNeedsSetup(crate) ? "Needs setup" : crate.empty_family!,
+    crateNeedsSetup(crate) ? "Needs setup" : canonicalCrateFamily(crate.empty_family!),
   );
   return (
     <>
