@@ -267,6 +267,13 @@ export function saleQuantityLabel(q: SaleQuantity) {
     parts.push(`${q.bottles} ${q.bottles === 1 ? "bottle" : "bottles"}`);
   return parts.join(" + ");
 }
+/** Stale customer-required feedback must not contradict a currently selected customer.
+ * Other checkout errors remain visible until the operator corrects them.
+ */
+export function currentSaleFeedback(message: string, selectedCustomerId: string | null): string {
+  return selectedCustomerId && message === "Choose a customer first." ? "" : message;
+}
+
 export function matchesSaleCustomer(customer: SaleCustomer, query: string) {
   const term = query.trim().toLowerCase();
   const phone = normalizePhone(term).replace(/^0(?=\d)/, "+234");
