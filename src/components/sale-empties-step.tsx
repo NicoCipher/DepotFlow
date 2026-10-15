@@ -209,10 +209,10 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
     depositBlocked && result ? depositSetupIssues(result, catalog) : [];
 
   const actualCratesDiffer = [...expectedCrates].some(
-    ([type, count]) => state.returnedCrates[type] !== undefined && Number(state.returnedCrates[type]) !== count,
+    ([type, count]) => Number(state.returnedCrates[type] ?? "0") !== count,
   ) || Object.entries(state.returnedCrates).some(([type, value]) => !expectedCrates.has(type) && Number(value) > 0);
   const actualBottlesDiffer = [...expectedBottles].some(
-    ([type, count]) => state.returnedBottles[type] !== undefined && Number(state.returnedBottles[type]) !== count,
+    ([type, count]) => Number(state.returnedBottles[type] ?? "0") !== count,
   ) || Object.entries(state.returnedBottles).some(([type, value]) => !expectedBottles.has(type) && Number(value) > 0);
   const physicalCratesDiffer = draft.lines.some(
     (line) => state.cratesTaken[line.productId] !== undefined && Number(state.cratesTaken[line.productId]) !== line.quantity.crates,
