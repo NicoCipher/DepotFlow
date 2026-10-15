@@ -17,8 +17,8 @@ values ('86000000-0000-4000-9000-000000000001','Legacy sample one','860000001'),
 -- Reproduce permitted historical crate/product mismatches. The dedicated
 -- pocket trigger must still reject FUTURE pocket changes, but business tagging
 -- itself may not run this unrelated validation.
-insert into public.crate_types(id,name,pocket_count)
-values ('86000000-0000-4000-9000-000000000010','M2b old crate',12);
+insert into public.crate_types(id,name,pocket_count,empty_family)
+values ('86000000-0000-4000-9000-000000000010','M2b old crate',12,'m2b-test-family');
 insert into public.products
   (id,name,bottles_per_crate,full_crate_price,bottles_returnable,crate_type_id)
 values ('86000000-0000-4000-9000-000000000011','M2b old drink',
