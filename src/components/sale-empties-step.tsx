@@ -523,7 +523,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
               ) : (
                 <p className="mt-1 text-sm text-emerald-950">No new crate or bottle balance from this sale.</p>
               )}
-              <p className="mt-2 text-xs text-stone-700">Preview only. The customer's record changes when the sale is saved.</p>
+              <p className="mt-2 text-xs text-stone-700">Preview only. The customer&apos;s record changes when the sale is saved.</p>
             </section>
           )}
 
@@ -551,7 +551,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
               <div>
                 <h3 id="different-return-heading" className="text-lg font-bold text-stone-950">Different empties need a decision</h3>
                 <p className="mt-1 text-sm leading-5 text-stone-600">
-                  DepotFlow won't silently use a different crate or bottle to clear what is owed.
+                  DepotFlow won&apos;t silently use a different crate or bottle to clear what is owed.
                 </p>
               </div>
               {unmatchedCrateTypes.length > 0 && unmatchedBottleTypes.length > 0 && (
@@ -631,7 +631,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                 </>
               ) : (
                 <p role="alert" className="text-sm text-amber-950">
-                  These extra empties don't match any outstanding type in this sale. Set their counts to 0 here and record a separate customer return if they relate to an earlier sale.
+                  These extra empties don&apos;t match any outstanding type in this sale. Set their counts to 0 here and record a separate customer return if they relate to an earlier sale.
                 </p>
               )}
             </section>
