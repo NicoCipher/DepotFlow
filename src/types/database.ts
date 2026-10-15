@@ -473,6 +473,7 @@ export type Database = {
           empty_family: string | null
           full_crate_price: number
           half_crate_price: number | null
+          is_active: boolean
           id: string
           image_url: string | null
           name: string
@@ -491,6 +492,7 @@ export type Database = {
           empty_family?: string | null
           full_crate_price: number
           half_crate_price?: number | null
+          is_active?: boolean
           id?: string
           image_url?: string | null
           name: string
@@ -509,6 +511,7 @@ export type Database = {
           empty_family?: string | null
           full_crate_price?: number
           half_crate_price?: number | null
+          is_active?: boolean
           id?: string
           image_url?: string | null
           name?: string
