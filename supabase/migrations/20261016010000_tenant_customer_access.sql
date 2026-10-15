@@ -25,7 +25,16 @@ begin
   from private.legacy_write_scope_gate g
   where g.enabled is true;
   if v_legacy is null then
-    return p_business_id is null;
+    -- During the audited M2b backfill, legacy customers may already be
+    -- tagged while M2d activation is still disabled. Keep only the verified
+    -- legacy owner able to read both old NULL-tagged and newly tagged
+    -- legacy rows; NEVER expose a nonlegacy business.
+    return p_business_id is null
+       or exists (
+         select 1 from private.businesses b
+         where b.id=p_business_id and b.legacy_singleton is true
+           and b.status='active'
+       );
   end if;
   return p_business_id=v_legacy;
 end;
