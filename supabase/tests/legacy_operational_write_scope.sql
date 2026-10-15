@@ -110,7 +110,7 @@ select private.backfill_legacy_shop_rows(private.legacy_scope_snapshot());
 -- A validated FK in an unrelated table must not substitute for an
 -- unvalidated real M2c FK. The earlier name-only count would mistakenly
 -- see 31 validated constraints and allow activation.
-create temporary table tenant_fk_decoy (
+create table private.tenant_fk_decoy (
   business_id uuid,
   constraint tenant_unrelated_valid_fk
     foreign key (business_id) references private.businesses(id)
