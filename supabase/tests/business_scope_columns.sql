@@ -60,11 +60,15 @@ begin
         and conkey=array[att_no]::smallint[]) then
       raise exception 'Missing business FK: %.%',rec.s,rec.n;
     end if;
+    -- M2e-2 intentionally allows an INSERT-only business_id on customers:
+    -- new owners must specify one, and tenant-aware RLS + the BEFORE INSERT
+    -- membership lock reject forged IDs. Never allow UPDATE or any anon use.
     if has_column_privilege('authenticated',rel_oid,att_no,'UPDATE')
-       or has_column_privilege('authenticated',rel_oid,att_no,'INSERT')
+       or (has_column_privilege('authenticated',rel_oid,att_no,'INSERT')
+           and rec.n<>'customers')
        or has_column_privilege('anon',rel_oid,att_no,'UPDATE')
        or has_column_privilege('anon',rel_oid,att_no,'INSERT') then
-      raise exception 'Client can forge business_id on %.%',rec.s,rec.n;
+      raise exception 'Unsafe business_id privilege on %.%',rec.s,rec.n;
     end if;
     total := total + 1;
   end loop;
