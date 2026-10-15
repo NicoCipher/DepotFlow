@@ -157,6 +157,19 @@ select pg_temp.assert_true(
  (select count(*)=1 from public.customers)
  and (select name='B customer' from public.customers limit 1),
  'Business B saw A or legacy customers');
+do $new_owner_rpc$
+begin
+ begin
+   perform * from public.customer_account_snapshot(array[
+       '89300000-0000-4000-9000-000000000011'::uuid,
+       '89300000-0000-4000-9000-000000000041'::uuid
+   ]);
+   raise exception 'New owner could call legacy-only account RPC'
+     using errcode='PT001';
+ exception when insufficient_privilege then null;
+ end;
+end;
+$new_owner_rpc$;
 update public.customers set name='B customer updated'
 where id='89300000-0000-4000-9000-000000000041';
 reset role;
@@ -170,6 +183,22 @@ select pg_temp.assert_true(
  (select count(*)=1 from public.customers) and
  (select name='Original shop customer' from public.customers limit 1),
  'Legacy owner saw A/B rows or lost its own customer');
+-- SECURITY DEFINER bypasses the table's RLS. The old owner can provide
+-- arbitrary customer UUIDs, but its financial snapshot must return ONLY
+-- the original shop customer even when the supplied array contains A/B.
+select pg_temp.assert_true(
+ (select count(*)=1 from public.customer_account_snapshot(array[
+   '89300000-0000-4000-9000-000000000011'::uuid,
+   '89300000-0000-4000-9000-000000000031'::uuid,
+   '89300000-0000-4000-9000-000000000041'::uuid
+ ]))
+ and (select customer_id='89300000-0000-4000-9000-000000000011'::uuid
+      from public.customer_account_snapshot(array[
+      '89300000-0000-4000-9000-000000000011'::uuid,
+      '89300000-0000-4000-9000-000000000031'::uuid,
+      '89300000-0000-4000-9000-000000000041'::uuid
+      ]) limit 1),
+ 'Privileged legacy customer-account RPC leaked another shop customer');
 update public.customers set name='Original customer updated'
 where id='89300000-0000-4000-9000-000000000011';
 reset role;
