@@ -208,6 +208,54 @@ begin
   );
 end;
 $combined$;
+
+-- Other existing APIs also write through the same protected tables.
+-- A counted stock adjustment, empty-crate count and exact-type receiving
+-- must atomically tag both snapshot rows and immutable movement receipts.
+select public.set_current_stock(
+ '88000000-0000-4000-8000-000000000052',
+ '88000000-0000-4000-9000-000000000020',
+ 5,0,'2026-10-15',118,12
+);
+select public.set_current_stock(
+ '88000000-0000-4000-8000-000000000052',
+ '88000000-0000-4000-9000-000000000020',
+ 5,0,'2026-10-15',118,12
+);
+select public.set_empty_crate_count(
+ '88000000-0000-4000-8000-000000000053',
+ '88000000-0000-4000-9000-000000000010',
+ 5,'2026-10-15',null
+);
+select public.set_empty_crate_count(
+ '88000000-0000-4000-8000-000000000053',
+ '88000000-0000-4000-9000-000000000010',
+ 5,'2026-10-15',null
+);
+select public.receive_stock(
+ '88000000-0000-4000-8000-000000000054',
+ '88000000-0000-4000-9000-000000000020',
+ 2,60,5,12,
+ '88000000-0000-4000-9000-000000000010','2026-10-15'
+);
+select public.receive_stock(
+ '88000000-0000-4000-8000-000000000054',
+ '88000000-0000-4000-9000-000000000020',
+ 2,60,5,12,
+ '88000000-0000-4000-9000-000000000010','2026-10-15'
+);
+
+-- Onboarding obligations are separate from day-to-day sales revenue.
+select public.record_opening_balances(
+ '88000000-0000-4000-8000-000000000055',
+ '88000000-0000-4000-9000-000000000031',
+ 1500,'2026-10-15','Verified previous debt','[]'::jsonb,'[]'::jsonb
+);
+select public.record_opening_balances(
+ '88000000-0000-4000-8000-000000000055',
+ '88000000-0000-4000-9000-000000000031',
+ 1500,'2026-10-15','Verified previous debt','[]'::jsonb,'[]'::jsonb
+);
 reset role;
 
 do $integrity$
@@ -220,8 +268,8 @@ begin
    raise exception 'Combined checkout did not preserve old-debt payments';
  end if;
  if (select total_bottles from public.stock where
-   product_id='88000000-0000-4000-9000-000000000020')<>118 then
-   raise exception 'Combined checkout changed stock incorrectly';
+   product_id='88000000-0000-4000-9000-000000000020')<>84 then
+   raise exception 'Stock count and receiving changed stock incorrectly';
  end if;
  if (select count(*) from public.customer_payments where
    request_id='88000000-0000-4000-8000-000000000040')<>1
@@ -242,6 +290,25 @@ begin
      and s.account_receipt->>'cd'='2000'
  ) then
    raise exception 'Combined checkout customer statement snapshot changed';
+ end if;
+ if (select count(*) from public.stock_movements where
+    request_id in (
+      '88000000-0000-4000-8000-000000000052',
+      '88000000-0000-4000-8000-000000000054'
+    ))<>2
+    or (select count(*) from public.empty_crate_movements
+      where request_id='88000000-0000-4000-8000-000000000053')<>1
+    or (select count(*) from private.stock_receipts
+      where request_id='88000000-0000-4000-8000-000000000054')<>1
+    or (select quantity from public.empty_crate_stock
+      where crate_type_id='88000000-0000-4000-9000-000000000010')<>3 then
+   raise exception 'M2d count/receive/empties ledger or idempotency failed';
+ end if;
+ if (select count(*) from public.customer_opening_balances where
+    request_id='88000000-0000-4000-8000-000000000055')<>1
+   or (select amount from public.money_owed
+    where customer_id='88000000-0000-4000-9000-000000000031')<>1500 then
+   raise exception 'M2d opening debt duplicated or changed';
  end if;
  if not exists(
    select 1 from public.customer_payments where
