@@ -1403,8 +1403,15 @@ export function SaleBuilder({
               onClick={() =>
                 startTransition(async () => {
                   let fresh: SaleCatalog;
+                  let latestDebt: Awaited<ReturnType<typeof loadCustomerMoneyOwed>>;
                   try {
-                    const response = await refreshSaleCatalog();
+                    // Both calls only read data. Start them together instead of
+                    // keeping the owner waiting for two consecutive round trips.
+                    const [response, debt] = await Promise.all([
+                      refreshSaleCatalog(),
+                      loadCustomerMoneyOwed(draft.customerId),
+                    ]);
+                    latestDebt = debt;
                     if ("error" in response) {
                       if (response.code === "session_expired") {
                         setSessionExpired(true);
@@ -1424,7 +1431,6 @@ export function SaleBuilder({
                     return;
                   }
                   try {
-                    const latestDebt = await loadCustomerMoneyOwed(draft.customerId);
                     if ("error" in latestDebt) {
                       const errorMessage = latestDebt.error ?? "Could not verify the customer's balance.";
                       if (debtKey) setDebtError({ key: debtKey, message: errorMessage });
