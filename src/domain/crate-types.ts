@@ -17,7 +17,7 @@ export function crateDescription(
   crate: CrateAttributes,
   includeFamily = true,
 ): string {
-  const name = crate.name?.trim().toLowerCase();
+  const name = canonicalCrateFamily(crate.name ?? "").toLowerCase();
   return [
     includeFamily && crate.empty_family ? canonicalCrateFamily(crate.empty_family) : null,
     crate.pocket_count === null ? null : `${crate.pocket_count}-pocket`,
