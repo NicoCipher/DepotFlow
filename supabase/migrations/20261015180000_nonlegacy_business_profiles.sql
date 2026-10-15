@@ -66,7 +66,9 @@ create trigger business_profile_identity_guard
 alter table public.business_profiles enable row level security;
 revoke all on public.business_profiles
   from public,anon,authenticated,service_role;
-grant select,insert on public.business_profiles to authenticated;
+grant select on public.business_profiles to authenticated;
+-- Server-owned timestamps cannot be forged on the initial INSERT.
+grant insert(business_id,name,address,phone) on public.business_profiles to authenticated;
 grant update(name,address,phone) on public.business_profiles to authenticated;
 
 create policy new_business_profile_select on public.business_profiles
