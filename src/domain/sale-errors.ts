@@ -18,6 +18,30 @@ export function isSaleSessionExpired(
   );
 }
 
+/**
+ * An absent Supabase user can mean an expired session OR a temporary
+ * getUser() transport failure. Checkout must keep the draft and offer Retry
+ * for the latter instead of incorrectly forcing the owner to sign in again.
+ * Never include raw auth details in a response.
+ */
+export function saleReviewMissingUserResponse(
+  authError: { status?: number; name?: string; message?: string } | null,
+) {
+  if (isSaleSessionExpired(false, authError))
+    return { error: saleSessionExpiredMessage, code: "session_expired" as const, status: 401 };
+  return { error: saleNetworkMessage, code: "network_error" as const, status: 503 };
+}
+
+/**
+ * A failed owner RPC is NOT evidence that a signed-in user lacks permission.
+ * Fail closed on customer data either way, but offer a retry for RPC errors.
+ */
+export function saleReviewOwnerAccessResponse(ownerError: unknown) {
+  if (ownerError)
+    return { error: saleNetworkMessage, code: "network_error" as const, status: 503 };
+  return { error: "Shop owner access is required.", code: "access_denied" as const, status: 403 };
+}
+
 export const saleUnexpectedErrorMessage =
   "Something went wrong. Your sale is still here. Try again.";
 

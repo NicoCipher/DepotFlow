@@ -3,7 +3,6 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
   refreshSaleCatalog,
-  reviewSaleInputs,
   saveSale,
 } from "@/app/(shop)/record-sale/actions";
 import { CustomerForm } from "./customer-form";
@@ -11,6 +10,8 @@ import { emptyCustomer } from "@/domain/customers";
 import { ProductImage } from "@/components/product-image";
 import { SaleIcon } from "@/components/sale-icon";
 import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment } from "@/domain/sale-payment";
+import { requestSaleReview } from "@/domain/sale-review-http";
+import { shouldFocusSaleStep } from "@/domain/sale-step-focus";
 import { useSaleDrafts } from "./sale-draft-session";
 import { hasSaleWork } from "@/domain/sale-drafts";
 import { PausedSalesLink } from "./paused-sales-link";
@@ -110,7 +111,7 @@ export function SaleBuilder({
   } | null>(null);
   const [pending, startTransition] = useTransition();
   const stepHeading = useRef<HTMLHeadingElement>(null);
-  const previousStep = useRef<string | null>(null);
+  const previousStep = useRef<{ step: string; activeId: string | null } | null>(null);
   const activeId = sales.state.active
     ? `${sales.state.active.id}:${sales.state.active.resumedAt ?? ""}`
     : null;
@@ -447,12 +448,16 @@ export function SaleBuilder({
     backStep === "drinks" ? "Drinks" : backStep === "empties" ? "Empty returns" : "Payment";
   const matchedCustomers = catalog.customers.filter((c) => matchesSaleCustomer(c, customerQuery));
   useEffect(() => {
-    if (previousStep.current !== null && previousStep.current !== step) {
+    const previous = previousStep.current;
+    // Rehydrating a locally saved draft switches the initial empty "customer"
+    // snapshot to its restored step. That is NOT user navigation and should
+    // not focus/draw a green rectangle around the heading after refresh.
+    if (shouldFocusSaleStep(previous, { step, activeId })) {
       stepHeading.current?.focus({ preventScroll: true });
       window.scrollTo(0, 0);
     }
-    previousStep.current = step;
-  }, [step]);
+    previousStep.current = { step, activeId };
+  }, [step, activeId]);
   if (saved)
     return (
       <div className="space-y-5">
@@ -741,7 +746,7 @@ export function SaleBuilder({
             )}
           </div>
         )}
-        {visibleMessage && (
+        {visibleMessage && step !== "payment" && (
           <p
             role="alert"
             className={saveUncertain ? "text-amber-900" : "text-red-800"}
@@ -1455,6 +1460,11 @@ export function SaleBuilder({
                 {paymentIssue.message}
               </p>
             )}
+            {!paymentIssue && visibleMessage && (
+              <p id="payment-review-error" role="alert" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-900">
+                {visibleMessage}
+              </p>
+            )}
             <div className="flex items-center gap-3">
             <button
               className="secondary min-h-12 shrink-0 px-4"
@@ -1474,6 +1484,7 @@ export function SaleBuilder({
                   return;
                 }
                 startTransition(async () => {
+                  setMessage("");
                   const customerForReview = customer?.id;
                   const saleForReview = activeId;
                   if (!customerForReview) {
@@ -1487,7 +1498,16 @@ export function SaleBuilder({
                   let fresh: SaleCatalog;
                   let latestDebt: number;
                   try {
-                    const response = await reviewSaleInputs(customerForReview);
+                    // A stalled background Server Function must not block
+                    // payment Review. This independent HTTP read is abortable.
+                    const controller = new AbortController();
+                    const timeout = window.setTimeout(() => controller.abort(), 20000);
+                    let response: Awaited<ReturnType<typeof requestSaleReview>>;
+                    try {
+                      response = await requestSaleReview(customerForReview, controller.signal);
+                    } finally {
+                      window.clearTimeout(timeout);
+                    }
                     // Auth expiry affects the entire checkout, even if another
                     // customer or draft was selected while the request ran.
                     if ("error" in response && response.code === "session_expired") {
@@ -1511,9 +1531,10 @@ export function SaleBuilder({
                     if (activeId) setVerifiedId(activeId);
                     setCheckError("");
                   } catch {
-                    // A transport failure from a previous customer must not
-                    // overwrite the current checkout's feedback.
-                    if (reviewIsCurrent()) setMessage(saleNetworkMessage);
+                    // Any failed/hung request returns an actionable message
+                    // beside Review. A retry creates a new independent fetch.
+                    if (reviewIsCurrent())
+                      setMessage("Could not check this sale. Check your connection and tap Review again.");
                     return;
                   }
                   try {
@@ -1530,13 +1551,17 @@ export function SaleBuilder({
                       priceQuantity(p, line.quantity);
                       return reviewedLine(line, p);
                     });
-                    await sales.update({
+                    const moved = await sales.update({
                       lines,
                       businessDate:
                         draft.businessDate ||
                         new Date().toLocaleDateString("sv-SE"),
                       step: "review",
                     });
+                    if (!moved) {
+                      setMessage("Could not save the Review step on this device. Keep this sale open and try Review again.");
+                      return;
+                    }
                     setMessage("");
                   } catch (e) {
                     setMessage(
