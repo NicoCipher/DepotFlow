@@ -10,7 +10,7 @@ import { CustomerForm } from "./customer-form";
 import { emptyCustomer } from "@/domain/customers";
 import { ProductImage } from "@/components/product-image";
 import { SaleIcon } from "@/components/sale-icon";
-import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment, splitPaymentFromReceived, oneMethodAmountsFromReceived, showPaymentMethodControls } from "@/domain/sale-payment";
+import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment, splitPaymentFromReceived, oneMethodAmountsFromReceived } from "@/domain/sale-payment";
 import { allocateSplitTender } from "@/domain/sale-tenders";
 import { requestSaleReview } from "@/domain/sale-review-http";
 import { isSaleReviewProgressMessage, saleReviewCheckingMessage, saleReviewOpeningMessage, contextualSaleReviewMessage, clearOwnSaleReviewProgress, canApplySaleBalancePreview, shouldDisableSaleDraftControls } from "@/domain/sale-review-feedback";
@@ -209,6 +209,10 @@ export function SaleBuilder({
   }
   function chooseSingleMethod(method: "cash" | "transfer" | "pos") {
     if (draft.paymentMode === "single" && draft.paymentMethod === method) return;
+    if (draft.paymentMode === "split" && Number(draft.splitCash) > 0 && Number(draft.splitTransfer) > 0) {
+      setMessage("Cash and Transfer are both recorded. Correct the amounts first; do not label both as one method.");
+      return;
+    }
     const hasPayment = Number(draft.paid) > 0 || Number(draft.oldDebtPaid) > 0 ||
       Number(draft.splitCash) > 0 || Number(draft.splitTransfer) > 0;
     if (hasPayment && (draft.paymentMode === "split" || Boolean(draft.paymentMethod))) {
@@ -223,7 +227,14 @@ export function SaleBuilder({
     if (next === "split")
       update({ paymentMode: "split", paymentMethod: "mixed", paid: "0",
         oldDebtPaid: "0", splitCash: "0", splitTransfer: "0", splitCashToSale: "" });
-    else {
+    else if (draft.paymentMode === "single") {
+      // Changing only the tender method must NEVER reset entered money.
+      update({ paymentMethod: method });
+    } else {
+      if (Number(draft.splitCash) > 0 && Number(draft.splitTransfer) > 0) {
+        setMessage("Keep Cash and Transfer separate. Do not record both as one method.");
+        return;
+      }
       // Never carry a stale planned paid amount out of a resumed split draft.
       // Invalid received amounts are explicitly discarded, not silently
       // recorded as a valid one-method payment.
@@ -1521,7 +1532,7 @@ export function SaleBuilder({
                     </div>
                   )}
                   {draft.paymentMode === "split" && !splitEnabled && (
-                    <div role="alert" className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
+                    <div id="sale-split-payment" role="alert" className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
                       <p>Cash + Transfer is temporarily unavailable. Keep both real payment methods recorded. If both have money entered, park this sale until split payments return; do not record them as one method.</p>
                       {!(Number(draft.splitCash) > 0 && Number(draft.splitTransfer) > 0) && (
                         <button type="button" className="secondary mt-2 w-full min-h-11"
@@ -1654,9 +1665,9 @@ export function SaleBuilder({
                       {draft.paymentMode === "split" && splitEnabled && Number(draft.oldDebtPaid) > 0 && (
                         <details className="mt-2 rounded-lg border border-stone-200 px-2 py-2">
                           <summary className="cursor-pointer text-xs font-semibold text-emerald-900">
-                            Adjust Cash used for today's sale
+                            Adjust Cash used for today&apos;s sale
                           </summary>
-                          <label className="mt-2 text-sm" htmlFor="sale-split-cash-sale">Cash for today's sale (₦)</label>
+                          <label className="mt-2 text-sm" htmlFor="sale-split-cash-sale">Cash for today&apos;s sale (₦)</label>
                           <input id="sale-split-cash-sale" inputMode="numeric" pattern="[0-9]+" maxLength={12}
                             placeholder="Cash first" value={draft.splitCashToSale}
                             onChange={(event) => update({ splitCashToSale: event.target.value })} />
