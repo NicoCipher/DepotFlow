@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     customerId = input.customerId;
   } catch (error) {
     if (error instanceof RequestBodyTooLarge)
-      return noStore({ error: "Request too large.", code: "customer_invalid" }, 413);
+      return noStore({ error: "Request too large.", code: "customer_invalid" }, 413, "payload_size");
     return noStore({ error: "Check the selected customer and retry.", code: "customer_invalid" }, 400, "payload_parse");
   }
   if (typeof customerId !== "string" ||
