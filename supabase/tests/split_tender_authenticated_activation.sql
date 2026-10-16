@@ -8,10 +8,14 @@ create function pg_temp.assert_true(v boolean, msg text)
 returns void language plpgsql as $$
 begin if v is distinct from true then raise exception '%', msg; end if; end $$;
 
--- The application must remain disabled by default.
-select pg_temp.assert_true(not has_function_privilege('authenticated',
+-- The activated database must grant only authenticated users, never anon.
+-- The public UI remains guarded by a separate default-off Vercel feature flag.
+select pg_temp.assert_true(has_function_privilege('authenticated',
  'public.save_sale_split_tender(uuid,uuid,date,numeric,jsonb,jsonb,jsonb,numeric,jsonb)', 'EXECUTE'),
- 'Split tender RPC unexpectedly enabled before the activation switch');
+ 'Split tender RPC is missing its activation grant');
+select pg_temp.assert_true(not has_function_privilege('anon',
+ 'public.save_sale_split_tender(uuid,uuid,date,numeric,jsonb,jsonb,jsonb,numeric,jsonb)', 'EXECUTE'),
+ 'Split tender RPC is callable by anonymous visitors');
 
 insert into auth.users(id) values
  ('00000000-0000-4000-8000-000000009811'),
@@ -48,14 +52,16 @@ returns jsonb language sql as $$
  );
 $$;
 
--- This is the *same* grant and role that a final activation would provide,
--- scoped only to the disposable SQL test transaction.
+-- Test emergency rollback and restoration in the disposable transaction.
+revoke execute on function public.save_sale_split_tender(
+ uuid,uuid,date,numeric,jsonb,jsonb,jsonb,numeric,jsonb
+) from authenticated;
+select pg_temp.assert_true(not has_function_privilege('authenticated',
+ 'public.save_sale_split_tender(uuid,uuid,date,numeric,jsonb,jsonb,jsonb,numeric,jsonb)', 'EXECUTE'),
+ 'Emergency revoke failed to disable the split saver');
 grant execute on function public.save_sale_split_tender(
  uuid,uuid,date,numeric,jsonb,jsonb,jsonb,numeric,jsonb
 ) to authenticated;
-select pg_temp.assert_true(has_function_privilege('authenticated',
- 'public.save_sale_split_tender(uuid,uuid,date,numeric,jsonb,jsonb,jsonb,numeric,jsonb)', 'EXECUTE'),
- 'Temporary authenticated grant did not apply');
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000009811',true);
