@@ -793,7 +793,7 @@ export function SaleBuilder({
           </h1>
           {step !== "drinks" && step !== "payment" && (
             <p className="text-sm leading-5 text-stone-600">
-              {step === "customer" ? "Find the customer to begin." : step === "quantity" ? "Enter the quantity, then add it to the sale." : step === "empties" ? "Check the empty crates and empty bottles returned." : step === "payment" ? "Enter what the customer paid today." : "Check the sale details before saving."}
+              {step === "customer" ? "Find the customer to begin." : step === "quantity" ? "Enter the quantity, then add it to the sale." : step === "empties" ? "Check the empty crates and empty bottles returned." : "Check the sale details before saving."}
             </p>
           )}
           <nav aria-label="Sale progress">
