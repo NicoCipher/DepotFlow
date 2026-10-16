@@ -1547,17 +1547,17 @@ export function SaleBuilder({
                     {Number(draft.oldDebtPaid) > 0 && (
                       <details className="rounded-lg border border-stone-200 p-3">
                         <summary className="cursor-pointer font-semibold text-emerald-900">
-                          Change how Cash covers today's sale or previous debt
+                          Change how Cash covers today&apos;s sale or previous debt
                         </summary>
-                        <p className="mt-2 text-sm text-stone-600">By default, Cash pays toward today's sale first; Transfer pays the rest. You can change the amount of Cash used for today's sale.</p>
-                        <label className="mt-2 block" htmlFor="sale-split-cash-sale">Cash toward today's sale (₦)</label>
+                        <p className="mt-2 text-sm text-stone-600">By default, Cash pays toward today&apos;s sale first; Transfer pays the rest. You can change the amount of Cash used for today&apos;s sale.</p>
+                        <label className="mt-2 block" htmlFor="sale-split-cash-sale">Cash toward today&apos;s sale (₦)</label>
                         <input id="sale-split-cash-sale" inputMode="numeric" pattern="[0-9]+" maxLength={12}
                           placeholder="Use cash-first default" value={draft.splitCashToSale}
                           onChange={(e) => update({ splitCashToSale: e.target.value })} />
                       </details>
                     )}
                     {splitLegsPreview && Number(draft.oldDebtPaid) > 0 && (
-                      <p className="text-xs text-emerald-900">Allocated to today's sale: Cash {formatNaira(splitLegsPreview[0].saleAmount)} + Transfer {formatNaira(splitLegsPreview[1].saleAmount)}. Previous debt: Cash {formatNaira(splitLegsPreview[0].oldDebtAmount)} + Transfer {formatNaira(splitLegsPreview[1].oldDebtAmount)}.</p>
+                      <p className="text-xs text-emerald-900">Allocated to today&apos;s sale: Cash {formatNaira(splitLegsPreview[0].saleAmount)} + Transfer {formatNaira(splitLegsPreview[1].saleAmount)}. Previous debt: Cash {formatNaira(splitLegsPreview[0].oldDebtAmount)} + Transfer {formatNaira(splitLegsPreview[1].oldDebtAmount)}.</p>
                     )}
                   </div>
                 )}
