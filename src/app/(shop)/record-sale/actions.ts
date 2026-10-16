@@ -403,6 +403,21 @@ export async function recoverSplitSale(requestId: string, draft: SaleDraft) {
     return { error: saleSaveUncertainMessage, code: "save_uncertain" as const };
   try {
     const supabase = session.supabase;
+    // This read-only RPC serializes with the original split-save request. A
+    // plain maybeSingle() cannot prove absence while a save is still running.
+    const { data: check, error: checkError } = await supabase.rpc(
+      "check_split_sale_request", { p_request_id: requestId },
+    );
+    if (checkError || !check || typeof check !== "object" ||
+        !("state" in check))
+      return { error: saleSaveUncertainMessage, code: "save_uncertain" as const };
+    if (check.state === "absent") return {
+      error: "This sale was not saved. Your unfinished sale is still here. Choose one payment method to continue.",
+      code: "sale_not_saved" as const,
+    };
+    if (check.state !== "saved")
+      return { error: saleSaveUncertainMessage, code: "save_uncertain" as const };
+
     const { data: sale, error } = await supabase.from("sales")
       .select("id,customer_id,business_date,total_amount,paid_amount,payment_method,receipt_customer_name,split_request_hash,account_receipt")
       .eq("request_id", requestId).maybeSingle();
