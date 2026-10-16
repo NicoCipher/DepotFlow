@@ -364,9 +364,10 @@ export function SaleBuilder({
     saleTotal: total,
     paymentInputError,
     oldDebtInputError,
+    oldDebtAmount,
     debtChecking,
     debtErrorMessage,
-    breakdown: paymentBreakdown,
+    breakdown: paymentBreakdown;
     paymentMethod: draft.paymentMethod,
   });
   const reviewKey = saleSaveConfirmationKey(draft, oldDebtAmount, reviewTotal);
