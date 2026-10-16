@@ -433,7 +433,13 @@ export function SaleBuilder({
   const reviewKey = saleSaveConfirmationKey(draft, oldDebtAmount, reviewTotal);
   const finalSaveConfirmed = confirmedSaveKey === reviewKey;
   // Keep the first-step button mounted at the same location: repeated taps
-  // or Enter activate Check again, never the distinct final Save action.
+  // activate Check again, never the distinct final Save action.
+  const savePromptRef = useRef<HTMLParagraphElement>(null);
+  // Move keyboard focus to non-actionable guidance; Tab then reaches final Save.
+  // Never autofocus the financial write button or reuse the initial tap target.
+  useEffect(() => {
+    if (finalSaveConfirmed && !saveUncertain) savePromptRef.current?.focus();
+  }, [finalSaveConfirmed, saveUncertain]);
   // "Check Sale" must remain usable even when catalogue refresh is offline:
   // an uncertain save can only be resolved by the original request ID.
   const reviewSaveBlocked = pending || (!ready && !saveUncertain) || !draft.businessDate ||
@@ -1802,7 +1808,7 @@ export function SaleBuilder({
             <div className="sale-sticky-actions sticky z-10 -mx-4 border-t border-stone-200 bg-background/95 px-4 pb-3 pt-3 shadow-[0_-6px_18px_rgba(0,0,0,0.04)] backdrop-blur-sm sm:mx-0 sm:px-0 sm:shadow-none">
               {!saveUncertain && finalSaveConfirmed && (
                 <div role="status" aria-live="polite" aria-label="Confirm saving sale" className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-                  <p className="font-bold text-emerald-950">Save this sale?</p>
+                  <p ref={savePromptRef} tabIndex={-1} className="font-bold text-emerald-950 focus:outline-none">Save this sale?</p>
                   <p className="mt-1 text-sm text-emerald-950">{customer?.name} · {reviewTotal === undefined ? "Check total" : formatNaira(reviewTotal)} sale · Collect {formatNaira(Number(draft.paid) + Number(draft.oldDebtPaid))}</p>
                   <p className="mt-1 text-xs text-stone-700">Confirm to update stock, payment and customer balance.</p>
                 </div>
