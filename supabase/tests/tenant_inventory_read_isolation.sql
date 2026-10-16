@@ -9,6 +9,11 @@ insert into private.shop_owner(user_id)
  values ('89600000-0000-4000-8000-000000000001');
 select private.link_legacy_shop_business();
 
+insert into public.product_catalogue(id,name,manufacturer,image_path)
+values (
+ '89600000-0000-4000-9000-000000000010',
+ 'Shared Gold Lager','NBL','catalogue/shared-gold.webp'
+);
 insert into public.crate_types(id,name,empty_family,pocket_count)
 values ('89600000-0000-4000-9000-000000000011','Goldberg NB12','NB',12);
 insert into public.products(
@@ -38,8 +43,9 @@ select pg_temp.assert_true(
  (select count(*)=1 from public.products) and
  (select count(*)=1 from public.stock) and
  (select count(*)=1 from public.crate_types) and
- (select quantity=3 from public.empty_crate_stock),
- 'Preactivation owner lost legacy inventory or branded crate details');
+ (select quantity=3 from public.empty_crate_stock)
+ and (select count(*)=1 from public.product_catalogue),
+ 'Preactivation owner lost legacy inventory or shared master catalogue');
 reset role;
 
 -- Explicit legacy migration sequence. Must run BEFORE any new owner exists.
@@ -212,8 +218,9 @@ select pg_temp.assert_true(
  and (select total_bottles=120 from public.stock limit 1)
  and (select count(*)=1 from public.crate_types)
  and (select quantity=3 from public.empty_crate_stock limit 1)
- and (select count(*)=1 from public.empty_bottle_stock),
- 'Legacy owner sees a new business inventory row or lost its own');
+ and (select count(*)=1 from public.empty_bottle_stock)
+ and (select name='Shared Gold Lager' from public.product_catalogue limit 1),
+ 'Legacy owner sees another shop inventory or lost shared master catalogue');
 reset role;
 
 set local role authenticated;
@@ -228,11 +235,20 @@ select pg_temp.assert_true(
  and (select name='Heineken 12-pocket' from public.crate_types limit 1)
  and (select quantity=7 from public.empty_crate_stock limit 1)
  and (select quantity=9 from public.empty_bottle_stock limit 1)
+ and (select count(*)=1 from public.product_catalogue)
+ and (select manufacturer='NBL' from public.product_catalogue limit 1)
  and not public.is_shop_owner(),
- 'A owner sees B/legacy records or incorrectly becomes legacy owner');
+ 'A owner saw B/legacy inventory or lost shared master catalogue');
 
 do $no_mutation$
+declare v_updated integer;
 begin
+ update public.product_catalogue set image_path='unauthorized.webp'
+ where id='89600000-0000-4000-9000-000000000010';
+ get diagnostics v_updated=row_count;
+ if v_updated<>0 then
+   raise exception 'New business altered global master catalogue';
+ end if;
  begin
   insert into public.products(
    id,name,bottles_per_crate,full_crate_price,bottles_returnable,crate_type_id,
@@ -266,8 +282,9 @@ select pg_temp.assert_true(
  and (select total_bottles=0 from public.stock limit 1)
  and (select name='Gulder 12-pocket' from public.crate_types limit 1)
  and (select quantity=2 from public.empty_crate_stock limit 1)
- and (select quantity=4 from public.empty_bottle_stock limit 1),
- 'B owner sees A/legacy inventory or cannot see its exact crate');
+ and (select quantity=4 from public.empty_bottle_stock limit 1)
+ and (select count(*)=1 from public.product_catalogue),
+ 'B owner sees A/legacy inventory or cannot browse shared master');
 reset role;
 
 -- Losing membership immediately revokes read access, with no modification
@@ -284,8 +301,9 @@ select pg_temp.assert_true(
  and not exists(select 1 from public.empty_crate_stock)
  and not exists(select 1 from public.empty_bottle_stock)
  and not exists(select 1 from public.stock_movements)
- and not exists(select 1 from public.empty_crate_movements),
- 'Disabled owner can still see physical inventory');
+ and not exists(select 1 from public.empty_crate_movements)
+ and not exists(select 1 from public.product_catalogue),
+ 'Disabled owner can still see physical inventory or shared master');
 reset role;
 
 do $unchanged$
