@@ -11,7 +11,7 @@ import { ProductImage } from "@/components/product-image";
 import { SaleIcon } from "@/components/sale-icon";
 import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment } from "@/domain/sale-payment";
 import { requestSaleReview } from "@/domain/sale-review-http";
-import { isSaleReviewProgressMessage, saleReviewCheckingMessage, saleReviewOpeningMessage, contextualSaleReviewMessage, clearOwnSaleReviewProgress, canApplySaleBalancePreview } from "@/domain/sale-review-feedback";
+import { isSaleReviewProgressMessage, saleReviewCheckingMessage, saleReviewOpeningMessage, contextualSaleReviewMessage, clearOwnSaleReviewProgress, canApplySaleBalancePreview, shouldDisableSaleDraftControls } from "@/domain/sale-review-feedback";
 import { shouldFocusSaleStep } from "@/domain/sale-step-focus";
 import { useSaleDrafts } from "./sale-draft-session";
 import { hasSaleWork } from "@/domain/sale-drafts";
@@ -616,7 +616,7 @@ export function SaleBuilder({
         </div>
       )}
       <fieldset
-        disabled={reviewBusy || (pending && step !== "payment")}
+        disabled={shouldDisableSaleDraftControls(step, pending, reviewBusy)}
         aria-busy={reviewBusy || pending}
         aria-label="Sale draft"
         className="space-y-3 pb-4"
@@ -1533,105 +1533,105 @@ export function SaleBuilder({
                   clearOwnSaleReviewProgress(current, requestId, reviewFeedbackAttempt.current));
                 void (async () => {
                   try {
-                  const customerForReview = customer?.id;
-                  const saleForReview = activeId;
-                  if (!customerForReview) {
-                    setMessage("Choose a customer first.");
-                    return;
-                  }
-                  const reviewIsCurrent = () =>
-                    checkoutContext.current.customerId === customerForReview &&
-                    checkoutContext.current.activeId === saleForReview &&
-                    checkoutContext.current.step === "payment" &&
-                    reviewFeedbackAttempt.current === requestId;
-                  let fresh: SaleCatalog;
-                  let latestDebt: number;
-                  try {
-                    // A stalled background Server Function must not block
-                    // payment Review. This independent HTTP read is abortable.
-                    const controller = new AbortController();
-                    const timeout = window.setTimeout(() => controller.abort(), 20000);
-                    let response: Awaited<ReturnType<typeof requestSaleReview>>;
+                    const customerForReview = customer?.id;
+                    const saleForReview = activeId;
+                    if (!customerForReview) {
+                      setMessage("Choose a customer first.");
+                      return;
+                    }
+                    const reviewIsCurrent = () =>
+                      checkoutContext.current.customerId === customerForReview &&
+                      checkoutContext.current.activeId === saleForReview &&
+                      checkoutContext.current.step === "payment" &&
+                      reviewFeedbackAttempt.current === requestId;
+                    let fresh: SaleCatalog;
+                    let latestDebt: number;
                     try {
-                      response = await requestSaleReview(customerForReview, controller.signal);
-                    } finally {
-                      window.clearTimeout(timeout);
-                    }
-                    // Auth expiry affects the entire checkout, even if another
-                    // customer or draft was selected while the request ran.
-                    if ("error" in response && response.code === "session_expired") {
-                      setSessionExpired(true);
-                      setMessage(saleSessionExpiredMessage);
-                      return;
-                    }
-                    // Customer-bound responses belong only to their original
-                    // customer, active sale and payment step.
-                    if (!reviewIsCurrent()) {
-                      clearOwnProgress();
-                      return;
-                    }
-                    if ("error" in response) {
-                      const errorMessage = response.error ?? saleNetworkMessage;
-                      if (response.code === "debt_unavailable") {
-                        if (debtKey) setDebtError({ key: debtKey, message: errorMessage });
+                      // A stalled background Server Function must not block
+                      // payment Review. This independent HTTP read is abortable.
+                      const controller = new AbortController();
+                      const timeout = window.setTimeout(() => controller.abort(), 20000);
+                      let response: Awaited<ReturnType<typeof requestSaleReview>>;
+                      try {
+                        response = await requestSaleReview(customerForReview, controller.signal);
+                      } finally {
+                        window.clearTimeout(timeout);
                       }
-                      setMessage(errorMessage);
-                      return;
-                    }
-                    fresh = response.catalog;
-                    latestDebt = response.amount;
-                    setMessage(saleReviewOpeningMessage);
-                    if (activeId) setVerifiedId(activeId);
-                    setCheckError("");
-                  } catch {
-                    // Any failed/hung request returns an actionable message
-                    // beside Review. A retry creates a new independent fetch.
-                    if (reviewIsCurrent())
-                      setMessage("Could not check this sale. Check your connection and tap Review again.");
-                    else clearOwnProgress();
-                    return;
-                  }
-                  try {
-                    // Review is the authority. Invalidate any older preview
-                    // request BEFORE installing this balance, or a stale
-                    // response could overwrite it after navigation.
-                    debtPreviewGeneration.current++;
-                    debtPreviewAbort.current?.abort();
-                    debtPreviewAbort.current = null;
-                    if (debtKey) setOldDebt({ key: debtKey, amount: latestDebt });
-                    setDebtError(null);
-                    salePaymentTotals(total!, Number(draft.paid), latestDebt, Number(draft.oldDebtPaid));
-                    setCatalog(fresh);
-                    matchSaleEmpties(draft, fresh);
-                    const lines = draft.lines.map((line) => {
-                      const p = fresh.products.find(
-                        (item) => item.id === line.productId,
-                      );
-                      if (!p) throw new Error("Drink unavailable.");
-                      priceQuantity(p, line.quantity);
-                      return reviewedLine(line, p);
-                    });
-                    const moved = await sales.update({
-                      lines,
-                      businessDate:
-                        draft.businessDate ||
-                        new Date().toLocaleDateString("sv-SE"),
-                      step: "review",
-                    });
-                    if (!moved) {
-                      if (reviewIsCurrent()) setMessage("Could not open Review. The active sale may have changed in another tab, or this device could not save the step. Check the currently open or paused sale before retrying.");
+                      // Auth expiry affects the entire checkout, even if another
+                      // customer or draft was selected while the request ran.
+                      if ("error" in response && response.code === "session_expired") {
+                        setSessionExpired(true);
+                        setMessage(saleSessionExpiredMessage);
+                        return;
+                      }
+                      // Customer-bound responses belong only to their original
+                      // customer, active sale and payment step.
+                      if (!reviewIsCurrent()) {
+                        clearOwnProgress();
+                        return;
+                      }
+                      if ("error" in response) {
+                        const errorMessage = response.error ?? saleNetworkMessage;
+                        if (response.code === "debt_unavailable") {
+                          if (debtKey) setDebtError({ key: debtKey, message: errorMessage });
+                        }
+                        setMessage(errorMessage);
+                        return;
+                      }
+                      fresh = response.catalog;
+                      latestDebt = response.amount;
+                      setMessage(saleReviewOpeningMessage);
+                      if (activeId) setVerifiedId(activeId);
+                      setCheckError("");
+                    } catch {
+                      // Any failed/hung request returns an actionable message
+                      // beside Review. A retry creates a new independent fetch.
+                      if (reviewIsCurrent())
+                        setMessage("Could not check this sale. Check your connection and tap Review again.");
                       else clearOwnProgress();
                       return;
                     }
-                    clearOwnProgress();
-                  } catch (e) {
-                    if (reviewIsCurrent()) setMessage(
-                      e instanceof Error
-                        ? e.message
-                        : "Check this sale and try again.",
-                    );
-                    else clearOwnProgress();
-                  }
+                    try {
+                      // Review is the authority. Invalidate any older preview
+                      // request BEFORE installing this balance, or a stale
+                      // response could overwrite it after navigation.
+                      debtPreviewGeneration.current++;
+                      debtPreviewAbort.current?.abort();
+                      debtPreviewAbort.current = null;
+                      if (debtKey) setOldDebt({ key: debtKey, amount: latestDebt });
+                      setDebtError(null);
+                      salePaymentTotals(total!, Number(draft.paid), latestDebt, Number(draft.oldDebtPaid));
+                      setCatalog(fresh);
+                      matchSaleEmpties(draft, fresh);
+                      const lines = draft.lines.map((line) => {
+                        const p = fresh.products.find(
+                          (item) => item.id === line.productId,
+                        );
+                        if (!p) throw new Error("Drink unavailable.");
+                        priceQuantity(p, line.quantity);
+                        return reviewedLine(line, p);
+                      });
+                      const moved = await sales.update({
+                        lines,
+                        businessDate:
+                          draft.businessDate ||
+                          new Date().toLocaleDateString("sv-SE"),
+                        step: "review",
+                      });
+                      if (!moved) {
+                        if (reviewIsCurrent()) setMessage("Could not open Review. The active sale may have changed in another tab, or this device could not save the step. Check the currently open or paused sale before retrying.");
+                        else clearOwnProgress();
+                        return;
+                      }
+                      clearOwnProgress();
+                    } catch (e) {
+                      if (reviewIsCurrent()) setMessage(
+                        e instanceof Error
+                          ? e.message
+                          : "Check this sale and try again.",
+                      );
+                      else clearOwnProgress();
+                    }
                   } finally {
                     reviewBusyRef.current = false;
                     setReviewBusy(false);
