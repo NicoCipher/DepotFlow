@@ -11,7 +11,7 @@ import { CustomerForm } from "./customer-form";
 import { emptyCustomer } from "@/domain/customers";
 import { ProductImage } from "@/components/product-image";
 import { SaleIcon } from "@/components/sale-icon";
-import { salePaymentTotals, debtPaymentInputError } from "@/domain/sale-payment";
+import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue } from "@/domain/sale-payment";
 import { useSaleDrafts } from "./sale-draft-session";
 import { hasSaleWork } from "@/domain/sale-drafts";
 import { PausedSalesLink } from "./paused-sales-link";
@@ -360,6 +360,15 @@ export function SaleBuilder({
     try { return salePaymentTotals(total, Number(draft.paid), oldDebtAmount, Number(draft.oldDebtPaid)); }
     catch { return null; }
   })();
+  const paymentIssue = paymentReviewIssue({
+    saleTotal: total,
+    paymentInputError,
+    oldDebtInputError,
+    debtChecking,
+    debtErrorMessage,
+    breakdown: paymentBreakdown,
+    paymentMethod: draft.paymentMethod,
+  });
   const reviewKey = saleSaveConfirmationKey(draft, oldDebtAmount, reviewTotal);
   const finalSaveConfirmed = confirmedSaveKey === reviewKey;
   // "Check Sale" must remain usable even when catalogue refresh is offline:
@@ -1305,7 +1314,7 @@ export function SaleBuilder({
               />
               {paymentInputError && <p id="sale-paid-error" role="alert" className="text-sm text-red-800">{paymentInputError}</p>}
             </section>
-            <section aria-label="Previous customer debt" className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <section id="sale-previous-debt" tabIndex={-1} aria-label="Previous customer debt" className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="font-bold text-stone-950">Previous money owed</h2>
                 <strong className="text-2xl font-bold tabular-nums text-amber-950">
@@ -1393,7 +1402,13 @@ export function SaleBuilder({
                 </dl>
               )}
             </section>
-            <div className="sale-sticky-actions sticky z-10 -mx-4 flex items-center gap-3 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
+            <div className="sale-sticky-actions sticky z-10 -mx-4 space-y-2 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
+            {paymentIssue && (
+              <p id="payment-review-help" role="status" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950">
+                {paymentIssue.message}
+              </p>
+            )}
+            <div className="flex items-center gap-3">
             <button
               className="secondary min-h-12 shrink-0 px-4"
               onClick={() => update({ step: backStep ?? "empties" })}
@@ -1402,13 +1417,15 @@ export function SaleBuilder({
             </button>
             <button
               className="primary min-w-0 flex-1"
-              disabled={
-                pending ||
-                total === undefined ||
-                Boolean(paymentInputError) || Boolean(oldDebtInputError) || !paymentBreakdown || debtChecking ||
-                (paymentBreakdown.collectNow > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))
-              }
-              onClick={() =>
+              disabled={pending}
+              aria-describedby={paymentIssue ? "payment-review-help" : undefined}
+              onClick={() => {
+                if (paymentIssue) {
+                  const target = document.getElementById(paymentIssue.target);
+                  target?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  target?.focus({ preventScroll: true });
+                  return;
+                }
                 startTransition(async () => {
                   const customerForReview = customer?.id;
                   const saleForReview = activeId;
@@ -1481,15 +1498,17 @@ export function SaleBuilder({
                         : "Check this sale and try again.",
                     );
                   }
-                })
-              }
+                });
+              }}
             >
               {pending
                 ? "Checking…"
+                : paymentIssue?.target === "sale-method" ? "Choose payment method"
                 : paymentBreakdown && paymentBreakdown.collectNow > 0
                   ? `Review · Collect ${formatNaira(paymentBreakdown.collectNow)}`
                   : "Review sale · pay later"}
             </button>
+            </div>
             </div>
           </>
         )}
