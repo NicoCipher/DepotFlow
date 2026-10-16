@@ -2029,7 +2029,7 @@ export function SaleBuilder({
                     return;
                   }
 
-                  if (response.result) {
+                  if ("result" in response && response.result) {
                     if (await sales.complete(requestId))
                       setSaved({
                         ...response.result,
