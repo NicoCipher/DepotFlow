@@ -80,6 +80,7 @@ export function SaleBuilder({
   const [customerQuery, setCustomerQuery] = useState("");
   const [removeLineId, setRemoveLineId] = useState<string | null>(null);
   const [requestedMode, setRequestedMode] = useState<"wholesale" | "retail" | null>(null);
+  const [requestedPaymentMode, setRequestedPaymentMode] = useState<"single" | "split" | null>(null);
   const [requestedCustomerId, setRequestedCustomerId] = useState<string | null>(null);
   const [confirmNewCustomer, setConfirmNewCustomer] = useState(false);
   const [confirmedSaveKey, setConfirmedSaveKey] = useState<string | null>(null);
@@ -186,11 +187,31 @@ export function SaleBuilder({
     setConfirmedSaveKey(null);
     setRemoveLineId(null);
     setRequestedMode(null);
+    setRequestedPaymentMode(null);
     setRequestedCustomerId(null);
     setConfirmNewCustomer(false);
     setMessage("");
     setNotice("");
     setCancelDraftId(null);
+  }
+  function setPaymentModeSafely(next: "single" | "split") {
+    if (draft.paymentMode === next) return;
+    const hasPayment = draft.paymentMode === "split"
+      ? Number(draft.splitCash) > 0 || Number(draft.splitTransfer) > 0
+      : Number(draft.paid) > 0 || Number(draft.oldDebtPaid) > 0;
+    if (hasPayment) {
+      setRequestedPaymentMode(next);
+      return;
+    }
+    applyPaymentMode(next);
+  }
+  function applyPaymentMode(next: "single" | "split") {
+    if (next === "split")
+      update({ paymentMode: "split", paymentMethod: "mixed", paid: "0",
+        oldDebtPaid: "0", splitCash: "0", splitTransfer: "0", splitCashToSale: "" });
+    else
+      update({ paymentMode: "single", paymentMethod: "",
+        splitCash: "0", splitTransfer: "0", splitCashToSale: "" });
   }
   // Keep entered money and sale-paid ledger fields in one atomic draft patch.
   // An invalid/incomplete input stays editable, but never creates a new paid amount.
@@ -1431,14 +1452,29 @@ export function SaleBuilder({
                   <div role="group" aria-label="Payment arrangement" className="mt-3 grid grid-cols-2 gap-2">
                     <button type="button" className={draft.paymentMode !== "split" ? "primary" : "secondary"}
                       aria-pressed={draft.paymentMode !== "split"}
-                      onClick={() => update({ paymentMode: "single", paymentMethod: "", splitCash: "0", splitTransfer: "0", splitCashToSale: "" })}>
+                      onClick={() => setPaymentModeSafely("single")}>
                       One method
                     </button>
                     <button type="button" className={draft.paymentMode === "split" ? "primary" : "secondary"}
                       aria-pressed={draft.paymentMode === "split"}
-                      onClick={() => update({ paymentMode: "split", paymentMethod: "mixed", paid: "0", oldDebtPaid: "0", splitCash: "0", splitTransfer: "0", splitCashToSale: "" })}>
+                      onClick={() => setPaymentModeSafely("split")}>
                       Cash + Transfer
                     </button>
+                  </div>
+                )}
+                {requestedPaymentMode && (
+                  <div role="alertdialog" aria-label="Confirm payment-method change"
+                    className="mt-3 space-y-3 rounded-lg border-2 border-amber-300 bg-amber-50 p-3 text-sm">
+                    <p className="font-semibold text-stone-900">Change payment method?</p>
+                    <p className="text-stone-700">
+                      {requestedPaymentMode === "split"
+                        ? "Your previous planned payment will be reset. Enter the actual Cash and Transfer received next."
+                        : "The Cash and Transfer breakdown will be cleared. The paid amount stays, but you must choose its single payment method."}
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button type="button" className="secondary min-h-12" onClick={() => setRequestedPaymentMode(null)}>Keep current</button>
+                      <button type="button" className="primary min-h-12" onClick={() => applyPaymentMode(requestedPaymentMode)}>Change method</button>
+                    </div>
                   </div>
                 )}
                 {draft.paymentMode === "split" && !splitEnabled && (
