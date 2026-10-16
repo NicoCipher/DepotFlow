@@ -38,6 +38,10 @@ begin
     raise exception using errcode='42501',message='Owner only';
   end if;
 
+  -- A previous split saver in the same transaction may have made checks
+  -- immediate. Restore deferral before writing mixed sale and tender legs.
+  set constraints sale_tender_complete_on_leg, sale_tender_complete_on_mixed_sale deferred;
+
   if p_request_id is null or p_customer_id is null
     or p_business_date is null or p_lines is null or
     p_returned_crates is null or p_returned_bottles is null or
@@ -55,8 +59,8 @@ begin
   for v_index in 0..1 loop
     v_leg := p_tenders->v_index;
     if jsonb_typeof(v_leg) is distinct from 'object' or
-      v_leg->>'method' is distinct from
-        case when v_index=0 then 'cash' else 'transfer' end or
+      (v_index = 0 and v_leg->>'method' is distinct from 'cash') or
+      (v_index = 1 and v_leg->>'method' is distinct from 'transfer') or
       jsonb_typeof(v_leg->'saleAmount') is distinct from 'number' or
       jsonb_typeof(v_leg->'oldDebtAmount') is distinct from 'number' or
       jsonb_typeof(v_leg->'amount') is distinct from 'number' then
