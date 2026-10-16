@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   emptySaleDraft,
   matchesSaleCustomer,
+  currentSaleFeedback,
   modeForSaleDrink,
   changeSaleCustomer,
   hasCustomerBoundSaleWork,
@@ -452,4 +453,17 @@ test("customer-change confirmation remains necessary after the final drink is re
     ...emptySaleDraft.emptiesV2, confirmedAllReturned: "some-signed-key",
   } }), true);
   assert.equal(hasCustomerBoundSaleWork({ ...emptySaleDraft, lines: [{ productId: "one", quantity: q(1) }] }), true);
+});
+
+test("payment never says choose a customer when an actual customer is selected", () => {
+  const warning = "Choose a customer first.";
+  const selectedCustomerId = "90000000-0000-4000-8000-000000000001";
+  assert.equal(currentSaleFeedback(warning, selectedCustomerId), "");
+  assert.equal(currentSaleFeedback(warning, null), warning);
+  assert.equal(currentSaleFeedback(warning, ""), warning);
+  // This must not hide real payment errors or errors unrelated to selection.
+  assert.equal(currentSaleFeedback("Could not verify the customer's current balance. Try again.", selectedCustomerId),
+    "Could not verify the customer's current balance. Try again.");
+  assert.equal(currentSaleFeedback("Sign in again to check the customer's balance.", selectedCustomerId),
+    "Sign in again to check the customer's balance.");
 });

@@ -35,6 +35,7 @@ import { saleCardPrice } from "@/domain/sale-card-price";
 import { formatQuantity } from "@/domain/quantity";
 import {
   matchesSaleCustomer,
+  currentSaleFeedback,
   modeForSaleDrink,
   changeSaleCustomer,
   hasCustomerBoundSaleWork,
@@ -114,6 +115,10 @@ export function SaleBuilder({
   const activeId = sales.state.active
     ? `${sales.state.active.id}:${sales.state.active.resumedAt ?? ""}`
     : null;
+  const checkoutContext = useRef({ customerId: draft.customerId, activeId, step: draft.step });
+  useEffect(() => {
+    checkoutContext.current = { customerId: draft.customerId, activeId, step: draft.step };
+  }, [draft.customerId, draft.step, activeId]);
   const [verifiedId, setVerifiedId] = useState<string | null>(null);
   const [checkError, setCheckError] = useState("");
   const [checkAttempt, setCheckAttempt] = useState(0);
@@ -153,6 +158,7 @@ export function SaleBuilder({
   }, [activeId, checkAttempt]);
 
   const customer = catalog.customers.find((c) => c.id === draft.customerId);
+  const visibleMessage = currentSaleFeedback(message, customer?.id ?? null);
   const product = catalog.products.find((p) => p.id === draft.editingId);
   function update(patch: Partial<SaleDraft>) {
     if (sessionExpired) {
@@ -507,6 +513,7 @@ export function SaleBuilder({
               throw new Error("Could not select customer.");
             setCatalog(fresh);
             setCustomerQuery("");
+            setMessage("");
             setNewCustomer(null);
           }}
         />
@@ -685,12 +692,12 @@ export function SaleBuilder({
             )}
           </div>
         )}
-        {message && (
+        {visibleMessage && (
           <p
             role="alert"
             className={saveUncertain ? "text-amber-900" : "text-red-800"}
           >
-            {message}
+            {visibleMessage}
           </p>
         )}
         {step === "customer" && (
@@ -1403,21 +1410,36 @@ export function SaleBuilder({
               }
               onClick={() =>
                 startTransition(async () => {
+                  const customerForReview = customer?.id;
+                  const saleForReview = activeId;
+                  if (!customerForReview) {
+                    setMessage("Choose a customer first.");
+                    return;
+                  }
+                  const reviewIsCurrent = () =>
+                    checkoutContext.current.customerId === customerForReview &&
+                    checkoutContext.current.activeId === saleForReview &&
+                    checkoutContext.current.step === "payment";
                   let fresh: SaleCatalog;
                   let latestDebt: number;
                   try {
-                    const response = await reviewSaleInputs(draft.customerId);
+                    const response = await reviewSaleInputs(customerForReview);
+                    // Auth expiry affects the entire checkout, even if another
+                    // customer or draft was selected while the request ran.
+                    if ("error" in response && response.code === "session_expired") {
+                      setSessionExpired(true);
+                      setMessage(saleSessionExpiredMessage);
+                      return;
+                    }
+                    // Customer-bound responses belong only to their original
+                    // customer, active sale and payment step.
+                    if (!reviewIsCurrent()) return;
                     if ("error" in response) {
                       const errorMessage = response.error ?? saleNetworkMessage;
-                      if (response.code === "session_expired") {
-                        setSessionExpired(true);
-                        setMessage(saleSessionExpiredMessage);
-                      } else if (response.code === "debt_unavailable") {
+                      if (response.code === "debt_unavailable") {
                         if (debtKey) setDebtError({ key: debtKey, message: errorMessage });
-                        setMessage(errorMessage);
-                      } else {
-                        setMessage(errorMessage);
                       }
+                      setMessage(errorMessage);
                       return;
                     }
                     fresh = response.catalog;
@@ -1425,7 +1447,9 @@ export function SaleBuilder({
                     if (activeId) setVerifiedId(activeId);
                     setCheckError("");
                   } catch {
-                    setMessage(saleNetworkMessage);
+                    // A transport failure from a previous customer must not
+                    // overwrite the current checkout's feedback.
+                    if (reviewIsCurrent()) setMessage(saleNetworkMessage);
                     return;
                   }
                   try {
