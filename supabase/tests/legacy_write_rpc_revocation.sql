@@ -4,7 +4,8 @@
 begin;
 insert into auth.users(id) values
  ('89500000-0000-4000-8000-000000000001'),
- ('89500000-0000-4000-8000-000000000002');
+ ('89500000-0000-4000-8000-000000000002'),
+ ('89500000-0000-4000-8000-000000000003');
 insert into private.shop_owner(user_id)
 values ('89500000-0000-4000-8000-000000000001');
 select private.link_legacy_shop_business();
@@ -217,6 +218,64 @@ begin
  end;
 end;
 $outsider$;
+reset role;
+
+-- An independently active owner of a DIFFERENT business is still not
+-- permitted to call any of the old single-shop stock or payment RPCs.
+-- Owning some business is NOT equivalent to owning the legacy shop.
+insert into private.businesses(id,status)
+values('89500000-0000-4000-9000-000000000031','active');
+insert into private.business_memberships(
+  business_id,user_id,status,member_kind
+) values(
+ '89500000-0000-4000-9000-000000000031',
+ '89500000-0000-4000-8000-000000000003',
+ 'active','owner'
+);
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89500000-0000-4000-8000-000000000003',true);
+insert into public.customers(id,name,phone,business_id)
+values(
+ '89500000-0000-4000-9000-000000000041',
+ 'Business B customer','08000895041',
+ '89500000-0000-4000-9000-000000000031'
+);
+do $new_business_cannot_use_legacy_apis$
+begin
+ if not private.can_manage_new_customer(
+  '89500000-0000-4000-9000-000000000031'
+ ) then
+   raise exception 'New business customer setup failed';
+ end if;
+ begin
+   perform public.record_payment(
+     '89500000-0000-4000-9000-000000000042',
+     '89500000-0000-4000-9000-000000000011',
+     100,'2026-10-15','cash'
+   );
+   raise exception 'New business owner probed legacy customer debt'
+     using errcode='PT001';
+ exception when insufficient_privilege then null;
+ end;
+ begin
+   perform public.record_payment(
+     '89500000-0000-4000-9000-000000000043',
+     '89500000-0000-4000-9000-000000000041',
+     100,'2026-10-15','cash'
+   );
+   raise exception 'New owner could use legacy payment flow for new shop'
+     using errcode='PT001';
+ exception when insufficient_privilege then null;
+ end;
+ begin
+   perform private.receive_stock(null,null,null,null,null,null,null,null);
+   raise exception 'New owner accessed legacy stock receiving'
+     using errcode='PT001';
+ exception when insufficient_privilege then null;
+ end;
+end;
+$new_business_cannot_use_legacy_apis$;
 reset role;
 
 -- Revocation changes permissions, not historic financial data.
