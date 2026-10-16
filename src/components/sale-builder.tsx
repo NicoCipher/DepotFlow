@@ -10,7 +10,7 @@ import { CustomerForm } from "./customer-form";
 import { emptyCustomer } from "@/domain/customers";
 import { ProductImage } from "@/components/product-image";
 import { SaleIcon } from "@/components/sale-icon";
-import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment, splitTenderShortfallChoices } from "@/domain/sale-payment";
+import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment, splitPaymentFromReceived } from "@/domain/sale-payment";
 import { allocateSplitTender } from "@/domain/sale-tenders";
 import { requestSaleReview } from "@/domain/sale-review-http";
 import { isSaleReviewProgressMessage, saleReviewCheckingMessage, saleReviewOpeningMessage, contextualSaleReviewMessage, clearOwnSaleReviewProgress, canApplySaleBalancePreview, shouldDisableSaleDraftControls } from "@/domain/sale-review-feedback";
@@ -191,6 +191,33 @@ export function SaleBuilder({
     setMessage("");
     setNotice("");
     setCancelDraftId(null);
+  }
+  // Keep entered money and sale-paid ledger fields in one atomic draft patch.
+  // An invalid/incomplete input stays editable, but never creates a new paid amount.
+  function updateSplitTender(field: "splitCash" | "splitTransfer", raw: string) {
+    const cash = field === "splitCash" ? raw : draft.splitCash;
+    const transfer = field === "splitTransfer" ? raw : draft.splitTransfer;
+    const entry = splitPaymentFromReceived({
+      saleTotal: total, oldDebt: oldDebtAmount,
+      oldDebtPaid: draft.oldDebtPaid, cash, transfer,
+    });
+    update({
+      [field]: raw,
+      ...(entry.issue === null && entry.salePaid !== null
+        ? { paid: String(entry.salePaid) } : {}),
+    });
+  }
+  function updateSplitOldDebt(raw: string) {
+    const entry = splitPaymentFromReceived({
+      saleTotal: total, oldDebt: oldDebtAmount,
+      oldDebtPaid: raw, cash: draft.splitCash, transfer: draft.splitTransfer,
+    });
+    update({
+      oldDebtPaid: raw,
+      splitCashToSale: "",
+      ...(entry.issue === null && entry.salePaid !== null
+        ? { paid: String(entry.salePaid) } : {}),
+    });
   }
   function edit(p: SaleProduct) {
     const setupIssue = saleProductSetupIssue(p);
@@ -412,7 +439,14 @@ export function SaleBuilder({
   const debtChecking = Boolean(debtKey && oldDebt?.key !== debtKey && !debtErrorMessage);
   const oldDebtAmount = debtKey && oldDebt?.key === debtKey ? oldDebt.amount : null;
   const oldDebtInputError = debtPaymentInputError(draft.oldDebtPaid, oldDebtAmount);
+  const splitEntry = splitEnabled && draft.paymentMode === "split" ? splitPaymentFromReceived({
+    saleTotal: total, oldDebt: oldDebtAmount,
+    oldDebtPaid: draft.oldDebtPaid, cash: draft.splitCash, transfer: draft.splitTransfer,
+  }) : null;
+  const splitEntryNeedsSync = !!splitEntry && splitEntry.issue === null &&
+    splitEntry.salePaid !== Number(draft.paid);
   const paymentBreakdown = (() => {
+    if (splitEntry && (splitEntry.issue || splitEntryNeedsSync)) return null;
     if (total === undefined || paymentInputError || oldDebtInputError) return null;
     // Until a fresh balance arrives, use zero ONLY to preview what is
     // collected today when no old debt is being paid. Never display the
@@ -457,6 +491,8 @@ export function SaleBuilder({
     splitTransfer: draft.splitTransfer,
     splitCashToSale: draft.splitCashToSale,
     splitEnabled,
+    splitEntryIssue: splitEntry?.issue || (splitEntryNeedsSync
+      ? "Use the received Cash + Transfer amount to update this unfinished sale." : null),
   });
   const navigationBusy = pending || reviewBusy;
   const reviewKey = saleSaveConfirmationKey(draft, oldDebtAmount, reviewTotal);
