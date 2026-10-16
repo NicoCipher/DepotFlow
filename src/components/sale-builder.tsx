@@ -1517,6 +1517,10 @@ export function SaleBuilder({
                       </button>
                     )}
                   </div>
+                  {draft.paymentMode === "split" && Number(draft.splitCash) > 0 &&
+                    Number(draft.splitTransfer) > 0 && (
+                    <p className="mt-2 text-xs text-stone-600">Both methods have money entered. Change one amount to ₦0 before switching to one method.</p>
+                  )}
                   {requestedPaymentMode && (
                     <div role="group" aria-label="Confirm payment method change"
                       className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">
@@ -1618,6 +1622,12 @@ export function SaleBuilder({
                         Apply extra {formatNaira(splitEntry.extraForOldDebt)} to old debt
                       </button>
                     )}
+                    {Number(draft.oldDebtPaid) === 0 && draft.splitCashToSale !== "" && (
+                      <button type="button" className="secondary mt-2 min-h-11 w-full text-sm"
+                        onClick={() => update({ splitCashToSale: "" })}>
+                        Clear previous Cash allocation
+                      </button>
+                    )}
                     {splitEntryNeedsSync && splitEntry?.salePaid !== null && (
                       <button type="button" className="secondary mt-2 min-h-11 w-full text-sm"
                         onClick={() => update({ paid: String(splitEntry.salePaid) })}>
@@ -1671,7 +1681,7 @@ export function SaleBuilder({
                           : update({ oldDebtPaid: event.target.value, splitCashToSale: "" })} />
                       {oldDebtInputError && <p id="old-debt-payment-error" role="alert" className="mt-1 text-sm text-red-800">{oldDebtInputError}</p>}
                       {draft.paymentMode === "split" && splitEnabled && Number(draft.oldDebtPaid) > 0 && (
-                        <details className="mt-2 rounded-lg border border-stone-200 px-2 py-2">
+                        <details open={draft.splitCashToSale !== ""} className="mt-2 rounded-lg border border-stone-200 px-2 py-2">
                           <summary className="cursor-pointer text-xs font-semibold text-emerald-900">
                             Adjust Cash used for today&apos;s sale
                           </summary>
