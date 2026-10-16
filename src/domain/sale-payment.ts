@@ -150,6 +150,16 @@ export function splitPaymentFromReceived(input: {
   return { received, salePaid, oldDebtPaid: paidOld, extraForOldDebt: 0, issue: null };
 }
 
+/** The single-method path must never inherit a stale planned payment from
+ * Cash + Transfer. Invalid receipts reset to zero, requiring new entry. */
+export function oneMethodAmountsFromReceived(
+  entry: ReturnType<typeof splitPaymentFromReceived>,
+): { paid: string; oldDebtPaid: string } {
+  return entry.issue === null && entry.salePaid !== null && entry.oldDebtPaid !== null
+    ? { paid: String(entry.salePaid), oldDebtPaid: String(entry.oldDebtPaid) }
+    : { paid: "0", oldDebtPaid: "0" };
+}
+
 export function debtPaymentInputError(input: string, currentDebt: number | null): string | null {
   if (!/^\d+$/.test(input) || !Number.isSafeInteger(Number(input)) || Number(input) > 2147483647)
     return "Enter a whole amount toward previous debt, starting at 0.";
