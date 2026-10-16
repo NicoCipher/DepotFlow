@@ -160,6 +160,19 @@ export function oneMethodAmountsFromReceived(
     : { paid: "0", oldDebtPaid: "0" };
 }
 
+/** A feature rollback must never hide recovery controls for an already
+ * stored split-tender draft, even when the planned paid amount is zero/stale. */
+export function showPaymentMethodControls(input: {
+  splitEnabled: boolean;
+  paymentMode: "single" | "split";
+  salePaid: string;
+  oldDebtPaid: string;
+}): boolean {
+  return input.splitEnabled || input.paymentMode === "split" ||
+    Number(input.salePaid) > 0 || Number(input.oldDebtPaid) > 0 ||
+    (!/^\\d+$/.test(input.salePaid) || !/^\\d+$/.test(input.oldDebtPaid));
+}
+
 export function debtPaymentInputError(input: string, currentDebt: number | null): string | null {
   if (!/^\d+$/.test(input) || !Number.isSafeInteger(Number(input)) || Number(input) > 2147483647)
     return "Enter a whole amount toward previous debt, starting at 0.";
