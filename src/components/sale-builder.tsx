@@ -1488,7 +1488,7 @@ export function SaleBuilder({
                 )}
                 {draft.paymentMode === "split" && !splitEnabled && (
                   <div role="alert" className="mt-3 space-y-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
-                    <p>Split payment is not available. Change to one payment method before continuing.</p>
+                    <p>Cash + Transfer is temporarily unavailable. If both methods actually received money, do not relabel this as one payment method. Keep this unfinished sale and retry when split payments are available. Switch below only if the customer used one method.</p>
                     <button type="button" className="secondary w-full"
                       onClick={() => applyPaymentMode("single")}>
                       Choose one method
