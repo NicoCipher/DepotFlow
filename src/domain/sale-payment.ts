@@ -95,6 +95,61 @@ export function splitTenderShortfallChoices(input: {
   return choices.length ? { received, shortfall, choices } : null;
 }
 
+/**
+ * Cash + Transfer records money actually received, not a second copy of a
+ * separately entered payment target. Previous debt receives NOTHING unless
+ * explicitly allocated by the operator.
+ *
+ * The UI only synchronizes draft.paid when status is valid. A typed partial/
+ * invalid input must never create a made-up payment.
+ */
+export function splitPaymentFromReceived(input: {
+  saleTotal: number | undefined;
+  oldDebt: number | null;
+  oldDebtPaid: string;
+  cash: string;
+  transfer: string;
+}): {
+  received: number | null;
+  salePaid: number | null;
+  oldDebtPaid: number | null;
+  extraForOldDebt: number;
+  issue: string | null;
+} {
+  const { saleTotal, oldDebt } = input;
+  const amounts = [input.cash, input.transfer, input.oldDebtPaid];
+  const digits = /^\\d+$/;
+  if (!amounts.every((value) => digits.test(value)))
+    return { received: null, salePaid: null, oldDebtPaid: null, extraForOldDebt: 0,
+      issue: "Enter valid whole-naira amounts for Cash, Transfer and previous debt." };
+  const [cash, transfer, paidOld] = amounts.map(Number);
+  if ([cash, transfer, paidOld].some((value) =>
+    !Number.isSafeInteger(value) || value < 0 || value > 2147483647
+  ) || cash + transfer > 2147483647)
+    return { received: null, salePaid: null, oldDebtPaid: null, extraForOldDebt: 0,
+      issue: "Check the amounts received." };
+  const received = cash + transfer;
+  if (saleTotal === undefined)
+    return { received, salePaid: null, oldDebtPaid: paidOld, extraForOldDebt: 0,
+      issue: "Check today's sale total first." };
+  if (paidOld > 0 && oldDebt === null)
+    return { received, salePaid: null, oldDebtPaid: paidOld, extraForOldDebt: 0,
+      issue: "Wait until the previous debt is verified before paying it." };
+  if (oldDebt !== null && paidOld > oldDebt)
+    return { received, salePaid: null, oldDebtPaid: paidOld, extraForOldDebt: 0,
+      issue: `The previous debt is only ${formatNaira(oldDebt)}.` };
+  if (paidOld > received)
+    return { received, salePaid: null, oldDebtPaid: paidOld, extraForOldDebt: 0,
+      issue: "Payment toward old debt cannot exceed the money received." };
+  const salePaid = received - paidOld;
+  if (salePaid > saleTotal) {
+    const extraForOldDebt = salePaid - saleTotal;
+    return { received, salePaid: null, oldDebtPaid: paidOld, extraForOldDebt,
+      issue: `${formatNaira(extraForOldDebt)} exceeds today's sale. Choose whether to pay previous debt, or correct the received amounts.` };
+  }
+  return { received, salePaid, oldDebtPaid: paidOld, extraForOldDebt: 0, issue: null };
+}
+
 export function debtPaymentInputError(input: string, currentDebt: number | null): string | null {
   if (!/^\d+$/.test(input) || !Number.isSafeInteger(Number(input)) || Number(input) > 2147483647)
     return "Enter a whole amount toward previous debt, starting at 0.";
