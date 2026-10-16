@@ -194,11 +194,10 @@ begin
 end;
 $$;
 
+-- Intentionally inaccessible to web clients until the separate,
+-- coordinated activation migration AFTER verified receipt consumers ship.
 revoke all on function public.save_sale_split_tender(
   uuid,uuid,date,numeric,jsonb,jsonb,jsonb,numeric,jsonb
-) from public,anon;
-grant execute on function public.save_sale_split_tender(
-  uuid,uuid,date,numeric,jsonb,jsonb,jsonb,numeric,jsonb
-) to authenticated;
+) from public,anon,authenticated;
 
 commit;
