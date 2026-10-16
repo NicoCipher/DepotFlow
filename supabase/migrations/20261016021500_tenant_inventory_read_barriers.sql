@@ -28,7 +28,7 @@ grant execute on function private.can_read_tenant_inventory(uuid)
 create function private.can_read_shared_product_catalogue()
 returns boolean
 language sql stable security definer set search_path=''
-as $
+as $catalogue$
   select private.verified_legacy_owner_read()
     or (
       exists(select 1 from private.legacy_write_scope_gate where enabled is true)
@@ -42,7 +42,7 @@ as $
           and b.status in ('setup','active')
       )
     );
-$;
+$catalogue$;
 revoke all on function private.can_read_shared_product_catalogue()
   from public,anon,authenticated,service_role;
 grant execute on function private.can_read_shared_product_catalogue()
