@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { reviewSaleInputs } from "@/app/(shop)/record-sale/actions";
+import { ownerSession } from "@/lib/auth/owner";
+import { parseLimitedJson, RequestBodyTooLarge } from "@/domain/limited-json";
 
 export const dynamic = "force-dynamic";
 
@@ -15,13 +17,32 @@ function noStore(body: Record<string, unknown>, status = 200) {
 }
 
 export async function POST(request: NextRequest) {
+  // Authenticate before reading attacker-controlled request bytes.
+  try {
+    const session = await ownerSession();
+    if (!session.user) return noStore({
+      error: "Sign in again to check this sale.", code: "session_expired",
+    }, 401);
+    if (!session.allowed) return noStore({
+      error: "Shop owner access is required.", code: "access_denied",
+    }, 403);
+  } catch {
+    return noStore({ error: "Could not verify your session. Try again.", code: "network_error" }, 503);
+  }
+  if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json"))
+    return noStore({ error: "Expected JSON request.", code: "customer_invalid" }, 415);
+  const contentLength = Number(request.headers.get("content-length") ?? 0);
+  if (Number.isFinite(contentLength) && contentLength > 1024)
+    return noStore({ error: "Request too large.", code: "customer_invalid" }, 413);
   let customerId: unknown;
   try {
-    const input: unknown = await request.json();
+    const input: unknown = await parseLimitedJson(request.body, 1024);
     if (typeof input !== "object" || input === null || !("customerId" in input))
       return noStore({ error: "Choose a customer first.", code: "customer_invalid" }, 400);
     customerId = input.customerId;
-  } catch {
+  } catch (error) {
+    if (error instanceof RequestBodyTooLarge)
+      return noStore({ error: "Request too large.", code: "customer_invalid" }, 413);
     return noStore({ error: "Check the selected customer and retry.", code: "customer_invalid" }, 400);
   }
   if (typeof customerId !== "string" ||
