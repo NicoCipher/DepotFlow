@@ -10,7 +10,7 @@ import { CustomerForm } from "./customer-form";
 import { emptyCustomer } from "@/domain/customers";
 import { ProductImage } from "@/components/product-image";
 import { SaleIcon } from "@/components/sale-icon";
-import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment, splitPaymentFromReceived } from "@/domain/sale-payment";
+import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment, splitPaymentFromReceived, oneMethodAmountsFromReceived } from "@/domain/sale-payment";
 import { allocateSplitTender } from "@/domain/sale-tenders";
 import { requestSaleReview } from "@/domain/sale-review-http";
 import { isSaleReviewProgressMessage, saleReviewCheckingMessage, saleReviewOpeningMessage, contextualSaleReviewMessage, clearOwnSaleReviewProgress, canApplySaleBalancePreview, shouldDisableSaleDraftControls } from "@/domain/sale-review-feedback";
@@ -218,8 +218,7 @@ export function SaleBuilder({
         cash: draft.splitCash, transfer: draft.splitTransfer,
       });
       update({ paymentMode: "single", paymentMethod: "",
-        paid: entry.issue === null ? String(entry.salePaid) : "0",
-        oldDebtPaid: entry.issue === null ? String(entry.oldDebtPaid) : "0",
+        ...oneMethodAmountsFromReceived(entry),
         splitCash: "0", splitTransfer: "0", splitCashToSale: "" });
     }
   }
@@ -1532,8 +1531,7 @@ export function SaleBuilder({
                         onClick={() => update({
                           paymentMode: "single",
                           paymentMethod: Number(draft.splitCash) > 0 ? "cash" : "transfer",
-                          paid: String(splitEntry.salePaid),
-                          oldDebtPaid: String(splitEntry.oldDebtPaid),
+                          ...oneMethodAmountsFromReceived(splitEntry),
                           splitCash: "0", splitTransfer: "0", splitCashToSale: "",
                         })}>
                         Only {Number(draft.splitCash) > 0 ? "Cash" : "Transfer"} received? Use one method
