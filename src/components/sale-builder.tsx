@@ -11,7 +11,7 @@ import { ProductImage } from "@/components/product-image";
 import { SaleIcon } from "@/components/sale-icon";
 import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment } from "@/domain/sale-payment";
 import { requestSaleReview } from "@/domain/sale-review-http";
-import { isSaleReviewProgressMessage, saleReviewCheckingMessage, saleReviewOpeningMessage, contextualSaleReviewMessage, clearOwnSaleReviewProgress } from "@/domain/sale-review-feedback";
+import { isSaleReviewProgressMessage, saleReviewCheckingMessage, saleReviewOpeningMessage, contextualSaleReviewMessage, clearOwnSaleReviewProgress, canApplySaleBalancePreview } from "@/domain/sale-review-feedback";
 import { shouldFocusSaleStep } from "@/domain/sale-step-focus";
 import { useSaleDrafts } from "./sale-draft-session";
 import { hasSaleWork } from "@/domain/sale-drafts";
@@ -348,7 +348,7 @@ export function SaleBuilder({
     const generation = ++debtPreviewGeneration.current;
     const controller = new AbortController();
     debtPreviewAbort.current = controller;
-    const canApply = () => current && generation === debtPreviewGeneration.current;
+    const canApply = () => canApplySaleBalancePreview(generation, debtPreviewGeneration.current, current);
     // Unlike a Server Function, this independent HTTP request can be aborted.
     // A stalled read must never trap the customer on this payment screen.
     const timeout = window.setTimeout(() => controller.abort(), 12000);
