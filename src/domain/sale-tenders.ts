@@ -102,6 +102,8 @@ export function validateTenderLegs(
   if (legs.length < 1 || legs.length > 2)
     throw new Error("Use one or two payment methods.");
   const seen = new Set<SaleTenderMethod>();
+  if (legs.length === 2 && legs[0].method === legs[1].method)
+    throw new Error("Each payment method must be valid and appear only once.");
   if (legs.length === 2 &&
       (legs[0].method !== "cash" && legs[1].method !== "cash" ||
        legs[0].method !== "transfer" && legs[1].method !== "transfer"))
