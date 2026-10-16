@@ -11,6 +11,7 @@ import { ProductImage } from "@/components/product-image";
 import { SaleIcon } from "@/components/sale-icon";
 import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment } from "@/domain/sale-payment";
 import { requestSaleReview } from "@/domain/sale-review-http";
+import { isSaleReviewProgressMessage, saleReviewCheckingMessage, saleReviewOpeningMessage } from "@/domain/sale-review-feedback";
 import { shouldFocusSaleStep } from "@/domain/sale-step-focus";
 import { useSaleDrafts } from "./sale-draft-session";
 import { hasSaleWork } from "@/domain/sale-drafts";
@@ -1461,9 +1462,15 @@ export function SaleBuilder({
               </p>
             )}
             {!paymentIssue && visibleMessage && (
-              <p id="payment-review-error" role="alert" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-900">
-                {visibleMessage}
-              </p>
+              isSaleReviewProgressMessage(visibleMessage) ? (
+                <p id="payment-review-progress" role="status" className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm font-semibold text-stone-700">
+                  {visibleMessage}
+                </p>
+              ) : (
+                <p id="payment-review-error" role="alert" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-900">
+                  {visibleMessage}
+                </p>
+              )
             )}
             <div className="flex items-center gap-3">
             <button
@@ -1487,7 +1494,7 @@ export function SaleBuilder({
                 // Immediate visible acknowledgement proves the tap was received.
                 // This also distinguishes a blocked network read from a blocked
                 // draft-storage write on the customer's phone.
-                setMessage("Checking current prices, stock and customer balance…");
+                setMessage(saleReviewCheckingMessage);
                 startTransition(async () => {
                   const customerForReview = customer?.id;
                   const saleForReview = activeId;
@@ -1532,7 +1539,7 @@ export function SaleBuilder({
                     }
                     fresh = response.catalog;
                     latestDebt = response.amount;
-                    setMessage("Checks complete. Opening Review…");
+                    setMessage(saleReviewOpeningMessage);
                     if (activeId) setVerifiedId(activeId);
                     setCheckError("");
                   } catch {
@@ -1564,7 +1571,7 @@ export function SaleBuilder({
                       step: "review",
                     });
                     if (!moved) {
-                      setMessage("Could not open Review on this device. If DepotFlow is open in another tab, close that tab. Your sale is still saved here; then try Review again.");
+                      setMessage("Could not open Review. The active sale may have changed in another tab, or this device could not save the step. Check the currently open or paused sale before retrying.");
                       return;
                     }
                     setMessage("");
