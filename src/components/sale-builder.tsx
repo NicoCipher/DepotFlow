@@ -1786,10 +1786,10 @@ export function SaleBuilder({
               {Number(draft.paid) + Number(draft.oldDebtPaid) > 0 && <div className="flex justify-between gap-3 border-b border-stone-200 py-3"><dt>Method</dt><dd className="font-semibold">{{ cash: "Cash", transfer: "Bank transfer", pos: "POS" }[draft.paymentMethod as "cash" | "transfer" | "pos"] ?? "Choose a method"}</dd></div>}
               <div className="flex justify-between gap-3 py-3 text-lg font-semibold">
                 <dt>Total to collect now</dt>
-                <dd>{reviewTotal === undefined || oldDebtAmount === null ? "Check balances" : formatNaira(Number(draft.paid) + Number(draft.oldDebtPaid))}</dd>
+                <dd>{reviewTotal === undefined ? "Check drinks" : oldDebtAmount === null && Number(draft.oldDebtPaid) !== 0 ? "Check balances" : formatNaira(Number(draft.paid) + Number(draft.oldDebtPaid))}</dd>
               </div>
             </dl>
-            {paymentBreakdown && (
+            {paymentBreakdown && oldDebtAmount !== null && (
               <div className={paymentBreakdown.totalOwedAfter > 0 ? "rounded-xl border border-amber-200 bg-amber-50 p-4" : "rounded-xl border border-emerald-200 bg-emerald-50 p-4"}>
                 <p className={paymentBreakdown.totalOwedAfter > 0 ? "text-sm font-semibold text-amber-950" : "text-sm font-semibold text-emerald-950"}>
                   {paymentBreakdown.totalOwedAfter > 0 ? "Customer will still owe" : "No balance owed after this sale"}
@@ -1797,6 +1797,9 @@ export function SaleBuilder({
                 <p className={paymentBreakdown.totalOwedAfter > 0 ? "mt-1 text-2xl font-bold tabular-nums text-amber-950" : "mt-1 text-2xl font-bold tabular-nums text-emerald-950"}>{formatNaira(paymentBreakdown.totalOwedAfter)}</p>
                 {paymentBreakdown.totalOwedAfter > 0 && <p className="mt-1 text-xs text-amber-950">Includes unpaid previous debt and any unpaid amount from this sale.</p>}
               </div>
+            )}
+            {oldDebtAmount === null && !saveUncertain && (
+              <p role="status" className="text-sm text-stone-600">Checking the customer&apos;s previous balance. Any amount still owed will be confirmed when saving.</p>
             )}
             {debtErrorMessage && <p role="alert" className="text-sm text-amber-900">{debtErrorMessage}</p>}
             <div className="sale-sticky-actions sticky z-10 -mx-4 border-t border-stone-200 bg-background/95 px-4 pb-3 pt-3 shadow-[0_-6px_18px_rgba(0,0,0,0.04)] backdrop-blur-sm sm:mx-0 sm:px-0 sm:shadow-none">
