@@ -1491,7 +1491,7 @@ export function SaleBuilder({
                   <div role="alert" className="mt-3 space-y-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
                     <p>Split payment is not available. Change to one payment method before continuing.</p>
                     <button type="button" className="secondary w-full"
-                      onClick={() => update({ paymentMode: "single", paymentMethod: "", splitCash: "0", splitTransfer: "0", splitCashToSale: "" })}>
+                      onClick={() => applyPaymentMode("single")}>
                       Choose one method
                     </button>
                   </div>
