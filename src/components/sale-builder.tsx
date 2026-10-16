@@ -401,8 +401,12 @@ export function SaleBuilder({
   const oldDebtAmount = debtKey && oldDebt?.key === debtKey ? oldDebt.amount : null;
   const oldDebtInputError = debtPaymentInputError(draft.oldDebtPaid, oldDebtAmount);
   const paymentBreakdown = (() => {
-    if (total === undefined || oldDebtAmount === null || paymentInputError || oldDebtInputError) return null;
-    try { return salePaymentTotals(total, Number(draft.paid), oldDebtAmount, Number(draft.oldDebtPaid)); }
+    if (total === undefined || paymentInputError || oldDebtInputError) return null;
+    // Until a fresh balance arrives, use zero ONLY to preview what is
+    // collected today when no old debt is being paid. Never display the
+    // unverified final customer balance as though it were authoritative.
+    if (oldDebtAmount === null && Number(draft.oldDebtPaid) !== 0) return null;
+    try { return salePaymentTotals(total, Number(draft.paid), oldDebtAmount ?? 0, Number(draft.oldDebtPaid)); }
     catch { return null; }
   })();
   const paymentIssue = paymentReviewIssue({
@@ -410,6 +414,7 @@ export function SaleBuilder({
     paymentInputError,
     oldDebtInputError,
     oldDebtAmount,
+    oldDebtPaid: draft.oldDebtPaid,
     debtChecking,
     debtErrorMessage,
     breakdown: paymentBreakdown,
@@ -1444,7 +1449,7 @@ export function SaleBuilder({
                 <dl className="mt-3 space-y-2 border-t border-stone-200 pt-3 text-sm">
                   <div className="flex justify-between gap-3">
                     <dt className="text-stone-600">Old debt left</dt>
-                    <dd className="font-semibold">{formatNaira(paymentBreakdown.oldDebtRemaining)}</dd>
+                    <dd className="font-semibold">{oldDebtAmount === null ? "Checking…" : formatNaira(paymentBreakdown.oldDebtRemaining)}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
                     <dt className="text-stone-600">Today&apos;s sale still unpaid</dt>
@@ -1453,7 +1458,7 @@ export function SaleBuilder({
                   <div className="flex justify-between gap-3 border-t border-stone-200 pt-2 font-bold">
                     <dt>Total customer will owe</dt>
                     <dd className={paymentBreakdown.totalOwedAfter > 0 ? "text-amber-900" : "text-emerald-900"}>
-                      {formatNaira(paymentBreakdown.totalOwedAfter)}
+                      {oldDebtAmount === null ? "Confirmed on Review" : formatNaira(paymentBreakdown.totalOwedAfter)}
                     </dd>
                   </div>
                 </dl>
@@ -1461,8 +1466,13 @@ export function SaleBuilder({
             </section>
             <div className="sale-sticky-actions sticky z-10 -mx-4 space-y-2 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
             {paymentIssue && (
-              <p id="payment-review-help" role="status" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950">
+              <p id="payment-review-help" role="alert" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950">
                 {paymentIssue.message}
+              </p>
+            )}
+            {!paymentIssue && oldDebtAmount === null && (
+              <p role="status" className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-700">
+                Previous balance will be checked securely when you tap Review. No payment toward old debt will be recorded.
               </p>
             )}
             {!paymentIssue && paymentDisplayMessage && (
@@ -1490,6 +1500,9 @@ export function SaleBuilder({
               aria-describedby={paymentIssue ? "payment-review-help" : undefined}
               onClick={() => {
                 if (paymentIssue) {
+                  // Explain why the tap cannot advance, rather than only
+                  // scrolling to a field (which appeared to do nothing).
+                  setMessage(paymentIssue.message);
                   const target = document.getElementById(paymentIssue.target);
                   target?.scrollIntoView({ behavior: "smooth", block: "center" });
                   target?.focus({ preventScroll: true });
