@@ -1473,6 +1473,7 @@ export function SaleBuilder({
               Back
             </button>
             <button
+              type="button"
               className="primary min-w-0 flex-1"
               disabled={pending}
               aria-describedby={paymentIssue ? "payment-review-help" : undefined}
@@ -1483,8 +1484,11 @@ export function SaleBuilder({
                   target?.focus({ preventScroll: true });
                   return;
                 }
+                // Immediate visible acknowledgement proves the tap was received.
+                // This also distinguishes a blocked network read from a blocked
+                // draft-storage write on the customer's phone.
+                setMessage("Checking current prices, stock and customer balance…");
                 startTransition(async () => {
-                  setMessage("");
                   const customerForReview = customer?.id;
                   const saleForReview = activeId;
                   if (!customerForReview) {
@@ -1528,6 +1532,7 @@ export function SaleBuilder({
                     }
                     fresh = response.catalog;
                     latestDebt = response.amount;
+                    setMessage("Checks complete. Opening Review…");
                     if (activeId) setVerifiedId(activeId);
                     setCheckError("");
                   } catch {
@@ -1559,7 +1564,7 @@ export function SaleBuilder({
                       step: "review",
                     });
                     if (!moved) {
-                      setMessage("Could not save the Review step on this device. Keep this sale open and try Review again.");
+                      setMessage("Could not open Review on this device. If DepotFlow is open in another tab, close that tab. Your sale is still saved here; then try Review again.");
                       return;
                     }
                     setMessage("");
