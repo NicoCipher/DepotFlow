@@ -678,7 +678,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
               ) : (
                 <div className="space-y-3">
                   <p className="text-sm leading-6 text-stone-700">
-                    These extra empties are not owed in today's sale. Leave them out here, then record the earlier return from the customer's page.
+                    These extra empties are not owed in today&apos;s sale. Leave them out here, then record the earlier return from the customer&apos;s page.
                   </p>
                   {availableWrongTypes.map(([type, quantity]) => {
                     const label = decisionKind === "crate" ? crateName.get(type) ?? type : type;
@@ -689,7 +689,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                         {separateConfirmation === key ? (
                           <div className="mt-3 space-y-3">
                             <p role="alert" className="text-sm text-amber-950">
-                              This will remove the extra {decisionKind === "crate" ? "crate" : "bottle"} count from today's sale only. It will NOT record the earlier return or add it to stock. Record that return separately on the customer page.
+                              This will remove the extra {decisionKind === "crate" ? "crate" : "bottle"} count from today&apos;s sale only. It will NOT record the earlier return or add it to stock. Record that return separately on the customer page.
                             </p>
                             <div className="grid grid-cols-2 gap-2">
                               <button type="button" className="secondary min-h-12" onClick={() => setSeparateConfirmation("")}>Cancel</button>
