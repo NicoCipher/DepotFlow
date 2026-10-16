@@ -11,7 +11,7 @@ import { ProductImage } from "@/components/product-image";
 import { SaleIcon } from "@/components/sale-icon";
 import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment } from "@/domain/sale-payment";
 import { requestSaleReview } from "@/domain/sale-review-http";
-import { isSaleReviewProgressMessage, saleReviewCheckingMessage, saleReviewOpeningMessage } from "@/domain/sale-review-feedback";
+import { isSaleReviewProgressMessage, saleReviewCheckingMessage, saleReviewOpeningMessage, contextualSaleReviewMessage, clearOwnSaleReviewProgress } from "@/domain/sale-review-feedback";
 import { shouldFocusSaleStep } from "@/domain/sale-step-focus";
 import { useSaleDrafts } from "./sale-draft-session";
 import { hasSaleWork } from "@/domain/sale-drafts";
@@ -116,6 +116,8 @@ export function SaleBuilder({
   const activeId = sales.state.active
     ? `${sales.state.active.id}:${sales.state.active.resumedAt ?? ""}`
     : null;
+  const reviewFeedbackAttempt = useRef(0);
+  const reviewFeedbackContext = useRef({ customerId: draft.customerId, activeId });
   const checkoutContext = useRef({ customerId: draft.customerId, activeId, step: draft.step });
   useEffect(() => {
     checkoutContext.current = { customerId: draft.customerId, activeId, step: draft.step };
@@ -330,6 +332,8 @@ export function SaleBuilder({
         : `Available: ${formatQuantity(p.available, p.bottles_per_crate)}`;
   }
   const step = customer ? draft.step : "customer";
+  const paymentDisplayMessage = contextualSaleReviewMessage(visibleMessage,
+    reviewFeedbackContext.current, { customerId: draft.customerId, activeId, step });
   const customerToCheck = customer?.id ?? null;
   const debtKey = customerToCheck && (step === "payment" || step === "review")
     ? `${customerToCheck}:${debtRefresh}`
@@ -747,7 +751,7 @@ export function SaleBuilder({
             )}
           </div>
         )}
-        {visibleMessage && step !== "payment" && (
+        {visibleMessage && step !== "payment" && !isSaleReviewProgressMessage(visibleMessage) && (
           <p
             role="alert"
             className={saveUncertain ? "text-amber-900" : "text-red-800"}
@@ -1461,14 +1465,14 @@ export function SaleBuilder({
                 {paymentIssue.message}
               </p>
             )}
-            {!paymentIssue && visibleMessage && (
-              isSaleReviewProgressMessage(visibleMessage) ? (
+            {!paymentIssue && paymentDisplayMessage && (
+              isSaleReviewProgressMessage(paymentDisplayMessage) ? (
                 <p id="payment-review-progress" role="status" className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm font-semibold text-stone-700">
-                  {visibleMessage}
+                  {paymentDisplayMessage}
                 </p>
               ) : (
                 <p id="payment-review-error" role="alert" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-900">
-                  {visibleMessage}
+                  {paymentDisplayMessage}
                 </p>
               )
             )}
@@ -1494,7 +1498,11 @@ export function SaleBuilder({
                 // Immediate visible acknowledgement proves the tap was received.
                 // This also distinguishes a blocked network read from a blocked
                 // draft-storage write on the customer's phone.
+                const requestId = ++reviewFeedbackAttempt.current;
+                reviewFeedbackContext.current = { customerId: customer?.id ?? null, activeId };
                 setMessage(saleReviewCheckingMessage);
+                const clearOwnProgress = () => setMessage((current) =>
+                  clearOwnSaleReviewProgress(current, requestId, reviewFeedbackAttempt.current));
                 startTransition(async () => {
                   const customerForReview = customer?.id;
                   const saleForReview = activeId;
@@ -1505,7 +1513,8 @@ export function SaleBuilder({
                   const reviewIsCurrent = () =>
                     checkoutContext.current.customerId === customerForReview &&
                     checkoutContext.current.activeId === saleForReview &&
-                    checkoutContext.current.step === "payment";
+                    checkoutContext.current.step === "payment" &&
+                    reviewFeedbackAttempt.current === requestId;
                   let fresh: SaleCatalog;
                   let latestDebt: number;
                   try {
@@ -1528,7 +1537,10 @@ export function SaleBuilder({
                     }
                     // Customer-bound responses belong only to their original
                     // customer, active sale and payment step.
-                    if (!reviewIsCurrent()) return;
+                    if (!reviewIsCurrent()) {
+                      clearOwnProgress();
+                      return;
+                    }
                     if ("error" in response) {
                       const errorMessage = response.error ?? saleNetworkMessage;
                       if (response.code === "debt_unavailable") {
@@ -1547,6 +1559,7 @@ export function SaleBuilder({
                     // beside Review. A retry creates a new independent fetch.
                     if (reviewIsCurrent())
                       setMessage("Could not check this sale. Check your connection and tap Review again.");
+                    else clearOwnProgress();
                     return;
                   }
                   try {
@@ -1571,16 +1584,18 @@ export function SaleBuilder({
                       step: "review",
                     });
                     if (!moved) {
-                      setMessage("Could not open Review. The active sale may have changed in another tab, or this device could not save the step. Check the currently open or paused sale before retrying.");
+                      if (reviewIsCurrent()) setMessage("Could not open Review. The active sale may have changed in another tab, or this device could not save the step. Check the currently open or paused sale before retrying.");
+                      else clearOwnProgress();
                       return;
                     }
-                    setMessage("");
+                    clearOwnProgress();
                   } catch (e) {
-                    setMessage(
+                    if (reviewIsCurrent()) setMessage(
                       e instanceof Error
                         ? e.message
                         : "Check this sale and try again.",
                     );
+                    else clearOwnProgress();
                   }
                 });
               }}
