@@ -33,6 +33,68 @@ export function salePaymentTotals(
   return { oldDebtRemaining, saleRemaining, collectNow, totalOwedAfter };
 }
 
+/**
+ * If the cashier enters less Cash + Transfer than the planned collection,
+ * offer only explicit, valid ways to reduce the payment allocation.
+ * Never infer whether the missing money belonged to today's sale or old debt.
+ * These are preview suggestions: no draft changes until the owner taps one.
+ */
+export type SplitShortfallChoice = {
+  appliesTo: "sale" | "oldDebt";
+  salePaid: number;
+  oldDebtPaid: number;
+  saleUnpaid: number;
+  oldDebtLeft: number | null;
+};
+
+export function splitTenderShortfallChoices(input: {
+  saleTotal: number | undefined;
+  salePaid: string;
+  oldDebt: number | null;
+  oldDebtPaid: string;
+  cash: string;
+  transfer: string;
+  cashToSale: string;
+}): { received: number; shortfall: number; choices: SplitShortfallChoice[] } | null {
+  const { saleTotal, oldDebt, cash, transfer, cashToSale } = input;
+  if (saleTotal === undefined) return null;
+  const all = [input.salePaid, input.oldDebtPaid, cash, transfer];
+  if (all.some((value) => !/^\\d+$/.test(value))) return null;
+  const [salePaid, oldDebtPaid, cashPaid, transferPaid] = all.map(Number);
+  if ([salePaid, oldDebtPaid, cashPaid, transferPaid].some((n) =>
+    !Number.isSafeInteger(n) || n < 0 || n > 2147483647
+  ) || cashPaid === 0 || transferPaid === 0) return null;
+  try {
+    salePaymentTotals(saleTotal, salePaid, oldDebt ?? 0, oldDebtPaid);
+  } catch {
+    return null;
+  }
+  const expected = salePaid + oldDebtPaid;
+  const received = cashPaid + transferPaid;
+  if (!Number.isSafeInteger(expected) || !Number.isSafeInteger(received) ||
+      received >= expected || received > 2147483647) return null;
+  const shortfall = expected - received;
+  const choices: SplitShortfallChoice[] = [];
+  function add(appliesTo: SplitShortfallChoice["appliesTo"], nextSale: number, nextOld: number) {
+    try {
+      allocateSplitTender(nextSale, nextOld, {
+        cash, transfer,
+        ...(cashToSale !== "" ? { cashToSale } : {}),
+      });
+      choices.push({
+        appliesTo, salePaid: nextSale, oldDebtPaid: nextOld,
+        saleUnpaid: saleTotal! - nextSale,
+        oldDebtLeft: oldDebt === null ? null : oldDebt - nextOld,
+      });
+    } catch {
+      // Keep custom Cash allocations intact. Offer no invalid shortcut.
+    }
+  }
+  if (shortfall <= salePaid) add("sale", salePaid - shortfall, oldDebtPaid);
+  if (oldDebt !== null && shortfall <= oldDebtPaid) add("oldDebt", salePaid, oldDebtPaid - shortfall);
+  return choices.length ? { received, shortfall, choices } : null;
+}
+
 export function debtPaymentInputError(input: string, currentDebt: number | null): string | null {
   if (!/^\d+$/.test(input) || !Number.isSafeInteger(Number(input)) || Number(input) > 2147483647)
     return "Enter a whole amount toward previous debt, starting at 0.";
