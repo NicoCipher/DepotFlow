@@ -12,7 +12,7 @@ select private.link_legacy_shop_business();
 insert into public.product_catalogue(id,name,manufacturer,image_path)
 values (
  '89600000-0000-4000-9000-000000000010',
- 'Shared Gold Lager','NBL','catalogue/shared-gold.webp'
+ 'Shared Gold Lager','NBL','first-party/shared-gold.webp'
 );
 insert into public.crate_types(id,name,empty_family,pocket_count)
 values ('89600000-0000-4000-9000-000000000011','Goldberg NB12','NB',12);
@@ -243,7 +243,7 @@ select pg_temp.assert_true(
 do $no_mutation$
 declare v_updated integer;
 begin
- update public.product_catalogue set image_path='unauthorized.webp'
+ update public.product_catalogue set image_path='first-party/unauthorized.webp'
  where id='89600000-0000-4000-9000-000000000010';
  get diagnostics v_updated=row_count;
  if v_updated<>0 then
