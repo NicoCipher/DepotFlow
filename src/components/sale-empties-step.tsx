@@ -678,7 +678,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
               ) : (
                 <div className="space-y-3">
                   <p className="text-sm leading-6 text-stone-700">
-                    These extra empties don't match anything owed in this sale. They can be recorded against an earlier return on the customer page.
+                    These extra empties are not owed in today's sale. Leave them out here, then record the earlier return from the customer's page.
                   </p>
                   {availableWrongTypes.map(([type, quantity]) => {
                     const label = decisionKind === "crate" ? crateName.get(type) ?? type : type;
@@ -695,7 +695,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                               <button type="button" className="secondary min-h-12" onClick={() => setSeparateConfirmation("")}>Cancel</button>
                               <button type="button" className="primary min-h-12" onClick={() => {
                                 try {
-                                  update({ emptiesV2: leaveUnrelatedEmptiesOutOfSale(draft, result, decisionKind, type) });
+                                  update({ emptiesV2: leaveUnrelatedEmptiesOutOfSale(draft, result!, decisionKind, type) });
                                   setSeparateConfirmation("");
                                   setChoiceError("");
                                 } catch (cause) {
@@ -706,7 +706,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                           </div>
                         ) : (
                           <button type="button" className="secondary mt-3 min-h-12 w-full" onClick={() => setSeparateConfirmation(key)}>
-                            Handle as a separate return
+                            Leave out of this sale
                           </button>
                         )}
                       </div>
@@ -845,7 +845,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
             </div>
           )}
 
-          {hasUnmatchedSaleEmpties(result) && <p role="alert" className="mt-4 rounded-lg bg-amber-50 p-3 text-amber-950">Some different empties still need attention above. When they belong to another sale, choose “Handle as a separate return” instead of applying them here.</p>}
+          {hasUnmatchedSaleEmpties(result) && <p role="alert" className="mt-4 rounded-lg bg-amber-50 p-3 text-amber-950">Some different empties still need attention above. When they belong to another sale, choose “Leave out of this sale” instead of applying them here.</p>}
           {depositBlocked && missingDepositSetup.length > 0 && (
             <div
               role="alert"
