@@ -6,6 +6,7 @@ import {
   saleReviewOpeningMessage,
   contextualSaleReviewMessage,
   clearOwnSaleReviewProgress,
+  canApplySaleBalancePreview,
 } from "./sale-review-feedback.ts";
 
 test("review progress is neutral status rather than a red error alert", () => {
@@ -46,4 +47,15 @@ test("stale responses clear only their own progress, never another request or re
   assert.equal(clearOwnSaleReviewProgress(saleReviewOpeningMessage, 4, 4), "");
   assert.equal(clearOwnSaleReviewProgress(saleReviewCheckingMessage, 4, 5), saleReviewCheckingMessage);
   assert.equal(clearOwnSaleReviewProgress("Network failed. Try again.", 4, 4), "Network failed. Try again.");
+});
+
+
+test("a delayed old-debt preview cannot overwrite the confirmed Review amount", () => {
+  // The preview was initiated in generation 7. Server Review later
+  // invalidates generation 7 before installing a fresh balance.
+  assert.equal(canApplySaleBalancePreview(7, 7, true), true);
+  assert.equal(canApplySaleBalancePreview(7, 8, true), false);
+  assert.equal(canApplySaleBalancePreview(7, 7, false), false);
+  // Retrying the preview after a failed Review uses a new generation.
+  assert.equal(canApplySaleBalancePreview(9, 9, true), true);
 });
