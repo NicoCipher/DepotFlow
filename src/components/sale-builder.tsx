@@ -699,7 +699,7 @@ export function SaleBuilder({
           >
             {visibleMessage}
           </p>
-        )
+        )}
         {step === "customer" && (
           <section aria-labelledby="sale-customer-heading" className="space-y-4">
             <div>
@@ -1421,7 +1421,7 @@ export function SaleBuilder({
                   try {
                     const response = await reviewSaleInputs(customerForReview);
                     // A customer or draft may change while a server response is in flight.
-                    // Never display a late error or apply another customer\u0027s balance.
+                    // Never display a late error or apply another customer's balance.
                     if (checkoutContext.current.customerId !== customerForReview ||
                         checkoutContext.current.activeId !== saleForReview ||
                         checkoutContext.current.step !== "payment") return;
