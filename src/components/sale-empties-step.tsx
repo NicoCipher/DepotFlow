@@ -49,6 +49,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
     decision: "hold" as "accept" | "hold",
   });
   const [choiceError, setChoiceError] = useState("");
+  const [showAdvancedDecision, setShowAdvancedDecision] = useState(false);
   const [separateConfirmation, setSeparateConfirmation] = useState("");
   const [extraCrates, setExtraCrates] = useState<string[]>([]);
   const [extraBottles, setExtraBottles] = useState<string[]>([]);
@@ -253,7 +254,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
   const suggestedQuantity = String(Math.min(missingQuantity, wrongQuantity));
   const chosenDecisionQuantity = selectedWasEdited && choice.quantity ? choice.quantity : suggestedQuantity;
   const decisionHasUnmatched = unmatchedCrateTypes.length > 0 || unmatchedBottleTypes.length > 0;
-  const simpleDecisionPair = missingForChoice.length === 1 && availableWrongTypes.length === 1 && wrongQuantity === missingQuantity && wrongQuantity > 0;
+  const simpleDecisionPair = !showAdvancedDecision && missingForChoice.length === 1 && availableWrongTypes.length === 1 && wrongQuantity === missingQuantity && wrongQuantity > 0;
 
   // One wrong loose bottle type should require a decision, not another round
   // of selecting its type and re-entering the same count.
@@ -610,6 +611,9 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                       <strong>{wrongQuantity} {decisionKind === "crate" ? "empty crates" : "empty bottles"} of {decisionKind === "crate" ? crateName.get(chosenWrongType) ?? chosenWrongType : chosenWrongType}</strong> came back.
                       {" "}For this sale, <strong>{missingQuantity} {decisionKind === "crate" ? "empty crates" : "empty bottles"} of {productName.get(chosenMissing?.productId ?? "") ?? "the drink"}</strong> are still owed.
                       {" "}Choose what to do with {suggestedQuantity} of the different empties.
+                      <button type="button" className="mt-2 block text-sm font-semibold text-emerald-900 underline underline-offset-2" onClick={() => setShowAdvancedDecision(true)}>
+                        Use fewer? Change the quantity
+                      </button>
                     </p>
                   ) : (<>
                   <label className="block text-sm font-semibold text-stone-800">
@@ -669,6 +673,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                       matchSaleEmpties({ ...draft, emptiesV2: next }, catalog);
                       update({ emptiesV2: next });
                       setChoice({ productId: "", kind: "crate", returnedType: "", quantity: "", decision: "hold" });
+                      setShowAdvancedDecision(false);
                       setChoiceError("");
                     } catch (cause) {
                       setChoiceError(cause instanceof Error ? cause.message : "Check this choice.");
