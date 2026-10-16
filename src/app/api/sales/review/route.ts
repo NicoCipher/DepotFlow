@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { reviewSaleInputs } from "@/app/(shop)/record-sale/actions";
 import { ownerSession } from "@/lib/auth/owner";
 import { parseLimitedJson, RequestBodyTooLarge } from "@/domain/limited-json";
+import { saleReviewMissingUserResponse } from "@/domain/sale-errors";
 
 export const dynamic = "force-dynamic";
 
@@ -20,9 +21,11 @@ export async function POST(request: NextRequest) {
   // Authenticate before reading attacker-controlled request bytes.
   try {
     const session = await ownerSession();
-    if (!session.user) return noStore({
-      error: "Sign in again to check this sale.", code: "session_expired",
-    }, 401);
+    if (!session.user) {
+      // Do not treat a transient Supabase getUser() failure as expiration.
+      const failure = saleReviewMissingUserResponse(session.authError);
+      return noStore({ error: failure.error, code: failure.code }, failure.status);
+    }
     if (!session.allowed) return noStore({
       error: "Shop owner access is required.", code: "access_denied",
     }, 403);
