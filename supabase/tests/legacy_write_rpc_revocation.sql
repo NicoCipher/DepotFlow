@@ -63,6 +63,7 @@ begin
    where n.nspname in('public','private') and p.prosecdef
    and pg_get_functiondef(p.oid) like '%private.shop_owner%'
    and pg_get_functiondef(p.oid) like '%private.verified_legacy_owner_read()%'
+   and not (n.nspname='private' and p.proname='verified_legacy_owner_read')
  loop
    if pg_catalog.strpos(pg_catalog.substr(
          pg_get_functiondef(r.oid),
