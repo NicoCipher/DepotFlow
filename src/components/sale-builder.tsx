@@ -431,6 +431,7 @@ export function SaleBuilder({
     breakdown: paymentBreakdown,
     paymentMethod: draft.paymentMethod,
   });
+  const navigationBusy = pending || reviewBusy;
   const reviewKey = saleSaveConfirmationKey(draft, oldDebtAmount, reviewTotal);
   const finalSaveConfirmed = confirmedSaveKey === reviewKey;
   // "Check Sale" must remain usable even when catalogue refresh is offline:
@@ -631,7 +632,7 @@ export function SaleBuilder({
                 <button
                   type="button"
                   className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-sm font-semibold text-emerald-950 hover:border-emerald-700 hover:bg-emerald-100"
-                  disabled={saveUncertain}
+                  disabled={saveUncertain || navigationBusy}
                   title="Park this unfinished sale on this device"
                   onClick={() => {
                     setCancelDraftId(null);
@@ -650,7 +651,7 @@ export function SaleBuilder({
                   ref={cancelSaleButton}
                   type="button"
                   className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 text-sm font-semibold text-stone-800 hover:border-red-300 hover:bg-red-50"
-                  disabled={saveUncertain}
+                  disabled={saveUncertain || navigationBusy}
                   title="Cancel and discard this unfinished sale"
                   aria-expanded={confirmCancel}
                   aria-controls="cancel-sale-panel"
@@ -663,6 +664,7 @@ export function SaleBuilder({
           </div>
           {backStep && !saveUncertain && (
             <button type="button" className="inline-flex min-h-11 w-fit items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-900"
+              disabled={navigationBusy}
               onClick={() => update({ step: backStep })}>
               <span aria-hidden="true">←</span> Back to {backLabel}
             </button>
@@ -716,6 +718,7 @@ export function SaleBuilder({
                     ref={keepSaleButton}
                     type="button"
                     className="secondary w-full"
+                    disabled={navigationBusy}
                     onClick={() => {
                       setCancelDraftId(null);
                       cancelSaleButton.current?.focus();
@@ -726,6 +729,7 @@ export function SaleBuilder({
                   <button
                     type="button"
                     className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-red-800 px-4 py-3 font-semibold text-white hover:bg-red-900"
+                    disabled={navigationBusy}
                     onClick={() => {
                       const id = cancelDraftId;
                       if (!id || id !== sales.state.active?.id) return;
@@ -1503,6 +1507,7 @@ export function SaleBuilder({
             <div className="flex items-center gap-3">
             <button
               className="secondary min-h-12 shrink-0 px-4"
+              disabled={navigationBusy}
               onClick={() => update({ step: backStep ?? "empties" })}
             >
               Back
