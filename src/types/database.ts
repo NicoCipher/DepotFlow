@@ -1093,6 +1093,20 @@ export type Database = {
         }
         Returns: Json
       }
+      save_sale_split_tender: {
+        Args: {
+          p_request_id: string
+          p_customer_id: string
+          p_business_date: string
+          p_paid: number
+          p_lines: Json
+          p_returned_crates: Json
+          p_returned_bottles: Json
+          p_old_debt_paid: number
+          p_tenders: Json
+        }
+        Returns: Json
+      }
       save_sale_with_old_debt_payment: {
         Args: {
           p_payment_method: string
