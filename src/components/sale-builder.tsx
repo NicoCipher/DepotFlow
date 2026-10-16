@@ -117,7 +117,7 @@ export function SaleBuilder({
     ? `${sales.state.active.id}:${sales.state.active.resumedAt ?? ""}`
     : null;
   const reviewFeedbackAttempt = useRef(0);
-  const [reviewFeedbackContext, setReviewFeedbackContext] = useState({ customerId: draft.customerId, activeId });
+  const [reviewFeedbackContext, setReviewFeedbackContext] = useState<{ customerId: string | null; activeId: string | null }>({ customerId: draft.customerId, activeId });
   const checkoutContext = useRef({ customerId: draft.customerId, activeId, step: draft.step });
   useEffect(() => {
     checkoutContext.current = { customerId: draft.customerId, activeId, step: draft.step };
