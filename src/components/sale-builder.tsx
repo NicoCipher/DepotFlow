@@ -81,7 +81,6 @@ export function SaleBuilder({
   const [requestedCustomerId, setRequestedCustomerId] = useState<string | null>(null);
   const [confirmNewCustomer, setConfirmNewCustomer] = useState(false);
   const [confirmedSaveKey, setConfirmedSaveKey] = useState<string | null>(null);
-  const [saveAcknowledged, setSaveAcknowledged] = useState(false);
   const pricingMode = draft.sellingMode === "retail" ? "retail" : "wholesale";
   const browsingMode = draft.preferredSellingMode === "retail" ? "retail" : "wholesale";
   const [catalog, setCatalog] = useState(initialCatalog);
@@ -182,7 +181,6 @@ export function SaleBuilder({
     }
     void sales.update(patch);
     setConfirmedSaveKey(null);
-    setSaveAcknowledged(false);
     setRemoveLineId(null);
     setRequestedMode(null);
     setRequestedCustomerId(null);
@@ -1659,23 +1657,22 @@ export function SaleBuilder({
         )}
         {step === "review" && (
           <>
-            <p className="text-stone-700">Check the drinks, empty returns and money before saving.</p>
-            <p className="text-sm text-stone-600">
-              Sale date: {draft.businessDate}
-            </p>
-            <details>
-              <summary className="quiet-link cursor-pointer">Change date</summary>
-              <label className="mt-3 block" htmlFor="sale-date">
-                Business date
-              </label>
-              <input
-                id="sale-date"
-                type="date"
-                disabled={saveUncertain}
-                value={draft.businessDate}
-                onChange={(e) => update({ businessDate: e.target.value })}
-              />
-            </details>
+            <section aria-label="Sale overview" className="rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Final review</p>
+              <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <h2 className="min-w-0 break-words text-lg font-bold text-stone-950">{customer?.name ?? "Customer"}</h2>
+                <p className="text-2xl font-bold tabular-nums text-stone-950">{reviewTotal === undefined ? "Check drinks" : formatNaira(reviewTotal)}</p>
+              </div>
+              <p className="mt-1 text-sm text-stone-600">{draft.lines.length} {draft.lines.length === 1 ? "drink" : "drinks"} · Check amounts and empty returns below before saving.</p>
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-stone-600">
+                <span>Sale date: {draft.businessDate}</span>
+                <details>
+                  <summary className="cursor-pointer font-semibold text-emerald-800 underline underline-offset-4">Change date</summary>
+                  <label className="mt-2 block" htmlFor="sale-date">Business date</label>
+                  <input id="sale-date" type="date" disabled={saveUncertain} value={draft.businessDate} onChange={(e) => update({ businessDate: e.target.value })} />
+                </details>
+              </div>
+            </section>
 
             <section aria-labelledby="review-drinks">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1697,8 +1694,8 @@ export function SaleBuilder({
                   try {
                     const amount = formatNaira(reviewedLineTotal(line));
                     return (
-                      <li key={line.productId} className="flex min-w-0 items-start gap-3 py-4">
-                        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-stone-50">
+                      <li key={line.productId} className="flex min-w-0 items-start gap-3 py-3">
+                        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-stone-50 sm:h-20 sm:w-20">
                           {p ? <ProductImage src={p.image_url} name={p.name} /> : <span className="block p-2 text-xs">No photo</span>}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -1707,7 +1704,7 @@ export function SaleBuilder({
                           {packaging && (packaging.cratesOwed > 0 || packaging.bottlesOwed > 0) && (
                             <p className="mt-2 text-sm font-medium text-amber-900">{missingEmptiesMessage(packaging, p?.name ?? "Drink")}</p>
                           )}
-                          <p className="mt-2 text-lg font-bold tabular-nums text-stone-950">{amount}</p>
+                          <p className="mt-1 text-base font-bold tabular-nums text-stone-950">{amount}</p>
                         </div>
                       </li>
                     );
@@ -1775,10 +1772,12 @@ export function SaleBuilder({
                 <dt>Paid toward today&apos;s sale</dt>
                 <dd className="font-semibold">{formatNaira(Number(draft.paid))}</dd>
               </div>
-              <div className="flex justify-between gap-3 border-b border-stone-200 py-3">
-                <dt>Paid toward previous debt</dt>
-                <dd className="font-semibold">{formatNaira(Number(draft.oldDebtPaid))}</dd>
-              </div>
+              {Number(draft.oldDebtPaid) > 0 && (
+                <div className="flex justify-between gap-3 border-b border-stone-200 py-3">
+                  <dt>Paid toward previous debt</dt>
+                  <dd className="font-semibold">{formatNaira(Number(draft.oldDebtPaid))}</dd>
+                </div>
+              )}
               {Number(draft.paid) + Number(draft.oldDebtPaid) > 0 && <div className="flex justify-between gap-3 border-b border-stone-200 py-3"><dt>Method</dt><dd className="font-semibold">{{ cash: "Cash", transfer: "Bank transfer", pos: "POS" }[draft.paymentMethod as "cash" | "transfer" | "pos"] ?? "Choose a method"}</dd></div>}
               <div className="flex justify-between gap-3 py-3 text-lg font-semibold">
                 <dt>Total to collect now</dt>
@@ -1786,42 +1785,33 @@ export function SaleBuilder({
               </div>
             </dl>
             {paymentBreakdown && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                <p className="text-sm font-semibold text-amber-950">Customer balance after this sale</p>
-                <p className="mt-1 text-2xl font-bold tabular-nums text-amber-950">{formatNaira(paymentBreakdown.totalOwedAfter)}</p>
-                <p className="mt-1 text-xs text-amber-950">Includes previous unpaid debt and any unpaid part of today&apos;s sale. Rechecked when saving.</p>
+              <div className={paymentBreakdown.totalOwedAfter > 0 ? "rounded-xl border border-amber-200 bg-amber-50 p-4" : "rounded-xl border border-emerald-200 bg-emerald-50 p-4"}>
+                <p className={paymentBreakdown.totalOwedAfter > 0 ? "text-sm font-semibold text-amber-950" : "text-sm font-semibold text-emerald-950"}>
+                  {paymentBreakdown.totalOwedAfter > 0 ? "Customer will still owe" : "No balance owed after this sale"}
+                </p>
+                <p className={paymentBreakdown.totalOwedAfter > 0 ? "mt-1 text-2xl font-bold tabular-nums text-amber-950" : "mt-1 text-2xl font-bold tabular-nums text-emerald-950"}>{formatNaira(paymentBreakdown.totalOwedAfter)}</p>
+                {paymentBreakdown.totalOwedAfter > 0 && <p className="mt-1 text-xs text-amber-950">Includes unpaid previous debt and any unpaid amount from this sale.</p>}
               </div>
             )}
             {debtErrorMessage && <p role="alert" className="text-sm text-amber-900">{debtErrorMessage}</p>}
-            <div className="sale-sticky-actions sticky z-10 -mx-4 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
-            <p className="mb-1 truncate text-sm font-semibold text-emerald-950">Sale for {customer?.name}</p>
-            <p className="mb-2 text-xs text-stone-600">Saving updates stock, payment and any amount owed.</p>
-            {!saveUncertain && finalSaveConfirmed && (
-              <div role="group" aria-label="Confirm saving sale" className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-                <p className="font-bold text-emerald-950">Save this sale for {customer?.name}?</p>
-                <p className="mt-1 text-sm text-emerald-950">
-                  {draft.lines.length} {draft.lines.length === 1 ? "drink" : "drinks"} · Sale total {reviewTotal === undefined ? "unavailable" : formatNaira(reviewTotal)} · Collect {formatNaira(Number(draft.paid) + Number(draft.oldDebtPaid))}.
-                </p>
-                <p className="mt-1 text-xs text-stone-700">Saving updates stock and customer balances. If the connection fails, use Check Sale instead of starting another save.</p>
-                <label className="mt-3 flex min-h-11 items-center gap-3 rounded-lg border border-emerald-200 bg-white p-3 text-sm font-semibold text-emerald-950">
-                  <input type="checkbox" className="h-5 w-5 shrink-0" checked={saveAcknowledged} onChange={(event) => setSaveAcknowledged(event.currentTarget.checked)} />
-                  I have checked the customer, money and empty returns.
-                </label>
-                <button type="button" className="secondary mt-2 min-h-11 w-full" onClick={() => { setConfirmedSaveKey(null); setSaveAcknowledged(false); }}>Keep editing</button>
-              </div>
-            )}
-            {!saveUncertain && !finalSaveConfirmed && (
-              <button type="button" className="primary w-full"
-                disabled={reviewSaveBlocked}
-                onClick={() => { setSaveAcknowledged(false); setConfirmedSaveKey(reviewKey); }}>
-                Review final confirmation
-              </button>
-            )}
+            <div className="sale-sticky-actions sticky z-10 -mx-4 border-t border-stone-200 bg-background/95 px-4 pb-3 pt-3 shadow-[0_-6px_18px_rgba(0,0,0,0.04)] backdrop-blur-sm sm:mx-0 sm:px-0 sm:shadow-none">
+              {!saveUncertain && finalSaveConfirmed && (
+                <div role="group" aria-label="Confirm saving sale" className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                  <p className="font-bold text-emerald-950">Save this sale?</p>
+                  <p className="mt-1 text-sm text-emerald-950">{customer?.name} · {reviewTotal === undefined ? "Check total" : formatNaira(reviewTotal)} sale · Collect {formatNaira(Number(draft.paid) + Number(draft.oldDebtPaid))}</p>
+                  <p className="mt-1 text-xs text-stone-700">Confirm to update stock, payment and customer balance.</p>
+                </div>
+              )}
+              {!saveUncertain && !finalSaveConfirmed && (
+                <button type="button" className="primary w-full" disabled={reviewSaveBlocked} onClick={() => setConfirmedSaveKey(reviewKey)}>
+                  Continue to save
+                </button>
+              )}
             {(saveUncertain || finalSaveConfirmed) && (
               <button
                 type="button"
                 className="primary w-full"
-                disabled={reviewSaveBlocked || (!saveUncertain && !saveAcknowledged)}
+                disabled={reviewSaveBlocked}
               onClick={() => {
                 startTransition(async () => {
                   const activeDraftId = sales.state.active?.id;
@@ -1926,28 +1916,24 @@ export function SaleBuilder({
                 : saveUncertain
                   ? "Check Sale"
                   : finalSaveConfirmed
-                    ? "Yes, confirm & save sale"
+                    ? "Confirm & save sale"
                     : "Confirm sale details"}
             </button>
             )}
             </div>
-            {!saveUncertain && (
-              <>
-                <button
-                  className="secondary w-full"
-                  onClick={() => update({ step: "payment" })}
-                >
-                  Back to Payment
-                </button>
-                <button
-                  type="button"
-                  className="secondary w-full gap-2"
-                  onClick={() => update({ step: "empties" })}
-                >
-                  <SaleIcon name="edit" className="h-4 w-4" /> Edit empties
-                </button>
-              </>
-            )}
+              {!saveUncertain && (
+                <div className="mt-1 flex flex-wrap items-center justify-center gap-x-6">
+                  {finalSaveConfirmed && (
+                    <button type="button" className="quiet-link text-sm font-semibold" onClick={() => setConfirmedSaveKey(null)}>
+                      Check again
+                    </button>
+                  )}
+                  <button type="button" className="quiet-link text-sm font-semibold" onClick={() => update({ step: "payment" })}>
+                    ← Edit payment
+                  </button>
+                </div>
+              )}
+
           </>
         )}
       </fieldset>
