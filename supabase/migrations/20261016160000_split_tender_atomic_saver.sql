@@ -186,6 +186,9 @@ begin
   end loop;
   -- Execute the deferred checks while still inside the same transaction.
   set constraints public.sale_tender_complete_on_leg, public.sale_tender_complete_on_mixed_sale immediate;
+  -- The forced check has run; leave transaction-wide trigger mode as found
+  -- for callers that run more than one checkout in the same transaction.
+  set constraints public.sale_tender_complete_on_leg, public.sale_tender_complete_on_mixed_sale deferred;
 
   return v_result || jsonb_build_object('tenders',p_tenders);
 end;
