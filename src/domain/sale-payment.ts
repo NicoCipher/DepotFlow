@@ -62,6 +62,8 @@ export function paymentReviewIssue(input: {
   oldDebtInputError: string | null;
   /** Null while unverified; zero hides the old-debt amount input. */
   oldDebtAmount: number | null;
+  /** Amount applied to previous debt, never the current sale payment. */
+  oldDebtPaid: string;
   debtChecking: boolean;
   debtErrorMessage: string;
   breakdown: SalePaymentTotals | null;
@@ -71,9 +73,13 @@ export function paymentReviewIssue(input: {
     return { message: "Check the drinks and amounts before reviewing this sale.", target: "sale-paid" };
   if (input.paymentInputError)
     return { message: input.paymentInputError, target: "sale-paid" };
-  if (input.debtErrorMessage)
+  // An independent balance preview must not trap an otherwise valid sale.
+  // Review makes a fresh, authenticated server-side balance check anyway.
+  // Only a real payment toward OLD debt needs the preview first.
+  const paysOldDebt = /^\\d+$/.test(input.oldDebtPaid) && Number(input.oldDebtPaid) > 0;
+  if (paysOldDebt && input.debtErrorMessage)
     return { message: "The previous balance needs checking. Use Try again above.", target: "sale-previous-debt" };
-  if (input.debtChecking || input.oldDebtAmount === null)
+  if (paysOldDebt && (input.debtChecking || input.oldDebtAmount === null))
     return { message: "Checking the customer’s previous balance. Please wait or use Try again.", target: "sale-previous-debt" };
   if (input.oldDebtInputError)
     return {
