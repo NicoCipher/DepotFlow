@@ -1463,7 +1463,7 @@ export function SaleBuilder({
                 {splitEnabled && draft.paymentMode === "split" && (
                   <div id="sale-split-payment" tabIndex={-1} className="mt-3 space-y-3">
                     <p className="text-sm text-stone-700">
-                      Today's sale: <strong className="font-semibold text-stone-950">{total === undefined ? "Check drinks" : formatNaira(total)}</strong>. Enter the amounts actually received.
+                      Today&apos;s sale: <strong className="font-semibold text-stone-950">{total === undefined ? "Check drinks" : formatNaira(total)}</strong>. Enter the amounts actually received.
                     </p>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div>
@@ -1490,7 +1490,7 @@ export function SaleBuilder({
                       {!splitEntry?.issue && !splitEntryNeedsSync && paymentBreakdown && (
                         <>
                           <div className="mt-2 flex items-center justify-between gap-3">
-                            <span>For today's sale</span>
+                            <span>For today&apos;s sale</span>
                             <strong>{formatNaira(Number(draft.paid))}</strong>
                           </div>
                           <div className="mt-2 flex items-center justify-between gap-3">
@@ -1569,7 +1569,7 @@ export function SaleBuilder({
               </div>
               {draft.paymentMode === "split" && splitEnabled ? (
                 <p className="text-sm leading-6 text-stone-700">
-                  Enter the Cash and Transfer received below. DepotFlow works out today's paid and unpaid amounts automatically.
+                  Enter the Cash and Transfer received below. DepotFlow works out today&apos;s paid and unpaid amounts automatically.
                 </p>
               ) : (
                 <>
@@ -1645,7 +1645,7 @@ export function SaleBuilder({
                           : "Use some of this payment to clear old debt"}
                       </summary>
                       <p className="mt-1 text-sm leading-5 text-stone-600">
-                        Optional. This takes part of the Cash + Transfer received away from today's sale and applies it to older debt.
+                        Optional. This takes part of the Cash + Transfer received away from today&apos;s sale and applies it to older debt.
                       </p>
                       <label className="mt-3 block" htmlFor="sale-old-debt-paid">Amount for previous debt (₦)</label>
                       <input
@@ -1656,7 +1656,7 @@ export function SaleBuilder({
                         onChange={(e) => updateSplitOldDebt(e.target.value)}
                       />
                       <p id="old-debt-payment-note" className="mt-1 text-xs text-stone-600">
-                        Cash + Transfer stay the same. The amount still unpaid on today's sale will update.
+                        Cash + Transfer stay the same. The amount still unpaid on today&apos;s sale will update.
                       </p>
                       {oldDebtInputError && <p id="old-debt-payment-error" role="alert" className="text-sm text-red-800">{oldDebtInputError}</p>}
                     </details>
