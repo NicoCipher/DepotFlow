@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { debtPaymentInputError, salePaymentTotals, paymentReviewIssue, needsClearHiddenOldDebtPayment, splitTenderShortfallChoices, splitPaymentFromReceived } from "./sale-payment.ts";
+import { debtPaymentInputError, salePaymentTotals, paymentReviewIssue, needsClearHiddenOldDebtPayment, splitTenderShortfallChoices, splitPaymentFromReceived, oneMethodAmountsFromReceived } from "./sale-payment.ts";
 
 test("old debt is settled independently of today's sale", () => {
   assert.deepEqual(salePaymentTotals(12000, 8000, 5000, 3000), {
@@ -278,4 +278,20 @@ test("split payment review explains input mistakes directly", () => {
   };
   assert.equal(paymentReviewIssue(base)?.target, "sale-split-payment");
   assert.match(paymentReviewIssue(base)?.message ?? "", /received amount/);
+});
+
+test("one-method conversion replaces stale split draft money rather than retaining planned values", () => {
+  const received = splitPaymentFromReceived({
+    saleTotal: 5250, cash: "5000", transfer: "0", oldDebt: 2200, oldDebtPaid: "0",
+  });
+  assert.deepEqual(oneMethodAmountsFromReceived(received), { paid: "5000", oldDebtPaid: "0" });
+  assert.notEqual(oneMethodAmountsFromReceived(received).paid, "5250");
+  const withOldDebt = splitPaymentFromReceived({
+    saleTotal: 5250, cash: "3000", transfer: "2000", oldDebt: 2200, oldDebtPaid: "1500",
+  });
+  assert.deepEqual(oneMethodAmountsFromReceived(withOldDebt), { paid: "3500", oldDebtPaid: "1500" });
+  const invalid = splitPaymentFromReceived({
+    saleTotal: 5250, cash: "3000", transfer: "", oldDebt: 2200, oldDebtPaid: "0",
+  });
+  assert.deepEqual(oneMethodAmountsFromReceived(invalid), { paid: "0", oldDebtPaid: "0" });
 });
