@@ -4,14 +4,13 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import {
   refreshSaleCatalog,
   reviewSaleInputs,
-  loadCustomerMoneyOwed,
   saveSale,
 } from "@/app/(shop)/record-sale/actions";
 import { CustomerForm } from "./customer-form";
 import { emptyCustomer } from "@/domain/customers";
 import { ProductImage } from "@/components/product-image";
 import { SaleIcon } from "@/components/sale-icon";
-import { salePaymentTotals, debtPaymentInputError } from "@/domain/sale-payment";
+import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment } from "@/domain/sale-payment";
 import { useSaleDrafts } from "./sale-draft-session";
 import { hasSaleWork } from "@/domain/sale-drafts";
 import { PausedSalesLink } from "./paused-sales-link";
@@ -336,20 +335,60 @@ export function SaleBuilder({
   useEffect(() => {
     if (!customerToCheck || !debtKey) return;
     let current = true;
-    void loadCustomerMoneyOwed(customerToCheck)
-      .then((result) => {
+    const controller = new AbortController();
+    // Unlike a Server Function, this independent HTTP request can be aborted.
+    // A stalled read must never trap the customer on this payment screen.
+    const timeout = window.setTimeout(() => controller.abort(), 12000);
+    void (async () => {
+      try {
+        const response = await fetch("/api/sales/customer-balance", {
+          method: "POST",
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ customerId: customerToCheck }),
+          signal: controller.signal,
+        });
+        const payload: unknown = await response.json();
         if (!current) return;
-        if ("error" in result) {
-          setDebtError({ key: debtKey, message: result.error ?? "Could not load previous balance." });
-        } else {
-          setOldDebt({ key: debtKey, amount: result.amount });
-          setDebtError(null);
+        if (response.status === 401 || response.status === 403) {
+          setSessionExpired(true);
+          setMessage(saleSessionExpiredMessage);
+          return;
         }
-      })
-      .catch(() => {
-        if (current) setDebtError({ key: debtKey, message: "Could not load the previous balance. Try again." });
-      });
-    return () => { current = false; };
+        if (!response.ok) {
+          const explanation = typeof payload === "object" && payload !== null && "error" in payload
+            && typeof payload.error === "string"
+            ? payload.error : "Could not load the previous balance. Try again.";
+          setDebtError({ key: debtKey, message: explanation });
+          return;
+        }
+        const amount = typeof payload === "object" && payload !== null && "amount" in payload
+          ? payload.amount : null;
+        if (typeof amount !== "number" || !Number.isSafeInteger(amount) || amount < 0) {
+          setDebtError({ key: debtKey, message: "Could not verify the previous balance. Try again." });
+          return;
+        }
+        setOldDebt({ key: debtKey, amount });
+        setDebtError(null);
+      } catch {
+        if (current) {
+          setDebtError({
+            key: debtKey,
+            message: controller.signal.aborted
+              ? "Balance check took too long. Try again."
+              : "Could not load the previous balance. Try again.",
+          });
+        }
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    })();
+    return () => {
+      current = false;
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
   }, [customerToCheck, debtKey]);
   const debtErrorMessage = debtError?.key === debtKey ? debtError.message : "";
   const debtChecking = Boolean(debtKey && oldDebt?.key !== debtKey && !debtErrorMessage);
@@ -360,6 +399,16 @@ export function SaleBuilder({
     try { return salePaymentTotals(total, Number(draft.paid), oldDebtAmount, Number(draft.oldDebtPaid)); }
     catch { return null; }
   })();
+  const paymentIssue = paymentReviewIssue({
+    saleTotal: total,
+    paymentInputError,
+    oldDebtInputError,
+    oldDebtAmount,
+    debtChecking,
+    debtErrorMessage,
+    breakdown: paymentBreakdown,
+    paymentMethod: draft.paymentMethod,
+  });
   const reviewKey = saleSaveConfirmationKey(draft, oldDebtAmount, reviewTotal);
   const finalSaveConfirmed = confirmedSaveKey === reviewKey;
   // "Check Sale" must remain usable even when catalogue refresh is offline:
@@ -1305,14 +1354,21 @@ export function SaleBuilder({
               />
               {paymentInputError && <p id="sale-paid-error" role="alert" className="text-sm text-red-800">{paymentInputError}</p>}
             </section>
-            <section aria-label="Previous customer debt" className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <section id="sale-previous-debt" tabIndex={-1} aria-label="Previous customer debt" className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="font-bold text-stone-950">Previous money owed</h2>
                 <strong className="text-2xl font-bold tabular-nums text-amber-950">
                   {oldDebtAmount === null ? "Checking…" : formatNaira(oldDebtAmount)}
                 </strong>
               </div>
-              {debtChecking && <p role="status" className="text-sm text-amber-950">Checking the customer&apos;s current balance…</p>}
+              {debtChecking && (
+                <div className="space-y-2">
+                  <p role="status" className="text-sm text-amber-950">Checking the customer&apos;s current balance…</p>
+                  <button type="button" className="secondary min-h-11" onClick={() => setDebtRefresh((n) => n + 1)}>
+                    Try again
+                  </button>
+                </div>
+              )}
               {debtErrorMessage && (
                 <div role="alert" className="space-y-2 text-sm text-amber-950">
                   <p>{debtErrorMessage}</p>
@@ -1324,7 +1380,7 @@ export function SaleBuilder({
                   <p className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
                     <SaleIcon name="check" className="h-4 w-4" /> No previous money owed.
                   </p>
-                  {Number(draft.oldDebtPaid) > 0 && !saveUncertain && (
+                  {needsClearHiddenOldDebtPayment(draft.oldDebtPaid) && !saveUncertain && (
                     <div role="alert" className="space-y-2">
                       <p className="text-sm text-red-800">The previous debt has been cleared. Remove the old-debt amount before continuing.</p>
                       <button type="button" className="secondary w-full" onClick={() => update({ oldDebtPaid: "0" })}>
@@ -1393,7 +1449,13 @@ export function SaleBuilder({
                 </dl>
               )}
             </section>
-            <div className="sale-sticky-actions sticky z-10 -mx-4 flex items-center gap-3 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
+            <div className="sale-sticky-actions sticky z-10 -mx-4 space-y-2 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
+            {paymentIssue && (
+              <p id="payment-review-help" role="status" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950">
+                {paymentIssue.message}
+              </p>
+            )}
+            <div className="flex items-center gap-3">
             <button
               className="secondary min-h-12 shrink-0 px-4"
               onClick={() => update({ step: backStep ?? "empties" })}
@@ -1402,13 +1464,15 @@ export function SaleBuilder({
             </button>
             <button
               className="primary min-w-0 flex-1"
-              disabled={
-                pending ||
-                total === undefined ||
-                Boolean(paymentInputError) || Boolean(oldDebtInputError) || !paymentBreakdown || debtChecking ||
-                (paymentBreakdown.collectNow > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))
-              }
-              onClick={() =>
+              disabled={pending}
+              aria-describedby={paymentIssue ? "payment-review-help" : undefined}
+              onClick={() => {
+                if (paymentIssue) {
+                  const target = document.getElementById(paymentIssue.target);
+                  target?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  target?.focus({ preventScroll: true });
+                  return;
+                }
                 startTransition(async () => {
                   const customerForReview = customer?.id;
                   const saleForReview = activeId;
@@ -1481,15 +1545,17 @@ export function SaleBuilder({
                         : "Check this sale and try again.",
                     );
                   }
-                })
-              }
+                });
+              }}
             >
               {pending
                 ? "Checking…"
+                : paymentIssue?.target === "sale-method" ? "Choose payment method"
                 : paymentBreakdown && paymentBreakdown.collectNow > 0
                   ? `Review · Collect ${formatNaira(paymentBreakdown.collectNow)}`
                   : "Review sale · pay later"}
             </button>
+            </div>
             </div>
           </>
         )}
