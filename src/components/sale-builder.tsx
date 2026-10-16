@@ -10,6 +10,7 @@ import { emptyCustomer } from "@/domain/customers";
 import { ProductImage } from "@/components/product-image";
 import { SaleIcon } from "@/components/sale-icon";
 import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment } from "@/domain/sale-payment";
+import { reviewConfirmationIssue } from "@/domain/sale-review-readiness";
 import { requestSaleReview } from "@/domain/sale-review-http";
 import { isSaleReviewProgressMessage, saleReviewCheckingMessage, saleReviewOpeningMessage, contextualSaleReviewMessage, clearOwnSaleReviewProgress, canApplySaleBalancePreview } from "@/domain/sale-review-feedback";
 import { shouldFocusSaleStep } from "@/domain/sale-step-focus";
@@ -431,11 +432,37 @@ export function SaleBuilder({
   const finalSaveConfirmed = confirmedSaveKey === reviewKey;
   // "Check Sale" must remain usable even when catalogue refresh is offline:
   // an uncertain save can only be resolved by the original request ID.
-  const reviewSaveBlocked = pending || (!ready && !saveUncertain) || !draft.businessDate ||
-    reviewTotal === undefined || !emptiesReview || emptiesNeedConfirmation ||
-    hasUnmatchedSaleEmpties(emptiesReview) || Number(draft.paid) > reviewTotal ||
-    (!saveUncertain && (!paymentBreakdown || debtChecking || Boolean(oldDebtInputError) ||
-      (paymentBreakdown.collectNow > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))));
+  const reviewIssue = reviewConfirmationIssue({
+    ready,
+    checkError,
+    businessDate: draft.businessDate,
+    reviewTotal,
+    hasEmptiesReview: Boolean(emptiesReview),
+    emptiesNeedConfirmation,
+    emptiesUnmatched: Boolean(emptiesReview && hasUnmatchedSaleEmpties(emptiesReview)),
+    paid: Number(draft.paid),
+    debtChecking,
+    debtErrorMessage,
+    oldDebtInputError,
+    hasPaymentBreakdown: Boolean(paymentBreakdown),
+    collectNow: paymentBreakdown?.collectNow ?? null,
+    paymentMethod: draft.paymentMethod,
+  });
+  // "Check Sale" on an uncertain save must stay available even if the
+  // catalogue/balance preview is offline. It resolves the original request.
+  const reviewSaveBlocked = pending || (!saveUncertain && Boolean(reviewIssue));
+  function resolveReviewIssue() {
+    if (!reviewIssue) return;
+    setMessage(reviewIssue.message);
+    switch (reviewIssue.action) {
+      case "check_prices": setCheckAttempt((n) => n + 1); return;
+      case "edit_date": document.getElementById("sale-date")?.focus(); return;
+      case "edit_drinks": update({ step: "drinks" }); return;
+      case "edit_empties": update({ step: "empties" }); return;
+      case "check_balance": setDebtRefresh((n) => n + 1); return;
+      case "edit_payment": update({ step: "payment" }); return;
+    }
+  }
   const progressStep =
     step === "customer"
       ? 0
@@ -1790,11 +1817,28 @@ export function SaleBuilder({
                 <button type="button" className="secondary mt-2 min-h-11 w-full" onClick={() => { setConfirmedSaveKey(null); setSaveAcknowledged(false); }}>Keep editing</button>
               </div>
             )}
+            {!saveUncertain && reviewIssue && (
+              <div role="alert" className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+                <p className="font-semibold">{reviewIssue.message}</p>
+                <button type="button" className="secondary mt-2 min-h-11 w-full" onClick={resolveReviewIssue}>
+                  {reviewIssue.action === "check_prices" ? "Retry prices and stock" :
+                    reviewIssue.action === "edit_date" ? "Choose sale date" :
+                    reviewIssue.action === "edit_drinks" ? "Check drinks" :
+                    reviewIssue.action === "edit_empties" ? "Check empty returns" :
+                    reviewIssue.action === "check_balance" ? "Retry customer balance" :
+                    "Edit payment"}
+                </button>
+              </div>
+            )}
             {!saveUncertain && !finalSaveConfirmed && (
               <button type="button" className="primary w-full"
-                disabled={reviewSaveBlocked}
-                onClick={() => { setSaveAcknowledged(false); setConfirmedSaveKey(reviewKey); }}>
-                Review final confirmation
+                disabled={pending}
+                onClick={() => {
+                  if (reviewIssue) { resolveReviewIssue(); return; }
+                  setSaveAcknowledged(false);
+                  setConfirmedSaveKey(reviewKey);
+                }}>
+                {reviewIssue ? "Fix review details to continue" : "Review final confirmation"}
               </button>
             )}
             {(saveUncertain || finalSaveConfirmed) && (
