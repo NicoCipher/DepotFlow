@@ -69,6 +69,18 @@ select pg_temp.assert_true((
   from public.sale_tender_legs
   where sale_id='30000000-0000-4000-8000-000000009502'
 ),'Old-debt allocation or tender count incorrect');
+-- The combined case must EXECUTE deferred receipt/ownership checks, not
+-- silently pass because this SQL fixture eventually rolls back.
+set constraints all immediate;
+
+insert into public.sales(
+ id,customer_id,request_id,total_amount,paid_amount,business_date,payment_method
+) values (
+ '30000000-0000-4000-8000-000000009503',
+ '20000000-0000-4000-8000-000000009501',
+ '40000000-0000-4000-8000-000000009503',
+ 0,0,'2026-10-16','not_recorded'
+);
 
 -- Exact storage constraints, no zero rows, duplicate methods or missing links.
 do $$ begin
@@ -84,9 +96,9 @@ do $$ begin
   exception when check_violation then null; end;
   begin
     insert into public.sale_tender_legs(sale_id,method,sale_amount,old_debt_amount)
-    values ('30000000-0000-4000-8000-000000009501','cash',0,0);
+    values ('30000000-0000-4000-8000-000000009503','cash',0,0);
     raise exception 'Zero leg was accepted';
-  exception when check_violation or unique_violation then null; end;
+  exception when check_violation then null; end;
   begin
     update public.sale_tender_legs set sale_amount=1
     where sale_id='30000000-0000-4000-8000-000000009501' and method='cash';
