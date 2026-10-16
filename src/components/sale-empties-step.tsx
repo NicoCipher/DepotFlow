@@ -15,6 +15,7 @@ import {
   depositSetupIssues,
   matchSaleEmpties,
   hasUnmatchedSaleEmpties,
+  leaveUnrelatedEmptiesOutOfSale,
   missingEmptiesMessage,
   simpleBottleReturnChoice,
   type EmptiesMatchResult,
@@ -48,6 +49,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
     decision: "hold" as "accept" | "hold",
   });
   const [choiceError, setChoiceError] = useState("");
+  const [separateConfirmation, setSeparateConfirmation] = useState("");
   const [extraCrates, setExtraCrates] = useState<string[]>([]);
   const [extraBottles, setExtraBottles] = useState<string[]>([]);
   const customer = catalog.customers.find(
@@ -251,6 +253,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
   const suggestedQuantity = String(Math.min(missingQuantity, wrongQuantity));
   const chosenDecisionQuantity = selectedWasEdited && choice.quantity ? choice.quantity : suggestedQuantity;
   const decisionHasUnmatched = unmatchedCrateTypes.length > 0 || unmatchedBottleTypes.length > 0;
+  const simpleDecisionPair = missingForChoice.length === 1 && availableWrongTypes.length === 1 && Number(suggestedQuantity) > 0;
 
   // One wrong loose bottle type should require a decision, not another round
   // of selecting its type and re-entering the same count.
@@ -602,6 +605,13 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
               )}
               {missingForChoice.length > 0 ? (
                 <>
+                  {simpleDecisionPair ? (
+                    <p className="rounded-lg bg-stone-50 px-3 py-3 text-sm leading-6 text-stone-800">
+                      <strong>{wrongQuantity} {decisionKind === "crate" ? "empty crates" : "empty bottles"} of {decisionKind === "crate" ? crateName.get(chosenWrongType) ?? chosenWrongType : chosenWrongType}</strong> came back.
+                      {" "}For this sale, <strong>{missingQuantity} {decisionKind === "crate" ? "empty crates" : "empty bottles"} of {productName.get(chosenMissing?.productId ?? "") ?? "the drink"}</strong> are still owed.
+                      {" "}Choose what to do with {suggestedQuantity} of the different empties.
+                    </p>
+                  ) : (<>
                   <label className="block text-sm font-semibold text-stone-800">
                     Which drink still has {decisionKind === "crate" ? "empty crates" : "empty bottles"} missing?
                     <select className="mt-1.5" value={chosenMissing?.productId ?? ""}
@@ -629,6 +639,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                       onChange={(event) => setChoice({ ...choice, kind: decisionKind, productId: chosenMissing?.productId ?? "", returnedType: chosenWrongType, quantity: event.target.value })}/>
                     <span className="mt-1 block text-xs font-normal text-stone-600">Suggested: {suggestedQuantity} · change if fewer were involved.</span>
                   </label>
+                  </>)}
                   <fieldset>
                     <legend className="text-sm font-bold text-stone-900">What happened to the different empties?</legend>
                     <div className="mt-2 grid gap-2">
@@ -665,9 +676,44 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                   }}>Record what happened</button>
                 </>
               ) : (
-                <p role="alert" className="text-sm text-amber-950">
-                  These extra empties don&apos;t match any outstanding type in this sale. Set their counts to 0 here and record a separate customer return if they relate to an earlier sale.
-                </p>
+                <div className="space-y-3">
+                  <p className="text-sm leading-6 text-stone-700">
+                    These extra empties don't match anything owed in this sale. They can be recorded against an earlier return on the customer page.
+                  </p>
+                  {availableWrongTypes.map(([type, quantity]) => {
+                    const label = decisionKind === "crate" ? crateName.get(type) ?? type : type;
+                    const key = `${decisionKind}:${type}`;
+                    return (
+                      <div key={key} className="rounded-xl border border-stone-200 p-3">
+                        <p className="font-semibold text-stone-900">{quantity} {label} {decisionKind === "crate" ? "empty crates" : "empty bottles"}</p>
+                        {separateConfirmation === key ? (
+                          <div className="mt-3 space-y-3">
+                            <p role="alert" className="text-sm text-amber-950">
+                              This will remove the extra {decisionKind === "crate" ? "crate" : "bottle"} count from today's sale only. It will NOT record the earlier return or add it to stock. Record that return separately on the customer page.
+                            </p>
+                            <div className="grid grid-cols-2 gap-2">
+                              <button type="button" className="secondary min-h-12" onClick={() => setSeparateConfirmation("")}>Cancel</button>
+                              <button type="button" className="primary min-h-12" onClick={() => {
+                                try {
+                                  update({ emptiesV2: leaveUnrelatedEmptiesOutOfSale(draft, result, decisionKind, type) });
+                                  setSeparateConfirmation("");
+                                  setChoiceError("");
+                                } catch (cause) {
+                                  setChoiceError(cause instanceof Error ? cause.message : "Check the returned empties.");
+                                }
+                              }}>Confirm: leave out</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button type="button" className="secondary mt-3 min-h-12 w-full" onClick={() => setSeparateConfirmation(key)}>
+                            Handle as a separate return
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {choiceError && <p role="alert" className="text-sm text-red-800">{choiceError}</p>}
+                </div>
               )}
             </section>
           )}
@@ -799,7 +845,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
             </div>
           )}
 
-          {hasUnmatchedSaleEmpties(result) && <p role="alert" className="mt-4 rounded-lg bg-amber-50 p-3 text-amber-950">Choose Accept or Hold above for each different type before continuing. Extra empties for an earlier sale belong under “Record empties brought back” on the customer page.</p>}
+          {hasUnmatchedSaleEmpties(result) && <p role="alert" className="mt-4 rounded-lg bg-amber-50 p-3 text-amber-950">Some different empties still need attention above. When they belong to another sale, choose “Handle as a separate return” instead of applying them here.</p>}
           {depositBlocked && missingDepositSetup.length > 0 && (
             <div
               role="alert"
@@ -835,6 +881,11 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
         </p>
       )}
 
+      {result && hasUnmatchedSaleEmpties(result) && (
+        <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950">
+          Resolve the different {unmatchedCrateTypes.length ? "empty crates" : "empty bottles"} above before payment. Your sale is still saved as a draft.
+        </p>
+      )}
       <div className="sale-sticky-actions sticky z-10 -mx-4 flex items-center gap-3 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
         <button
           type="button"
