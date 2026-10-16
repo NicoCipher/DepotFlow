@@ -793,7 +793,7 @@ export function SaleBuilder({
               <span aria-hidden="true">←</span> Back to {backLabel}
             </button>
           )}
-          <h1 ref={stepHeading} tabIndex={-1} className={step === "payment" ? "text-2xl font-bold outline-none" : "outline-none"}>
+          <h1 ref={stepHeading} tabIndex={-1} className={step === "payment" ? "text-2xl font-bold tracking-tight text-emerald-950 outline-none" : "outline-none"}>
             {step === "customer" ? "Who is buying?" : step === "drinks" ? "Choose drinks" : step === "quantity" ? "Set the quantity" : step === "empties" ? "Check the empties" : step === "payment" ? "Record payment" : "Review and save"}
           </h1>
           {step !== "drinks" && step !== "payment" && (
@@ -813,7 +813,7 @@ export function SaleBuilder({
           </nav>
         </header>
         {customer && step !== "customer" && (
-          <section aria-label="Current customer" className={step === "payment" ? "flex min-w-0 items-center gap-2 border-b border-stone-200 px-1 py-1" : "flex min-w-0 items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2"}>
+          <section aria-label="Current customer" className={step === "payment" ? "flex min-w-0 items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2" : "flex min-w-0 items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2"}>
             <span className={step === "payment" ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-900" : "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-900"}>
               <SaleIcon name="user" className="h-4 w-4" />
             </span>
@@ -1485,34 +1485,40 @@ export function SaleBuilder({
           <>
             <fieldset disabled={pending || reviewBusy} aria-label="Payment details" className="min-w-0">
               <section id="sale-method" tabIndex={-1} aria-label="Payment and customer balance"
-                className="rounded-xl border border-stone-200 bg-white p-3 sm:p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <h2 className="text-sm font-semibold text-stone-700">Today&apos;s sale</h2>
-                  <strong className="text-xl font-bold tabular-nums text-emerald-950">
+                className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-[0_4px_18px_rgba(16,65,46,0.07)]">
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 bg-gradient-to-r from-emerald-950 via-emerald-900 to-emerald-800 px-4 py-3.5 text-white">
+                  <div className="min-w-0">
+                    <h2 className="text-sm font-medium text-emerald-100">Today&apos;s sale</h2>
+                    <p className="mt-0.5 text-xs text-emerald-200">Amount to settle</p>
+                  </div>
+                  <strong className="min-w-0 break-words text-2xl font-bold tracking-tight tabular-nums text-white [overflow-wrap:anywhere]">
                     {total === undefined ? "Check drinks" : formatNaira(total)}
                   </strong>
                 </div>
-                <div className="mt-3 border-t border-stone-200 pt-3">
-                  <p className="mb-2 text-sm font-semibold text-stone-900">Payment method</p>
+                <div className="px-3 pb-4 pt-3 sm:px-4">
+                <div>
+                  <p className="mb-2 text-sm font-semibold tracking-tight text-stone-900">How was it paid?</p>
                   <div role="group" aria-label="How the customer paid"
                     className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {(["cash", "transfer", "pos"] as const).map((method) => (
                       <button key={method} type="button"
                         className={draft.paymentMode !== "split" && draft.paymentMethod === method
-                          ? "primary min-h-11 px-2 py-2 text-sm"
-                          : "secondary min-h-11 px-2 py-2 text-sm"}
+                          ? "flex min-h-12 items-center justify-center gap-2 rounded-xl border border-emerald-800 bg-emerald-900 px-2 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors"
+                          : "flex min-h-12 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-stone-50/70 px-2 py-2.5 text-sm font-semibold text-stone-800 transition-colors hover:border-emerald-300 hover:bg-emerald-50"}
                         aria-pressed={draft.paymentMode !== "split" && draft.paymentMethod === method}
                         onClick={() => chooseSingleMethod(method)}>
+                        <SaleIcon name={method} className="h-[18px] w-[18px] shrink-0" />
                         {method === "cash" ? "Cash" : method === "transfer" ? "Transfer" : "POS"}
                       </button>
                     ))}
                     {splitEnabled && (
                       <button type="button"
                         className={draft.paymentMode === "split"
-                          ? "primary min-h-11 px-2 py-2 text-sm"
-                          : "secondary min-h-11 px-2 py-2 text-sm"}
+                          ? "flex min-h-12 items-center justify-center gap-2 rounded-xl border border-emerald-800 bg-emerald-900 px-2 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors"
+                          : "flex min-h-12 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-stone-50/70 px-2 py-2.5 text-sm font-semibold text-stone-800 transition-colors hover:border-emerald-300 hover:bg-emerald-50"}
                         aria-pressed={draft.paymentMode === "split"}
                         onClick={() => setPaymentModeSafely("split")}>
+                        <SaleIcon name="split" className="h-[18px] w-[18px] shrink-0" />
                         Cash + Transfer
                       </button>
                     )}
@@ -1555,7 +1561,7 @@ export function SaleBuilder({
                 </div>
 
                 {draft.paymentMode !== "split" && (
-                  <div className="mt-3 border-t border-stone-200 pt-3">
+                  <div className="mt-4 border-t border-stone-100 pt-3">
                     <label className="mb-1 text-sm" htmlFor="sale-paid">Received for today&apos;s sale (₦)</label>
                     <div className="flex min-w-0 gap-2">
                       <input id="sale-paid" inputMode="numeric" pattern="[0-9]+" maxLength={12}
@@ -1575,7 +1581,7 @@ export function SaleBuilder({
                 )}
 
                 {draft.paymentMode === "split" && splitEnabled && (
-                  <div id="sale-split-payment" tabIndex={-1} className="mt-3 border-t border-stone-200 pt-3">
+                  <div id="sale-split-payment" tabIndex={-1} className="mt-4 border-t border-stone-100 pt-3">
                     <p className="mb-2 text-sm font-semibold text-stone-900">Amount received</p>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="min-w-0">
@@ -1637,7 +1643,7 @@ export function SaleBuilder({
                   </div>
                 )}
 
-                <div id="sale-previous-debt" tabIndex={-1} className="mt-3 border-t border-stone-200 pt-3">
+                <div id="sale-previous-debt" tabIndex={-1} className="mt-4 border-t border-stone-100 pt-3">
                   <div className="flex items-center justify-between gap-2 text-sm">
                     <span className="font-semibold text-stone-800">Previous debt</span>
                     <strong className="tabular-nums text-stone-900">
@@ -1700,40 +1706,41 @@ export function SaleBuilder({
                     </details>
                   )}
                 </div>
-                <dl className="mt-3 rounded-lg bg-stone-50 px-3 py-2.5 text-sm" aria-live="polite">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <dt className="text-stone-600">Received now</dt>
-                      <dd className="text-lg font-bold tabular-nums text-emerald-950">
+                <dl className="mt-4 rounded-xl border border-emerald-100 bg-gradient-to-b from-emerald-50/80 to-white px-3 py-3 text-sm sm:px-4" aria-live="polite">
+                  <div className="grid grid-cols-1 gap-3 min-[440px]:grid-cols-2">
+                    <div className="min-w-0">
+                      <dt className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Received now</dt>
+                      <dd className="mt-1 break-words text-xl font-bold tabular-nums text-emerald-950 [overflow-wrap:anywhere]">
                         {paymentBreakdown ? formatNaira(paymentBreakdown.collectNow)
                           : splitEntry?.received !== null && splitEntry?.received !== undefined
                             ? formatNaira(splitEntry.received) : "—"}
                       </dd>
                     </div>
-                    <div>
-                      <dt className="text-stone-600">Unpaid today</dt>
-                      <dd className="text-lg font-bold tabular-nums text-stone-900">
+                    <div className="min-w-0">
+                      <dt className="text-xs font-semibold uppercase tracking-wide text-stone-600">Unpaid today</dt>
+                      <dd className="mt-1 break-words text-xl font-bold tabular-nums text-stone-900 [overflow-wrap:anywhere]">
                         {paymentBreakdown ? formatNaira(paymentBreakdown.saleRemaining) : "—"}
                       </dd>
                     </div>
                   </div>
-                  <div className="mt-2 flex items-center justify-between gap-2 border-t border-stone-200 pt-2">
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-emerald-100 pt-2.5">
                     <dt className="text-stone-600">Old debt left</dt>
-                    <dd className="font-semibold tabular-nums">
+                    <dd className="min-w-0 break-words text-right font-semibold tabular-nums [overflow-wrap:anywhere]">
                       {paymentBreakdown && oldDebtAmount !== null
                         ? formatNaira(paymentBreakdown.oldDebtRemaining)
                         : "Confirm on Review"}
                     </dd>
                   </div>
-                  <div className="mt-1 flex items-center justify-between gap-2">
-                    <dt className="font-bold text-stone-900">Total customer will owe</dt>
-                    <dd className="font-bold tabular-nums text-amber-900">
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                    <dt className="font-semibold text-stone-900">Total customer will owe</dt>
+                    <dd className="min-w-0 break-words text-right text-base font-bold tabular-nums text-amber-900 [overflow-wrap:anywhere]">
                       {paymentBreakdown && oldDebtAmount !== null
                         ? formatNaira(paymentBreakdown.totalOwedAfter)
                         : "Confirm on Review"}
                     </dd>
                   </div>
                 </dl>
+                </div>
               </section>
             </fieldset>
             <div className="sale-sticky-actions sticky z-10 -mx-4 space-y-2 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
