@@ -10,7 +10,7 @@ import { CustomerForm } from "./customer-form";
 import { emptyCustomer } from "@/domain/customers";
 import { ProductImage } from "@/components/product-image";
 import { SaleIcon } from "@/components/sale-icon";
-import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment } from "@/domain/sale-payment";
+import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment, splitTenderShortfallChoices } from "@/domain/sale-payment";
 import { allocateSplitTender } from "@/domain/sale-tenders";
 import { requestSaleReview } from "@/domain/sale-review-http";
 import { isSaleReviewProgressMessage, saleReviewCheckingMessage, saleReviewOpeningMessage, contextualSaleReviewMessage, clearOwnSaleReviewProgress, canApplySaleBalancePreview, shouldDisableSaleDraftControls } from "@/domain/sale-review-feedback";
@@ -432,6 +432,15 @@ export function SaleBuilder({
       return null;
     }
   })();
+  const splitShortfall = splitEnabled && draft.paymentMode === "split" ? splitTenderShortfallChoices({
+    saleTotal: total,
+    salePaid: draft.paid,
+    oldDebt: oldDebtAmount,
+    oldDebtPaid: draft.oldDebtPaid,
+    cash: draft.splitCash,
+    transfer: draft.splitTransfer,
+    cashToSale: draft.splitCashToSale,
+  }) : null;
   const paymentIssue = paymentReviewIssue({
     saleTotal: total,
     paymentInputError,
@@ -1547,6 +1556,36 @@ export function SaleBuilder({
                           ? formatNaira(Number(draft.splitCash) + Number(draft.splitTransfer)) : "Check amounts"}</strong>
                       </div>
                     </div>
+                    {splitShortfall && (
+                      <div aria-label="Fix short split payment" className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm">
+                        <p className="font-semibold text-stone-950">
+                          {formatNaira(splitShortfall.shortfall)} less than planned.
+                        </p>
+                        <p className="mt-1 leading-5 text-stone-700">
+                          If the customer paid only {formatNaira(splitShortfall.received)}, record that amount instead. Choose which balance stays unpaid:
+                        </p>
+                        <div className="mt-3 grid gap-2">
+                          {splitShortfall.choices.map((choice) => (
+                            <button
+                              type="button"
+                              key={choice.appliesTo}
+                              className="secondary min-h-12 w-full text-left text-sm"
+                              onClick={() => update({
+                                paid: String(choice.salePaid),
+                                oldDebtPaid: String(choice.oldDebtPaid),
+                              })}
+                            >
+                              {choice.appliesTo === "sale"
+                                ? `Use ${formatNaira(splitShortfall.received)} · Today's sale unpaid: ${formatNaira(choice.saleUnpaid)}`
+                                : `Use ${formatNaira(splitShortfall.received)} · Previous debt left: ${formatNaira(choice.oldDebtLeft ?? 0)}`}
+                            </button>
+                          ))}
+                        </div>
+                        <p className="mt-2 text-xs leading-5 text-stone-600">
+                          Nothing changes until you choose. Or edit Cash and Transfer above if the customer paid more.
+                        </p>
+                      </div>
+                    )}
                     {Number(draft.oldDebtPaid) === 0 && draft.splitCashToSale !== "" && (
                       <button type="button" className="secondary w-full"
                         onClick={() => update({ splitCashToSale: "" })}>

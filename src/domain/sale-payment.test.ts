@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { debtPaymentInputError, salePaymentTotals, paymentReviewIssue, needsClearHiddenOldDebtPayment } from "./sale-payment.ts";
+import { debtPaymentInputError, salePaymentTotals, paymentReviewIssue, needsClearHiddenOldDebtPayment, splitTenderShortfallChoices } from "./sale-payment.ts";
 
 test("old debt is settled independently of today's sale", () => {
   assert.deepEqual(salePaymentTotals(12000, 8000, 5000, 3000), {
@@ -167,4 +167,43 @@ test("customer old-debt split can send Cash to previous debt and Transfer to sal
     splitCashToSale: "0", splitEnabled: true,
   };
   assert.equal(paymentReviewIssue(input), null);
+});
+
+test("5000 collected instead of 5250 offers an explicit partial sale payment", () => {
+  const plan = splitTenderShortfallChoices({
+    saleTotal: 5250, salePaid: "5250", oldDebt: 2200, oldDebtPaid: "0",
+    cash: "3000", transfer: "2000", cashToSale: "",
+  });
+  assert.deepEqual(plan, {
+    received: 5000, shortfall: 250,
+    choices: [{ appliesTo: "sale", salePaid: 5000, oldDebtPaid: 0, saleUnpaid: 250, oldDebtLeft: 2200 }],
+  });
+  assert.deepEqual(salePaymentTotals(5250, plan!.choices[0].salePaid, 2200, 0), {
+    oldDebtRemaining: 2200, saleRemaining: 250, collectNow: 5000, totalOwedAfter: 2450,
+  });
+});
+
+test("split shortfall never silently decides to reduce a previous debt payment", () => {
+  const plan = splitTenderShortfallChoices({
+    saleTotal: 5250, salePaid: "3500", oldDebt: 2200, oldDebtPaid: "1750",
+    cash: "3000", transfer: "2000", cashToSale: "",
+  });
+  assert.equal(plan?.shortfall, 250);
+  assert.deepEqual(plan?.choices, [
+    { appliesTo: "sale", salePaid: 3250, oldDebtPaid: 1750, saleUnpaid: 2000, oldDebtLeft: 450 },
+    { appliesTo: "oldDebt", salePaid: 3500, oldDebtPaid: 1500, saleUnpaid: 1750, oldDebtLeft: 700 },
+  ]);
+});
+
+test("short split payment suggestions fail closed for invalid inputs or custom cash allocations", () => {
+  const base = {
+    saleTotal: 5250, salePaid: "5250", oldDebt: 2200,
+    oldDebtPaid: "0", cash: "3000", transfer: "2000", cashToSale: "",
+  };
+  assert.equal(splitTenderShortfallChoices({ ...base, cash: "3k" }), null);
+  assert.equal(splitTenderShortfallChoices({ ...base, transfer: "0" }), null);
+  assert.equal(splitTenderShortfallChoices({ ...base, cash: "3250" }), null, "exact money needs no correction");
+  assert.equal(splitTenderShortfallChoices({ ...base, cash: "4000" }), null, "overpayment must not be silently allocated");
+  assert.equal(splitTenderShortfallChoices({ ...base, cashToSale: "5250" }), null, "incompatible custom allocation gets no shortcut");
+  assert.deepEqual(splitTenderShortfallChoices({ ...base, oldDebt: null })?.choices[0].oldDebtLeft, null);
 });
