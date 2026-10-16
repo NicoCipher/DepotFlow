@@ -39,7 +39,13 @@ create function pg_temp.cash_transfer(
    jsonb_build_object('method','transfer','saleAmount',c,'oldDebtAmount',d,'amount',c+d)
  );
 $$;
-set local role authenticated;
+-- The pre-activation new writer is callable only by the CI/superuser
+-- harness, not by an authenticated browser or RPC client.
+select pg_temp.ok(not has_function_privilege(
+  'authenticated',
+  'public.save_sale_split_tender(uuid,uuid,date,numeric,jsonb,jsonb,jsonb,numeric,jsonb)',
+  'EXECUTE'),'Inactive split writer must not be callable by authenticated clients');
+set local role postgres;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000009601',true);
 do $$ declare v jsonb; begin
  v := public.save_sale_split_tender(
