@@ -10,7 +10,7 @@ import { CustomerForm } from "./customer-form";
 import { emptyCustomer } from "@/domain/customers";
 import { ProductImage } from "@/components/product-image";
 import { SaleIcon } from "@/components/sale-icon";
-import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment, splitPaymentFromReceived, oneMethodAmountsFromReceived } from "@/domain/sale-payment";
+import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment, splitPaymentFromReceived, oneMethodAmountsFromReceived, showPaymentMethodControls } from "@/domain/sale-payment";
 import { allocateSplitTender } from "@/domain/sale-tenders";
 import { requestSaleReview } from "@/domain/sale-review-http";
 import { isSaleReviewProgressMessage, saleReviewCheckingMessage, saleReviewOpeningMessage, contextualSaleReviewMessage, clearOwnSaleReviewProgress, canApplySaleBalancePreview, shouldDisableSaleDraftControls } from "@/domain/sale-review-feedback";
@@ -1454,7 +1454,7 @@ export function SaleBuilder({
         {step === "payment" && (
           <>
             <fieldset disabled={pending || reviewBusy} aria-label="Payment details" className="min-w-0 space-y-3">
-            {(splitEnabled || Number(draft.paid) + Number(draft.oldDebtPaid) > 0) && (
+            {showPaymentMethodControls({ splitEnabled, paymentMode: draft.paymentMode, salePaid: draft.paid, oldDebtPaid: draft.oldDebtPaid }) && (
               <section id="sale-method" tabIndex={-1} aria-label="How the customer is paying" className="rounded-xl border border-stone-200 bg-white p-4">
                 <h2 className="font-bold text-stone-950">How is the customer paying?</h2>
                 {splitEnabled && (
