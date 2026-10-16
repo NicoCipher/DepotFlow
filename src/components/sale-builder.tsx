@@ -11,7 +11,7 @@ import { ProductImage } from "@/components/product-image";
 import { SaleIcon } from "@/components/sale-icon";
 import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment } from "@/domain/sale-payment";
 import { requestSaleReview } from "@/domain/sale-review-http";
-import { isSaleReviewProgressMessage, saleReviewCheckingMessage, saleReviewOpeningMessage, contextualSaleReviewMessage, clearOwnSaleReviewProgress } from "@/domain/sale-review-feedback";
+import { isSaleReviewProgressMessage, saleReviewCheckingMessage, saleReviewOpeningMessage, contextualSaleReviewMessage, clearOwnSaleReviewProgress, canApplySaleBalancePreview } from "@/domain/sale-review-feedback";
 import { shouldFocusSaleStep } from "@/domain/sale-step-focus";
 import { useSaleDrafts } from "./sale-draft-session";
 import { hasSaleWork } from "@/domain/sale-drafts";
@@ -90,6 +90,10 @@ export function SaleBuilder({
   const [oldDebt, setOldDebt] = useState<{ key: string; amount: number } | null>(null);
   const [debtError, setDebtError] = useState<{ key: string; message: string } | null>(null);
   const [debtRefresh, setDebtRefresh] = useState(0);
+  // A slower background balance preview must never overwrite a fresh,
+  // authoritative Review response, even if it resolves on the next tick.
+  const debtPreviewGeneration = useRef(0);
+  const debtPreviewAbort = useRef<AbortController | null>(null);
   useEffect(() => {
     if (!notice) return;
     const timer = window.setTimeout(() => setNotice(""), 4000);
@@ -341,7 +345,10 @@ export function SaleBuilder({
   useEffect(() => {
     if (!customerToCheck || !debtKey) return;
     let current = true;
+    const generation = ++debtPreviewGeneration.current;
     const controller = new AbortController();
+    debtPreviewAbort.current = controller;
+    const canApply = () => canApplySaleBalancePreview(generation, debtPreviewGeneration.current, current);
     // Unlike a Server Function, this independent HTTP request can be aborted.
     // A stalled read must never trap the customer on this payment screen.
     const timeout = window.setTimeout(() => controller.abort(), 12000);
@@ -356,7 +363,7 @@ export function SaleBuilder({
           signal: controller.signal,
         });
         const payload: unknown = await response.json();
-        if (!current) return;
+        if (!canApply()) return;
         if (response.status === 401 || response.status === 403) {
           setSessionExpired(true);
           setMessage(saleSessionExpiredMessage);
@@ -378,7 +385,7 @@ export function SaleBuilder({
         setOldDebt({ key: debtKey, amount });
         setDebtError(null);
       } catch {
-        if (current) {
+        if (canApply()) {
           setDebtError({
             key: debtKey,
             message: controller.signal.aborted
@@ -401,8 +408,12 @@ export function SaleBuilder({
   const oldDebtAmount = debtKey && oldDebt?.key === debtKey ? oldDebt.amount : null;
   const oldDebtInputError = debtPaymentInputError(draft.oldDebtPaid, oldDebtAmount);
   const paymentBreakdown = (() => {
-    if (total === undefined || oldDebtAmount === null || paymentInputError || oldDebtInputError) return null;
-    try { return salePaymentTotals(total, Number(draft.paid), oldDebtAmount, Number(draft.oldDebtPaid)); }
+    if (total === undefined || paymentInputError || oldDebtInputError) return null;
+    // Until a fresh balance arrives, use zero ONLY to preview what is
+    // collected today when no old debt is being paid. Never display the
+    // unverified final customer balance as though it were authoritative.
+    if (oldDebtAmount === null && Number(draft.oldDebtPaid) !== 0) return null;
+    try { return salePaymentTotals(total, Number(draft.paid), oldDebtAmount ?? 0, Number(draft.oldDebtPaid)); }
     catch { return null; }
   })();
   const paymentIssue = paymentReviewIssue({
@@ -410,6 +421,7 @@ export function SaleBuilder({
     paymentInputError,
     oldDebtInputError,
     oldDebtAmount,
+    oldDebtPaid: draft.oldDebtPaid,
     debtChecking,
     debtErrorMessage,
     breakdown: paymentBreakdown,
@@ -1444,7 +1456,7 @@ export function SaleBuilder({
                 <dl className="mt-3 space-y-2 border-t border-stone-200 pt-3 text-sm">
                   <div className="flex justify-between gap-3">
                     <dt className="text-stone-600">Old debt left</dt>
-                    <dd className="font-semibold">{formatNaira(paymentBreakdown.oldDebtRemaining)}</dd>
+                    <dd className="font-semibold">{oldDebtAmount === null ? "Checking…" : formatNaira(paymentBreakdown.oldDebtRemaining)}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
                     <dt className="text-stone-600">Today&apos;s sale still unpaid</dt>
@@ -1453,7 +1465,7 @@ export function SaleBuilder({
                   <div className="flex justify-between gap-3 border-t border-stone-200 pt-2 font-bold">
                     <dt>Total customer will owe</dt>
                     <dd className={paymentBreakdown.totalOwedAfter > 0 ? "text-amber-900" : "text-emerald-900"}>
-                      {formatNaira(paymentBreakdown.totalOwedAfter)}
+                      {oldDebtAmount === null ? "Confirmed on Review" : formatNaira(paymentBreakdown.totalOwedAfter)}
                     </dd>
                   </div>
                 </dl>
@@ -1461,8 +1473,13 @@ export function SaleBuilder({
             </section>
             <div className="sale-sticky-actions sticky z-10 -mx-4 space-y-2 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
             {paymentIssue && (
-              <p id="payment-review-help" role="status" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950">
+              <p id="payment-review-help" role="alert" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950">
                 {paymentIssue.message}
+              </p>
+            )}
+            {!paymentIssue && oldDebtAmount === null && (
+              <p role="status" className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-700">
+                Previous balance will be checked securely when you tap Review. No payment toward old debt will be recorded.
               </p>
             )}
             {!paymentIssue && paymentDisplayMessage && (
@@ -1490,6 +1507,9 @@ export function SaleBuilder({
               aria-describedby={paymentIssue ? "payment-review-help" : undefined}
               onClick={() => {
                 if (paymentIssue) {
+                  // Explain why the tap cannot advance, rather than only
+                  // scrolling to a field (which appeared to do nothing).
+                  setMessage(paymentIssue.message);
                   const target = document.getElementById(paymentIssue.target);
                   target?.scrollIntoView({ behavior: "smooth", block: "center" });
                   target?.focus({ preventScroll: true });
@@ -1563,6 +1583,12 @@ export function SaleBuilder({
                     return;
                   }
                   try {
+                    // Review is the authority. Invalidate any older preview
+                    // request BEFORE installing this balance, or a stale
+                    // response could overwrite it after navigation.
+                    debtPreviewGeneration.current++;
+                    debtPreviewAbort.current?.abort();
+                    debtPreviewAbort.current = null;
                     if (debtKey) setOldDebt({ key: debtKey, amount: latestDebt });
                     setDebtError(null);
                     salePaymentTotals(total!, Number(draft.paid), latestDebt, Number(draft.oldDebtPaid));
@@ -1602,7 +1628,7 @@ export function SaleBuilder({
             >
               {pending
                 ? "Checking…"
-                : paymentIssue?.target === "sale-method" ? "Choose payment method"
+                : paymentIssue ? (paymentIssue.target === "sale-method" ? "Choose payment method" : "Fix payment details to continue")
                 : paymentBreakdown && paymentBreakdown.collectNow > 0
                   ? `Review · Collect ${formatNaira(paymentBreakdown.collectNow)}`
                   : "Review sale · pay later"}

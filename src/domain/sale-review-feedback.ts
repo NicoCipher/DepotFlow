@@ -31,3 +31,12 @@ export function clearOwnSaleReviewProgress(
   return requestId === latestRequestId && isSaleReviewProgressMessage(message)
     ? "" : message;
 }
+
+
+/** A delayed balance preview must not overwrite the newer server Review.
+ * Invalidating a generation also protects against a response that resolves
+ * after abort was requested.
+ */
+export function canApplySaleBalancePreview(startedGeneration: number, currentGeneration: number, mounted: boolean): boolean {
+  return mounted && startedGeneration === currentGeneration;
+}

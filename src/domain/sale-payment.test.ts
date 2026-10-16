@@ -43,6 +43,7 @@ test("payment review tells the owner what blocks the next step rather than silen
     paymentInputError: "",
     oldDebtInputError: null,
     oldDebtAmount: 2200,
+    oldDebtPaid: "2200",
     debtChecking: false,
     debtErrorMessage: "",
     breakdown: paid,
@@ -95,6 +96,31 @@ test("payment review tells the owner what blocks the next step rather than silen
   })?.target, "sale-paid");
 });
 
+test("a regular sale can reach server Review while independent old-debt preview is unavailable", () => {
+  const base = {
+    saleTotal: 12300, paymentInputError: "", oldDebtInputError: null,
+    oldDebtAmount: null, oldDebtPaid: "0",
+    debtChecking: true, debtErrorMessage: "",
+    breakdown: salePaymentTotals(12300, 12300, 0, 0), paymentMethod: "transfer",
+  };
+  assert.equal(paymentReviewIssue(base), null,
+    "unverified old debt should not trap a sale with no old-debt collection");
+  assert.equal(paymentReviewIssue({
+    ...base, debtChecking: false, debtErrorMessage: "Old balance unavailable",
+  }), null, "failed preview must not block the fresh server Review check");
+  assert.equal(paymentReviewIssue({
+    ...base, paymentMethod: "",
+  })?.target, "sale-method", "sale payments still require a valid method");
+  assert.equal(paymentReviewIssue({
+    ...base, oldDebtPaid: "200", breakdown: null,
+    oldDebtInputError: "Check the customer's existing balance.",
+  })?.target, "sale-previous-debt", "old-debt collection must stay protected");
+  assert.equal(paymentReviewIssue({
+    ...base, oldDebtPaid: "abc", breakdown: null,
+    oldDebtInputError: "Enter a whole amount",
+  })?.target, "sale-previous-debt", "corrupt old-debt input never bypasses validation");
+});
+
 test("hidden old-debt input always provides recovery for invalid and stale drafts", () => {
   for (const value of ["", "abc", " ", "-100", "0.5", "2,000", "2200", "1"]) {
     assert.equal(needsClearHiddenOldDebtPayment(value), true, `Show Clear for hidden value "${value}"`);
@@ -107,7 +133,7 @@ test("hidden old-debt input always provides recovery for invalid and stale draft
   const invalid = debtPaymentInputError("abc", 0);
   assert.equal(paymentReviewIssue({
     saleTotal: 1700, paymentInputError: "",
-    oldDebtInputError: invalid, oldDebtAmount: 0,
+    oldDebtInputError: invalid, oldDebtAmount: 0, oldDebtPaid: "abc",
     debtChecking: false, debtErrorMessage: "",
     breakdown: null, paymentMethod: "cash",
   })?.target, "sale-previous-debt");
