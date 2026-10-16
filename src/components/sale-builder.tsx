@@ -432,6 +432,11 @@ export function SaleBuilder({
   const navigationBusy = pending || reviewBusy;
   const reviewKey = saleSaveConfirmationKey(draft, oldDebtAmount, reviewTotal);
   const finalSaveConfirmed = confirmedSaveKey === reviewKey;
+  const confirmSaleButtonRef = useRef<HTMLButtonElement>(null);
+  // The first step replaces its button; move focus to the final action.
+  useEffect(() => {
+    if (finalSaveConfirmed && !saveUncertain) confirmSaleButtonRef.current?.focus();
+  }, [finalSaveConfirmed, saveUncertain]);
   // "Check Sale" must remain usable even when catalogue refresh is offline:
   // an uncertain save can only be resolved by the original request ID.
   const reviewSaveBlocked = pending || (!ready && !saveUncertain) || !draft.businessDate ||
@@ -1796,7 +1801,7 @@ export function SaleBuilder({
             {debtErrorMessage && <p role="alert" className="text-sm text-amber-900">{debtErrorMessage}</p>}
             <div className="sale-sticky-actions sticky z-10 -mx-4 border-t border-stone-200 bg-background/95 px-4 pb-3 pt-3 shadow-[0_-6px_18px_rgba(0,0,0,0.04)] backdrop-blur-sm sm:mx-0 sm:px-0 sm:shadow-none">
               {!saveUncertain && finalSaveConfirmed && (
-                <div role="group" aria-label="Confirm saving sale" className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                <div role="status" aria-live="polite" aria-label="Confirm saving sale" className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
                   <p className="font-bold text-emerald-950">Save this sale?</p>
                   <p className="mt-1 text-sm text-emerald-950">{customer?.name} · {reviewTotal === undefined ? "Check total" : formatNaira(reviewTotal)} sale · Collect {formatNaira(Number(draft.paid) + Number(draft.oldDebtPaid))}</p>
                   <p className="mt-1 text-xs text-stone-700">Confirm to update stock, payment and customer balance.</p>
@@ -1809,6 +1814,7 @@ export function SaleBuilder({
               )}
             {(saveUncertain || finalSaveConfirmed) && (
               <button
+                ref={confirmSaleButtonRef}
                 type="button"
                 className="primary w-full"
                 disabled={reviewSaveBlocked}
