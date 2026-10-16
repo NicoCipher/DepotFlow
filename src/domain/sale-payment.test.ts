@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { debtPaymentInputError, salePaymentTotals, paymentReviewIssue, needsClearHiddenOldDebtPayment, splitTenderShortfallChoices, splitPaymentFromReceived, oneMethodAmountsFromReceived } from "./sale-payment.ts";
+import { debtPaymentInputError, salePaymentTotals, paymentReviewIssue, needsClearHiddenOldDebtPayment, splitTenderShortfallChoices, splitPaymentFromReceived, oneMethodAmountsFromReceived, showPaymentMethodControls } from "./sale-payment.ts";
 
 test("old debt is settled independently of today's sale", () => {
   assert.deepEqual(salePaymentTotals(12000, 8000, 5000, 3000), {
@@ -294,4 +294,22 @@ test("one-method conversion replaces stale split draft money rather than retaini
     saleTotal: 5250, cash: "3000", transfer: "", oldDebt: 2200, oldDebtPaid: "0",
   });
   assert.deepEqual(oneMethodAmountsFromReceived(invalid), { paid: "0", oldDebtPaid: "0" });
+});
+
+test("feature-off recovery remains visible for stored split drafts with zero or stale paid", () => {
+  assert.equal(showPaymentMethodControls({
+    splitEnabled: false, paymentMode: "split", salePaid: "0", oldDebtPaid: "0",
+  }), true);
+  assert.equal(showPaymentMethodControls({
+    splitEnabled: false, paymentMode: "split", salePaid: "", oldDebtPaid: "0",
+  }), true);
+  assert.equal(showPaymentMethodControls({
+    splitEnabled: false, paymentMode: "single", salePaid: "0", oldDebtPaid: "0",
+  }), false);
+  assert.equal(showPaymentMethodControls({
+    splitEnabled: true, paymentMode: "single", salePaid: "0", oldDebtPaid: "0",
+  }), true);
+  assert.equal(showPaymentMethodControls({
+    splitEnabled: false, paymentMode: "single", salePaid: "1000", oldDebtPaid: "0",
+  }), true);
 });
