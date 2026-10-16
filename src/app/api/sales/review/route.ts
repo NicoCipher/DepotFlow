@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { reviewSaleInputs } from "@/app/(shop)/record-sale/actions";
 import { ownerSession } from "@/lib/auth/owner";
 import { parseLimitedJson, RequestBodyTooLarge } from "@/domain/limited-json";
-import { saleReviewMissingUserResponse } from "@/domain/sale-errors";
+import { saleReviewMissingUserResponse, saleReviewOwnerAccessResponse } from "@/domain/sale-errors";
 
 export const dynamic = "force-dynamic";
 
@@ -26,9 +26,11 @@ export async function POST(request: NextRequest) {
       const failure = saleReviewMissingUserResponse(session.authError);
       return noStore({ error: failure.error, code: failure.code }, failure.status);
     }
-    if (!session.allowed) return noStore({
-      error: "Shop owner access is required.", code: "access_denied",
-    }, 403);
+    if (!session.allowed) {
+      // A failed owner RPC is a retryable outage, not a proven access denial.
+      const failure = saleReviewOwnerAccessResponse(session.ownerError);
+      return noStore({ error: failure.error, code: failure.code }, failure.status);
+    }
   } catch {
     return noStore({ error: "Could not verify your session. Try again.", code: "network_error" }, 503);
   }
