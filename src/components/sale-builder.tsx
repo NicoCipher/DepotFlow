@@ -1486,12 +1486,12 @@ export function SaleBuilder({
             <fieldset disabled={pending || reviewBusy} aria-label="Payment details" className="min-w-0">
               <section id="sale-method" tabIndex={-1} aria-label="Payment and customer balance"
                 className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-[0_4px_18px_rgba(16,65,46,0.07)]">
-                <div className="flex items-center justify-between gap-3 bg-gradient-to-r from-emerald-950 via-emerald-900 to-emerald-800 px-4 py-3.5 text-white">
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 bg-gradient-to-r from-emerald-950 via-emerald-900 to-emerald-800 px-4 py-3.5 text-white">
                   <div className="min-w-0">
                     <h2 className="text-sm font-medium text-emerald-100">Today&apos;s sale</h2>
                     <p className="mt-0.5 text-xs text-emerald-200">Amount to settle</p>
                   </div>
-                  <strong className="shrink-0 text-2xl font-bold tracking-tight tabular-nums text-white">
+                  <strong className="min-w-0 break-words text-2xl font-bold tracking-tight tabular-nums text-white [overflow-wrap:anywhere]">
                     {total === undefined ? "Check drinks" : formatNaira(total)}
                   </strong>
                 </div>
@@ -1707,33 +1707,33 @@ export function SaleBuilder({
                   )}
                 </div>
                 <dl className="mt-4 rounded-xl border border-emerald-100 bg-gradient-to-b from-emerald-50/80 to-white px-3 py-3 text-sm sm:px-4" aria-live="polite">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
+                  <div className="grid grid-cols-1 gap-3 min-[440px]:grid-cols-2">
+                    <div className="min-w-0">
                       <dt className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Received now</dt>
-                      <dd className="mt-1 text-xl font-bold tabular-nums text-emerald-950">
+                      <dd className="mt-1 break-words text-xl font-bold tabular-nums text-emerald-950 [overflow-wrap:anywhere]">
                         {paymentBreakdown ? formatNaira(paymentBreakdown.collectNow)
                           : splitEntry?.received !== null && splitEntry?.received !== undefined
                             ? formatNaira(splitEntry.received) : "—"}
                       </dd>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <dt className="text-xs font-semibold uppercase tracking-wide text-stone-600">Unpaid today</dt>
-                      <dd className="mt-1 text-xl font-bold tabular-nums text-stone-900">
+                      <dd className="mt-1 break-words text-xl font-bold tabular-nums text-stone-900 [overflow-wrap:anywhere]">
                         {paymentBreakdown ? formatNaira(paymentBreakdown.saleRemaining) : "—"}
                       </dd>
                     </div>
                   </div>
-                  <div className="mt-3 flex items-center justify-between gap-2 border-t border-emerald-100 pt-2.5">
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-emerald-100 pt-2.5">
                     <dt className="text-stone-600">Old debt left</dt>
-                    <dd className="font-semibold tabular-nums">
+                    <dd className="min-w-0 break-words text-right font-semibold tabular-nums [overflow-wrap:anywhere]">
                       {paymentBreakdown && oldDebtAmount !== null
                         ? formatNaira(paymentBreakdown.oldDebtRemaining)
                         : "Confirm on Review"}
                     </dd>
                   </div>
-                  <div className="mt-2 flex items-center justify-between gap-2">
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                     <dt className="font-semibold text-stone-900">Total customer will owe</dt>
-                    <dd className="text-base font-bold tabular-nums text-amber-900">
+                    <dd className="min-w-0 break-words text-right text-base font-bold tabular-nums text-amber-900 [overflow-wrap:anywhere]">
                       {paymentBreakdown && oldDebtAmount !== null
                         ? formatNaira(paymentBreakdown.totalOwedAfter)
                         : "Confirm on Review"}
