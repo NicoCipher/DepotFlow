@@ -1449,7 +1449,7 @@ export function SaleBuilder({
                   {needsClearHiddenOldDebtPayment(draft.oldDebtPaid) && !saveUncertain && (
                     <div role="alert" className="space-y-2">
                       <p className="text-sm text-red-800">The previous debt has been cleared. Remove the old-debt amount before continuing.</p>
-                      <button type="button" className="secondary w-full" onClick={() => update({ oldDebtPaid: "0" })}>
+                      <button type="button" className="secondary w-full" onClick={() => update({ oldDebtPaid: "0", splitCashToSale: "" })}>
                         Clear old-debt payment
                       </button>
                     </div>
@@ -1462,7 +1462,7 @@ export function SaleBuilder({
                   <label htmlFor="sale-old-debt-paid">Paying toward previous debt (₦)</label>
                   <div className="grid grid-cols-2 gap-2" role="group" aria-label="Quick previous-debt payment">
                     <button type="button" className="secondary w-full" aria-pressed={draft.oldDebtPaid === String(oldDebtAmount)} onClick={() => update({ oldDebtPaid: String(oldDebtAmount) })}>Pay old debt in full</button>
-                    <button type="button" className="secondary w-full" aria-pressed={draft.oldDebtPaid === "0"} onClick={() => update({ oldDebtPaid: "0" })}>Not today</button>
+                    <button type="button" className="secondary w-full" aria-pressed={draft.oldDebtPaid === "0"} onClick={() => update({ oldDebtPaid: "0", splitCashToSale: "" })}>Not today</button>
                   </div>
                   <input
                     id="sale-old-debt-paid"
@@ -1474,7 +1474,9 @@ export function SaleBuilder({
                     value={draft.oldDebtPaid}
                     aria-invalid={Boolean(oldDebtInputError)}
                     aria-describedby={oldDebtInputError ? "old-debt-payment-error" : "old-debt-payment-note"}
-                    onChange={(e) => update({ oldDebtPaid: e.target.value })}
+                    onChange={(e) => update({ oldDebtPaid: e.target.value,
+                      ...(e.target.value === "0" ? { splitCashToSale: "" } : {}),
+                    })}
                   />
                   <p id="old-debt-payment-note" className="text-xs text-stone-600">This pays down their older balance, not today&apos;s drinks.</p>
                   {oldDebtInputError && <p id="old-debt-payment-error" role="alert" className="text-sm text-red-800">{oldDebtInputError}</p>}
@@ -1545,6 +1547,12 @@ export function SaleBuilder({
                           ? formatNaira(Number(draft.splitCash) + Number(draft.splitTransfer)) : "Check amounts"}</strong>
                       </div>
                     </div>
+                    {Number(draft.oldDebtPaid) === 0 && draft.splitCashToSale !== "" && (
+                      <button type="button" className="secondary w-full"
+                        onClick={() => update({ splitCashToSale: "" })}>
+                        Clear previous Cash allocation
+                      </button>
+                    )}
                     {Number(draft.oldDebtPaid) > 0 && (
                       <details className="rounded-lg border border-stone-200 p-3">
                         <summary className="cursor-pointer font-semibold text-emerald-900">
