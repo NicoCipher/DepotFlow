@@ -1462,7 +1462,9 @@ export function SaleBuilder({
                 )}
                 {splitEnabled && draft.paymentMode === "split" && (
                   <div id="sale-split-payment" tabIndex={-1} className="mt-3 space-y-3">
-                    <p className="text-sm text-stone-600">Enter the amount received through each method.</p>
+                    <p className="text-sm text-stone-700">
+                      Today's sale: <strong className="font-semibold text-stone-950">{total === undefined ? "Check drinks" : formatNaira(total)}</strong>. Enter the amounts actually received.
+                    </p>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div>
                         <label htmlFor="sale-cash-received">Cash received (₦)</label>
@@ -1495,6 +1497,18 @@ export function SaleBuilder({
                             <span>Still unpaid today</span>
                             <strong>{formatNaira(paymentBreakdown.saleRemaining)}</strong>
                           </div>
+                          {oldDebtAmount !== null && (
+                            <div className="mt-2 flex items-center justify-between gap-3">
+                              <span>Previous debt left</span>
+                              <strong>{formatNaira(paymentBreakdown.oldDebtRemaining)}</strong>
+                            </div>
+                          )}
+                          {oldDebtAmount !== null && (
+                            <div className="mt-2 flex items-center justify-between gap-3 border-t border-emerald-200 pt-2 font-bold">
+                              <span>Total customer will owe</span>
+                              <strong>{formatNaira(paymentBreakdown.totalOwedAfter)}</strong>
+                            </div>
+                          )}
                           {Number(draft.oldDebtPaid) > 0 && (
                             <div className="mt-2 flex items-center justify-between gap-3">
                               <span>For previous debt</span>
@@ -1547,6 +1561,7 @@ export function SaleBuilder({
                 )}
               </section>
             )}
+            {(!splitEnabled || draft.paymentMode !== "split") && (
             <section aria-label="Payment for today&apos;s drinks" className="space-y-3 rounded-xl border border-stone-200 bg-white p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="font-bold text-stone-950">Today&apos;s sale</h2>
@@ -1582,6 +1597,8 @@ export function SaleBuilder({
                 </>
               )}
             </section>
+            )}
+            {(oldDebtAmount !== 0 || needsClearHiddenOldDebtPayment(draft.oldDebtPaid)) && (
             <section id="sale-previous-debt" tabIndex={-1} aria-label="Previous customer debt" className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="font-bold text-stone-950">Previous money owed</h2>
@@ -1672,6 +1689,8 @@ export function SaleBuilder({
                 </>
               )}
             </section>
+            )}
+            {(!splitEnabled || draft.paymentMode !== "split") && (
             <section aria-label="Money to collect and customer balance" className="rounded-xl border border-emerald-200 bg-white p-4" aria-live="polite">
               <div className="flex items-center justify-between gap-3">
                 <span className="font-semibold text-stone-900">Collect now</span>
@@ -1696,6 +1715,7 @@ export function SaleBuilder({
                 </dl>
               )}
             </section>
+            )}
             </fieldset>
             <div className="sale-sticky-actions sticky z-10 -mx-4 space-y-2 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
             {paymentIssue && (
@@ -1865,7 +1885,9 @@ export function SaleBuilder({
                 ? "Checking sale…"
                 : paymentIssue ? (paymentIssue.target === "sale-method" ? "Choose payment method" : "Fix payment details to continue")
                 : paymentBreakdown && paymentBreakdown.collectNow > 0
-                  ? `Review · Collect ${formatNaira(paymentBreakdown.collectNow)}`
+                  ? draft.paymentMode === "split"
+                    ? `Review · Received ${formatNaira(paymentBreakdown.collectNow)}`
+                    : `Review · Collect ${formatNaira(paymentBreakdown.collectNow)}`
                   : "Review sale · pay later"}
             </button>
             </div>
