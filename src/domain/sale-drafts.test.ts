@@ -19,6 +19,7 @@ import {
   isSaleRequestId,
   replaceActiveSaleId,
   setActiveSaleSaveUncertain,
+  recoverConfirmedUnsavedSplit,
   selectSaleCustomer,
 } from "./sale-drafts.ts";
 const product: SaleProduct = {
@@ -376,4 +377,29 @@ test("adding a new customer during checkout cannot carry the earlier customer's 
   assert.equal(next.active?.draft.emptiesV2.confirmedAllReturned, null);
   assert.deepEqual(next.active?.draft.emptiesV2.returnedBottles, {});
   assert.deepEqual(next.active?.draft.emptiesV2.decisions, []);
+});
+
+test("confirmed absent split request rotates ID, unlocks and preserves all sale work", () => {
+  const oldId = "40000000-0000-4000-8000-000000009721";
+  const freshId = "40000000-0000-4000-8000-000000009725";
+  const work = {
+    ...draft, step: "review" as const, paid: "1700", oldDebtPaid: "0",
+    paymentMode: "split" as const, paymentMethod: "mixed",
+    splitCash: "700", splitTransfer: "1000", splitCashToSale: "",
+  };
+  const current = updateActiveSale(emptySaleDrafts, null, work, oldId);
+  const uncertain = setActiveSaleSaveUncertain(current, oldId, true);
+  const next = recoverConfirmedUnsavedSplit(uncertain, oldId, freshId);
+  assert.equal(next.active?.id, freshId);
+  assert.equal(next.active?.saveUncertain, false);
+  assert.equal(next.active?.draft.step, "payment");
+  assert.equal(next.active?.draft.paymentMode, "split", "operator must explicitly select a new payment mode");
+  assert.equal(next.active?.draft.splitCash, "700");
+  assert.equal(next.active?.draft.splitTransfer, "1000");
+  assert.deepEqual(next.active?.draft.lines, work.lines, "do not lose drinks or empty returns");
+  assert.equal(next.active?.draft.customerId, work.customerId);
+  assert.deepEqual(readSaleDrafts(JSON.stringify(next)), next, "rotated request must survive reload");
+  assert.throws(() => recoverConfirmedUnsavedSplit(uncertain, freshId, crypto.randomUUID()), /active sale changed/i);
+  assert.throws(() => recoverConfirmedUnsavedSplit(current, oldId, freshId), /active sale changed/i);
+  assert.throws(() => recoverConfirmedUnsavedSplit(uncertain, oldId, oldId), /new sale request ID/i);
 });
