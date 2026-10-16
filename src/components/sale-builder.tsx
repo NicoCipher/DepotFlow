@@ -11,6 +11,7 @@ import { ProductImage } from "@/components/product-image";
 import { SaleIcon } from "@/components/sale-icon";
 import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment } from "@/domain/sale-payment";
 import { requestSaleReview } from "@/domain/sale-review-http";
+import { shouldFocusSaleStep } from "@/domain/sale-step-focus";
 import { useSaleDrafts } from "./sale-draft-session";
 import { hasSaleWork } from "@/domain/sale-drafts";
 import { PausedSalesLink } from "./paused-sales-link";
@@ -451,7 +452,7 @@ export function SaleBuilder({
     // Rehydrating a locally saved draft switches the initial empty "customer"
     // snapshot to its restored step. That is NOT user navigation and should
     // not focus/draw a green rectangle around the heading after refresh.
-    if (previous && previous.step !== step && previous.activeId === activeId) {
+    if (shouldFocusSaleStep(previous, { step, activeId })) {
       stepHeading.current?.focus({ preventScroll: true });
       window.scrollTo(0, 0);
     }
