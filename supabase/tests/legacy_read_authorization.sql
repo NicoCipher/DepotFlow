@@ -46,10 +46,33 @@ begin
    like '%is_shop_owner%';
  -- M2e-2 strengthens the customer SELECT policy to check exact
  -- business_id membership rather than a global is_shop_owner() predicate.
- -- Seven existing inventory/empties policies are now business-scoped,
- -- not globally visible to the legacy shop owner. The remaining 17
- -- original policies must still retain their original owner guard.
- if v_count<>17 or
+ -- All 26 original public owner SELECT policies are now scoped:
+ -- 17 financial/obligation/profile by exact legacy business_id,
+ -- 7 inventory by verified active tenant, 1 customer and 1 shared master.
+ -- A direct singleton-only read policy would leak future business data.
+ if v_count<>0
+    or (select count(*) from pg_policy pol
+     join pg_class cls on cls.oid=pol.polrelid
+     join pg_namespace ns on ns.oid=cls.relnamespace
+     where ns.nspname='public'
+       and cls.relname in (
+         'bottle_deposit_price','bottle_obligations','crate_deposit_prices',
+         'crate_obligations','crate_swap_rules','customer_opening_balances',
+         'customer_payments','deposits','money_owed',
+         'product_cost_history','product_selling_price_history',
+         'sale_empty_bottle_returns','sale_empty_crate_returns',
+         'sale_empty_decisions','sale_items','sales','shop_profile'
+       )
+       and pol.polcmd='r'
+       and pg_get_expr(pol.polqual,pol.polrelid)
+           like '%can_read_legacy_customer%')<>17
+    or (select count(*) from pg_policy pol
+     join pg_class cls on cls.oid=pol.polrelid
+     where cls.relname in ('product_cost_history','product_selling_price_history')
+       and pol.polcmd='r'
+       and pg_get_expr(pol.polqual,pol.polrelid)
+           like '%owner_user_id%')<>2
+    or
     (select count(*) from pg_policy pol
      join pg_class cls on cls.oid=pol.polrelid
      join pg_namespace ns on ns.oid=cls.relnamespace
