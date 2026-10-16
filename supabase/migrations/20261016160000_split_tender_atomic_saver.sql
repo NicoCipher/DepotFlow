@@ -40,7 +40,7 @@ begin
 
   -- A previous split saver in the same transaction may have made checks
   -- immediate. Restore deferral before writing mixed sale and tender legs.
-  set constraints sale_tender_complete_on_leg, sale_tender_complete_on_mixed_sale deferred;
+  set constraints public.sale_tender_complete_on_leg, public.sale_tender_complete_on_mixed_sale deferred;
 
   if p_request_id is null or p_customer_id is null
     or p_business_date is null or p_lines is null or
@@ -185,7 +185,7 @@ begin
     );
   end loop;
   -- Execute the deferred checks while still inside the same transaction.
-  set constraints sale_tender_complete_on_leg, sale_tender_complete_on_mixed_sale immediate;
+  set constraints public.sale_tender_complete_on_leg, public.sale_tender_complete_on_mixed_sale immediate;
 
   return v_result || jsonb_build_object('tenders',p_tenders);
 end;
