@@ -42,6 +42,7 @@ test("payment review tells the owner what blocks the next step rather than silen
     saleTotal: 1700,
     paymentInputError: "",
     oldDebtInputError: null,
+    oldDebtAmount: 2200,
     debtChecking: false,
     debtErrorMessage: "",
     breakdown: paid,
@@ -56,7 +57,7 @@ test("payment review tells the owner what blocks the next step rather than silen
     assert.equal(paymentReviewIssue({ ...base, paymentMethod: method }), null);
   }
   assert.equal(paymentReviewIssue({
-    ...base, paymentMethod: "cash",
+    ...base, paymentMethod: "",
     breakdown: salePaymentTotals(1700, 0, 2200, 0),
   }), null, "pay-later reviews must not require a payment method");
   assert.equal(paymentReviewIssue({
@@ -72,6 +73,23 @@ test("payment review tells the owner what blocks the next step rather than silen
   assert.equal(paymentReviewIssue({
     ...base, oldDebtInputError: "Cannot overpay old debt",
   })?.target, "sale-old-debt-paid");
+
+  assert.equal(paymentReviewIssue({
+    ...base, oldDebtAmount: null, oldDebtInputError: "Check the customer's existing balance",
+    debtChecking: true, breakdown: null,
+  })?.target, "sale-previous-debt", "when debt is loading, focus the always-visible section");
+  assert.equal(paymentReviewIssue({
+    ...base, oldDebtAmount: null, oldDebtInputError: "Check the customer's existing balance",
+    debtErrorMessage: "Balance could not be loaded", breakdown: null,
+  })?.target, "sale-previous-debt", "balance failures should guide users to retry");
+  assert.equal(paymentReviewIssue({
+    ...base, oldDebtAmount: 0, oldDebtInputError: "Previous debt is ₦0. Enter that amount or less.",
+    breakdown: null,
+  })?.target, "sale-previous-debt", "cleared old debts hide the input but expose the clear-payment action");
+  assert.equal(paymentReviewIssue({
+    ...base, oldDebtAmount: 2200, oldDebtInputError: "Enter a whole amount",
+    breakdown: null,
+  })?.target, "sale-old-debt-paid", "nonzero loaded debt displays the editable input");
   assert.equal(paymentReviewIssue({
     ...base, saleTotal: undefined, breakdown: null,
   })?.target, "sale-paid");
