@@ -1666,7 +1666,7 @@ export function SaleBuilder({
               {oldDebtAmount !== null && oldDebtAmount > 0 && !debtChecking && (
                 <>
                   {splitEnabled && draft.paymentMode === "split" ? (
-                    <details className="rounded-lg border border-amber-200 bg-white p-3">
+                    <details open={Number(draft.oldDebtPaid) > 0 || Boolean(oldDebtInputError)} className="rounded-lg border border-amber-200 bg-white p-3">
                       <summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold text-emerald-900">
                         {Number(draft.oldDebtPaid) > 0
                           ? `${formatNaira(Number(draft.oldDebtPaid))} going to old debt · Change`
