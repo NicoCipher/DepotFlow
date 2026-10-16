@@ -2,7 +2,7 @@ import type { SaleCatalog } from "./sale-builder.ts";
 
 export type SaleReviewResult =
   | { catalog: SaleCatalog; amount: number }
-  | { error: string; code: "session_expired" | "customer_invalid" | "debt_unavailable" | "network_error" };
+  | { error: string; code: "session_expired" | "customer_invalid" | "debt_unavailable" | "network_error" | "access_denied" };
 
 /** A separate same-origin fetch: unlike Server Functions this can be
  * cancelled and is not serialized behind another client Server Function.
@@ -28,7 +28,8 @@ export async function requestSaleReview(
     const error = typeof data.error === "string" ? data.error : "Could not check the sale. Try again.";
     const code = "code" in data && (
       data.code === "session_expired" || data.code === "customer_invalid" ||
-      data.code === "debt_unavailable" || data.code === "network_error"
+      data.code === "debt_unavailable" || data.code === "network_error" ||
+      data.code === "access_denied"
     ) ? data.code : response.status === 401 ? "session_expired" : "network_error";
     return { error, code };
   }
