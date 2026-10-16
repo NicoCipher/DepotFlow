@@ -224,7 +224,9 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
   let splitLegs: ReturnType<typeof allocateSplitTender> | null = null;
   if (draft.paymentMode === "split") {
     if (!splitEnabled)
-      return { error: "Split payment is not available. Choose one method." };
+      // A stale open tab may still believe the flag is on after rollback.
+      // Recover the original request read-only, never claim non-save.
+      return recoverSplitSale(requestId, draft);
     try {
       splitLegs = allocateSplitTender(Number(draft.paid), Number(draft.oldDebtPaid), {
         cash: draft.splitCash, transfer: draft.splitTransfer,
