@@ -7,6 +7,7 @@ import {
   contextualSaleReviewMessage,
   clearOwnSaleReviewProgress,
   canApplySaleBalancePreview,
+  shouldDisableSaleDraftControls,
 } from "./sale-review-feedback.ts";
 
 test("review progress is neutral status rather than a red error alert", () => {
@@ -58,4 +59,18 @@ test("a delayed old-debt preview cannot overwrite the confirmed Review amount", 
   assert.equal(canApplySaleBalancePreview(7, 7, false), false);
   // Retrying the preview after a failed Review uses a new generation.
   assert.equal(canApplySaleBalancePreview(9, 9, true), true);
+});
+
+
+test("Review remains tappable while an unrelated checkout transition is pending", () => {
+  assert.equal(shouldDisableSaleDraftControls("payment", true, false), false,
+    "old fieldset disabled all controls while the button appeared active");
+  assert.equal(shouldDisableSaleDraftControls("payment", false, false), false);
+  assert.equal(shouldDisableSaleDraftControls("payment", false, true), true,
+    "a running Review must reject duplicate taps");
+  assert.equal(shouldDisableSaleDraftControls("payment", true, true), true);
+  for (const step of ["customer", "drinks", "empties", "quantity", "review"]) {
+    assert.equal(shouldDisableSaleDraftControls(step, true, false), true,
+      `${step} must still await a draft-changing transition`);
+  }
 });

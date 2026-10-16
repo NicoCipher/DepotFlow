@@ -11,7 +11,7 @@ import { ProductImage } from "@/components/product-image";
 import { SaleIcon } from "@/components/sale-icon";
 import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment } from "@/domain/sale-payment";
 import { requestSaleReview } from "@/domain/sale-review-http";
-import { isSaleReviewProgressMessage, saleReviewCheckingMessage, saleReviewOpeningMessage, contextualSaleReviewMessage, clearOwnSaleReviewProgress, canApplySaleBalancePreview } from "@/domain/sale-review-feedback";
+import { isSaleReviewProgressMessage, saleReviewCheckingMessage, saleReviewOpeningMessage, contextualSaleReviewMessage, clearOwnSaleReviewProgress, canApplySaleBalancePreview, shouldDisableSaleDraftControls } from "@/domain/sale-review-feedback";
 import { shouldFocusSaleStep } from "@/domain/sale-step-focus";
 import { useSaleDrafts } from "./sale-draft-session";
 import { hasSaleWork } from "@/domain/sale-drafts";
@@ -115,6 +115,10 @@ export function SaleBuilder({
     name: string;
   } | null>(null);
   const [pending, startTransition] = useTransition();
+  // Review is an independent, abortable HTTP read, not a Server Action.
+  // A different checkout transition must never silently swallow Review taps.
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const reviewBusyRef = useRef(false);
   const stepHeading = useRef<HTMLHeadingElement>(null);
   const previousStep = useRef<{ step: string; activeId: string | null } | null>(null);
   const activeId = sales.state.active
@@ -427,6 +431,7 @@ export function SaleBuilder({
     breakdown: paymentBreakdown,
     paymentMethod: draft.paymentMethod,
   });
+  const navigationBusy = pending || reviewBusy;
   const reviewKey = saleSaveConfirmationKey(draft, oldDebtAmount, reviewTotal);
   const finalSaveConfirmed = confirmedSaveKey === reviewKey;
   // "Check Sale" must remain usable even when catalogue refresh is offline:
@@ -612,7 +617,8 @@ export function SaleBuilder({
         </div>
       )}
       <fieldset
-        disabled={pending}
+        disabled={shouldDisableSaleDraftControls(step, pending, reviewBusy)}
+        aria-busy={reviewBusy || pending}
         aria-label="Sale draft"
         className="space-y-3 pb-4"
       >
@@ -626,7 +632,7 @@ export function SaleBuilder({
                 <button
                   type="button"
                   className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-sm font-semibold text-emerald-950 hover:border-emerald-700 hover:bg-emerald-100"
-                  disabled={saveUncertain}
+                  disabled={saveUncertain || navigationBusy}
                   title="Park this unfinished sale on this device"
                   onClick={() => {
                     setCancelDraftId(null);
@@ -645,7 +651,7 @@ export function SaleBuilder({
                   ref={cancelSaleButton}
                   type="button"
                   className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 text-sm font-semibold text-stone-800 hover:border-red-300 hover:bg-red-50"
-                  disabled={saveUncertain}
+                  disabled={saveUncertain || navigationBusy}
                   title="Cancel and discard this unfinished sale"
                   aria-expanded={confirmCancel}
                   aria-controls="cancel-sale-panel"
@@ -658,6 +664,7 @@ export function SaleBuilder({
           </div>
           {backStep && !saveUncertain && (
             <button type="button" className="inline-flex min-h-11 w-fit items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-900"
+              disabled={navigationBusy}
               onClick={() => update({ step: backStep })}>
               <span aria-hidden="true">←</span> Back to {backLabel}
             </button>
@@ -711,6 +718,7 @@ export function SaleBuilder({
                     ref={keepSaleButton}
                     type="button"
                     className="secondary w-full"
+                    disabled={navigationBusy}
                     onClick={() => {
                       setCancelDraftId(null);
                       cancelSaleButton.current?.focus();
@@ -721,6 +729,7 @@ export function SaleBuilder({
                   <button
                     type="button"
                     className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-red-800 px-4 py-3 font-semibold text-white hover:bg-red-900"
+                    disabled={navigationBusy}
                     onClick={() => {
                       const id = cancelDraftId;
                       if (!id || id !== sales.state.active?.id) return;
@@ -1350,6 +1359,7 @@ export function SaleBuilder({
         )}
         {step === "payment" && (
           <>
+            <fieldset disabled={pending || reviewBusy} aria-label="Payment details" className="min-w-0 space-y-3">
             <section aria-label="Payment for today&apos;s drinks" className="space-y-3 rounded-xl border border-stone-200 bg-white p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="font-bold text-stone-950">Today&apos;s sale</h2>
@@ -1471,6 +1481,7 @@ export function SaleBuilder({
                 </dl>
               )}
             </section>
+            </fieldset>
             <div className="sale-sticky-actions sticky z-10 -mx-4 space-y-2 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
             {paymentIssue && (
               <p id="payment-review-help" role="alert" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950">
@@ -1496,6 +1507,7 @@ export function SaleBuilder({
             <div className="flex items-center gap-3">
             <button
               className="secondary min-h-12 shrink-0 px-4"
+              disabled={navigationBusy}
               onClick={() => update({ step: backStep ?? "empties" })}
             >
               Back
@@ -1503,7 +1515,7 @@ export function SaleBuilder({
             <button
               type="button"
               className="primary min-w-0 flex-1"
-              disabled={pending}
+              disabled={reviewBusy}
               aria-describedby={paymentIssue ? "payment-review-help" : undefined}
               onClick={() => {
                 if (paymentIssue) {
@@ -1515,6 +1527,9 @@ export function SaleBuilder({
                   target?.focus({ preventScroll: true });
                   return;
                 }
+                if (reviewBusyRef.current) return;
+                reviewBusyRef.current = true;
+                setReviewBusy(true);
                 // Immediate visible acknowledgement proves the tap was received.
                 // This also distinguishes a blocked network read from a blocked
                 // draft-storage write on the customer's phone.
@@ -1523,111 +1538,116 @@ export function SaleBuilder({
                 setMessage(saleReviewCheckingMessage);
                 const clearOwnProgress = () => setMessage((current) =>
                   clearOwnSaleReviewProgress(current, requestId, reviewFeedbackAttempt.current));
-                startTransition(async () => {
-                  const customerForReview = customer?.id;
-                  const saleForReview = activeId;
-                  if (!customerForReview) {
-                    setMessage("Choose a customer first.");
-                    return;
-                  }
-                  const reviewIsCurrent = () =>
-                    checkoutContext.current.customerId === customerForReview &&
-                    checkoutContext.current.activeId === saleForReview &&
-                    checkoutContext.current.step === "payment" &&
-                    reviewFeedbackAttempt.current === requestId;
-                  let fresh: SaleCatalog;
-                  let latestDebt: number;
+                void (async () => {
                   try {
-                    // A stalled background Server Function must not block
-                    // payment Review. This independent HTTP read is abortable.
-                    const controller = new AbortController();
-                    const timeout = window.setTimeout(() => controller.abort(), 20000);
-                    let response: Awaited<ReturnType<typeof requestSaleReview>>;
+                    const customerForReview = customer?.id;
+                    const saleForReview = activeId;
+                    if (!customerForReview) {
+                      setMessage("Choose a customer first.");
+                      return;
+                    }
+                    const reviewIsCurrent = () =>
+                      checkoutContext.current.customerId === customerForReview &&
+                      checkoutContext.current.activeId === saleForReview &&
+                      checkoutContext.current.step === "payment" &&
+                      reviewFeedbackAttempt.current === requestId;
+                    let fresh: SaleCatalog;
+                    let latestDebt: number;
                     try {
-                      response = await requestSaleReview(customerForReview, controller.signal);
-                    } finally {
-                      window.clearTimeout(timeout);
-                    }
-                    // Auth expiry affects the entire checkout, even if another
-                    // customer or draft was selected while the request ran.
-                    if ("error" in response && response.code === "session_expired") {
-                      setSessionExpired(true);
-                      setMessage(saleSessionExpiredMessage);
-                      return;
-                    }
-                    // Customer-bound responses belong only to their original
-                    // customer, active sale and payment step.
-                    if (!reviewIsCurrent()) {
-                      clearOwnProgress();
-                      return;
-                    }
-                    if ("error" in response) {
-                      const errorMessage = response.error ?? saleNetworkMessage;
-                      if (response.code === "debt_unavailable") {
-                        if (debtKey) setDebtError({ key: debtKey, message: errorMessage });
+                      // A stalled background Server Function must not block
+                      // payment Review. This independent HTTP read is abortable.
+                      const controller = new AbortController();
+                      const timeout = window.setTimeout(() => controller.abort(), 20000);
+                      let response: Awaited<ReturnType<typeof requestSaleReview>>;
+                      try {
+                        response = await requestSaleReview(customerForReview, controller.signal);
+                      } finally {
+                        window.clearTimeout(timeout);
                       }
-                      setMessage(errorMessage);
-                      return;
-                    }
-                    fresh = response.catalog;
-                    latestDebt = response.amount;
-                    setMessage(saleReviewOpeningMessage);
-                    if (activeId) setVerifiedId(activeId);
-                    setCheckError("");
-                  } catch {
-                    // Any failed/hung request returns an actionable message
-                    // beside Review. A retry creates a new independent fetch.
-                    if (reviewIsCurrent())
-                      setMessage("Could not check this sale. Check your connection and tap Review again.");
-                    else clearOwnProgress();
-                    return;
-                  }
-                  try {
-                    // Review is the authority. Invalidate any older preview
-                    // request BEFORE installing this balance, or a stale
-                    // response could overwrite it after navigation.
-                    debtPreviewGeneration.current++;
-                    debtPreviewAbort.current?.abort();
-                    debtPreviewAbort.current = null;
-                    if (debtKey) setOldDebt({ key: debtKey, amount: latestDebt });
-                    setDebtError(null);
-                    salePaymentTotals(total!, Number(draft.paid), latestDebt, Number(draft.oldDebtPaid));
-                    setCatalog(fresh);
-                    matchSaleEmpties(draft, fresh);
-                    const lines = draft.lines.map((line) => {
-                      const p = fresh.products.find(
-                        (item) => item.id === line.productId,
-                      );
-                      if (!p) throw new Error("Drink unavailable.");
-                      priceQuantity(p, line.quantity);
-                      return reviewedLine(line, p);
-                    });
-                    const moved = await sales.update({
-                      lines,
-                      businessDate:
-                        draft.businessDate ||
-                        new Date().toLocaleDateString("sv-SE"),
-                      step: "review",
-                    });
-                    if (!moved) {
-                      if (reviewIsCurrent()) setMessage("Could not open Review. The active sale may have changed in another tab, or this device could not save the step. Check the currently open or paused sale before retrying.");
+                      // Auth expiry affects the entire checkout, even if another
+                      // customer or draft was selected while the request ran.
+                      if ("error" in response && response.code === "session_expired") {
+                        setSessionExpired(true);
+                        setMessage(saleSessionExpiredMessage);
+                        return;
+                      }
+                      // Customer-bound responses belong only to their original
+                      // customer, active sale and payment step.
+                      if (!reviewIsCurrent()) {
+                        clearOwnProgress();
+                        return;
+                      }
+                      if ("error" in response) {
+                        const errorMessage = response.error ?? saleNetworkMessage;
+                        if (response.code === "debt_unavailable") {
+                          if (debtKey) setDebtError({ key: debtKey, message: errorMessage });
+                        }
+                        setMessage(errorMessage);
+                        return;
+                      }
+                      fresh = response.catalog;
+                      latestDebt = response.amount;
+                      setMessage(saleReviewOpeningMessage);
+                      if (activeId) setVerifiedId(activeId);
+                      setCheckError("");
+                    } catch {
+                      // Any failed/hung request returns an actionable message
+                      // beside Review. A retry creates a new independent fetch.
+                      if (reviewIsCurrent())
+                        setMessage("Could not check this sale. Check your connection and tap Review again.");
                       else clearOwnProgress();
                       return;
                     }
-                    clearOwnProgress();
-                  } catch (e) {
-                    if (reviewIsCurrent()) setMessage(
-                      e instanceof Error
-                        ? e.message
-                        : "Check this sale and try again.",
-                    );
-                    else clearOwnProgress();
+                    try {
+                      // Review is the authority. Invalidate any older preview
+                      // request BEFORE installing this balance, or a stale
+                      // response could overwrite it after navigation.
+                      debtPreviewGeneration.current++;
+                      debtPreviewAbort.current?.abort();
+                      debtPreviewAbort.current = null;
+                      if (debtKey) setOldDebt({ key: debtKey, amount: latestDebt });
+                      setDebtError(null);
+                      salePaymentTotals(total!, Number(draft.paid), latestDebt, Number(draft.oldDebtPaid));
+                      setCatalog(fresh);
+                      matchSaleEmpties(draft, fresh);
+                      const lines = draft.lines.map((line) => {
+                        const p = fresh.products.find(
+                          (item) => item.id === line.productId,
+                        );
+                        if (!p) throw new Error("Drink unavailable.");
+                        priceQuantity(p, line.quantity);
+                        return reviewedLine(line, p);
+                      });
+                      const moved = await sales.update({
+                        lines,
+                        businessDate:
+                          draft.businessDate ||
+                          new Date().toLocaleDateString("sv-SE"),
+                        step: "review",
+                      });
+                      if (!moved) {
+                        if (reviewIsCurrent()) setMessage("Could not open Review. The active sale may have changed in another tab, or this device could not save the step. Check the currently open or paused sale before retrying.");
+                        else clearOwnProgress();
+                        return;
+                      }
+                      clearOwnProgress();
+                    } catch (e) {
+                      if (reviewIsCurrent()) setMessage(
+                        e instanceof Error
+                          ? e.message
+                          : "Check this sale and try again.",
+                      );
+                      else clearOwnProgress();
+                    }
+                  } finally {
+                    reviewBusyRef.current = false;
+                    setReviewBusy(false);
                   }
-                });
+                })();
               }}
             >
-              {pending
-                ? "Checking…"
+              {reviewBusy
+                ? "Checking sale…"
                 : paymentIssue ? (paymentIssue.target === "sale-method" ? "Choose payment method" : "Fix payment details to continue")
                 : paymentBreakdown && paymentBreakdown.collectNow > 0
                   ? `Review · Collect ${formatNaira(paymentBreakdown.collectNow)}`
