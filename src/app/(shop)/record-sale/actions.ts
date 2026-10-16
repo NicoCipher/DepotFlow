@@ -399,7 +399,12 @@ export async function recoverSplitSale(requestId: string, draft: SaleDraft) {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId))
     return { error: saleSaveUncertainMessage, code: "save_uncertain" as const };
   const session = await ownerSession();
-  if (!session.user || !session.allowed)
+  if (!session.user) {
+    if (isSaleSessionExpired(false, session.authError))
+      return { error: saleSessionExpiredMessage, code: "session_expired" as const };
+    return { error: saleSaveUncertainMessage, code: "save_uncertain" as const };
+  }
+  if (!session.allowed)
     return { error: saleSaveUncertainMessage, code: "save_uncertain" as const };
   try {
     const supabase = session.supabase;
@@ -453,7 +458,7 @@ export async function recoverSplitSale(requestId: string, draft: SaleDraft) {
     return { result: {
       id: sale.id, total: sale.total_amount, paid: sale.paid_amount,
       owing: sale.total_amount - sale.paid_amount,
-      customer: sale.receipt_customer_name,
+      customer: sale.customer_id,
       oldDebtPaid: account.paidOld,
       oldDebtPaymentId: debtPayment?.id ?? null,
       oldDebtReceiptRequestId: debtPayment?.request_id ?? null,
