@@ -253,7 +253,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
   const suggestedQuantity = String(Math.min(missingQuantity, wrongQuantity));
   const chosenDecisionQuantity = selectedWasEdited && choice.quantity ? choice.quantity : suggestedQuantity;
   const decisionHasUnmatched = unmatchedCrateTypes.length > 0 || unmatchedBottleTypes.length > 0;
-  const simpleDecisionPair = missingForChoice.length === 1 && availableWrongTypes.length === 1 && Number(suggestedQuantity) > 0;
+  const simpleDecisionPair = missingForChoice.length === 1 && availableWrongTypes.length === 1 && wrongQuantity === missingQuantity && wrongQuantity > 0;
 
   // One wrong loose bottle type should require a decision, not another round
   // of selecting its type and re-entering the same count.
