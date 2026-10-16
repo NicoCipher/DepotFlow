@@ -465,10 +465,9 @@ export function SaleBuilder({
     reviewTotal === undefined || !emptiesReview || emptiesNeedConfirmation ||
     hasUnmatchedSaleEmpties(emptiesReview) || Number(draft.paid) > reviewTotal ||
     (!saveUncertain && (!paymentBreakdown || debtChecking || Boolean(oldDebtInputError) ||
-      (paymentBreakdown.collectNow > 0 &&
-        (draft.paymentMode === "split"
-          ? !splitEnabled || !splitLegsPreview
-          : !["cash", "transfer", "pos"].includes(draft.paymentMethod)))));
+      (draft.paymentMode === "split" && (!splitEnabled || !splitLegsPreview)) ||
+      (paymentBreakdown.collectNow > 0 && draft.paymentMode !== "split" &&
+        !["cash", "transfer", "pos"].includes(draft.paymentMethod))));
   const progressStep =
     step === "customer"
       ? 0
@@ -1398,7 +1397,13 @@ export function SaleBuilder({
                 <button type="button" className="secondary w-full" aria-pressed={total !== undefined && draft.paid === String(total)} disabled={total === undefined} onClick={() => total !== undefined && update({ paid: String(total) })}>
                   Pay in full
                 </button>
-                <button type="button" className="secondary w-full" aria-pressed={draft.paid === "0"} onClick={() => update({ paid: "0" })}>Pay later</button>
+                <button type="button" className="secondary w-full" aria-pressed={draft.paid === "0"} onClick={() => update({
+                  paid: "0",
+                  ...(Number(draft.oldDebtPaid) === 0 ? {
+                    paymentMode: "single", paymentMethod: "",
+                    splitCash: "0", splitTransfer: "0", splitCashToSale: "",
+                  } : {}),
+                })}>Pay later</button>
               </div>
               <input
                 id="sale-paid"
