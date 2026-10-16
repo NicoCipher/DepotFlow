@@ -11,7 +11,7 @@ import { CustomerForm } from "./customer-form";
 import { emptyCustomer } from "@/domain/customers";
 import { ProductImage } from "@/components/product-image";
 import { SaleIcon } from "@/components/sale-icon";
-import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue } from "@/domain/sale-payment";
+import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment } from "@/domain/sale-payment";
 import { useSaleDrafts } from "./sale-draft-session";
 import { hasSaleWork } from "@/domain/sale-drafts";
 import { PausedSalesLink } from "./paused-sales-link";
@@ -1341,7 +1341,7 @@ export function SaleBuilder({
                   <p className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
                     <SaleIcon name="check" className="h-4 w-4" /> No previous money owed.
                   </p>
-                  {Number(draft.oldDebtPaid) > 0 && !saveUncertain && (
+                  {needsClearHiddenOldDebtPayment(draft.oldDebtPaid) && !saveUncertain && (
                     <div role="alert" className="space-y-2">
                       <p className="text-sm text-red-800">The previous debt has been cleared. Remove the old-debt amount before continuing.</p>
                       <button type="button" className="secondary w-full" onClick={() => update({ oldDebtPaid: "0" })}>
