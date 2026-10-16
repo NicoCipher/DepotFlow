@@ -47,7 +47,8 @@ begin
   select count(*) into v_stock from public.stock;
   select count(*) into v_crates from public.crate_types;
   select count(*) into v_empties from public.empty_crate_stock where quantity=3;
-  select count(*) into v_master from public.product_catalogue;
+  select count(*) into v_master from public.product_catalogue
+   where id='89600000-0000-4000-9000-000000000010';
   v_legacy:=private.can_read_legacy_customer(null);
   v_direct:=private.verified_legacy_owner_read();
   v_shared:=private.can_read_shared_product_catalogue();
@@ -233,7 +234,7 @@ select pg_temp.assert_true(
  and (select count(*)=1 from public.crate_types)
  and (select quantity=3 from public.empty_crate_stock limit 1)
  and (select count(*)=1 from public.empty_bottle_stock)
- and (select name='Shared Gold Lager' from public.product_catalogue limit 1),
+ and (select name='Shared Gold Lager' from public.product_catalogue where id='89600000-0000-4000-9000-000000000010'),
  'Legacy owner sees another shop inventory or lost shared master catalogue');
 reset role;
 
@@ -249,8 +250,8 @@ select pg_temp.assert_true(
  and (select name='Heineken 12-pocket' from public.crate_types limit 1)
  and (select quantity=7 from public.empty_crate_stock limit 1)
  and (select quantity=9 from public.empty_bottle_stock limit 1)
- and (select count(*)=1 from public.product_catalogue)
- and (select manufacturer='NB' from public.product_catalogue limit 1)
+ and (select count(*)=1 from public.product_catalogue where id='89600000-0000-4000-9000-000000000010')
+ and (select manufacturer='NB' from public.product_catalogue where id='89600000-0000-4000-9000-000000000010')
  and not public.is_shop_owner(),
  'A owner saw B/legacy inventory or lost shared master catalogue');
 
@@ -297,7 +298,7 @@ select pg_temp.assert_true(
  and (select name='Gulder 12-pocket' from public.crate_types limit 1)
  and (select quantity=2 from public.empty_crate_stock limit 1)
  and (select quantity=4 from public.empty_bottle_stock limit 1)
- and (select count(*)=1 from public.product_catalogue),
+ and (select count(*)=1 from public.product_catalogue where id='89600000-0000-4000-9000-000000000010'),
  'B owner sees A/legacy inventory or cannot browse shared master');
 reset role;
 
