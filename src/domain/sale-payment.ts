@@ -118,7 +118,7 @@ export function splitPaymentFromReceived(input: {
 } {
   const { saleTotal, oldDebt } = input;
   const amounts = [input.cash, input.transfer, input.oldDebtPaid];
-  const digits = /^\\d+$/;
+  const digits = /^\d+$/;
   if (!amounts.every((value) => digits.test(value)))
     return { received: null, salePaid: null, oldDebtPaid: null, extraForOldDebt: 0,
       issue: "Enter valid whole-naira amounts for Cash, Transfer and previous debt." };
