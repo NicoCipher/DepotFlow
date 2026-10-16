@@ -31,7 +31,7 @@ export function reviewConfirmationIssue(input: {
       message: input.checkError || "Checking current prices and stock. If this takes too long, try again.",
       action: "check_prices",
     };
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(input.businessDate))
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.businessDate))
     return { message: "Choose a sale date before continuing.", action: "edit_date" };
   if (input.reviewTotal === undefined)
     return { message: "Some drink prices or quantities need checking.", action: "edit_drinks" };
