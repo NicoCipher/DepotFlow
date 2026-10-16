@@ -1093,6 +1093,10 @@ export type Database = {
         }
         Returns: Json
       }
+      check_split_sale_request: {
+        Args: { p_request_id: string }
+        Returns: Json
+      }
       save_sale_split_tender: {
         Args: {
           p_request_id: string
