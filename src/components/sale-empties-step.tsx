@@ -752,13 +752,13 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
       )}
 
       {result && state.mode === "actual" && actualHasException && (crateIssues.length > 0 || result.swaps.length > 0 || hasUnmatchedSaleEmpties(result) || depositBlocked) && (
-        <section
-          aria-live="polite"
+        <details
+          open={depositBlocked}
           className="rounded-lg border border-stone-200 bg-white p-4"
         >
-          <h3 className="font-semibold">
-            Return details
-          </h3>
+          <summary className="cursor-pointer py-1 font-semibold text-emerald-900">
+            {depositBlocked ? "Return details · Deposit requires attention" : "See detailed empty-return breakdown"}
+          </summary>
 
           {result.swaps.map((swap) => (
             <p key={`${swap.owedCrateTypeId}:${swap.returnedCrateTypeId}`}>
@@ -872,7 +872,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
               this sale is not enabled yet.
             </p>
           )}
-        </section>
+        </details>
       )}
 
       {state.mode === "actual" && !actualHasException && !hasFieldErrors && (
