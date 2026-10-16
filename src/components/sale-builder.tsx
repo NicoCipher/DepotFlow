@@ -1322,7 +1322,14 @@ export function SaleBuilder({
                   {oldDebtAmount === null ? "Checking…" : formatNaira(oldDebtAmount)}
                 </strong>
               </div>
-              {debtChecking && <p role="status" className="text-sm text-amber-950">Checking the customer&apos;s current balance…</p>}
+              {debtChecking && (
+                <div className="space-y-2">
+                  <p role="status" className="text-sm text-amber-950">Checking the customer&apos;s current balance…</p>
+                  <button type="button" className="secondary min-h-11" onClick={() => setDebtRefresh((n) => n + 1)}>
+                    Try balance check again
+                  </button>
+                </div>
+              )}
               {debtErrorMessage && (
                 <div role="alert" className="space-y-2 text-sm text-amber-950">
                   <p>{debtErrorMessage}</p>
