@@ -16,6 +16,7 @@ type ReceiptImageData = {
   customer: string;
   date: string;
   method: string;
+  tenders?: { method: string; amount: string }[];
   amount: string;
   total?: string;
   balanceLabel: string;
@@ -245,6 +246,12 @@ async function createReceiptPng(
   context.font = "700 28px Arial, sans-serif";
   context.fillText(data.method, receiptWidth - sidePadding, y);
   y += 64;
+  if (data.tenders?.length) {
+    for (const tender of data.tenders) {
+      y = drawSummaryRow(context, tender.method, tender.amount, y);
+    }
+    y += 12;
+  }
 
   if (data.note) {
     context.textAlign = "left";
