@@ -1522,6 +1522,8 @@ export function SaleBuilder({
                         onClick={() => update({
                           paymentMode: "single",
                           paymentMethod: Number(draft.splitCash) > 0 ? "cash" : "transfer",
+                          paid: String(splitEntry.salePaid),
+                          oldDebtPaid: String(splitEntry.oldDebtPaid),
                           splitCash: "0", splitTransfer: "0", splitCashToSale: "",
                         })}>
                         Only {Number(draft.splitCash) > 0 ? "Cash" : "Transfer"} received? Use one method
