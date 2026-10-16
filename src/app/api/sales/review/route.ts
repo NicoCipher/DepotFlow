@@ -11,6 +11,10 @@ export const dynamic = "force-dynamic";
 // The existing server review performs owner authentication and independently
 // validates the catalogue, stock and previous customer balance.
 function noStore(body: Record<string, unknown>, status = 200) {
+  // Privacy-preserving production diagnostic: no customer IDs, values,
+  // session tokens, request payloads or sale content in runtime logs.
+  const code = typeof body.code === "string" ? body.code : status === 200 ? "ok" : "unknown";
+  console.info("[sale-review] completed", { status, code });
   return NextResponse.json(body, {
     status,
     headers: { "Cache-Control": "private, no-store, max-age=0", Vary: "Cookie" },
@@ -18,6 +22,7 @@ function noStore(body: Record<string, unknown>, status = 200) {
 }
 
 export async function POST(request: NextRequest) {
+  console.info("[sale-review] started");
   // Authenticate before reading attacker-controlled request bytes.
   try {
     const session = await ownerSession();
