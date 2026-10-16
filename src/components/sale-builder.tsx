@@ -1326,7 +1326,7 @@ export function SaleBuilder({
                 <div className="space-y-2">
                   <p role="status" className="text-sm text-amber-950">Checking the customer&apos;s current balance…</p>
                   <button type="button" className="secondary min-h-11" onClick={() => setDebtRefresh((n) => n + 1)}>
-                    Try balance check again
+                    Try again
                   </button>
                 </div>
               )}
