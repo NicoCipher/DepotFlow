@@ -105,6 +105,10 @@ function cleanDraft(draft: SaleDraft): SaleDraft {
   return {
     ...draft,
     oldDebtPaid: typeof draft.oldDebtPaid === "string" ? draft.oldDebtPaid : "0",
+    paymentMode: draft.paymentMode === "split" ? "split" : "single",
+    splitCash: typeof draft.splitCash === "string" ? draft.splitCash : "0",
+    splitTransfer: typeof draft.splitTransfer === "string" ? draft.splitTransfer : "0",
+    splitCashToSale: typeof draft.splitCashToSale === "string" ? draft.splitCashToSale : "",
     customerQuery: "",
   };
 }
