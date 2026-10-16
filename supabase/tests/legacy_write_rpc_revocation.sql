@@ -19,7 +19,7 @@ values('89500000-0000-4000-9000-000000000011',12000);
 -- callable as an API endpoint. Helper-based entrypoints are already guarded
 -- by the existing is_shop_owner() implementation.
 do $definition_audit$
-declare r record; v_uncertain integer;
+declare r record; v_uncertain integer; v_unguarded text;
 begin
  select count(*) into v_uncertain
  from pg_proc p join pg_namespace n on n.oid=p.pronamespace
@@ -37,7 +37,22 @@ begin
        and pg_get_functiondef(p.oid) like '%private.business_memberships%')
   ));
  if v_uncertain<>0 then
-   raise exception 'Unprotected privileged singleton API count: %',v_uncertain;
+   select string_agg(p.oid::regprocedure::text,', ') into v_unguarded
+   from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+   where n.nspname in ('private','public') and p.prosecdef
+     and pg_get_functiondef(p.oid) like '%private.shop_owner%'
+     and pg_get_functiondef(p.oid) not like '%private.verified_legacy_owner_read()%'
+     and not (n.nspname='private' and (
+       (p.proname='record_product_selling_price' and p.prorettype='trigger'::regtype)
+       or (p.proname='scope_legacy_operational_write'
+           and p.prorettype='trigger'::regtype
+           and pg_get_functiondef(p.oid) like '%private.business_memberships%')
+       or (p.proname='verified_legacy_owner_read'
+           and p.prorettype='boolean'::regtype
+           and pg_get_functiondef(p.oid) like '%private.business_memberships%')
+     ));
+   raise exception 'Unprotected privileged singleton API count: %; routines: %',
+     v_uncertain,v_unguarded;
  end if;
  for r in
    select p.oid, p.oid::regprocedure as signature
