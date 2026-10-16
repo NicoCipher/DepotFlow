@@ -12,6 +12,7 @@ import {
   isQuickRetailEmptiesSale,
   paymentStepAfterEmpties,
   hasUnmatchedSaleEmpties,
+  leaveUnrelatedEmptiesOutOfSale,
   depositSetupIssues,
   emptyEmptiesV2,
   matchSaleEmpties,
@@ -504,6 +505,45 @@ test("unmatched wrong returns require an explicit choice before saving", () => {
   assert.throws(() => assertSaleEmptiesResolved(result), /Choose Accept or Hold/);
   draft.emptiesV2.decisions = [{ productId: "goldberg", kind: "crate", returnedType: "trophy-crate", quantity: "1", decision: "hold" }];
   assert.doesNotThrow(() => assertSaleEmptiesResolved(matchSaleEmpties(draft, catalog)));
+});
+
+test("extra crate with no matching sale obligation can be separated after holding wrong bottles", () => {
+  const draft = sale("goldberg", 0);
+  draft.lines[0].quantity = { crates: 0, fraction: 0, bottles: 2 };
+  draft.emptiesV2.returnedCrates = { "trophy-crate": "1" };
+  draft.emptiesV2.returnedBottles = { "Trophy bottle": "2" };
+  draft.emptiesV2.decisions = [
+    { productId: "goldberg", kind: "bottle", returnedType: "Trophy bottle", quantity: "2", decision: "hold" },
+  ];
+  const before = matchSaleEmpties(draft, catalog);
+  assert.deepEqual(before.unmatchedCrates, { "trophy-crate": 1 });
+  assert.deepEqual(before.unmatchedBottles, {});
+  assert.throws(() => assertSaleEmptiesResolved(before), /Choose Accept or Hold/);
+
+  const reduced = leaveUnrelatedEmptiesOutOfSale(draft, before, "crate", "trophy-crate");
+  assert.equal(reduced.returnedCrates["trophy-crate"], "0");
+  assert.equal(reduced.returnedBottles["Trophy bottle"], "2");
+  assert.deepEqual(reduced.decisions, draft.emptiesV2.decisions);
+  const settled = matchSaleEmpties({ ...draft, emptiesV2: reduced }, catalog);
+  assert.doesNotThrow(() => assertSaleEmptiesResolved(settled));
+  assert.equal(settled.lines[0].bottlesOwed, 2);
+  assert.deepEqual(settled.unmatchedCrates, {});
+  assert.throws(() => leaveUnrelatedEmptiesOutOfSale({ ...draft, emptiesV2: reduced }, settled, "crate", "trophy-crate"), /no extra empties/);
+});
+
+test("separating extra counts preserves exactly matched empty crates", () => {
+  const draft = sale("goldberg");
+  draft.emptiesV2.returnedCrates["goldberg-crate"] = "2";
+  draft.emptiesV2.returnedBottles["Goldberg bottle"] = "12";
+  const before = matchSaleEmpties(draft, catalog);
+  assert.equal(before.lines[0].cratesSettled, 1);
+  assert.deepEqual(before.unmatchedCrates, { "goldberg-crate": 1 });
+  const next = leaveUnrelatedEmptiesOutOfSale(draft, before, "crate", "goldberg-crate");
+  assert.equal(next.returnedCrates["goldberg-crate"], "1");
+  const after = matchSaleEmpties({ ...draft, emptiesV2: next }, catalog);
+  assert.equal(after.lines[0].cratesSettled, 1);
+  assert.deepEqual(after.unmatchedCrates, {});
+  assert.doesNotThrow(() => assertSaleEmptiesResolved(after));
 });
 
 test("all-returned mode requires an explicit confirmation, even when every expected empty matches", () => {
