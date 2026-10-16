@@ -1534,6 +1534,7 @@ export function SaleBuilder({
                   {draft.paymentMode === "split" && !splitEnabled && (
                     <div id="sale-split-payment" role="alert" className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
                       <p>Cash + Transfer is temporarily unavailable. Keep both real payment methods recorded. If both have money entered, park this sale until split payments return; do not record them as one method.</p>
+                      <p className="mt-1 font-semibold">Cash {draft.splitCash ? formatNaira(Number(draft.splitCash)) : "—"} · Transfer {draft.splitTransfer ? formatNaira(Number(draft.splitTransfer)) : "—"}</p>
                       {!(Number(draft.splitCash) > 0 && Number(draft.splitTransfer) > 0) && (
                         <button type="button" className="secondary mt-2 w-full min-h-11"
                           onClick={() => applyPaymentMode("single")}>Return to one method</button>
@@ -1673,7 +1674,7 @@ export function SaleBuilder({
                             onChange={(event) => update({ splitCashToSale: event.target.value })} />
                           {splitLegsPreview && (
                             <p className="mt-1 text-xs text-stone-600">
-                              Today's sale: Cash {formatNaira(splitLegsPreview[0].saleAmount)} + Transfer {formatNaira(splitLegsPreview[1].saleAmount)}.
+                              Today&apos;s sale: Cash {formatNaira(splitLegsPreview[0].saleAmount)} + Transfer {formatNaira(splitLegsPreview[1].saleAmount)}.
                               Old debt: Cash {formatNaira(splitLegsPreview[0].oldDebtAmount)} + Transfer {formatNaira(splitLegsPreview[1].oldDebtAmount)}.
                             </p>
                           )}
