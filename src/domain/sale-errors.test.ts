@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   isSaleSessionExpired,
+  saleReviewMissingUserResponse,
+  saleReviewOwnerAccessResponse,
   saleSessionExpiredMessage,
   safeCaughtSaleErrorMessage,
   safeDatabaseSaleErrorMessage,
@@ -80,4 +82,58 @@ test("removed shop drink is a definitive rejected sale, not an uncertain save", 
     safeDatabaseSaleErrorMessage("22023", "This drink was removed from the shop; restore it before selling"),
     /removed from the shop.*Go back to Drinks/,
   );
+});
+
+test("review endpoint keeps checkout retryable when Supabase auth is temporarily unavailable", () => {
+  for (const authError of [
+    { status: 503, name: "AuthRetryableFetchError", message: "Service unavailable" },
+    { status: 502, name: "AuthRetryableFetchError", message: "Fetch failed" },
+    { name: "TypeError", message: "fetch failed" },
+    { status: 500, message: "Gateway failure" },
+  ]) {
+    const result = saleReviewMissingUserResponse(authError);
+    assert.equal(result.code, "network_error");
+    assert.equal(result.status, 503);
+    assert.match(result.error, /Try again/);
+    assert.doesNotMatch(result.error, /Sign in again/);
+  }
+});
+
+test("review endpoint still requires sign-in when session really expired", () => {
+  for (const authError of [
+    null,
+    { status: 401, name: "AuthApiError", message: "JWT expired" },
+    { status: 403, name: "AuthApiError", message: "Forbidden" },
+    { name: "AuthSessionMissingError", message: "Auth session missing" },
+    { name: "AuthApiError", message: "Refresh token invalid" },
+  ]) {
+    const result = saleReviewMissingUserResponse(authError);
+    assert.equal(result.code, "session_expired");
+    assert.equal(result.status, 401);
+    assert.match(result.error, /Sign in again/);
+  }
+});
+
+test("owner RPC transient error is retryable, not an access revocation", () => {
+  for (const ownerError of [
+    { code: "PGRST000", message: "temporary connection failure" },
+    { status: 503, message: "Service unavailable" },
+    { status: 502, message: "Bad gateway" },
+    { code: "57014", message: "statement timeout" },
+  ]) {
+    const result = saleReviewOwnerAccessResponse(ownerError);
+    assert.deepEqual(result, {
+      error: "Couldn’t connect. Your sale is still here. Try again.",
+      code: "network_error",
+      status: 503,
+    });
+  }
+});
+
+test("authenticated but definitively non-owner still cannot review sales", () => {
+  assert.deepEqual(saleReviewOwnerAccessResponse(null), {
+    error: "Shop owner access is required.",
+    code: "access_denied",
+    status: 403,
+  });
 });
