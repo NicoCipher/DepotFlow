@@ -1355,6 +1355,7 @@ export function SaleBuilder({
         )}
         {step === "payment" && (
           <>
+            <fieldset disabled={pending || reviewBusy} aria-label="Payment details" className="min-w-0 space-y-3">
             <section aria-label="Payment for today&apos;s drinks" className="space-y-3 rounded-xl border border-stone-200 bg-white p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="font-bold text-stone-950">Today&apos;s sale</h2>
@@ -1476,6 +1477,7 @@ export function SaleBuilder({
                 </dl>
               )}
             </section>
+            </fieldset>
             <div className="sale-sticky-actions sticky z-10 -mx-4 space-y-2 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
             {paymentIssue && (
               <p id="payment-review-help" role="alert" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950">
