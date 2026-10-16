@@ -46,8 +46,22 @@ begin
    like '%is_shop_owner%';
  -- M2e-2 strengthens the customer SELECT policy to check exact
  -- business_id membership rather than a global is_shop_owner() predicate.
- -- The other 25 original shop read policies must stay owner protected.
- if v_count<>25 or not exists (
+ -- Seven existing inventory/empties policies are now business-scoped,
+ -- not globally visible to the legacy shop owner. The remaining 18
+ -- original policies must still retain their original owner guard.
+ if v_count<>18 or
+    (select count(*) from pg_policy pol
+     join pg_class cls on cls.oid=pol.polrelid
+     join pg_namespace ns on ns.oid=cls.relnamespace
+     where ns.nspname='public'
+       and cls.relname in (
+         'products','stock','stock_movements','crate_types',
+         'empty_crate_stock','empty_crate_movements','empty_bottle_stock'
+       )
+       and pol.polname='owner_read' and pol.polcmd='r'
+       and pg_get_expr(pol.polqual,pol.polrelid)
+           like '%can_read_tenant_inventory%')<>7
+    or not exists (
    select 1 from pg_policy pol
    join pg_class cls on cls.oid=pol.polrelid
    join pg_namespace ns on ns.oid=cls.relnamespace
