@@ -1,4 +1,3 @@
-import { saleReviewCustomerHeader } from "./sale-review-customer.ts";
 import type { SaleCatalog } from "./sale-builder.ts";
 
 export type SaleReviewResult =
@@ -18,10 +17,7 @@ export async function requestSaleReview(
     method: "POST",
     credentials: "same-origin",
     cache: "no-store",
-    // The verified same-origin POST carries the customer ID independently of
-    // JSON body parsing; server still authenticates the owner and validates UUID.
-    // Keep the JSON body for existing request consumers and diagnostics.
-    headers: { "Content-Type": "application/json", [saleReviewCustomerHeader]: customerId },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ customerId }),
     signal,
   });

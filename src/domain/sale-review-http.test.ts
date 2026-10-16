@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { requestSaleReview } from "./sale-review-http.ts";
-import { saleReviewCustomerHeader } from "./sale-review-customer.ts";
 
 const id = "11111111-1111-4111-8111-111111111111";
 function mock(body: unknown, status = 200) {
@@ -10,8 +9,6 @@ function mock(body: unknown, status = 200) {
     assert.equal(init?.method, "POST");
     assert.equal(init?.cache, "no-store");
     assert.equal(init?.credentials, "same-origin");
-    assert.equal((init?.headers as Record<string, string>)?.[saleReviewCustomerHeader], id,
-      "Modern Review requests must not depend solely on JSON stream parsing");
     assert.deepEqual(JSON.parse(String(init?.body)), { customerId: id });
     return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
   }) as typeof fetch;
