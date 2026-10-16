@@ -192,6 +192,7 @@ export function paymentReviewIssue(input: {
   splitTransfer?: string;
   splitCashToSale?: string;
   splitEnabled?: boolean;
+  splitEntryIssue?: string | null;
 }): PaymentReviewIssue | null {
   if (input.saleTotal === undefined)
     return { message: "Check the drinks and amounts before reviewing this sale.", target: "sale-paid" };
@@ -212,6 +213,8 @@ export function paymentReviewIssue(input: {
       // the always-rendered section offers the Clear old-debt payment action.
       target: (input.oldDebtAmount ?? 0) > 0 ? "sale-old-debt-paid" : "sale-previous-debt",
     };
+  if (input.paymentMode === "split" && input.splitEntryIssue)
+    return { message: input.splitEntryIssue, target: "sale-split-payment" };
   if (!input.breakdown)
     return { message: "Check today's payment and previous-debt amounts.", target: "sale-previous-debt" };
   if (input.paymentMode === "split") {
