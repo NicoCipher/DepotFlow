@@ -1615,7 +1615,7 @@ export function SaleBuilder({
             >
               {pending
                 ? "Checking…"
-                : paymentIssue?.target === "sale-method" ? "Choose payment method"
+                : paymentIssue ? (paymentIssue.target === "sale-method" ? "Choose payment method" : "Fix payment details to continue")
                 : paymentBreakdown && paymentBreakdown.collectNow > 0
                   ? `Review · Collect ${formatNaira(paymentBreakdown.collectNow)}`
                   : "Review sale · pay later"}
