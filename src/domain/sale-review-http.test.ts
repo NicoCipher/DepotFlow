@@ -36,6 +36,15 @@ test("temporary auth outage remains retryable and never becomes a sign-in prompt
   assert.ok("catalog" in retry);
 });
 
+test("transient owner-RPC failure retries, but verified non-owner stays denied", async () => {
+  const unavailable = await requestSaleReview(id, undefined,
+    mock({ error: "Couldn’t connect. Your sale is still here. Try again.", code: "network_error" }, 503));
+  assert.deepEqual(unavailable, { error: "Couldn’t connect. Your sale is still here. Try again.", code: "network_error" });
+  const denied = await requestSaleReview(id, undefined,
+    mock({ error: "Shop owner access is required.", code: "access_denied" }, 403));
+  assert.deepEqual(denied, { error: "Shop owner access is required.", code: "access_denied" });
+});
+
 test("review accepts actionable prior-balance failure without silently advancing", async () => {
   const result = await requestSaleReview(id, undefined,
     mock({ error: "Could not verify this customer's balance.", code: "debt_unavailable" }, 503));
