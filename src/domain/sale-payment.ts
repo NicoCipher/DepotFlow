@@ -86,7 +86,7 @@ export function paymentReviewIssue(input: {
       message: input.oldDebtInputError,
       // When debt has reached zero, the amount input is deliberately hidden;
       // the always-rendered section offers the Clear old-debt payment action.
-      target: input.oldDebtAmount > 0 ? "sale-old-debt-paid" : "sale-previous-debt",
+      target: (input.oldDebtAmount ?? 0) > 0 ? "sale-old-debt-paid" : "sale-previous-debt",
     };
   if (!input.breakdown)
     return { message: "Check today's payment and previous-debt amounts.", target: "sale-previous-debt" };
