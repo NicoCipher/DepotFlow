@@ -1808,7 +1808,7 @@ export function SaleBuilder({
             <div className="sale-sticky-actions sticky z-10 -mx-4 border-t border-stone-200 bg-background/95 px-4 pb-3 pt-3 shadow-[0_-6px_18px_rgba(0,0,0,0.04)] backdrop-blur-sm sm:mx-0 sm:px-0 sm:shadow-none">
               {!saveUncertain && finalSaveConfirmed && (
                 <div role="status" aria-live="polite" aria-label="Confirm saving sale" className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-                  <p ref={savePromptRef} tabIndex={-1} className="font-bold text-emerald-950 focus:outline-none">Save this sale?</p>
+                  <p ref={savePromptRef} tabIndex={-1} className="font-bold text-emerald-950">Save this sale?</p>
                   <p className="mt-1 text-sm text-emerald-950">{customer?.name} · {reviewTotal === undefined ? "Check total" : formatNaira(reviewTotal)} sale · Collect {formatNaira(Number(draft.paid) + Number(draft.oldDebtPaid))}</p>
                   <p className="mt-1 text-xs text-stone-700">Confirm to update stock, payment and customer balance.</p>
                 </div>
