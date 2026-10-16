@@ -125,6 +125,80 @@ alter table public.stock enable trigger legacy_scope_business_write;
 alter table public.empty_crate_stock enable trigger legacy_scope_business_write;
 alter table public.empty_bottle_stock enable trigger legacy_scope_business_write;
 
+-- Seed only disposable FOREIGN movements and one foreign outstanding debt.
+-- Operational stock/debt functions remain forbidden to new business owners.
+-- This exercises the privileged manager/activity RPCs that bypass RLS.
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89600000-0000-4000-8000-000000000003',true);
+insert into public.customers(id,name,phone,business_id)
+values ('89600000-0000-4000-9000-000000000061',
+ 'B-only customer','08000896061',
+ '89600000-0000-4000-9000-000000000042');
+reset role;
+
+alter table public.money_owed disable trigger legacy_scope_business_write;
+alter table public.stock_movements disable trigger legacy_scope_business_write;
+alter table public.empty_crate_movements disable trigger legacy_scope_business_write;
+insert into public.money_owed(customer_id,amount,business_id)
+values ('89600000-0000-4000-9000-000000000061',
+ 9999,'89600000-0000-4000-9000-000000000042');
+insert into public.stock_movements(
+  id,product_id,movement_type,quantity_change,resulting_stock,
+  business_date,request_id,crates,loose_bottles,bottles_per_crate,
+  product_name,crate_type_id,business_id
+) values (
+  '89600000-0000-4000-9000-000000000071',
+  '89600000-0000-4000-9000-000000000023',
+  'count',0,0,'2026-10-16',
+  '89600000-0000-4000-9000-000000000072',
+  0,0,12,'B-only stock movement',
+  '89600000-0000-4000-9000-000000000013',
+  '89600000-0000-4000-9000-000000000042'
+);
+insert into public.empty_crate_movements(
+  id,crate_type,movement_type,previous_quantity,quantity_change,
+  resulting_quantity,business_date,request_id,crate_type_id,business_id
+) values (
+  '89600000-0000-4000-9000-000000000073',
+  'B Gulder 12-pocket','count',0,2,2,'2026-10-16',
+  '89600000-0000-4000-9000-000000000074',
+  '89600000-0000-4000-9000-000000000013',
+  '89600000-0000-4000-9000-000000000042'
+);
+alter table public.money_owed enable trigger legacy_scope_business_write;
+alter table public.stock_movements enable trigger legacy_scope_business_write;
+alter table public.empty_crate_movements enable trigger legacy_scope_business_write;
+
+-- Positive original-shop report plus negative foreign inventory/financial
+-- probes; a SECURITY DEFINER function cannot rely on the table's RLS.
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89600000-0000-4000-8000-000000000001',true);
+do $privileged_legacy_reports$
+declare v_dashboard jsonb; v_activity jsonb;
+begin
+ v_dashboard:=public.manager_snapshot('2026-10-16');
+ if (v_dashboard->>'low_stock')::integer<>0
+  or (v_dashboard->>'missing_counts')::integer<>0
+  or (v_dashboard->>'outstanding')::integer<>0
+  or (v_dashboard->>'customers_owing')::integer<>0 then
+  raise exception 'Dashboard aggregates leaked B inventory/debt: %',
+   v_dashboard;
+ end if;
+ v_activity:=public.store_activity(
+  '2026-10-15','2026-10-17',null,'all',100,0
+ );
+ if pg_catalog.strpos(v_activity::text,'B-only stock movement')<>0
+   or pg_catalog.strpos(v_activity::text,'B Gulder 12-pocket')<>0
+   or (v_activity->>'count')::integer<>0 then
+  raise exception 'Privileged activity reader leaked B movement: %',
+   v_activity;
+ end if;
+end;
+$privileged_legacy_reports$;
+reset role;
+
 -- The original owner cannot read either new shop, despite previously
 -- global owner_read SELECT policies. The two SAME-pocket crate types keep
 -- separate exact identities and quantities.
@@ -208,7 +282,9 @@ select pg_temp.assert_true(
  and not exists(select 1 from public.stock)
  and not exists(select 1 from public.crate_types)
  and not exists(select 1 from public.empty_crate_stock)
- and not exists(select 1 from public.empty_bottle_stock),
+ and not exists(select 1 from public.empty_bottle_stock)
+ and not exists(select 1 from public.stock_movements)
+ and not exists(select 1 from public.empty_crate_movements),
  'Disabled owner can still see physical inventory');
 reset role;
 
