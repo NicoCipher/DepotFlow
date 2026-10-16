@@ -115,6 +115,10 @@ export function SaleBuilder({
     name: string;
   } | null>(null);
   const [pending, startTransition] = useTransition();
+  // Review is an independent, abortable HTTP read, not a Server Action.
+  // A different checkout transition must never silently swallow Review taps.
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const reviewBusyRef = useRef(false);
   const stepHeading = useRef<HTMLHeadingElement>(null);
   const previousStep = useRef<{ step: string; activeId: string | null } | null>(null);
   const activeId = sales.state.active
@@ -612,7 +616,8 @@ export function SaleBuilder({
         </div>
       )}
       <fieldset
-        disabled={pending}
+        disabled={reviewBusy || (pending && step !== "payment")}
+        aria-busy={reviewBusy || pending}
         aria-label="Sale draft"
         className="space-y-3 pb-4"
       >
@@ -1503,7 +1508,7 @@ export function SaleBuilder({
             <button
               type="button"
               className="primary min-w-0 flex-1"
-              disabled={pending}
+              disabled={reviewBusy}
               aria-describedby={paymentIssue ? "payment-review-help" : undefined}
               onClick={() => {
                 if (paymentIssue) {
@@ -1515,6 +1520,9 @@ export function SaleBuilder({
                   target?.focus({ preventScroll: true });
                   return;
                 }
+                if (reviewBusyRef.current) return;
+                reviewBusyRef.current = true;
+                setReviewBusy(true);
                 // Immediate visible acknowledgement proves the tap was received.
                 // This also distinguishes a blocked network read from a blocked
                 // draft-storage write on the customer's phone.
@@ -1523,7 +1531,8 @@ export function SaleBuilder({
                 setMessage(saleReviewCheckingMessage);
                 const clearOwnProgress = () => setMessage((current) =>
                   clearOwnSaleReviewProgress(current, requestId, reviewFeedbackAttempt.current));
-                startTransition(async () => {
+                void (async () => {
+                  try {
                   const customerForReview = customer?.id;
                   const saleForReview = activeId;
                   if (!customerForReview) {
@@ -1623,11 +1632,15 @@ export function SaleBuilder({
                     );
                     else clearOwnProgress();
                   }
-                });
+                  } finally {
+                    reviewBusyRef.current = false;
+                    setReviewBusy(false);
+                  }
+                })();
               }}
             >
-              {pending
-                ? "Checking…"
+              {reviewBusy
+                ? "Checking sale…"
                 : paymentIssue ? (paymentIssue.target === "sale-method" ? "Choose payment method" : "Fix payment details to continue")
                 : paymentBreakdown && paymentBreakdown.collectNow > 0
                   ? `Review · Collect ${formatNaira(paymentBreakdown.collectNow)}`
