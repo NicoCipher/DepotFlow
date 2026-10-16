@@ -35,6 +35,9 @@ begin
    or (p.proname='verified_legacy_owner_read'
        and p.prorettype='boolean'::regtype
        and pg_get_functiondef(p.oid) like '%private.business_memberships%')
+   or (p.proname='guard_legacy_catalogue_image_write'
+       and p.prorettype='trigger'::regtype
+       and pg_get_functiondef(p.oid) like '%private.business_memberships%')
   ));
  if v_uncertain<>0 then
    select string_agg(p.oid::regprocedure::text,', ') into v_unguarded
