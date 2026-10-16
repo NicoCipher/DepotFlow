@@ -42,6 +42,13 @@ export function debtPaymentInputError(input: string, currentDebt: number | null)
   return null;
 }
 
+/** If the old-debt input is hidden because the verified balance is zero,
+ * any invalid/stale entered amount still needs an accessible Clear action.
+ */
+export function needsClearHiddenOldDebtPayment(oldDebtPaid: string): boolean {
+  return Number(oldDebtPaid) > 0 || debtPaymentInputError(oldDebtPaid, 0) !== null;
+}
+
 /** Tell the operator why Review cannot proceed, in the order to fix it.
  * Never disable Review silently: its action can reveal and focus this issue.
  */
