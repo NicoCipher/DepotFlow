@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import {
   refreshSaleCatalog,
   saveSale,
+  recoverSplitSale,
 } from "@/app/(shop)/record-sale/actions";
 import { CustomerForm } from "./customer-form";
 import { emptyCustomer } from "@/domain/customers";
@@ -1958,7 +1959,9 @@ export function SaleBuilder({
 
                   let response: Awaited<ReturnType<typeof saveSale>>;
                   try {
-                    response = await saveSale(requestId, draft);
+                    response = saveUncertain && draft.paymentMode === "split" && !splitEnabled
+                      ? await recoverSplitSale(requestId, draft)
+                      : await saveSale(requestId, draft);
                   } catch {
                     setMessage(saleSaveUncertainMessage);
                     return;
