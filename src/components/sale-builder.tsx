@@ -432,11 +432,8 @@ export function SaleBuilder({
   const navigationBusy = pending || reviewBusy;
   const reviewKey = saleSaveConfirmationKey(draft, oldDebtAmount, reviewTotal);
   const finalSaveConfirmed = confirmedSaveKey === reviewKey;
-  const confirmSaleButtonRef = useRef<HTMLButtonElement>(null);
-  // The first step replaces its button; move focus to the final action.
-  useEffect(() => {
-    if (finalSaveConfirmed && !saveUncertain) confirmSaleButtonRef.current?.focus();
-  }, [finalSaveConfirmed, saveUncertain]);
+  // Keep the first-step button mounted at the same location: repeated taps
+  // or Enter activate Check again, never the distinct final Save action.
   // "Check Sale" must remain usable even when catalogue refresh is offline:
   // an uncertain save can only be resolved by the original request ID.
   const reviewSaveBlocked = pending || (!ready && !saveUncertain) || !draft.businessDate ||
@@ -1810,14 +1807,8 @@ export function SaleBuilder({
                   <p className="mt-1 text-xs text-stone-700">Confirm to update stock, payment and customer balance.</p>
                 </div>
               )}
-              {!saveUncertain && !finalSaveConfirmed && (
-                <button type="button" className="primary w-full" disabled={reviewSaveBlocked} onClick={() => setConfirmedSaveKey(reviewKey)}>
-                  Continue to save
-                </button>
-              )}
             {(saveUncertain || finalSaveConfirmed) && (
               <button
-                ref={confirmSaleButtonRef}
                 type="button"
                 className="primary w-full"
                 disabled={reviewSaveBlocked}
@@ -1930,16 +1921,19 @@ export function SaleBuilder({
               </button>
               )}
               {!saveUncertain && (
-                <div className="mt-1 flex flex-wrap items-center justify-center gap-x-6">
-                  {finalSaveConfirmed && (
-                    <button type="button" className="quiet-link text-sm font-semibold" onClick={() => setConfirmedSaveKey(null)}>
-                      Check again
-                    </button>
-                  )}
-                  <button type="button" className="quiet-link text-sm font-semibold" onClick={() => update({ step: "payment" })}>
+                <>
+                  <button
+                    type="button"
+                    className={finalSaveConfirmed ? "secondary mt-2 w-full" : "primary w-full"}
+                    disabled={reviewSaveBlocked}
+                    onClick={() => setConfirmedSaveKey(finalSaveConfirmed ? null : reviewKey)}
+                  >
+                    {finalSaveConfirmed ? "Check again" : "Continue to save"}
+                  </button>
+                  <button type="button" className="quiet-link mt-1 w-full text-sm font-semibold" onClick={() => update({ step: "payment" })}>
                     ← Edit payment
                   </button>
-                </div>
+                </>
               )}
             </div>
           </>
