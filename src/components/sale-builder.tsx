@@ -90,6 +90,10 @@ export function SaleBuilder({
   const [oldDebt, setOldDebt] = useState<{ key: string; amount: number } | null>(null);
   const [debtError, setDebtError] = useState<{ key: string; message: string } | null>(null);
   const [debtRefresh, setDebtRefresh] = useState(0);
+  // A slower background balance preview must never overwrite a fresh,
+  // authoritative Review response, even if it resolves on the next tick.
+  const debtPreviewGeneration = useRef(0);
+  const debtPreviewAbort = useRef<AbortController | null>(null);
   useEffect(() => {
     if (!notice) return;
     const timer = window.setTimeout(() => setNotice(""), 4000);
@@ -341,7 +345,10 @@ export function SaleBuilder({
   useEffect(() => {
     if (!customerToCheck || !debtKey) return;
     let current = true;
+    const generation = ++debtPreviewGeneration.current;
     const controller = new AbortController();
+    debtPreviewAbort.current = controller;
+    const canApply = () => current && generation === debtPreviewGeneration.current;
     // Unlike a Server Function, this independent HTTP request can be aborted.
     // A stalled read must never trap the customer on this payment screen.
     const timeout = window.setTimeout(() => controller.abort(), 12000);
@@ -356,7 +363,7 @@ export function SaleBuilder({
           signal: controller.signal,
         });
         const payload: unknown = await response.json();
-        if (!current) return;
+        if (!canApply()) return;
         if (response.status === 401 || response.status === 403) {
           setSessionExpired(true);
           setMessage(saleSessionExpiredMessage);
@@ -378,7 +385,7 @@ export function SaleBuilder({
         setOldDebt({ key: debtKey, amount });
         setDebtError(null);
       } catch {
-        if (current) {
+        if (canApply()) {
           setDebtError({
             key: debtKey,
             message: controller.signal.aborted
@@ -1576,6 +1583,12 @@ export function SaleBuilder({
                     return;
                   }
                   try {
+                    // Review is the authority. Invalidate any older preview
+                    // request BEFORE installing this balance, or a stale
+                    // response could overwrite it after navigation.
+                    debtPreviewGeneration.current++;
+                    debtPreviewAbort.current?.abort();
+                    debtPreviewAbort.current = null;
                     if (debtKey) setOldDebt({ key: debtKey, amount: latestDebt });
                     setDebtError(null);
                     salePaymentTotals(total!, Number(draft.paid), latestDebt, Number(draft.oldDebtPaid));
