@@ -225,7 +225,7 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
   if (draft.paymentMode === "split") {
     if (!splitEnabled)
       // A stale open tab may still believe the flag is on after rollback.
-      // Recover the original request read-only, never claim non-save.
+      // Reconcile the original ID without retrying its financial write.
       return recoverSplitSale(requestId, draft);
     try {
       splitLegs = allocateSplitTender(Number(draft.paid), Number(draft.oldDebtPaid), {
@@ -391,9 +391,9 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
 
 
 /**
- * Read-only recovery when the split rollout flag is disabled mid-transaction.
- * NEVER retries the original write, so an uncertain sale cannot be duplicated
- * or marked unsaved just because the feature was turned off after the tap.
+ * Fenced status reconciliation when split payments are rolled back.
+ * NEVER retries the original financial write. A confirmed absent request ID is
+ * fenced against late commits before its device draft is unlocked.
  */
 export async function recoverSplitSale(requestId: string, draft: SaleDraft) {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId))
@@ -403,7 +403,7 @@ export async function recoverSplitSale(requestId: string, draft: SaleDraft) {
     return { error: saleSaveUncertainMessage, code: "save_uncertain" as const };
   try {
     const supabase = session.supabase;
-    // This read-only RPC serializes with the original split-save request. A
+    // This RPC takes the original save lock, fencing an absent request. A
     // plain maybeSingle() cannot prove absence while a save is still running.
     const { data: check, error: checkError } = await supabase.rpc(
       "check_split_sale_request", { p_request_id: requestId },
