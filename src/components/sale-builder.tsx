@@ -1918,9 +1918,8 @@ export function SaleBuilder({
                   : finalSaveConfirmed
                     ? "Confirm & save sale"
                     : "Confirm sale details"}
-            </button>
-            )}
-            </div>
+              </button>
+              )}
               {!saveUncertain && (
                 <div className="mt-1 flex flex-wrap items-center justify-center gap-x-6">
                   {finalSaveConfirmed && (
@@ -1933,7 +1932,7 @@ export function SaleBuilder({
                   </button>
                 </div>
               )}
-
+            </div>
           </>
         )}
       </fieldset>
