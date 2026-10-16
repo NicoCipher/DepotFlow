@@ -12,7 +12,7 @@ select private.link_legacy_shop_business();
 insert into public.product_catalogue(id,name,manufacturer,image_path)
 values (
  '89600000-0000-4000-9000-000000000010',
- 'Shared Gold Lager','NBL','first-party/shared-gold.webp'
+ 'Shared Gold Lager','NB','first-party/shared-gold.webp'
 );
 insert into public.crate_types(id,name,empty_family,pocket_count)
 values ('89600000-0000-4000-9000-000000000011','Goldberg NB12','NB',12);
@@ -236,7 +236,7 @@ select pg_temp.assert_true(
  and (select quantity=7 from public.empty_crate_stock limit 1)
  and (select quantity=9 from public.empty_bottle_stock limit 1)
  and (select count(*)=1 from public.product_catalogue)
- and (select manufacturer='NBL' from public.product_catalogue limit 1)
+ and (select manufacturer='NB' from public.product_catalogue limit 1)
  and not public.is_shop_owner(),
  'A owner saw B/legacy inventory or lost shared master catalogue');
 
