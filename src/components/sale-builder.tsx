@@ -117,7 +117,7 @@ export function SaleBuilder({
     ? `${sales.state.active.id}:${sales.state.active.resumedAt ?? ""}`
     : null;
   const reviewFeedbackAttempt = useRef(0);
-  const reviewFeedbackContext = useRef({ customerId: draft.customerId, activeId });
+  const [reviewFeedbackContext, setReviewFeedbackContext] = useState({ customerId: draft.customerId, activeId });
   const checkoutContext = useRef({ customerId: draft.customerId, activeId, step: draft.step });
   useEffect(() => {
     checkoutContext.current = { customerId: draft.customerId, activeId, step: draft.step };
@@ -333,7 +333,7 @@ export function SaleBuilder({
   }
   const step = customer ? draft.step : "customer";
   const paymentDisplayMessage = contextualSaleReviewMessage(visibleMessage,
-    reviewFeedbackContext.current, { customerId: draft.customerId, activeId, step });
+    reviewFeedbackContext, { customerId: draft.customerId, activeId, step });
   const customerToCheck = customer?.id ?? null;
   const debtKey = customerToCheck && (step === "payment" || step === "review")
     ? `${customerToCheck}:${debtRefresh}`
@@ -1499,7 +1499,7 @@ export function SaleBuilder({
                 // This also distinguishes a blocked network read from a blocked
                 // draft-storage write on the customer's phone.
                 const requestId = ++reviewFeedbackAttempt.current;
-                reviewFeedbackContext.current = { customerId: customer?.id ?? null, activeId };
+                setReviewFeedbackContext({ customerId: customer?.id ?? null, activeId });
                 setMessage(saleReviewCheckingMessage);
                 const clearOwnProgress = () => setMessage((current) =>
                   clearOwnSaleReviewProgress(current, requestId, reviewFeedbackAttempt.current));
