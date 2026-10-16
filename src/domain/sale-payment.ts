@@ -59,7 +59,7 @@ export function splitTenderShortfallChoices(input: {
   const { saleTotal, oldDebt, cash, transfer, cashToSale } = input;
   if (saleTotal === undefined) return null;
   const all = [input.salePaid, input.oldDebtPaid, cash, transfer];
-  if (all.some((value) => !/^\\d+$/.test(value))) return null;
+  if (all.some((value) => !/^\d+$/.test(value))) return null;
   const [salePaid, oldDebtPaid, cashPaid, transferPaid] = all.map(Number);
   if ([salePaid, oldDebtPaid, cashPaid, transferPaid].some((n) =>
     !Number.isSafeInteger(n) || n < 0 || n > 2147483647
