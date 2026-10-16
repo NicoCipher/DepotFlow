@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   isSaleSessionExpired,
   saleReviewMissingUserResponse,
+  saleReviewOwnerAccessResponse,
   saleSessionExpiredMessage,
   safeCaughtSaleErrorMessage,
   safeDatabaseSaleErrorMessage,
@@ -111,4 +112,28 @@ test("review endpoint still requires sign-in when session really expired", () =>
     assert.equal(result.status, 401);
     assert.match(result.error, /Sign in again/);
   }
+});
+
+test("owner RPC transient error is retryable, not an access revocation", () => {
+  for (const ownerError of [
+    { code: "PGRST000", message: "temporary connection failure" },
+    { status: 503, message: "Service unavailable" },
+    { status: 502, message: "Bad gateway" },
+    { code: "57014", message: "statement timeout" },
+  ]) {
+    const result = saleReviewOwnerAccessResponse(ownerError);
+    assert.deepEqual(result, {
+      error: "Couldn’t connect. Your sale is still here. Try again.",
+      code: "network_error",
+      status: 503,
+    });
+  }
+});
+
+test("authenticated but definitively non-owner still cannot review sales", () => {
+  assert.deepEqual(saleReviewOwnerAccessResponse(null), {
+    error: "Shop owner access is required.",
+    code: "access_denied",
+    status: 403,
+  });
 });
