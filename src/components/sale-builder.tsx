@@ -1967,7 +1967,10 @@ export function SaleBuilder({
 
                   let response: Awaited<ReturnType<typeof saveSale>>;
                   try {
-                    response = saveUncertain && draft.paymentMode === "split" && !splitEnabled
+                    // Never re-run a split financial write while its original
+                    // outcome is uncertain, even if the feature flag is still on.
+                    // Reconcile the saved request under its advisory lock.
+                    response = saveUncertain && draft.paymentMode === "split"
                       ? await recoverSplitSale(requestId, draft)
                       : await saveSale(requestId, draft);
                   } catch {
