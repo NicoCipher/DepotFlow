@@ -26,8 +26,16 @@ begin
  where n.nspname in ('private','public') and p.prosecdef
  and pg_get_functiondef(p.oid) like '%private.shop_owner%'
  and pg_get_functiondef(p.oid) not like '%private.verified_legacy_owner_read()%'
- and not (n.nspname='private' and p.proname='record_product_selling_price'
-          and p.prorettype='trigger'::regtype);
+ and not (n.nspname='private' and (
+      (p.proname='record_product_selling_price'
+       and p.prorettype='trigger'::regtype)
+   or (p.proname='scope_legacy_operational_write'
+       and p.prorettype='trigger'::regtype
+       and pg_get_functiondef(p.oid) like '%private.business_memberships%')
+   or (p.proname='verified_legacy_owner_read'
+       and p.prorettype='boolean'::regtype
+       and pg_get_functiondef(p.oid) like '%private.business_memberships%')
+  ));
  if v_uncertain<>0 then
    raise exception 'Unprotected privileged singleton API count: %',v_uncertain;
  end if;
