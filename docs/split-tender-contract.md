@@ -25,3 +25,15 @@ Current production migrations have different version numbers from the repository
 ## Domain invariants
 
 `allocateSplitTender` and `validateTenderLegs` in `src/domain/sale-tenders.ts` are the single testable allocation contract. They are pure calculations, **not** permission to save. All totals must be recomputed and validated in the database with integer arithmetic and authenticated ownership checks.
+
+## Default-off rollout switch
+
+Both checkout UI and server save require `NEXT_PUBLIC_SPLIT_TENDER_ENABLED=true`.
+The default is disabled: a production deployment with no flag continues using
+the existing one-method saver, and client fields cannot bypass the server gate.
+
+Do not enable before the reviewed ledger schema, atomic saver, owner/public
+receipt and PNG integration, migration history reconciliation and trial checkout.
+Older drafts default to one-method payment; changing customer clears allocations.
+A split draft left behind when the flag is off must be explicitly converted to
+one method instead of silently remapping the money.

@@ -1,6 +1,8 @@
 "use server";
 
 import { validSaleReviewCustomerId } from "@/domain/sale-review-customer";
+import { allocateSplitTender } from "@/domain/sale-tenders";
+import { readAccountReceipt } from "@/domain/account-receipt";
 
 import { ownerSession, requireOwner } from "@/lib/auth/owner";
 import {
@@ -218,11 +220,27 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
   )
     return { error: "Check the sale date and amount paid." };
 
-  if (
+  const splitEnabled = process.env.NEXT_PUBLIC_SPLIT_TENDER_ENABLED === "true";
+  let splitLegs: ReturnType<typeof allocateSplitTender> | null = null;
+  if (draft.paymentMode === "split") {
+    if (!splitEnabled)
+      // A stale open tab may still believe the flag is on after rollback.
+      // Reconcile the original ID without retrying its financial write.
+      return recoverSplitSale(requestId, draft);
+    try {
+      splitLegs = allocateSplitTender(Number(draft.paid), Number(draft.oldDebtPaid), {
+        cash: draft.splitCash, transfer: draft.splitTransfer,
+        ...(draft.splitCashToSale ? { cashToSale: draft.splitCashToSale } : {}),
+      });
+    } catch (cause) {
+      return { error: cause instanceof Error ? cause.message : "Check Cash and Transfer amounts." };
+    }
+  } else if (
     (Number(draft.paid) > 0 || Number(draft.oldDebtPaid) > 0) &&
     !["cash", "transfer", "pos"].includes(draft.paymentMethod)
-  )
+  ) {
     return { error: "Choose how the customer paid." };
+  }
   let rpcStarted = false;
   try {
     const fresh = await loadCatalog(supabase);
@@ -278,18 +296,30 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
     });
 
     rpcStarted = true;
-    const { data, error } = await supabase.rpc("save_sale_with_old_debt_payment", {
-      p_request_id: requestId,
-      p_customer_id: draft.customerId,
-      p_business_date: draft.businessDate,
-      p_paid: Number(draft.paid),
-      p_payment_method:
-        Number(draft.paid) > 0 || Number(draft.oldDebtPaid) > 0 ? draft.paymentMethod : "not_recorded",
-      p_old_debt_paid: Number(draft.oldDebtPaid),
-      p_lines: lines,
-      p_returned_crates: actual.crates,
-      p_returned_bottles: actual.bottles,
-    });
+    const { data, error } = splitLegs
+      ? await supabase.rpc("save_sale_split_tender", {
+          p_request_id: requestId,
+          p_customer_id: draft.customerId,
+          p_business_date: draft.businessDate,
+          p_paid: Number(draft.paid),
+          p_old_debt_paid: Number(draft.oldDebtPaid),
+          p_tenders: splitLegs,
+          p_lines: lines,
+          p_returned_crates: actual.crates,
+          p_returned_bottles: actual.bottles,
+        })
+      : await supabase.rpc("save_sale_with_old_debt_payment", {
+          p_request_id: requestId,
+          p_customer_id: draft.customerId,
+          p_business_date: draft.businessDate,
+          p_paid: Number(draft.paid),
+          p_payment_method:
+            Number(draft.paid) > 0 || Number(draft.oldDebtPaid) > 0 ? draft.paymentMethod : "not_recorded",
+          p_old_debt_paid: Number(draft.oldDebtPaid),
+          p_lines: lines,
+          p_returned_crates: actual.crates,
+          p_returned_bottles: actual.bottles,
+        });
 
     if (error) {
       if (
@@ -356,5 +386,86 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
         ? { code: "server_error" as const }
         : {}),
     };
+  }
+}
+
+
+/**
+ * Fenced status reconciliation when split payments are rolled back.
+ * NEVER retries the original financial write. A confirmed absent request ID is
+ * fenced against late commits before its device draft is unlocked.
+ */
+export async function recoverSplitSale(requestId: string, draft: SaleDraft) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId))
+    return { error: saleSaveUncertainMessage, code: "save_uncertain" as const };
+  const session = await ownerSession();
+  if (!session.user) {
+    if (isSaleSessionExpired(false, session.authError))
+      return { error: saleSessionExpiredMessage, code: "session_expired" as const };
+    return { error: saleSaveUncertainMessage, code: "save_uncertain" as const };
+  }
+  if (!session.allowed)
+    return { error: saleSaveUncertainMessage, code: "save_uncertain" as const };
+  try {
+    const supabase = session.supabase;
+    // This RPC takes the original save lock, fencing an absent request. A
+    // plain maybeSingle() cannot prove absence while a save is still running.
+    const { data: check, error: checkError } = await supabase.rpc(
+      "check_split_sale_request", { p_request_id: requestId },
+    );
+    if (checkError || !check || typeof check !== "object" ||
+        !("state" in check))
+      return { error: saleSaveUncertainMessage, code: "save_uncertain" as const };
+    if (check.state === "absent") return {
+      error: "This sale was not saved. Your unfinished sale is still here. Choose one payment method to continue.",
+      code: "sale_not_saved" as const,
+    };
+    if (check.state !== "saved")
+      return { error: saleSaveUncertainMessage, code: "save_uncertain" as const };
+
+    const { data: sale, error } = await supabase.from("sales")
+      .select("id,customer_id,business_date,total_amount,paid_amount,payment_method,receipt_customer_name,split_request_hash,account_receipt")
+      .eq("request_id", requestId).maybeSingle();
+    if (error || !sale || sale.payment_method !== "mixed" ||
+        !sale.split_request_hash || sale.customer_id !== draft.customerId ||
+        sale.business_date !== draft.businessDate ||
+        sale.paid_amount !== Number(draft.paid))
+      return { error: saleSaveUncertainMessage, code: "save_uncertain" as const };
+    const account = readAccountReceipt(sale.account_receipt);
+    if (!account || account.paidOld !== Number(draft.oldDebtPaid))
+      return { error: saleSaveUncertainMessage, code: "save_uncertain" as const };
+    const expected = allocateSplitTender(Number(draft.paid), Number(draft.oldDebtPaid), {
+      cash: draft.splitCash, transfer: draft.splitTransfer,
+      ...(draft.splitCashToSale ? { cashToSale: draft.splitCashToSale } : {}),
+    });
+    const { data: legs, error: legsError } = await supabase.from("sale_tender_legs")
+      .select("method,sale_amount,old_debt_amount").eq("sale_id", sale.id);
+    if (legsError || legs?.length !== 2 ||
+        expected.some((leg) => !legs.some((actual) =>
+          actual.method === leg.method && actual.sale_amount === leg.saleAmount &&
+          actual.old_debt_amount === leg.oldDebtAmount)))
+      return { error: saleSaveUncertainMessage, code: "save_uncertain" as const };
+    let debtPayment: { id: string; request_id: string } | null = null;
+    if (account.paidOld > 0) {
+      if (!account.debtPaymentReference)
+        return { error: saleSaveUncertainMessage, code: "save_uncertain" as const };
+      const debt = await supabase.from("customer_payments").select("id,request_id")
+        .eq("receipt_number", account.debtPaymentReference).eq("customer_id", sale.customer_id).maybeSingle();
+      if (debt.error || !debt.data)
+        return { error: saleSaveUncertainMessage, code: "save_uncertain" as const };
+      debtPayment = debt.data;
+    }
+    return { result: {
+      id: sale.id, total: sale.total_amount, paid: sale.paid_amount,
+      owing: sale.total_amount - sale.paid_amount,
+      customer: sale.customer_id,
+      oldDebtPaid: account.paidOld,
+      oldDebtPaymentId: debtPayment?.id ?? null,
+      oldDebtReceiptRequestId: debtPayment?.request_id ?? null,
+      balanceAfter: account.cd,
+    } };
+  } catch {
+    // Missing rows, connection failures or errors cannot establish non-save.
+    return { error: saleSaveUncertainMessage, code: "save_uncertain" as const };
   }
 }

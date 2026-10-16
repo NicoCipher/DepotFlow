@@ -1,4 +1,5 @@
 import { formatNaira } from "./products.ts";
+import { allocateSplitTender } from "./sale-tenders.ts";
 
 export type SalePaymentTotals = {
   oldDebtRemaining: number;
@@ -54,7 +55,7 @@ export function needsClearHiddenOldDebtPayment(oldDebtPaid: string): boolean {
  */
 export type PaymentReviewIssue = {
   message: string;
-  target: "sale-paid" | "sale-old-debt-paid" | "sale-previous-debt" | "sale-method";
+  target: "sale-paid" | "sale-old-debt-paid" | "sale-previous-debt" | "sale-method" | "sale-split-payment";
 };
 export function paymentReviewIssue(input: {
   saleTotal: number | undefined;
@@ -68,6 +69,12 @@ export function paymentReviewIssue(input: {
   debtErrorMessage: string;
   breakdown: SalePaymentTotals | null;
   paymentMethod: string;
+  salePaid?: string;
+  paymentMode?: "single" | "split";
+  splitCash?: string;
+  splitTransfer?: string;
+  splitCashToSale?: string;
+  splitEnabled?: boolean;
 }): PaymentReviewIssue | null {
   if (input.saleTotal === undefined)
     return { message: "Check the drinks and amounts before reviewing this sale.", target: "sale-paid" };
@@ -90,6 +97,22 @@ export function paymentReviewIssue(input: {
     };
   if (!input.breakdown)
     return { message: "Check today's payment and previous-debt amounts.", target: "sale-previous-debt" };
+  if (input.paymentMode === "split") {
+    if (!input.splitEnabled)
+      return { message: "Split payment is not available yet. Choose one method.", target: "sale-method" };
+    try {
+      allocateSplitTender(Number(input.salePaid ?? "0"), Number(input.oldDebtPaid), {
+        cash: input.splitCash ?? "0", transfer: input.splitTransfer ?? "0",
+        ...(input.splitCashToSale ? { cashToSale: input.splitCashToSale } : {}),
+      });
+      return null;
+    } catch (error) {
+      return {
+        message: error instanceof Error ? error.message : "Check Cash and Transfer amounts.",
+        target: "sale-split-payment",
+      };
+    }
+  }
   if (input.breakdown.collectNow > 0 && !["cash", "transfer", "pos"].includes(input.paymentMethod))
     return {
       message: `Choose how the customer is paying ${formatNaira(input.breakdown.collectNow)}: Cash, Transfer or POS.`,

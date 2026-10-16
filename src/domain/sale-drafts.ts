@@ -41,6 +41,32 @@ export function replaceActiveSaleId(
     active: { ...state.active, id: requestId },
   };
 }
+/**
+ * The database has fenced this exact failed split request ID: no later writer
+ * can commit it. Rotate identity atomically before unlocking the draft, so
+ * an operator can safely switch to single method without reusing that ID.
+ */
+export function recoverConfirmedUnsavedSplit(
+  state: SaleDrafts,
+  expectedId: string,
+  newId: string,
+): SaleDrafts {
+  if (state.active?.id !== expectedId || state.active.saveUncertain !== true)
+    throw new Error("The active sale changed. Check Sale again before editing.");
+  if (!isSaleRequestId(expectedId) || !isSaleRequestId(newId) ||
+      newId === expectedId || state.paused.some((entry) => entry.id === newId))
+    throw new Error("Could not prepare a new sale request ID.");
+  return {
+    ...state,
+    active: {
+      ...state.active,
+      id: newId,
+      saveUncertain: false,
+      draft: { ...state.active.draft, step: "payment" },
+    },
+  };
+}
+
 export function setActiveSaleSaveUncertain(
   state: SaleDrafts,
   expectedId: string,
@@ -105,6 +131,10 @@ function cleanDraft(draft: SaleDraft): SaleDraft {
   return {
     ...draft,
     oldDebtPaid: typeof draft.oldDebtPaid === "string" ? draft.oldDebtPaid : "0",
+    paymentMode: draft.paymentMode === "split" ? "split" : "single",
+    splitCash: typeof draft.splitCash === "string" ? draft.splitCash : "0",
+    splitTransfer: typeof draft.splitTransfer === "string" ? draft.splitTransfer : "0",
+    splitCashToSale: typeof draft.splitCashToSale === "string" ? draft.splitCashToSale : "",
     customerQuery: "",
   };
 }

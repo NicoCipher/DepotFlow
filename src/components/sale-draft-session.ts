@@ -18,6 +18,7 @@ import {
   isSaleRequestId,
   replaceActiveSaleId,
   setActiveSaleSaveUncertain,
+  recoverConfirmedUnsavedSplit,
   type SaleDrafts,
 } from "@/domain/sale-drafts";
 const eventName = "depotflow-sale-drafts";
@@ -118,6 +119,10 @@ export function useSaleDrafts(ownerId: string) {
     cancel: (id: string) => mutate((current) => cancelSale(current, id)),
     complete: (id: string) => mutate((current) => completeSale(current, id)),
     ensureRequestId,
+    restartAfterConfirmedNonSave: async (expectedId: string) => {
+      const newId = crypto.randomUUID();
+      return mutate((current) => recoverConfirmedUnsavedSplit(current, expectedId, newId));
+    },
     setSaveUncertain: (expectedId: string, value: boolean) =>
       mutate((current) =>
         setActiveSaleSaveUncertain(current, expectedId, value),

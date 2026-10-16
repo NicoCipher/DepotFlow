@@ -467,3 +467,36 @@ test("payment never says choose a customer when an actual customer is selected",
   assert.equal(currentSaleFeedback("Sign in again to check the customer's balance.", selectedCustomerId),
     "Sign in again to check the customer's balance.");
 });
+
+test("split tender amounts invalidate a previously confirmed Review", () => {
+  const base = { ...emptySaleDraft, paymentMode: "split" as const,
+    paymentMethod: "mixed", paid: "1700", splitCash: "700", splitTransfer: "1000" };
+  const key = saleSaveConfirmationKey(base, 0, 1700);
+  assert.notEqual(key, saleSaveConfirmationKey({ ...base, splitCash: "800" }, 0, 1700));
+  assert.notEqual(key, saleSaveConfirmationKey({ ...base, splitTransfer: "900" }, 0, 1700));
+  assert.notEqual(key, saleSaveConfirmationKey({ ...base, splitCashToSale: "100" }, 0, 1700));
+  assert.notEqual(key, saleSaveConfirmationKey({ ...base, paymentMode: "single" }, 0, 1700));
+});
+test("legacy drafts safely default to one method and changing customers clears split money", () => {
+  const legacy = { ...emptySaleDraft, step: "customer" as const };
+  const raw = { ...legacy } as Record<string, unknown>;
+  delete raw.paymentMode;
+  delete raw.splitCash;
+  delete raw.splitTransfer;
+  delete raw.splitCashToSale;
+  const restored = readSaleDraft(JSON.stringify(raw));
+  assert.equal(restored.paymentMode, "single");
+  assert.equal(restored.splitCash, "0");
+  assert.equal(restored.splitTransfer, "0");
+  const modified = {
+    ...emptySaleDraft, customerId: "old",
+    paymentMode: "split" as const, paymentMethod: "mixed",
+    splitCash: "700", splitTransfer: "1000", splitCashToSale: "100",
+  };
+  const reset = changeSaleCustomer(modified, "new");
+  assert.equal(reset.paymentMode, "single");
+  assert.equal(reset.paymentMethod, "");
+  assert.equal(reset.splitCash, "0");
+  assert.equal(reset.splitTransfer, "0");
+  assert.equal(reset.splitCashToSale, "");
+});
