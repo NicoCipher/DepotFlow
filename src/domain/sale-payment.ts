@@ -169,8 +169,7 @@ export function showPaymentMethodControls(input: {
   oldDebtPaid: string;
 }): boolean {
   return input.splitEnabled || input.paymentMode === "split" ||
-    Number(input.salePaid) > 0 || Number(input.oldDebtPaid) > 0 ||
-    (!/^\\d+$/.test(input.salePaid) || !/^\\d+$/.test(input.oldDebtPaid));
+    Number(input.salePaid) > 0 || Number(input.oldDebtPaid) > 0;
 }
 
 export function debtPaymentInputError(input: string, currentDebt: number | null): string | null {
