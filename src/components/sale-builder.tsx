@@ -466,15 +466,6 @@ export function SaleBuilder({
       return null;
     }
   })();
-  const splitShortfall = splitEnabled && draft.paymentMode === "split" ? splitTenderShortfallChoices({
-    saleTotal: total,
-    salePaid: draft.paid,
-    oldDebt: oldDebtAmount,
-    oldDebtPaid: draft.oldDebtPaid,
-    cash: draft.splitCash,
-    transfer: draft.splitTransfer,
-    cashToSale: draft.splitCashToSale,
-  }) : null;
   const paymentIssue = paymentReviewIssue({
     saleTotal: total,
     paymentInputError,
@@ -1611,46 +1602,50 @@ export function SaleBuilder({
                           onChange={(e) => updateSplitTender("splitTransfer", e.target.value)} />
                       </div>
                     </div>
-                    <div className="rounded-lg bg-stone-50 p-3 text-sm" aria-live="polite">
+                    <div className="rounded-lg bg-emerald-50 p-3 text-sm" aria-live="polite">
                       <div className="flex items-center justify-between gap-3">
-                        <span>Expected collection</span>
-                        <strong>{paymentBreakdown ? formatNaira(paymentBreakdown.collectNow) : "Check amounts"}</strong>
+                        <span className="font-semibold text-emerald-950">Total received</span>
+                        <strong className="text-lg tabular-nums text-emerald-950">
+                          {splitEntry?.received === null || splitEntry?.received === undefined
+                            ? "Check amounts" : formatNaira(splitEntry.received)}
+                        </strong>
                       </div>
-                      <div className="mt-2 flex items-center justify-between gap-3">
-                        <span>Entered across both methods</span>
-                        <strong>{/^\d+$/.test(draft.splitCash) && /^\d+$/.test(draft.splitTransfer)
-                          ? formatNaira(Number(draft.splitCash) + Number(draft.splitTransfer)) : "Check amounts"}</strong>
-                      </div>
+                      {!splitEntry?.issue && !splitEntryNeedsSync && paymentBreakdown && (
+                        <>
+                          <div className="mt-2 flex items-center justify-between gap-3">
+                            <span>For today's sale</span>
+                            <strong>{formatNaira(Number(draft.paid))}</strong>
+                          </div>
+                          <div className="mt-2 flex items-center justify-between gap-3">
+                            <span>Still unpaid today</span>
+                            <strong>{formatNaira(paymentBreakdown.saleRemaining)}</strong>
+                          </div>
+                          {Number(draft.oldDebtPaid) > 0 && (
+                            <div className="mt-2 flex items-center justify-between gap-3">
+                              <span>For previous debt</span>
+                              <strong>{formatNaira(Number(draft.oldDebtPaid))}</strong>
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
-                    {splitShortfall && (
-                      <div aria-label="Fix short split payment" className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm">
-                        <p className="font-semibold text-stone-950">
-                          {formatNaira(splitShortfall.shortfall)} less than planned.
-                        </p>
-                        <p className="mt-1 leading-5 text-stone-700">
-                          If the customer paid only {formatNaira(splitShortfall.received)}, record that amount instead. Choose which balance stays unpaid:
-                        </p>
-                        <div className="mt-3 grid gap-2">
-                          {splitShortfall.choices.map((choice) => (
-                            <button
-                              type="button"
-                              key={choice.appliesTo}
-                              className="secondary min-h-12 w-full text-left text-sm"
-                              onClick={() => update({
-                                paid: String(choice.salePaid),
-                                oldDebtPaid: String(choice.oldDebtPaid),
-                              })}
-                            >
-                              {choice.appliesTo === "sale"
-                                ? `Use ${formatNaira(splitShortfall.received)} · Today's sale unpaid: ${formatNaira(choice.saleUnpaid)}`
-                                : `Use ${formatNaira(splitShortfall.received)} · Previous debt left: ${formatNaira(choice.oldDebtLeft ?? 0)}`}
-                            </button>
-                          ))}
-                        </div>
-                        <p className="mt-2 text-xs leading-5 text-stone-600">
-                          Nothing changes until you choose. Or edit Cash and Transfer above if the customer paid more.
-                        </p>
-                      </div>
+                    {splitEntry?.issue && (
+                      <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm font-medium text-amber-950">
+                        {splitEntry.issue}
+                      </p>
+                    )}
+                    {splitEntry && splitEntry.extraForOldDebt > 0 && oldDebtAmount !== null &&
+                      Number(draft.oldDebtPaid) + splitEntry.extraForOldDebt <= oldDebtAmount && (
+                      <button type="button" className="secondary w-full min-h-12"
+                        onClick={() => updateSplitOldDebt(String(Number(draft.oldDebtPaid) + splitEntry.extraForOldDebt))}>
+                        Apply extra {formatNaira(splitEntry.extraForOldDebt)} toward previous debt
+                      </button>
+                    )}
+                    {splitEntryNeedsSync && splitEntry?.salePaid !== null && (
+                      <button type="button" className="secondary w-full min-h-12"
+                        onClick={() => update({ paid: String(splitEntry.salePaid) })}>
+                        Use received total in this resumed sale
+                      </button>
                     )}
                     {Number(draft.oldDebtPaid) === 0 && draft.splitCashToSale !== "" && (
                       <button type="button" className="secondary w-full"
