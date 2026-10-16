@@ -41,3 +41,37 @@ export function debtPaymentInputError(input: string, currentDebt: number | null)
     return `Previous debt is ${formatNaira(currentDebt)}. Enter that amount or less.`;
   return null;
 }
+
+/** Tell the operator why Review cannot proceed, in the order to fix it.
+ * Never disable Review silently: its action can reveal and focus this issue.
+ */
+export type PaymentReviewIssue = {
+  message: string;
+  target: "sale-paid" | "sale-old-debt-paid" | "sale-previous-debt" | "sale-method";
+};
+export function paymentReviewIssue(input: {
+  saleTotal: number | undefined;
+  paymentInputError: string;
+  oldDebtInputError: string | null;
+  debtChecking: boolean;
+  debtErrorMessage: string;
+  breakdown: SalePaymentTotals | null;
+  paymentMethod: string;
+}): PaymentReviewIssue | null {
+  if (input.saleTotal === undefined)
+    return { message: "Check the drinks and amounts before reviewing this sale.", target: "sale-paid" };
+  if (input.paymentInputError)
+    return { message: input.paymentInputError, target: "sale-paid" };
+  if (input.oldDebtInputError)
+    return { message: input.oldDebtInputError, target: "sale-old-debt-paid" };
+  if (input.debtErrorMessage)
+    return { message: "The previous balance needs checking. Use Try again above.", target: "sale-previous-debt" };
+  if (input.debtChecking || !input.breakdown)
+    return { message: "Checking the customer’s previous balance. Please wait or use Try again.", target: "sale-previous-debt" };
+  if (input.breakdown.collectNow > 0 && !["cash", "transfer", "pos"].includes(input.paymentMethod))
+    return {
+      message: `Choose how the customer is paying ${formatNaira(input.breakdown.collectNow)}: Cash, Transfer or POS.`,
+      target: "sale-method",
+    };
+  return null;
+}
