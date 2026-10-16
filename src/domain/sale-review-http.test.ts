@@ -26,6 +26,16 @@ test("review presents authentication failure as an explicit session expiry", asy
   assert.deepEqual(result, { error: "Sign in again.", code: "session_expired" });
 });
 
+test("temporary auth outage remains retryable and never becomes a sign-in prompt", async () => {
+  const failure = await requestSaleReview(id, undefined,
+    mock({ error: "Couldn’t connect. Your sale is still here. Try again.", code: "network_error" }, 503));
+  assert.equal("code" in failure && failure.code, "network_error");
+  assert.match("error" in failure ? failure.error : "", /Try again/);
+  const retry = await requestSaleReview(id, undefined,
+    mock({ amount: 0, catalog: { products: [], customers: [] } }));
+  assert.ok("catalog" in retry);
+});
+
 test("review accepts actionable prior-balance failure without silently advancing", async () => {
   const result = await requestSaleReview(id, undefined,
     mock({ error: "Could not verify this customer's balance.", code: "debt_unavailable" }, 503));
