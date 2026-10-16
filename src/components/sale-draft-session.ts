@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
+import { withBoundedSaleDraftLock } from "@/domain/sale-draft-lock";
 import {
   emptySaleDraft,
   readSaleDraft,
@@ -69,13 +70,14 @@ export function useSaleDrafts(ownerId: string) {
         }
         window.dispatchEvent(new Event(eventName));
       };
-      if (navigator.locks) await navigator.locks.request(key, write);
+      if (navigator.locks) await withBoundedSaleDraftLock(navigator.locks, key, write);
       else write();
       setError("");
       return true;
     } catch (cause) {
       setError(
-        cause instanceof Error && cause.message.startsWith("The active")
+        cause instanceof Error &&
+        (cause.message.startsWith("The active") || cause.message.startsWith("The sale draft is busy"))
           ? cause.message
           : "Could not update the draft on this device. Keep this page open and try again.",
       );
