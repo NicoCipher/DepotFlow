@@ -1980,6 +1980,21 @@ export function SaleBuilder({
                       setMessage(response.error);
                       return;
                     }
+                    if (response.code === "sale_not_saved") {
+                      // The database fenced the original ID against late
+                      // writes. Rotate the draft ID before unlocking it.
+                      // Never unlock the old request, even if device storage
+                      // cannot be updated right now.
+                      if (!(await sales.restartAfterConfirmedNonSave(requestId))) {
+                        setMessage(sales.error ||
+                          "This sale was not saved, but the draft could not be unlocked. Keep it open and tap Check Sale again.");
+                        return;
+                      }
+                      setConfirmedSaveKey(null);
+                      setVerifiedId(null);
+                      setMessage(response.error);
+                      return;
+                    }
 
                     // These responses are definitive: the sale did not commit.
                     await sales.setSaveUncertain(requestId, false);
