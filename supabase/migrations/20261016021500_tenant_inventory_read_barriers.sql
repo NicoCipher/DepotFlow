@@ -21,6 +21,35 @@ revoke all on function private.can_read_tenant_inventory(uuid)
 grant execute on function private.can_read_tenant_inventory(uuid)
   to authenticated;
 
+-- The master catalogue contains only global identity, manufacturer
+-- and image_path (NO business cost/sale price). Active new shop owners
+-- must be able to browse it before configuring their own assortment.
+-- Do not grant them master catalogue UPDATE, including image_path changes.
+create function private.can_read_shared_product_catalogue()
+returns boolean
+language sql stable security definer set search_path=''
+as $
+  select private.verified_legacy_owner_read()
+    or (
+      exists(select 1 from private.legacy_write_scope_gate where enabled is true)
+      and auth.uid() is not null
+      and exists(
+        select 1 from private.business_memberships m
+        join private.businesses b on b.id=m.business_id
+        where m.user_id=auth.uid()
+          and m.member_kind='owner' and m.status='active'
+          and b.legacy_singleton is null
+          and b.status in ('setup','active')
+      )
+    );
+$;
+revoke all on function private.can_read_shared_product_catalogue()
+  from public,anon,authenticated,service_role;
+grant execute on function private.can_read_shared_product_catalogue()
+  to authenticated;
+alter policy owner_read on public.product_catalogue
+  using (private.can_read_shared_product_catalogue());
+
 -- Products carry shop-specific prices, display state, catalogue reference,
 -- and branded crate type; product_catalogue remains global read-only master.
 -- Stock and stock movements follow the same exact business ownership.
