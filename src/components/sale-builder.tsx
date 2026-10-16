@@ -1567,12 +1567,6 @@ export function SaleBuilder({
                 <h2 className="font-bold text-stone-950">Today&apos;s sale</h2>
                 <strong className="text-2xl font-bold tabular-nums text-emerald-950">{total === undefined ? "Check drinks" : formatNaira(total)}</strong>
               </div>
-              {draft.paymentMode === "split" && splitEnabled ? (
-                <p className="text-sm leading-6 text-stone-700">
-                  Enter the Cash and Transfer received below. DepotFlow works out today&apos;s paid and unpaid amounts automatically.
-                </p>
-              ) : (
-                <>
                   <label htmlFor="sale-paid">Paying toward today&apos;s sale (₦)</label>
                   <div className="grid grid-cols-2 gap-2" role="group" aria-label="Quick payment for today&apos;s sale">
                     <button type="button" className="secondary w-full" aria-pressed={total !== undefined && draft.paid === String(total)} disabled={total === undefined}
@@ -1594,8 +1588,6 @@ export function SaleBuilder({
                     onChange={(e) => update({ paid: e.target.value })}
                   />
                   {paymentInputError && <p id="sale-paid-error" role="alert" className="text-sm text-red-800">{paymentInputError}</p>}
-                </>
-              )}
             </section>
             )}
             {(oldDebtAmount !== 0 || needsClearHiddenOldDebtPayment(draft.oldDebtPaid)) && (
