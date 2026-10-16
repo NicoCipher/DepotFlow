@@ -136,6 +136,38 @@ export function hasUnmatchedSaleEmpties(result: EmptiesMatchResult) {
   return Object.values(result.unmatchedCrates).some(quantity => quantity > 0) || Object.values(result.unmatchedBottles).some(quantity => quantity > 0);
 }
 
+/**
+ * Physically returned extras cannot be attached to an obligation from this sale
+ * when no such obligation exists. Explicitly remove only the unmatched portion
+ * from this sale's physical-return counts; the operator must record it separately.
+ * Matched exact returns, assigned replacement decisions, and current debt stay
+ * unchanged. Never silently discard an extra on a change of step.
+ */
+export function leaveUnrelatedEmptiesOutOfSale(
+  draft: SaleDraft,
+  result: EmptiesMatchResult,
+  kind: "crate" | "bottle",
+  returnedType: string,
+): EmptiesV2State {
+  const state = draft.emptiesV2;
+  if (state.mode !== "actual") throw new Error("Check the returned empties.");
+  const isCrate = kind === "crate";
+  const unmatched = isCrate ? result.unmatchedCrates : result.unmatchedBottles;
+  const count = unmatched[returnedType] ?? 0;
+  if (!Number.isSafeInteger(count) || count <= 0)
+    throw new Error("There are no extra empties of this type to separate.");
+  const existing = isCrate ? state.returnedCrates : state.returnedBottles;
+  const raw = existing[returnedType];
+  const parsed = parseWholeNumberInput(raw ?? "");
+  if (!parsed.ok || parsed.value < count)
+    throw new Error("Check the returned empties count.");
+  const nextCounts = { ...existing, [returnedType]: String(parsed.value - count) };
+  return {
+    ...state,
+    ...(isCrate ? { returnedCrates: nextCounts } : { returnedBottles: nextCounts }),
+  };
+}
+
 export function assertSaleEmptiesResolved(result: EmptiesMatchResult) {
   if (hasUnmatchedSaleEmpties(result)) throw new Error("Choose Accept or Hold for the different empties before saving.");
 }
