@@ -209,9 +209,19 @@ export function SaleBuilder({
     if (next === "split")
       update({ paymentMode: "split", paymentMethod: "mixed", paid: "0",
         oldDebtPaid: "0", splitCash: "0", splitTransfer: "0", splitCashToSale: "" });
-    else
+    else {
+      // Never carry a stale planned paid amount out of a resumed split draft.
+      // Invalid received amounts are explicitly discarded, not silently
+      // recorded as a valid one-method payment.
+      const entry = splitPaymentFromReceived({
+        saleTotal: total, oldDebt: oldDebtAmount, oldDebtPaid: draft.oldDebtPaid,
+        cash: draft.splitCash, transfer: draft.splitTransfer,
+      });
       update({ paymentMode: "single", paymentMethod: "",
+        paid: entry.issue === null ? String(entry.salePaid) : "0",
+        oldDebtPaid: entry.issue === null ? String(entry.oldDebtPaid) : "0",
         splitCash: "0", splitTransfer: "0", splitCashToSale: "" });
+    }
   }
   // Keep entered money and sale-paid ledger fields in one atomic draft patch.
   // An invalid/incomplete input stays editable, but never creates a new paid amount.
@@ -1469,7 +1479,7 @@ export function SaleBuilder({
                     <p className="text-stone-700">
                       {requestedPaymentMode === "split"
                         ? "Your previous planned payment will be reset. Enter the actual Cash and Transfer received next."
-                        : "The Cash and Transfer breakdown will be cleared. The paid amount stays, but you must choose its single payment method."}
+                        : "The split breakdown will be cleared. Valid received amounts stay as a one-method payment. Invalid amounts are reset to zero so they cannot be recorded by mistake."}
                     </p>
                     <div className="grid grid-cols-2 gap-2">
                       <button type="button" className="secondary min-h-12" onClick={() => setRequestedPaymentMode(null)}>Keep current</button>
