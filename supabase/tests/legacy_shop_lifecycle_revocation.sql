@@ -69,6 +69,37 @@ end;
 $validate$;
 select private.enable_legacy_write_scope(private.legacy_scope_snapshot());
 
+-- A second business has a genuinely separate product with a known active
+-- state. Only the test administrator seeds it while all new-business
+-- inventory writes remain closed; triggers are promptly re-enabled.
+insert into private.businesses(id,status) values
+ ('89400000-0000-4000-9000-000000000031','active');
+insert into private.business_memberships(
+ business_id,user_id,status,member_kind
+) values (
+ '89400000-0000-4000-9000-000000000031',
+ '89400000-0000-4000-8000-000000000002',
+ 'active','owner'
+);
+alter table public.crate_types disable trigger legacy_scope_business_write;
+alter table public.products disable trigger legacy_scope_business_write;
+insert into public.crate_types(id,name,empty_family,pocket_count,business_id)
+values (
+ '89400000-0000-4000-9000-000000000032','Other business 12-pocket',
+ 'NB',12,'89400000-0000-4000-9000-000000000031'
+);
+insert into public.products(
+ id,name,bottles_per_crate,full_crate_price,bottles_returnable,crate_type_id,
+ business_id
+) values (
+ '89400000-0000-4000-9000-000000000033','Other business drink',
+ 12,14000,false,
+ '89400000-0000-4000-9000-000000000032',
+ '89400000-0000-4000-9000-000000000031'
+);
+alter table public.products enable trigger legacy_scope_business_write;
+alter table public.crate_types enable trigger legacy_scope_business_write;
+
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
  '89400000-0000-4000-8000-000000000001',true);
@@ -86,6 +117,30 @@ begin
  end if;
 end;
 $active_owner$;
+
+-- The original owner must receive the same not-found error for an unknown
+-- product and a foreign-business product, including idempotent same-state
+-- retries. Never disclose the foreign product's active state.
+do $foreign_product_not_found$
+declare v_id uuid; v_message text;
+begin
+ foreach v_id in array ARRAY[
+  '89400000-0000-4000-9000-000000000033'::uuid,
+  '89400000-0000-4000-9000-000000000099'::uuid
+ ] loop
+   begin
+     perform public.set_shop_drink_active(v_id,true,true);
+     raise exception 'Old owner probed foreign product active state'
+       using errcode='PT001';
+   exception when sqlstate 'P0002' then
+     get stacked diagnostics v_message=message_text;
+     if v_message<>'Drink no longer exists' then
+       raise exception 'Unexpected product probe response: %',v_message;
+     end if;
+   end;
+ end loop;
+end;
+$foreign_product_not_found$;
 reset role;
 
 update private.business_memberships set status='disabled'
