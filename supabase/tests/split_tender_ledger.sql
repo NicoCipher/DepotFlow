@@ -36,6 +36,8 @@ select pg_temp.assert_true((
   from public.sale_tender_legs
   where sale_id='30000000-0000-4000-8000-000000009501'
 ),'Cash + transfer sale leg totals incorrect');
+-- Subsequent setup also needs both legs present before deferred checks fire.
+set constraints all deferred;
 
 -- Combined sale and prior debt preserve exact method-level allocations.
 insert into public.customer_payments(
