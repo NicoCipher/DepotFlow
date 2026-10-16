@@ -1515,6 +1515,18 @@ export function SaleBuilder({
                           onChange={(e) => updateSplitTender("splitTransfer", e.target.value)} />
                       </div>
                     </div>
+                    {splitEntry && splitEntry.issue === null && splitEntry.received !== null &&
+                      ((Number(draft.splitCash) > 0 && Number(draft.splitTransfer) === 0) ||
+                       (Number(draft.splitTransfer) > 0 && Number(draft.splitCash) === 0)) && (
+                      <button type="button" className="secondary w-full min-h-12 text-sm"
+                        onClick={() => update({
+                          paymentMode: "single",
+                          paymentMethod: Number(draft.splitCash) > 0 ? "cash" : "transfer",
+                          splitCash: "0", splitTransfer: "0", splitCashToSale: "",
+                        })}>
+                        Only {Number(draft.splitCash) > 0 ? "Cash" : "Transfer"} received? Use one method
+                      </button>
+                    )}
                     <div className="rounded-lg bg-emerald-50 p-3 text-sm" aria-live="polite">
                       <div className="flex items-center justify-between gap-3">
                         <span className="font-semibold text-emerald-950">Total received</span>
