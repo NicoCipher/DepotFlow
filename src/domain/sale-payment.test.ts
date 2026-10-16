@@ -138,3 +138,33 @@ test("hidden old-debt input always provides recovery for invalid and stale draft
     breakdown: null, paymentMethod: "cash",
   })?.target, "sale-previous-debt");
 });
+
+test("cash plus transfer checkout shows actionable Review errors until tender totals match", () => {
+  const base = {
+    saleTotal: 1700, paymentInputError: "", oldDebtInputError: null,
+    oldDebtAmount: 0, oldDebtPaid: "0", debtChecking: false,
+    debtErrorMessage: "", breakdown: salePaymentTotals(1700, 1700, 0, 0),
+    paymentMethod: "mixed", paymentMode: "split" as const,
+    salePaid: "1700", splitCash: "700", splitTransfer: "1000",
+    splitCashToSale: "", splitEnabled: true,
+  };
+  assert.equal(paymentReviewIssue(base), null);
+  assert.equal(paymentReviewIssue({ ...base, splitEnabled: false })?.target, "sale-method");
+  assert.equal(paymentReviewIssue({ ...base, splitTransfer: "900" })?.target, "sale-split-payment");
+  assert.equal(paymentReviewIssue({ ...base, splitCash: "0" })?.target, "sale-split-payment");
+  assert.equal(paymentReviewIssue({ ...base, splitCash: "700.5" })?.target, "sale-split-payment");
+  assert.equal(paymentReviewIssue({ ...base, splitCashToSale: "701" })?.target, "sale-split-payment");
+  assert.equal(paymentReviewIssue({ ...base, salePaid: "0",
+    breakdown: salePaymentTotals(1700, 0, 0, 0), splitCash: "0", splitTransfer: "0" })?.target, "sale-split-payment");
+});
+test("customer old-debt split can send Cash to previous debt and Transfer to sale", () => {
+  const input = {
+    saleTotal: 1500, paymentInputError: "", oldDebtInputError: null,
+    oldDebtAmount: 500, oldDebtPaid: "500", debtChecking: false,
+    debtErrorMessage: "", breakdown: salePaymentTotals(1500, 1500, 500, 500),
+    paymentMethod: "mixed", paymentMode: "split" as const,
+    salePaid: "1500", splitCash: "500", splitTransfer: "1500",
+    splitCashToSale: "0", splitEnabled: true,
+  };
+  assert.equal(paymentReviewIssue(input), null);
+});
