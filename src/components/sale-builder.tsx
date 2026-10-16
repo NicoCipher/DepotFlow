@@ -1463,7 +1463,7 @@ export function SaleBuilder({
                   </div>
                 )}
                 {requestedPaymentMode && (
-                  <div role="alertdialog" aria-label="Confirm payment-method change"
+                  <div role="group" aria-label="Confirm payment-method change"
                     className="mt-3 space-y-3 rounded-lg border-2 border-amber-300 bg-amber-50 p-3 text-sm">
                     <p className="font-semibold text-stone-900">Change payment method?</p>
                     <p className="text-stone-700">
