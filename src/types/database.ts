@@ -797,6 +797,48 @@ export type Database = {
           },
         ]
       }
+      sale_tender_legs: {
+        Row: {
+          sale_id: string
+          method: string
+          sale_amount: number
+          old_debt_amount: number
+          old_debt_payment_id: string | null
+          created_at: string
+        }
+        Insert: {
+          sale_id: string
+          method: string
+          sale_amount: number
+          old_debt_amount: number
+          old_debt_payment_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          sale_id?: string
+          method?: string
+          sale_amount?: number
+          old_debt_amount?: number
+          old_debt_payment_id?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_tender_legs_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_tender_legs_old_debt_payment_id_fkey"
+            columns: ["old_debt_payment_id"]
+            isOneToOne: false
+            referencedRelation: "customer_payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales: {
         Row: {
           business_date: string | null
@@ -808,6 +850,7 @@ export type Database = {
           request_payload: Json | null
           total_amount: number
           payment_method: string
+          split_request_hash: string | null
           receipt_number: string
           verification_token: string
           receipt_business: Json | null
@@ -826,6 +869,7 @@ export type Database = {
           request_payload?: Json | null
           total_amount: number
           payment_method?: string
+          split_request_hash?: string | null
           receipt_number?: string
           verification_token?: string
           receipt_business?: Json | null
@@ -844,6 +888,7 @@ export type Database = {
           request_payload?: Json | null
           total_amount?: number
           payment_method?: string
+          split_request_hash?: string | null
           receipt_number?: string
           verification_token?: string
           receipt_business?: Json | null

@@ -61,6 +61,13 @@ do $$ declare v jsonb; begin
  perform pg_temp.ok((select payment_method='mixed' and
    split_request_hash is not null from public.sales where id=(v->>'id')::uuid),
    'Split sale method or fingerprint was not stored');
+ perform pg_temp.ok((select
+     public.verify_receipt(verification_token)->>'method'='mixed' and
+     jsonb_array_length(public.verify_receipt(verification_token)->'tenders')=2 and
+     (select sum((x->>'amount')::int) from
+        jsonb_array_elements(public.verify_receipt(verification_token)->'tenders') x)=1700
+     from public.sales where id=(v->>'id')::uuid),
+   'Public verification did not report actual cash and transfer amounts');
  perform pg_temp.ok((select amount=2000 from public.money_owed where
    customer_id='20000000-0000-4000-8000-000000009601'),
    'Fully paid sale changed previous customer debt');
@@ -100,6 +107,14 @@ do $$ declare v jsonb; begin
       request_id=md5('depotflow:old-debt:' ||
          '40000000-0000-4000-8000-000000009602')::uuid),
     'Old-debt receipt did not retain exact split method');
+ perform pg_temp.ok((select
+    jsonb_array_length(public.verify_receipt(verification_token)->'tenders')=2 and
+    (select sum((x->>'oldDebtAmount')::int) from
+        jsonb_array_elements(public.verify_receipt(verification_token)->'tenders') x)=500
+    from public.customer_payments where
+      request_id=md5('depotflow:old-debt:' ||
+         '40000000-0000-4000-8000-000000009602')::uuid),
+    'Public old-debt receipt failed to show the actual tender allocation');
  perform pg_temp.ok((select total_bottles=98 from public.stock
    where product_id='10000000-0000-4000-8000-000000009601'),
    'Combined checkout modified stock incorrectly');
