@@ -159,11 +159,20 @@ values ('89600000-0000-4000-9000-000000000061',
 reset role;
 
 alter table public.money_owed disable trigger legacy_scope_business_write;
+alter table public.sales disable trigger legacy_scope_business_write;
 alter table public.stock_movements disable trigger legacy_scope_business_write;
 alter table public.empty_crate_movements disable trigger legacy_scope_business_write;
 insert into public.money_owed(customer_id,amount,business_id)
 values ('89600000-0000-4000-9000-000000000061',
  9999,'89600000-0000-4000-9000-000000000042');
+insert into public.sales(
+ id,customer_id,total_amount,paid_amount,business_date,business_id
+) values (
+ '89600000-0000-4000-9000-000000000081',
+ '89600000-0000-4000-9000-000000000061',
+ 20000,5000,'2026-10-16',
+ '89600000-0000-4000-9000-000000000042'
+);
 insert into public.stock_movements(
   id,product_id,movement_type,quantity_change,resulting_stock,
   business_date,request_id,crates,loose_bottles,bottles_per_crate,
@@ -188,8 +197,20 @@ insert into public.empty_crate_movements(
   '89600000-0000-4000-9000-000000000042'
 );
 alter table public.money_owed enable trigger legacy_scope_business_write;
+alter table public.sales enable trigger legacy_scope_business_write;
 alter table public.stock_movements enable trigger legacy_scope_business_write;
 alter table public.empty_crate_movements enable trigger legacy_scope_business_write;
+
+-- Direct table reads must not expose B's debts or sales, regardless
+-- of the security-definer dashboard hiding the same foreign amounts.
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89600000-0000-4000-8000-000000000001',true);
+select pg_temp.assert_true(
+ not exists(select 1 from public.money_owed)
+ and not exists(select 1 from public.sales),
+ 'Legacy owner directly read foreign business debt or sale');
+reset role;
 
 -- Positive original-shop report plus negative foreign inventory/financial
 -- probes; a SECURITY DEFINER function cannot rely on the table's RLS.
