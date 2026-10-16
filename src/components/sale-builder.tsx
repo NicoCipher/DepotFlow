@@ -1497,7 +1497,7 @@ export function SaleBuilder({
                   {needsClearHiddenOldDebtPayment(draft.oldDebtPaid) && !saveUncertain && (
                     <div role="alert" className="space-y-2">
                       <p className="text-sm text-red-800">The previous debt has been cleared. Remove the old-debt amount before continuing.</p>
-                      <button type="button" className="secondary w-full" onClick={() => update({ oldDebtPaid: "0", splitCashToSale: "" })}>
+                      <button type="button" className="secondary w-full" onClick={() => splitEnabled && draft.paymentMode === "split" ? updateSplitOldDebt("0") : update({ oldDebtPaid: "0", splitCashToSale: "" })}>
                         Clear old-debt payment
                       </button>
                     </div>
@@ -1506,28 +1506,55 @@ export function SaleBuilder({
               )}
               {oldDebtAmount !== null && oldDebtAmount > 0 && !debtChecking && (
                 <>
-                  <p className="text-sm leading-5 text-stone-700">They can clear some or all of their old balance while buying these drinks.</p>
-                  <label htmlFor="sale-old-debt-paid">Paying toward previous debt (₦)</label>
-                  <div className="grid grid-cols-2 gap-2" role="group" aria-label="Quick previous-debt payment">
-                    <button type="button" className="secondary w-full" aria-pressed={draft.oldDebtPaid === String(oldDebtAmount)} onClick={() => update({ oldDebtPaid: String(oldDebtAmount) })}>Pay old debt in full</button>
-                    <button type="button" className="secondary w-full" aria-pressed={draft.oldDebtPaid === "0"} onClick={() => update({ oldDebtPaid: "0", splitCashToSale: "" })}>Not today</button>
-                  </div>
-                  <input
-                    id="sale-old-debt-paid"
-                    inputMode="numeric"
-                    pattern="[0-9]+"
-                    maxLength={12}
-                    onFocus={selectDefaultZero}
-                    onClick={selectDefaultZero}
-                    value={draft.oldDebtPaid}
-                    aria-invalid={Boolean(oldDebtInputError)}
-                    aria-describedby={oldDebtInputError ? "old-debt-payment-error" : "old-debt-payment-note"}
-                    onChange={(e) => update({ oldDebtPaid: e.target.value,
-                      ...(e.target.value === "0" ? { splitCashToSale: "" } : {}),
-                    })}
-                  />
-                  <p id="old-debt-payment-note" className="text-xs text-stone-600">This pays down their older balance, not today&apos;s drinks.</p>
-                  {oldDebtInputError && <p id="old-debt-payment-error" role="alert" className="text-sm text-red-800">{oldDebtInputError}</p>}
+                  {splitEnabled && draft.paymentMode === "split" ? (
+                    <details className="rounded-lg border border-amber-200 bg-white p-3">
+                      <summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold text-emerald-900">
+                        {Number(draft.oldDebtPaid) > 0
+                          ? `${formatNaira(Number(draft.oldDebtPaid))} going to old debt · Change`
+                          : "Use some of this payment to clear old debt"}
+                      </summary>
+                      <p className="mt-1 text-sm leading-5 text-stone-600">
+                        Optional. This takes part of the Cash + Transfer received away from today's sale and applies it to older debt.
+                      </p>
+                      <label className="mt-3 block" htmlFor="sale-old-debt-paid">Amount for previous debt (₦)</label>
+                      <input
+                        id="sale-old-debt-paid" inputMode="numeric" pattern="[0-9]+" maxLength={12}
+                        onFocus={selectDefaultZero} onClick={selectDefaultZero} value={draft.oldDebtPaid}
+                        aria-invalid={Boolean(oldDebtInputError)}
+                        aria-describedby={oldDebtInputError ? "old-debt-payment-error" : "old-debt-payment-note"}
+                        onChange={(e) => updateSplitOldDebt(e.target.value)}
+                      />
+                      <p id="old-debt-payment-note" className="mt-1 text-xs text-stone-600">
+                        Cash + Transfer stay the same. The amount still unpaid on today's sale will update.
+                      </p>
+                      {oldDebtInputError && <p id="old-debt-payment-error" role="alert" className="text-sm text-red-800">{oldDebtInputError}</p>}
+                    </details>
+                  ) : (
+                    <>
+                    <p className="text-sm leading-5 text-stone-700">They can clear some or all of their old balance while buying these drinks.</p>
+                    <label htmlFor="sale-old-debt-paid">Paying toward previous debt (₦)</label>
+                    <div className="grid grid-cols-2 gap-2" role="group" aria-label="Quick previous-debt payment">
+                      <button type="button" className="secondary w-full" aria-pressed={draft.oldDebtPaid === String(oldDebtAmount)} onClick={() => update({ oldDebtPaid: String(oldDebtAmount) })}>Pay old debt in full</button>
+                      <button type="button" className="secondary w-full" aria-pressed={draft.oldDebtPaid === "0"} onClick={() => update({ oldDebtPaid: "0", splitCashToSale: "" })}>Not today</button>
+                    </div>
+                    <input
+                      id="sale-old-debt-paid"
+                      inputMode="numeric"
+                      pattern="[0-9]+"
+                      maxLength={12}
+                      onFocus={selectDefaultZero}
+                      onClick={selectDefaultZero}
+                      value={draft.oldDebtPaid}
+                      aria-invalid={Boolean(oldDebtInputError)}
+                      aria-describedby={oldDebtInputError ? "old-debt-payment-error" : "old-debt-payment-note"}
+                      onChange={(e) => update({ oldDebtPaid: e.target.value,
+                        ...(e.target.value === "0" ? { splitCashToSale: "" } : {}),
+                      })}
+                    />
+                    <p id="old-debt-payment-note" className="text-xs text-stone-600">This pays down their older balance, not today&apos;s drinks.</p>
+                    {oldDebtInputError && <p id="old-debt-payment-error" role="alert" className="text-sm text-red-800">{oldDebtInputError}</p>}
+                    </>
+                  )}
                 </>
               )}
             </section>
