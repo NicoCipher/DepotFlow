@@ -40,3 +40,16 @@ export function clearOwnSaleReviewProgress(
 export function canApplySaleBalancePreview(startedGeneration: number, currentGeneration: number, mounted: boolean): boolean {
   return mounted && startedGeneration === currentGeneration;
 }
+
+
+/** Review uses its own cancellable HTTP request and must remain tappable
+ * while an unrelated React transition is pending. Other steps retain the
+ * normal draft-transition lock, and a running Review blocks duplicate taps.
+ */
+export function shouldDisableSaleDraftControls(
+  step: string,
+  otherTransitionPending: boolean,
+  reviewBusy: boolean,
+): boolean {
+  return reviewBusy || (otherTransitionPending && step !== "payment");
+}
