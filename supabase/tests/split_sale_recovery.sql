@@ -19,6 +19,33 @@ select set_config('request.jwt.claim.sub',
 select pg_temp.ok(
  (public.check_split_sale_request('40000000-0000-4000-8000-000000009711')->>'state')='absent',
  'Missing request must be reported as absent after acquiring its request lock');
+select pg_temp.ok(
+ (public.check_split_sale_request('40000000-0000-4000-8000-000000009711')->>'state')='absent',
+ 'An absent request must remain safely reusable for Check Sale, not for financial writes');
+
+-- A delayed original save after confirmed absence is forbidden permanently.
+reset role;
+do $ begin
+ begin
+  insert into public.sales(
+   id,customer_id,request_id,total_amount,paid_amount,business_date,payment_method
+  ) values (
+   '30000000-0000-4000-8000-000000009710',
+   '20000000-0000-4000-8000-000000009711',
+   '40000000-0000-4000-8000-000000009711',
+   1700,1700,'2026-10-16','cash'
+  );
+  raise exception 'Fenced request accepted a delayed sale';
+ exception when invalid_parameter_value then null; end;
+end $;
+select pg_temp.ok(
+ not exists(select 1 from public.sales
+            where request_id='40000000-0000-4000-8000-000000009711'),
+ 'Fenced request wrote a sale after a confirmed non-save');
+select pg_temp.ok(
+ (select count(*)=1 from private.split_sale_request_fences
+  where request_id='40000000-0000-4000-8000-000000009711'),
+ 'Repeated Check Sale must create only one permanent request fence');
 
 -- A legacy request with the same identifier must not be mistaken for a split.
 reset role;
