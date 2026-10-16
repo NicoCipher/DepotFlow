@@ -1,6 +1,7 @@
 "use server";
 
 import { validSaleReviewCustomerId } from "@/domain/sale-review-customer";
+import { allocateSplitTender } from "@/domain/sale-tenders";
 
 import { ownerSession, requireOwner } from "@/lib/auth/owner";
 import {
@@ -218,11 +219,25 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
   )
     return { error: "Check the sale date and amount paid." };
 
-  if (
+  const splitEnabled = process.env.NEXT_PUBLIC_SPLIT_TENDER_ENABLED === "true";
+  let splitLegs: ReturnType<typeof allocateSplitTender> | null = null;
+  if (draft.paymentMode === "split") {
+    if (!splitEnabled)
+      return { error: "Split payment is not available. Choose one method." };
+    try {
+      splitLegs = allocateSplitTender(Number(draft.paid), Number(draft.oldDebtPaid), {
+        cash: draft.splitCash, transfer: draft.splitTransfer,
+        ...(draft.splitCashToSale ? { cashToSale: draft.splitCashToSale } : {}),
+      });
+    } catch (cause) {
+      return { error: cause instanceof Error ? cause.message : "Check Cash and Transfer amounts." };
+    }
+  } else if (
     (Number(draft.paid) > 0 || Number(draft.oldDebtPaid) > 0) &&
     !["cash", "transfer", "pos"].includes(draft.paymentMethod)
-  )
+  ) {
     return { error: "Choose how the customer paid." };
+  }
   let rpcStarted = false;
   try {
     const fresh = await loadCatalog(supabase);
@@ -278,18 +293,30 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
     });
 
     rpcStarted = true;
-    const { data, error } = await supabase.rpc("save_sale_with_old_debt_payment", {
-      p_request_id: requestId,
-      p_customer_id: draft.customerId,
-      p_business_date: draft.businessDate,
-      p_paid: Number(draft.paid),
-      p_payment_method:
-        Number(draft.paid) > 0 || Number(draft.oldDebtPaid) > 0 ? draft.paymentMethod : "not_recorded",
-      p_old_debt_paid: Number(draft.oldDebtPaid),
-      p_lines: lines,
-      p_returned_crates: actual.crates,
-      p_returned_bottles: actual.bottles,
-    });
+    const { data, error } = splitLegs
+      ? await supabase.rpc("save_sale_split_tender", {
+          p_request_id: requestId,
+          p_customer_id: draft.customerId,
+          p_business_date: draft.businessDate,
+          p_paid: Number(draft.paid),
+          p_old_debt_paid: Number(draft.oldDebtPaid),
+          p_tenders: splitLegs,
+          p_lines: lines,
+          p_returned_crates: actual.crates,
+          p_returned_bottles: actual.bottles,
+        })
+      : await supabase.rpc("save_sale_with_old_debt_payment", {
+          p_request_id: requestId,
+          p_customer_id: draft.customerId,
+          p_business_date: draft.businessDate,
+          p_paid: Number(draft.paid),
+          p_payment_method:
+            Number(draft.paid) > 0 || Number(draft.oldDebtPaid) > 0 ? draft.paymentMethod : "not_recorded",
+          p_old_debt_paid: Number(draft.oldDebtPaid),
+          p_lines: lines,
+          p_returned_crates: actual.crates,
+          p_returned_bottles: actual.bottles,
+        });
 
     if (error) {
       if (
