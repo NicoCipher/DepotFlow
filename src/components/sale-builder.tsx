@@ -1438,32 +1438,35 @@ export function SaleBuilder({
                 <h2 className="font-bold text-stone-950">Today&apos;s sale</h2>
                 <strong className="text-2xl font-bold tabular-nums text-emerald-950">{total === undefined ? "Check drinks" : formatNaira(total)}</strong>
               </div>
-              <label htmlFor="sale-paid">Paying toward today&apos;s sale (₦)</label>
-              <div className="grid grid-cols-2 gap-2" role="group" aria-label="Quick payment for today&apos;s sale">
-                <button type="button" className="secondary w-full" aria-pressed={total !== undefined && draft.paid === String(total)} disabled={total === undefined} onClick={() => total !== undefined && update({ paid: String(total) })}>
-                  Pay in full
-                </button>
-                <button type="button" className="secondary w-full" aria-pressed={draft.paid === "0"} onClick={() => update({
-                  paid: "0",
-                  ...(Number(draft.oldDebtPaid) === 0 ? {
-                    paymentMode: "single", paymentMethod: "",
-                    splitCash: "0", splitTransfer: "0", splitCashToSale: "",
-                  } : {}),
-                })}>Pay later</button>
-              </div>
-              <input
-                id="sale-paid"
-                onFocus={selectDefaultZero}
-                onClick={selectDefaultZero}
-                inputMode="numeric"
-                pattern="[0-9]+"
-                maxLength={12}
-                value={draft.paid}
-                aria-invalid={Boolean(paymentInputError)}
-                aria-describedby={paymentInputError ? "sale-paid-error" : undefined}
-                onChange={(e) => update({ paid: e.target.value })}
-              />
-              {paymentInputError && <p id="sale-paid-error" role="alert" className="text-sm text-red-800">{paymentInputError}</p>}
+              {draft.paymentMode === "split" && splitEnabled ? (
+                <p className="text-sm leading-6 text-stone-700">
+                  Enter the Cash and Transfer received below. DepotFlow works out today's paid and unpaid amounts automatically.
+                </p>
+              ) : (
+                <>
+                  <label htmlFor="sale-paid">Paying toward today&apos;s sale (₦)</label>
+                  <div className="grid grid-cols-2 gap-2" role="group" aria-label="Quick payment for today&apos;s sale">
+                    <button type="button" className="secondary w-full" aria-pressed={total !== undefined && draft.paid === String(total)} disabled={total === undefined}
+                      onClick={() => total !== undefined && update({ paid: String(total) })}>Pay in full</button>
+                    <button type="button" className="secondary w-full" aria-pressed={draft.paid === "0"}
+                      onClick={() => update({
+                        paid: "0",
+                        ...(Number(draft.oldDebtPaid) === 0 ? {
+                          paymentMode: "single", paymentMethod: "",
+                          splitCash: "0", splitTransfer: "0", splitCashToSale: "",
+                        } : {}),
+                      })}>Pay later</button>
+                  </div>
+                  <input
+                    id="sale-paid" onFocus={selectDefaultZero} onClick={selectDefaultZero}
+                    inputMode="numeric" pattern="[0-9]+" maxLength={12}
+                    value={draft.paid} aria-invalid={Boolean(paymentInputError)}
+                    aria-describedby={paymentInputError ? "sale-paid-error" : undefined}
+                    onChange={(e) => update({ paid: e.target.value })}
+                  />
+                  {paymentInputError && <p id="sale-paid-error" role="alert" className="text-sm text-red-800">{paymentInputError}</p>}
+                </>
+              )}
             </section>
             <section id="sale-previous-debt" tabIndex={-1} aria-label="Previous customer debt" className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1528,7 +1531,7 @@ export function SaleBuilder({
                 </>
               )}
             </section>
-            {Number(draft.paid) + Number(draft.oldDebtPaid) > 0 && (
+            {(Number(draft.paid) + Number(draft.oldDebtPaid) > 0 || (splitEnabled && draft.paymentMode === "split")) && (
               <section id="sale-method" tabIndex={-1} aria-label="How the customer is paying" className="rounded-xl border border-stone-200 bg-white p-4">
                 <h2 className="font-bold text-stone-950">How is the customer paying?</h2>
                 {splitEnabled && (
@@ -1540,7 +1543,7 @@ export function SaleBuilder({
                     </button>
                     <button type="button" className={draft.paymentMode === "split" ? "primary" : "secondary"}
                       aria-pressed={draft.paymentMode === "split"}
-                      onClick={() => update({ paymentMode: "split", paymentMethod: "mixed", splitCash: "0", splitTransfer: "0", splitCashToSale: "" })}>
+                      onClick={() => update({ paymentMode: "split", paymentMethod: "mixed", paid: "0", oldDebtPaid: "0", splitCash: "0", splitTransfer: "0", splitCashToSale: "" })}>
                       Cash + Transfer
                     </button>
                   </div>
@@ -1572,13 +1575,13 @@ export function SaleBuilder({
                         <label htmlFor="sale-cash-received">Cash received (₦)</label>
                         <input id="sale-cash-received" inputMode="numeric" pattern="[0-9]+" maxLength={12}
                           value={draft.splitCash} onFocus={selectDefaultZero} onClick={selectDefaultZero}
-                          onChange={(e) => update({ splitCash: e.target.value })} />
+                          onChange={(e) => updateSplitTender("splitCash", e.target.value)} />
                       </div>
                       <div>
                         <label htmlFor="sale-transfer-received">Transfer received (₦)</label>
                         <input id="sale-transfer-received" inputMode="numeric" pattern="[0-9]+" maxLength={12}
                           value={draft.splitTransfer} onFocus={selectDefaultZero} onClick={selectDefaultZero}
-                          onChange={(e) => update({ splitTransfer: e.target.value })} />
+                          onChange={(e) => updateSplitTender("splitTransfer", e.target.value)} />
                       </div>
                     </div>
                     <div className="rounded-lg bg-stone-50 p-3 text-sm" aria-live="polite">
