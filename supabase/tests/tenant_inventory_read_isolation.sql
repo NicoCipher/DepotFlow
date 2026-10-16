@@ -106,7 +106,7 @@ insert into public.stock(product_id,total_bottles,business_id)
 values
  ('89600000-0000-4000-9000-000000000022',72,
   '89600000-0000-4000-9000-000000000041'),
- ('89600000-0000-4000-9000-000000000023',24,
+ ('89600000-0000-4000-9000-000000000023',0,
   '89600000-0000-4000-9000-000000000042');
 insert into public.empty_crate_stock(crate_type_id,quantity,business_id)
 values
@@ -189,7 +189,7 @@ select set_config('request.jwt.claim.sub',
 select pg_temp.assert_true(
  (select count(*)=1 from public.products)
  and (select name='B Gulder' from public.products limit 1)
- and (select total_bottles=24 from public.stock limit 1)
+ and (select total_bottles=0 from public.stock limit 1)
  and (select name='Gulder 12-pocket' from public.crate_types limit 1)
  and (select quantity=2 from public.empty_crate_stock limit 1)
  and (select quantity=4 from public.empty_bottle_stock limit 1),
