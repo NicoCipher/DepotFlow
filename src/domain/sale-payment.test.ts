@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { debtPaymentInputError, salePaymentTotals } from "./sale-payment.ts";
+import { debtPaymentInputError, salePaymentTotals, paymentReviewIssue } from "./sale-payment.ts";
 
 test("old debt is settled independently of today's sale", () => {
   assert.deepEqual(salePaymentTotals(12000, 8000, 5000, 3000), {
@@ -34,4 +34,45 @@ test("rejects overpayments and invalid amounts", () => {
   assert.equal(debtPaymentInputError("500", null)?.includes("Check"), true);
   assert.equal(debtPaymentInputError("0", null), null);
   assert.equal(debtPaymentInputError("0.5", 3000)?.includes("whole"), true);
+});
+
+test("payment review tells the owner what blocks the next step rather than silently disabling it", () => {
+  const paid = salePaymentTotals(1700, 1700, 2200, 2200);
+  const base = {
+    saleTotal: 1700,
+    paymentInputError: "",
+    oldDebtInputError: null,
+    debtChecking: false,
+    debtErrorMessage: "",
+    breakdown: paid,
+    paymentMethod: "",
+  };
+  assert.deepEqual(paid, {
+    collectNow: 3900, totalOwedAfter: 0, oldDebtRemaining: 0, saleRemaining: 0,
+  });
+  assert.equal(paymentReviewIssue(base)?.target, "sale-method");
+  assert.match(paymentReviewIssue(base)?.message ?? "", /₦3,900/);
+  for (const method of ["cash", "transfer", "pos"]) {
+    assert.equal(paymentReviewIssue({ ...base, paymentMethod: method }), null);
+  }
+  assert.equal(paymentReviewIssue({
+    ...base, paymentMethod: "cash",
+    breakdown: salePaymentTotals(1700, 0, 2200, 0),
+  }), null, "pay-later reviews must not require a payment method");
+  assert.equal(paymentReviewIssue({
+    ...base, debtChecking: true, breakdown: null,
+  })?.target, "sale-previous-debt");
+  assert.equal(paymentReviewIssue({
+    ...base, debtErrorMessage: "Could not verify the customer's balance",
+    breakdown: null,
+  })?.target, "sale-previous-debt");
+  assert.equal(paymentReviewIssue({
+    ...base, paymentInputError: "Enter whole numbers",
+  })?.target, "sale-paid");
+  assert.equal(paymentReviewIssue({
+    ...base, oldDebtInputError: "Cannot overpay old debt",
+  })?.target, "sale-old-debt-paid");
+  assert.equal(paymentReviewIssue({
+    ...base, saleTotal: undefined, breakdown: null,
+  })?.target, "sale-paid");
 });
