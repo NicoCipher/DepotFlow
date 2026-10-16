@@ -199,7 +199,7 @@ export function SaleBuilder({
   function setPaymentModeSafely(next: "single" | "split") {
     if (draft.paymentMode === next) return;
     const hasPayment = draft.paymentMode === "split"
-      ? Number(draft.splitCash) > 0 || Number(draft.splitTransfer) > 0
+      ? draft.splitCash !== "0" || draft.splitTransfer !== "0" || draft.oldDebtPaid !== "0"
       : Number(draft.paid) > 0 || Number(draft.oldDebtPaid) > 0;
     if (hasPayment) {
       setRequestedPaymentMode(next);
@@ -498,6 +498,11 @@ export function SaleBuilder({
     saleTotal: total, oldDebt: oldDebtAmount,
     oldDebtPaid: draft.oldDebtPaid, cash: draft.splitCash, transfer: draft.splitTransfer,
   }) : null;
+  const splitConversionPreview = draft.paymentMode === "split" ?
+    splitPaymentFromReceived({
+      saleTotal: total, oldDebt: oldDebtAmount,
+      oldDebtPaid: draft.oldDebtPaid, cash: draft.splitCash, transfer: draft.splitTransfer,
+    }) : null;
   const splitEntryNeedsSync = !!splitEntry && splitEntry.issue === null &&
     splitEntry.salePaid !== Number(draft.paid);
   const paymentBreakdown = (() => {
@@ -1520,7 +1525,9 @@ export function SaleBuilder({
                         {requestedPaymentMode === "split"
                           ? "The previous payment amount will reset. Enter Cash and Transfer received."
                           : draft.paymentMode === "split"
-                            ? "The split breakdown will be cleared and the actual received amount will be used."
+                            ? splitConversionPreview?.issue
+                              ? "The Cash + Transfer amounts cannot be verified. Changing methods will clear those amounts and reset both payments to ₦0. Keep the current method if this is not what you want."
+                              : "The split breakdown will be cleared and the verified received amount will be used."
                             : "The amount stays the same, but its payment method will change."}
                       </p>
                       <div className="mt-3 grid grid-cols-2 gap-2">
@@ -1537,7 +1544,7 @@ export function SaleBuilder({
                       <p className="mt-1 font-semibold">Cash {draft.splitCash ? formatNaira(Number(draft.splitCash)) : "—"} · Transfer {draft.splitTransfer ? formatNaira(Number(draft.splitTransfer)) : "—"}</p>
                       {!(Number(draft.splitCash) > 0 && Number(draft.splitTransfer) > 0) && (
                         <button type="button" className="secondary mt-2 w-full min-h-11"
-                          onClick={() => applyPaymentMode("single")}>Return to one method</button>
+                          onClick={() => setPaymentModeSafely("single")}>Return to one method</button>
                       )}
                     </div>
                   )}
@@ -1648,7 +1655,7 @@ export function SaleBuilder({
                   {oldDebtAmount !== null && oldDebtAmount > 0 && (
                     <details open={Number(draft.oldDebtPaid) > 0 || Boolean(oldDebtInputError)}
                       className="mt-2 rounded-lg border border-stone-200 px-3 py-2">
-                      <summary className="cursor-pointer py-1 text-sm font-semibold text-emerald-900">
+                      <summary className="flex min-h-11 cursor-pointer items-center py-2 text-sm font-semibold text-emerald-900">
                         {Number(draft.oldDebtPaid) > 0
                           ? `${formatNaira(Number(draft.oldDebtPaid))} paying old debt · Change`
                           : "Pay some old debt (optional)"}
