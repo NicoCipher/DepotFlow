@@ -39,13 +39,27 @@ $$;
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
  '89600000-0000-4000-8000-000000000001',true);
-select pg_temp.assert_true(
- (select count(*)=1 from public.products) and
- (select count(*)=1 from public.stock) and
- (select count(*)=1 from public.crate_types) and
- (select quantity=3 from public.empty_crate_stock)
- and (select count(*)=1 from public.product_catalogue),
- 'Preactivation owner lost legacy inventory or shared master catalogue');
+do $preactivation_inventory$
+declare v_products int;v_stock int;v_crates int;v_empties int;v_master int;
+  v_legacy boolean;v_direct boolean;v_shared boolean;
+begin
+  select count(*) into v_products from public.products;
+  select count(*) into v_stock from public.stock;
+  select count(*) into v_crates from public.crate_types;
+  select count(*) into v_empties from public.empty_crate_stock where quantity=3;
+  select count(*) into v_master from public.product_catalogue;
+  v_legacy:=private.can_read_legacy_customer(null);
+  v_direct:=private.verified_legacy_owner_read();
+  v_shared:=private.can_read_shared_product_catalogue();
+  if not (v_products=1 and v_stock=1 and v_crates=1
+          and v_empties=1 and v_master=1) then
+    raise exception
+      'Preactivation counts product %,stock %,crate %,empty %,master %; legacy %,verified %,shared %',
+       v_products,v_stock,v_crates,v_empties,v_master,
+       v_legacy,v_direct,v_shared;
+  end if;
+end;
+$preactivation_inventory$;
 reset role;
 
 -- Explicit legacy migration sequence. Must run BEFORE any new owner exists.
