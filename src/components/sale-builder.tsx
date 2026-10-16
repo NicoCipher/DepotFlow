@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import {
   refreshSaleCatalog,
   reviewSaleInputs,
-  loadCustomerMoneyOwed,
   saveSale,
 } from "@/app/(shop)/record-sale/actions";
 import { CustomerForm } from "./customer-form";
@@ -336,20 +335,60 @@ export function SaleBuilder({
   useEffect(() => {
     if (!customerToCheck || !debtKey) return;
     let current = true;
-    void loadCustomerMoneyOwed(customerToCheck)
-      .then((result) => {
+    const controller = new AbortController();
+    // Unlike a Server Function, this independent HTTP request can be aborted.
+    // A stalled read must never trap the customer on this payment screen.
+    const timeout = window.setTimeout(() => controller.abort(), 12000);
+    void (async () => {
+      try {
+        const response = await fetch("/api/sales/customer-balance", {
+          method: "POST",
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ customerId: customerToCheck }),
+          signal: controller.signal,
+        });
+        const payload: unknown = await response.json();
         if (!current) return;
-        if ("error" in result) {
-          setDebtError({ key: debtKey, message: result.error ?? "Could not load previous balance." });
-        } else {
-          setOldDebt({ key: debtKey, amount: result.amount });
-          setDebtError(null);
+        if (response.status === 401 || response.status === 403) {
+          setSessionExpired(true);
+          setMessage(saleSessionExpiredMessage);
+          return;
         }
-      })
-      .catch(() => {
-        if (current) setDebtError({ key: debtKey, message: "Could not load the previous balance. Try again." });
-      });
-    return () => { current = false; };
+        if (!response.ok) {
+          const explanation = typeof payload === "object" && payload !== null && "error" in payload
+            && typeof payload.error === "string"
+            ? payload.error : "Could not load the previous balance. Try again.";
+          setDebtError({ key: debtKey, message: explanation });
+          return;
+        }
+        const amount = typeof payload === "object" && payload !== null && "amount" in payload
+          ? payload.amount : null;
+        if (typeof amount !== "number" || !Number.isSafeInteger(amount) || amount < 0) {
+          setDebtError({ key: debtKey, message: "Could not verify the previous balance. Try again." });
+          return;
+        }
+        setOldDebt({ key: debtKey, amount });
+        setDebtError(null);
+      } catch {
+        if (current) {
+          setDebtError({
+            key: debtKey,
+            message: controller.signal.aborted
+              ? "Balance check took too long. Try again."
+              : "Could not load the previous balance. Try again.",
+          });
+        }
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    })();
+    return () => {
+      current = false;
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
   }, [customerToCheck, debtKey]);
   const debtErrorMessage = debtError?.key === debtKey ? debtError.message : "";
   const debtChecking = Boolean(debtKey && oldDebt?.key !== debtKey && !debtErrorMessage);
