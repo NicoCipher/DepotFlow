@@ -25,7 +25,7 @@ select pg_temp.ok(
 
 -- A delayed original save after confirmed absence is forbidden permanently.
 reset role;
-do $ begin
+do $fence_test$ begin
  begin
   insert into public.sales(
    id,customer_id,request_id,total_amount,paid_amount,business_date,payment_method
@@ -37,7 +37,7 @@ do $ begin
   );
   raise exception 'Fenced request accepted a delayed sale';
  exception when invalid_parameter_value then null; end;
-end $;
+end $fence_test$;
 select pg_temp.ok(
  not exists(select 1 from public.sales
             where request_id='40000000-0000-4000-8000-000000009711'),
