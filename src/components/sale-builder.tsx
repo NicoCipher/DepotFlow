@@ -10,6 +10,7 @@ import { emptyCustomer } from "@/domain/customers";
 import { ProductImage } from "@/components/product-image";
 import { SaleIcon } from "@/components/sale-icon";
 import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment } from "@/domain/sale-payment";
+import { allocateSplitTender } from "@/domain/sale-tenders";
 import { requestSaleReview } from "@/domain/sale-review-http";
 import { isSaleReviewProgressMessage, saleReviewCheckingMessage, saleReviewOpeningMessage, contextualSaleReviewMessage, clearOwnSaleReviewProgress, canApplySaleBalancePreview, shouldDisableSaleDraftControls } from "@/domain/sale-review-feedback";
 import { shouldFocusSaleStep } from "@/domain/sale-step-focus";
@@ -83,6 +84,7 @@ export function SaleBuilder({
   const [confirmedSaveKey, setConfirmedSaveKey] = useState<string | null>(null);
   const pricingMode = draft.sellingMode === "retail" ? "retail" : "wholesale";
   const browsingMode = draft.preferredSellingMode === "retail" ? "retail" : "wholesale";
+  const splitEnabled = process.env.NEXT_PUBLIC_SPLIT_TENDER_ENABLED === "true";
   const [catalog, setCatalog] = useState(initialCatalog);
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState("");
@@ -418,6 +420,17 @@ export function SaleBuilder({
     try { return salePaymentTotals(total, Number(draft.paid), oldDebtAmount ?? 0, Number(draft.oldDebtPaid)); }
     catch { return null; }
   })();
+  const splitLegsPreview = (() => {
+    if (!splitEnabled || draft.paymentMode !== "split") return null;
+    try {
+      return allocateSplitTender(Number(draft.paid), Number(draft.oldDebtPaid), {
+        cash: draft.splitCash, transfer: draft.splitTransfer,
+        ...(draft.splitCashToSale ? { cashToSale: draft.splitCashToSale } : {}),
+      });
+    } catch {
+      return null;
+    }
+  })();
   const paymentIssue = paymentReviewIssue({
     saleTotal: total,
     paymentInputError,
@@ -428,6 +441,12 @@ export function SaleBuilder({
     debtErrorMessage,
     breakdown: paymentBreakdown,
     paymentMethod: draft.paymentMethod,
+    salePaid: draft.paid,
+    paymentMode: draft.paymentMode,
+    splitCash: draft.splitCash,
+    splitTransfer: draft.splitTransfer,
+    splitCashToSale: draft.splitCashToSale,
+    splitEnabled,
   });
   const navigationBusy = pending || reviewBusy;
   const reviewKey = saleSaveConfirmationKey(draft, oldDebtAmount, reviewTotal);
@@ -446,7 +465,10 @@ export function SaleBuilder({
     reviewTotal === undefined || !emptiesReview || emptiesNeedConfirmation ||
     hasUnmatchedSaleEmpties(emptiesReview) || Number(draft.paid) > reviewTotal ||
     (!saveUncertain && (!paymentBreakdown || debtChecking || Boolean(oldDebtInputError) ||
-      (paymentBreakdown.collectNow > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))));
+      (paymentBreakdown.collectNow > 0 &&
+        (draft.paymentMode === "split"
+          ? !splitEnabled || !splitLegsPreview
+          : !["cash", "transfer", "pos"].includes(draft.paymentMethod)))));
   const progressStep =
     step === "customer"
       ? 0
@@ -1454,14 +1476,87 @@ export function SaleBuilder({
               )}
             </section>
             {Number(draft.paid) + Number(draft.oldDebtPaid) > 0 && (
-              <div>
-                <label htmlFor="sale-method">How is the customer paying?</label>
-                <select id="sale-method" value={draft.paymentMethod} onChange={(e) => update({ paymentMethod: e.target.value })} required>
-                  <option value="">Choose method</option>
-                  <option value="cash">Cash</option><option value="transfer">Transfer</option><option value="pos">POS</option>
-                </select>
-                <p className="mt-1 text-xs text-stone-600">The same method applies to both amounts. The old-debt payment gets its own receipt.</p>
-              </div>
+              <section id="sale-method" tabIndex={-1} aria-label="How the customer is paying" className="rounded-xl border border-stone-200 bg-white p-4">
+                <h2 className="font-bold text-stone-950">How is the customer paying?</h2>
+                {splitEnabled && (
+                  <div role="group" aria-label="Payment arrangement" className="mt-3 grid grid-cols-2 gap-2">
+                    <button type="button" className={draft.paymentMode !== "split" ? "primary" : "secondary"}
+                      aria-pressed={draft.paymentMode !== "split"}
+                      onClick={() => update({ paymentMode: "single", paymentMethod: "", splitCash: "0", splitTransfer: "0", splitCashToSale: "" })}>
+                      One method
+                    </button>
+                    <button type="button" className={draft.paymentMode === "split" ? "primary" : "secondary"}
+                      aria-pressed={draft.paymentMode === "split"}
+                      onClick={() => update({ paymentMode: "split", paymentMethod: "mixed", splitCash: "0", splitTransfer: "0", splitCashToSale: "" })}>
+                      Cash + Transfer
+                    </button>
+                  </div>
+                )}
+                {draft.paymentMode === "split" && !splitEnabled && (
+                  <div role="alert" className="mt-3 space-y-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
+                    <p>Split payment is not available. Change to one payment method before continuing.</p>
+                    <button type="button" className="secondary w-full"
+                      onClick={() => update({ paymentMode: "single", paymentMethod: "", splitCash: "0", splitTransfer: "0", splitCashToSale: "" })}>
+                      Choose one method
+                    </button>
+                  </div>
+                )}
+                {draft.paymentMode !== "split" && (
+                  <>
+                    <label className="mt-3 block" htmlFor="sale-method-select">Payment method</label>
+                    <select id="sale-method-select" value={draft.paymentMethod} onChange={(e) => update({ paymentMethod: e.target.value })} required>
+                      <option value="">Choose method</option>
+                      <option value="cash">Cash</option><option value="transfer">Transfer</option><option value="pos">POS</option>
+                    </select>
+                    <p className="mt-1 text-xs text-stone-600">The selected method applies to everything collected now.</p>
+                  </>
+                )}
+                {splitEnabled && draft.paymentMode === "split" && (
+                  <div id="sale-split-payment" tabIndex={-1} className="mt-3 space-y-3">
+                    <p className="text-sm text-stone-600">Enter the amount received through each method.</p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label htmlFor="sale-cash-received">Cash received (₦)</label>
+                        <input id="sale-cash-received" inputMode="numeric" pattern="[0-9]+" maxLength={12}
+                          value={draft.splitCash} onFocus={selectDefaultZero} onClick={selectDefaultZero}
+                          onChange={(e) => update({ splitCash: e.target.value })} />
+                      </div>
+                      <div>
+                        <label htmlFor="sale-transfer-received">Transfer received (₦)</label>
+                        <input id="sale-transfer-received" inputMode="numeric" pattern="[0-9]+" maxLength={12}
+                          value={draft.splitTransfer} onFocus={selectDefaultZero} onClick={selectDefaultZero}
+                          onChange={(e) => update({ splitTransfer: e.target.value })} />
+                      </div>
+                    </div>
+                    <div className="rounded-lg bg-stone-50 p-3 text-sm" aria-live="polite">
+                      <div className="flex items-center justify-between gap-3">
+                        <span>Expected collection</span>
+                        <strong>{paymentBreakdown ? formatNaira(paymentBreakdown.collectNow) : "Check amounts"}</strong>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between gap-3">
+                        <span>Entered across both methods</span>
+                        <strong>{/^\d+$/.test(draft.splitCash) && /^\d+$/.test(draft.splitTransfer)
+                          ? formatNaira(Number(draft.splitCash) + Number(draft.splitTransfer)) : "Check amounts"}</strong>
+                      </div>
+                    </div>
+                    {Number(draft.oldDebtPaid) > 0 && (
+                      <details className="rounded-lg border border-stone-200 p-3">
+                        <summary className="cursor-pointer font-semibold text-emerald-900">
+                          Change how Cash covers today's sale or previous debt
+                        </summary>
+                        <p className="mt-2 text-sm text-stone-600">By default, Cash pays toward today's sale first; Transfer pays the rest. You can change the amount of Cash used for today's sale.</p>
+                        <label className="mt-2 block" htmlFor="sale-split-cash-sale">Cash toward today's sale (₦)</label>
+                        <input id="sale-split-cash-sale" inputMode="numeric" pattern="[0-9]+" maxLength={12}
+                          placeholder="Use cash-first default" value={draft.splitCashToSale}
+                          onChange={(e) => update({ splitCashToSale: e.target.value })} />
+                      </details>
+                    )}
+                    {splitLegsPreview && Number(draft.oldDebtPaid) > 0 && (
+                      <p className="text-xs text-emerald-900">Allocated to today's sale: Cash {formatNaira(splitLegsPreview[0].saleAmount)} + Transfer {formatNaira(splitLegsPreview[1].saleAmount)}. Previous debt: Cash {formatNaira(splitLegsPreview[0].oldDebtAmount)} + Transfer {formatNaira(splitLegsPreview[1].oldDebtAmount)}.</p>
+                    )}
+                  </div>
+                )}
+              </section>
             )}
             <section aria-label="Money to collect and customer balance" className="rounded-xl border border-emerald-200 bg-white p-4" aria-live="polite">
               <div className="flex items-center justify-between gap-3">
@@ -1786,7 +1881,20 @@ export function SaleBuilder({
                   <dd className="font-semibold">{formatNaira(Number(draft.oldDebtPaid))}</dd>
                 </div>
               )}
-              {Number(draft.paid) + Number(draft.oldDebtPaid) > 0 && <div className="flex justify-between gap-3 border-b border-stone-200 py-3"><dt>Method</dt><dd className="font-semibold">{{ cash: "Cash", transfer: "Bank transfer", pos: "POS" }[draft.paymentMethod as "cash" | "transfer" | "pos"] ?? "Choose a method"}</dd></div>}
+              {Number(draft.paid) + Number(draft.oldDebtPaid) > 0 && (
+                <>
+                  <div className="flex justify-between gap-3 border-b border-stone-200 py-3">
+                    <dt>Method</dt>
+                    <dd className="font-semibold">{draft.paymentMode === "split" ? "Cash + Transfer" : ({ cash: "Cash", transfer: "Bank transfer", pos: "POS" }[draft.paymentMethod as "cash" | "transfer" | "pos"] ?? "Choose a method")}</dd>
+                  </div>
+                  {splitLegsPreview && splitLegsPreview.map((leg) => (
+                    <div key={leg.method} className="flex justify-between gap-3 border-b border-stone-200 py-2 text-sm">
+                      <dt>{leg.method === "cash" ? "Cash received" : "Transfer received"}</dt>
+                      <dd className="font-semibold">{formatNaira(leg.amount)}</dd>
+                    </div>
+                  ))}
+                </>
+              )}
               <div className="flex justify-between gap-3 py-3 text-lg font-semibold">
                 <dt>Total to collect now</dt>
                 <dd>{reviewTotal === undefined ? "Check drinks" : oldDebtAmount === null && Number(draft.oldDebtPaid) !== 0 ? "Check balances" : formatNaira(Number(draft.paid) + Number(draft.oldDebtPaid))}</dd>
