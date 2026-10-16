@@ -81,6 +81,7 @@ export function SaleBuilder({
   const [removeLineId, setRemoveLineId] = useState<string | null>(null);
   const [requestedMode, setRequestedMode] = useState<"wholesale" | "retail" | null>(null);
   const [requestedPaymentMode, setRequestedPaymentMode] = useState<"single" | "split" | null>(null);
+  const [requestedSingleMethod, setRequestedSingleMethod] = useState<"cash" | "transfer" | "pos" | null>(null);
   const [requestedCustomerId, setRequestedCustomerId] = useState<string | null>(null);
   const [confirmNewCustomer, setConfirmNewCustomer] = useState(false);
   const [confirmedSaveKey, setConfirmedSaveKey] = useState<string | null>(null);
@@ -188,6 +189,7 @@ export function SaleBuilder({
     setRemoveLineId(null);
     setRequestedMode(null);
     setRequestedPaymentMode(null);
+    setRequestedSingleMethod(null);
     setRequestedCustomerId(null);
     setConfirmNewCustomer(false);
     setMessage("");
@@ -205,7 +207,19 @@ export function SaleBuilder({
     }
     applyPaymentMode(next);
   }
-  function applyPaymentMode(next: "single" | "split") {
+  function chooseSingleMethod(method: "cash" | "transfer" | "pos") {
+    if (draft.paymentMode === "single" && draft.paymentMethod === method) return;
+    const hasPayment = Number(draft.paid) > 0 || Number(draft.oldDebtPaid) > 0 ||
+      Number(draft.splitCash) > 0 || Number(draft.splitTransfer) > 0;
+    if (hasPayment && (draft.paymentMode === "split" || Boolean(draft.paymentMethod))) {
+      setRequestedPaymentMode("single");
+      setRequestedSingleMethod(method);
+      return;
+    }
+    if (draft.paymentMode === "single") update({ paymentMethod: method });
+    else applyPaymentMode("single", method);
+  }
+  function applyPaymentMode(next: "single" | "split", method: "cash" | "transfer" | "pos" | "" = "") {
     if (next === "split")
       update({ paymentMode: "split", paymentMethod: "mixed", paid: "0",
         oldDebtPaid: "0", splitCash: "0", splitTransfer: "0", splitCashToSale: "" });
@@ -217,7 +231,7 @@ export function SaleBuilder({
         saleTotal: total, oldDebt: oldDebtAmount, oldDebtPaid: draft.oldDebtPaid,
         cash: draft.splitCash, transfer: draft.splitTransfer,
       });
-      update({ paymentMode: "single", paymentMethod: "",
+      update({ paymentMode: "single", paymentMethod: method,
         ...oneMethodAmountsFromReceived(entry),
         splitCash: "0", splitTransfer: "0", splitCashToSale: "" });
     }
@@ -716,7 +730,7 @@ export function SaleBuilder({
         aria-label="Sale draft"
         className="space-y-3 pb-4"
       >
-        <header className="space-y-3 border-b border-stone-200 pb-3">
+        <header className={step === "payment" ? "space-y-2 border-b border-stone-200 pb-2" : "space-y-3 border-b border-stone-200 pb-3"}>
           <div className="flex min-w-0 items-center justify-between gap-2">
             <p className="shrink-0 text-xs font-bold uppercase tracking-wide text-emerald-800">
               Step {progressStep + 1} of 5
@@ -756,17 +770,17 @@ export function SaleBuilder({
               </div>
             )}
           </div>
-          {backStep && !saveUncertain && (
+          {backStep && !saveUncertain && step !== "payment" && (
             <button type="button" className="inline-flex min-h-11 w-fit items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-900"
               disabled={navigationBusy}
               onClick={() => update({ step: backStep })}>
               <span aria-hidden="true">←</span> Back to {backLabel}
             </button>
           )}
-          <h1 ref={stepHeading} tabIndex={-1} className="outline-none">
+          <h1 ref={stepHeading} tabIndex={-1} className={step === "payment" ? "text-2xl font-bold outline-none" : "outline-none"}>
             {step === "customer" ? "Who is buying?" : step === "drinks" ? "Choose drinks" : step === "quantity" ? "Set the quantity" : step === "empties" ? "Check the empties" : step === "payment" ? "Record payment" : "Review and save"}
           </h1>
-          {step !== "drinks" && (
+          {step !== "drinks" && step !== "payment" && (
             <p className="text-sm leading-5 text-stone-600">
               {step === "customer" ? "Find the customer to begin." : step === "quantity" ? "Enter the quantity, then add it to the sale." : step === "empties" ? "Check the empty crates and empty bottles returned." : step === "payment" ? "Enter what the customer paid today." : "Check the sale details before saving."}
             </p>
@@ -783,15 +797,15 @@ export function SaleBuilder({
           </nav>
         </header>
         {customer && step !== "customer" && (
-          <section aria-label="Current customer" className="flex min-w-0 items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-900">
+          <section aria-label="Current customer" className={step === "payment" ? "flex min-w-0 items-center gap-2 border-b border-stone-200 px-1 py-1" : "flex min-w-0 items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2"}>
+            <span className={step === "payment" ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-900" : "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-900"}>
               <SaleIcon name="user" className="h-4 w-4" />
             </span>
             <div className="min-w-0 flex-1">
               <span className="block text-xs text-stone-500">Customer</span>
               <strong className="block truncate text-sm text-stone-950 sm:text-base" title={customer.name}>{customer.name}</strong>
             </div>
-            <button type="button" className="secondary min-h-11 shrink-0 gap-1 px-3 py-2 text-sm" onClick={() => update({ step: "customer" })}>
+            <button type="button" className={step === "payment" ? "min-h-11 shrink-0 rounded-lg px-2 text-sm font-semibold text-emerald-900 underline underline-offset-2" : "secondary min-h-11 shrink-0 gap-1 px-3 py-2 text-sm"} onClick={() => update({ step: "customer" })}>
               <SaleIcon name="edit" className="h-4 w-4" /> Change
             </button>
           </section>
