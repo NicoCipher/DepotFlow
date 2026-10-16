@@ -61,3 +61,17 @@ test("ledger rejects duplicate or fabricated methods and allocation mismatches",
   assert.throws(() => validateTenderLegs([c, t], 900, 100), /do not match/i);
   assert.throws(() => validateTenderLegs([{ ...c, amount: 0 }], 500, 0), /match/i);
 });
+
+test("server ledger validation accepts single POS but rejects POS mixed with another tender", () => {
+  const pos = { method: "pos" as const, saleAmount: 500, oldDebtAmount: 0, amount: 500 };
+  const cash = { method: "cash" as const, saleAmount: 500, oldDebtAmount: 0, amount: 500 };
+  const transfer = { method: "transfer" as const, saleAmount: 500, oldDebtAmount: 0, amount: 500 };
+  assert.doesNotThrow(() => validateTenderLegs([pos], 500, 0));
+  assert.throws(() => validateTenderLegs([pos, cash], 1000, 0), /Cash and Transfer/i);
+  assert.throws(() => validateTenderLegs([transfer, pos], 1000, 0), /Cash and Transfer/i);
+});
+test("server validator rejects a combined collection larger than maximum even if legs are valid individually", () => {
+  const cash = { method: "cash" as const, saleAmount: 2147483647, oldDebtAmount: 0, amount: 2147483647 };
+  const transfer = { method: "transfer" as const, saleAmount: 0, oldDebtAmount: 1, amount: 1 };
+  assert.throws(() => validateTenderLegs([cash, transfer], 2147483647, 1), /too large/i);
+});
