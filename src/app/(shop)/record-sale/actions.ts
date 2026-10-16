@@ -1,5 +1,7 @@
 "use server";
 
+import { validSaleReviewCustomerId } from "@/domain/sale-review-customer";
+
 import { ownerSession, requireOwner } from "@/lib/auth/owner";
 import {
   inactiveSaleCustomerMessage,
@@ -130,7 +132,7 @@ export async function refreshSaleCatalog() {
 }
 
 export async function loadCustomerMoneyOwed(customerId: string) {
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(customerId))
+  if (!validSaleReviewCustomerId(customerId))
     return { error: "Choose a customer first." };
   const session = await ownerSession();
   if (!session.user || !session.allowed)
@@ -159,7 +161,7 @@ export async function loadCustomerMoneyOwed(customerId: string) {
  * SaveSale performs its own authoritative revalidation.
  */
 export async function reviewSaleInputs(customerId: string) {
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(customerId))
+  if (!validSaleReviewCustomerId(customerId))
     return { error: "Choose a customer first.", code: "customer_invalid" as const };
   const session = await ownerSession();
   if (!session.user) {
