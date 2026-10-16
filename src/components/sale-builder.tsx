@@ -10,7 +10,7 @@ import { CustomerForm } from "./customer-form";
 import { emptyCustomer } from "@/domain/customers";
 import { ProductImage } from "@/components/product-image";
 import { SaleIcon } from "@/components/sale-icon";
-import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment, splitTenderShortfallChoices } from "@/domain/sale-payment";
+import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment, splitPaymentFromReceived, oneMethodAmountsFromReceived, showPaymentMethodControls } from "@/domain/sale-payment";
 import { allocateSplitTender } from "@/domain/sale-tenders";
 import { requestSaleReview } from "@/domain/sale-review-http";
 import { isSaleReviewProgressMessage, saleReviewCheckingMessage, saleReviewOpeningMessage, contextualSaleReviewMessage, clearOwnSaleReviewProgress, canApplySaleBalancePreview, shouldDisableSaleDraftControls } from "@/domain/sale-review-feedback";
@@ -80,6 +80,7 @@ export function SaleBuilder({
   const [customerQuery, setCustomerQuery] = useState("");
   const [removeLineId, setRemoveLineId] = useState<string | null>(null);
   const [requestedMode, setRequestedMode] = useState<"wholesale" | "retail" | null>(null);
+  const [requestedPaymentMode, setRequestedPaymentMode] = useState<"single" | "split" | null>(null);
   const [requestedCustomerId, setRequestedCustomerId] = useState<string | null>(null);
   const [confirmNewCustomer, setConfirmNewCustomer] = useState(false);
   const [confirmedSaveKey, setConfirmedSaveKey] = useState<string | null>(null);
@@ -186,11 +187,67 @@ export function SaleBuilder({
     setConfirmedSaveKey(null);
     setRemoveLineId(null);
     setRequestedMode(null);
+    setRequestedPaymentMode(null);
     setRequestedCustomerId(null);
     setConfirmNewCustomer(false);
     setMessage("");
     setNotice("");
     setCancelDraftId(null);
+  }
+  function setPaymentModeSafely(next: "single" | "split") {
+    if (draft.paymentMode === next) return;
+    const hasPayment = draft.paymentMode === "split"
+      ? Number(draft.splitCash) > 0 || Number(draft.splitTransfer) > 0
+      : Number(draft.paid) > 0 || Number(draft.oldDebtPaid) > 0;
+    if (hasPayment) {
+      setRequestedPaymentMode(next);
+      return;
+    }
+    applyPaymentMode(next);
+  }
+  function applyPaymentMode(next: "single" | "split") {
+    if (next === "split")
+      update({ paymentMode: "split", paymentMethod: "mixed", paid: "0",
+        oldDebtPaid: "0", splitCash: "0", splitTransfer: "0", splitCashToSale: "" });
+    else {
+      // Never carry a stale planned paid amount out of a resumed split draft.
+      // Invalid received amounts are explicitly discarded, not silently
+      // recorded as a valid one-method payment.
+      const entry = splitPaymentFromReceived({
+        saleTotal: total, oldDebt: oldDebtAmount, oldDebtPaid: draft.oldDebtPaid,
+        cash: draft.splitCash, transfer: draft.splitTransfer,
+      });
+      update({ paymentMode: "single", paymentMethod: "",
+        ...oneMethodAmountsFromReceived(entry),
+        splitCash: "0", splitTransfer: "0", splitCashToSale: "" });
+    }
+  }
+  // Keep entered money and sale-paid ledger fields in one atomic draft patch.
+  // An invalid/incomplete input stays editable, but never creates a new paid amount.
+  function updateSplitTender(field: "splitCash" | "splitTransfer", raw: string) {
+    const cash = field === "splitCash" ? raw : draft.splitCash;
+    const transfer = field === "splitTransfer" ? raw : draft.splitTransfer;
+    const entry = splitPaymentFromReceived({
+      saleTotal: total, oldDebt: oldDebtAmount,
+      oldDebtPaid: draft.oldDebtPaid, cash, transfer,
+    });
+    update({
+      [field]: raw,
+      ...(entry.issue === null && entry.salePaid !== null
+        ? { paid: String(entry.salePaid) } : {}),
+    });
+  }
+  function updateSplitOldDebt(raw: string) {
+    const entry = splitPaymentFromReceived({
+      saleTotal: total, oldDebt: oldDebtAmount,
+      oldDebtPaid: raw, cash: draft.splitCash, transfer: draft.splitTransfer,
+    });
+    update({
+      oldDebtPaid: raw,
+      splitCashToSale: "",
+      ...(entry.issue === null && entry.salePaid !== null
+        ? { paid: String(entry.salePaid) } : {}),
+    });
   }
   function edit(p: SaleProduct) {
     const setupIssue = saleProductSetupIssue(p);
@@ -412,7 +469,14 @@ export function SaleBuilder({
   const debtChecking = Boolean(debtKey && oldDebt?.key !== debtKey && !debtErrorMessage);
   const oldDebtAmount = debtKey && oldDebt?.key === debtKey ? oldDebt.amount : null;
   const oldDebtInputError = debtPaymentInputError(draft.oldDebtPaid, oldDebtAmount);
+  const splitEntry = splitEnabled && draft.paymentMode === "split" ? splitPaymentFromReceived({
+    saleTotal: total, oldDebt: oldDebtAmount,
+    oldDebtPaid: draft.oldDebtPaid, cash: draft.splitCash, transfer: draft.splitTransfer,
+  }) : null;
+  const splitEntryNeedsSync = !!splitEntry && splitEntry.issue === null &&
+    splitEntry.salePaid !== Number(draft.paid);
   const paymentBreakdown = (() => {
+    if (splitEntry && (splitEntry.issue || splitEntryNeedsSync)) return null;
     if (total === undefined || paymentInputError || oldDebtInputError) return null;
     // Until a fresh balance arrives, use zero ONLY to preview what is
     // collected today when no old debt is being paid. Never display the
@@ -432,15 +496,6 @@ export function SaleBuilder({
       return null;
     }
   })();
-  const splitShortfall = splitEnabled && draft.paymentMode === "split" ? splitTenderShortfallChoices({
-    saleTotal: total,
-    salePaid: draft.paid,
-    oldDebt: oldDebtAmount,
-    oldDebtPaid: draft.oldDebtPaid,
-    cash: draft.splitCash,
-    transfer: draft.splitTransfer,
-    cashToSale: draft.splitCashToSale,
-  }) : null;
   const paymentIssue = paymentReviewIssue({
     saleTotal: total,
     paymentInputError,
@@ -457,6 +512,8 @@ export function SaleBuilder({
     splitTransfer: draft.splitTransfer,
     splitCashToSale: draft.splitCashToSale,
     splitEnabled,
+    splitEntryIssue: splitEntry?.issue || (splitEntryNeedsSync
+      ? "Use the received Cash + Transfer amount to update this unfinished sale." : null),
   });
   const navigationBusy = pending || reviewBusy;
   const reviewKey = saleSaveConfirmationKey(draft, oldDebtAmount, reviewTotal);
@@ -1397,38 +1454,201 @@ export function SaleBuilder({
         {step === "payment" && (
           <>
             <fieldset disabled={pending || reviewBusy} aria-label="Payment details" className="min-w-0 space-y-3">
+            {showPaymentMethodControls({ splitEnabled, paymentMode: draft.paymentMode, salePaid: draft.paid, oldDebtPaid: draft.oldDebtPaid }) && (
+              <section id="sale-method" tabIndex={-1} aria-label="How the customer is paying" className="rounded-xl border border-stone-200 bg-white p-4">
+                <h2 className="font-bold text-stone-950">How is the customer paying?</h2>
+                {splitEnabled && (
+                  <div role="group" aria-label="Payment arrangement" className="mt-3 grid grid-cols-2 gap-2">
+                    <button type="button" className={draft.paymentMode !== "split" ? "primary" : "secondary"}
+                      aria-pressed={draft.paymentMode !== "split"}
+                      onClick={() => setPaymentModeSafely("single")}>
+                      One method
+                    </button>
+                    <button type="button" className={draft.paymentMode === "split" ? "primary" : "secondary"}
+                      aria-pressed={draft.paymentMode === "split"}
+                      onClick={() => setPaymentModeSafely("split")}>
+                      Cash + Transfer
+                    </button>
+                  </div>
+                )}
+                {requestedPaymentMode && (
+                  <div role="group" aria-label="Confirm payment-method change"
+                    className="mt-3 space-y-3 rounded-lg border-2 border-amber-300 bg-amber-50 p-3 text-sm">
+                    <p className="font-semibold text-stone-900">Change payment method?</p>
+                    <p className="text-stone-700">
+                      {requestedPaymentMode === "split"
+                        ? "Your previous planned payment will be reset. Enter the actual Cash and Transfer received next."
+                        : "The split breakdown will be cleared. Valid received amounts stay as a one-method payment. Invalid amounts are reset to zero so they cannot be recorded by mistake."}
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button type="button" className="secondary min-h-12" onClick={() => setRequestedPaymentMode(null)}>Keep current</button>
+                      <button type="button" className="primary min-h-12" onClick={() => applyPaymentMode(requestedPaymentMode)}>Change method</button>
+                    </div>
+                  </div>
+                )}
+                {draft.paymentMode === "split" && !splitEnabled && (
+                  <div role="alert" className="mt-3 space-y-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
+                    <p>Cash + Transfer is temporarily unavailable. If both methods actually received money, do not relabel this as one payment method. Keep this unfinished sale and retry when split payments are available. Switch below only if the customer used one method.</p>
+                    <button type="button" className="secondary w-full"
+                      onClick={() => applyPaymentMode("single")}>
+                      Choose one method
+                    </button>
+                  </div>
+                )}
+                {draft.paymentMode !== "split" && (
+                  <>
+                    <label className="mt-3 block" htmlFor="sale-method-select">Payment method</label>
+                    <select id="sale-method-select" value={draft.paymentMethod} onChange={(e) => update({ paymentMethod: e.target.value })} required>
+                      <option value="">Choose method</option>
+                      <option value="cash">Cash</option><option value="transfer">Transfer</option><option value="pos">POS</option>
+                    </select>
+                    <p className="mt-1 text-xs text-stone-600">The selected method applies to everything collected now.</p>
+                  </>
+                )}
+                {splitEnabled && draft.paymentMode === "split" && (
+                  <div id="sale-split-payment" tabIndex={-1} className="mt-3 space-y-3">
+                    <p className="text-sm text-stone-700">
+                      Today&apos;s sale: <strong className="font-semibold text-stone-950">{total === undefined ? "Check drinks" : formatNaira(total)}</strong>. Enter the amounts actually received.
+                    </p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label htmlFor="sale-cash-received">Cash received (₦)</label>
+                        <input id="sale-cash-received" inputMode="numeric" pattern="[0-9]+" maxLength={12}
+                          value={draft.splitCash} onFocus={selectDefaultZero} onClick={selectDefaultZero}
+                          onChange={(e) => updateSplitTender("splitCash", e.target.value)} />
+                      </div>
+                      <div>
+                        <label htmlFor="sale-transfer-received">Transfer received (₦)</label>
+                        <input id="sale-transfer-received" inputMode="numeric" pattern="[0-9]+" maxLength={12}
+                          value={draft.splitTransfer} onFocus={selectDefaultZero} onClick={selectDefaultZero}
+                          onChange={(e) => updateSplitTender("splitTransfer", e.target.value)} />
+                      </div>
+                    </div>
+                    {splitEntry && splitEntry.issue === null && splitEntry.received !== null &&
+                      ((Number(draft.splitCash) > 0 && Number(draft.splitTransfer) === 0) ||
+                       (Number(draft.splitTransfer) > 0 && Number(draft.splitCash) === 0)) && (
+                      <button type="button" className="secondary w-full min-h-12 text-sm"
+                        onClick={() => update({
+                          paymentMode: "single",
+                          paymentMethod: Number(draft.splitCash) > 0 ? "cash" : "transfer",
+                          ...oneMethodAmountsFromReceived(splitEntry),
+                          splitCash: "0", splitTransfer: "0", splitCashToSale: "",
+                        })}>
+                        Only {Number(draft.splitCash) > 0 ? "Cash" : "Transfer"} received? Use one method
+                      </button>
+                    )}
+                    <div className="rounded-lg bg-emerald-50 p-3 text-sm" aria-live="polite">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-semibold text-emerald-950">Total received</span>
+                        <strong className="text-lg tabular-nums text-emerald-950">
+                          {splitEntry?.received === null || splitEntry?.received === undefined
+                            ? "Check amounts" : formatNaira(splitEntry.received)}
+                        </strong>
+                      </div>
+                      {!splitEntry?.issue && !splitEntryNeedsSync && paymentBreakdown && (
+                        <>
+                          <div className="mt-2 flex items-center justify-between gap-3">
+                            <span>For today&apos;s sale</span>
+                            <strong>{formatNaira(Number(draft.paid))}</strong>
+                          </div>
+                          <div className="mt-2 flex items-center justify-between gap-3">
+                            <span>Still unpaid today</span>
+                            <strong>{formatNaira(paymentBreakdown.saleRemaining)}</strong>
+                          </div>
+                          {oldDebtAmount !== null && (
+                            <div className="mt-2 flex items-center justify-between gap-3">
+                              <span>Previous debt left</span>
+                              <strong>{formatNaira(paymentBreakdown.oldDebtRemaining)}</strong>
+                            </div>
+                          )}
+                          {oldDebtAmount !== null && (
+                            <div className="mt-2 flex items-center justify-between gap-3 border-t border-emerald-200 pt-2 font-bold">
+                              <span>Total customer will owe</span>
+                              <strong>{formatNaira(paymentBreakdown.totalOwedAfter)}</strong>
+                            </div>
+                          )}
+                          {Number(draft.oldDebtPaid) > 0 && (
+                            <div className="mt-2 flex items-center justify-between gap-3">
+                              <span>For previous debt</span>
+                              <strong>{formatNaira(Number(draft.oldDebtPaid))}</strong>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                    {splitEntry?.issue && (
+                      <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm font-medium text-amber-950">
+                        {splitEntry.issue}
+                      </p>
+                    )}
+                    {splitEntry && splitEntry.extraForOldDebt > 0 && oldDebtAmount !== null &&
+                      Number(draft.oldDebtPaid) + splitEntry.extraForOldDebt <= oldDebtAmount && (
+                      <button type="button" className="secondary w-full min-h-12"
+                        onClick={() => updateSplitOldDebt(String(Number(draft.oldDebtPaid) + splitEntry.extraForOldDebt))}>
+                        Apply extra {formatNaira(splitEntry.extraForOldDebt)} toward previous debt
+                      </button>
+                    )}
+                    {splitEntryNeedsSync && splitEntry?.salePaid !== null && (
+                      <button type="button" className="secondary w-full min-h-12"
+                        onClick={() => update({ paid: String(splitEntry.salePaid) })}>
+                        Use received total in this resumed sale
+                      </button>
+                    )}
+                    {Number(draft.oldDebtPaid) === 0 && draft.splitCashToSale !== "" && (
+                      <button type="button" className="secondary w-full"
+                        onClick={() => update({ splitCashToSale: "" })}>
+                        Clear previous Cash allocation
+                      </button>
+                    )}
+                    {Number(draft.oldDebtPaid) > 0 && (
+                      <details className="rounded-lg border border-stone-200 p-3">
+                        <summary className="cursor-pointer font-semibold text-emerald-900">
+                          Change how Cash covers today&apos;s sale or previous debt
+                        </summary>
+                        <p className="mt-2 text-sm text-stone-600">By default, Cash pays toward today&apos;s sale first; Transfer pays the rest. You can change the amount of Cash used for today&apos;s sale.</p>
+                        <label className="mt-2 block" htmlFor="sale-split-cash-sale">Cash toward today&apos;s sale (₦)</label>
+                        <input id="sale-split-cash-sale" inputMode="numeric" pattern="[0-9]+" maxLength={12}
+                          placeholder="Use cash-first default" value={draft.splitCashToSale}
+                          onChange={(e) => update({ splitCashToSale: e.target.value })} />
+                      </details>
+                    )}
+                    {splitLegsPreview && Number(draft.oldDebtPaid) > 0 && (
+                      <p className="text-xs text-emerald-900">Allocated to today&apos;s sale: Cash {formatNaira(splitLegsPreview[0].saleAmount)} + Transfer {formatNaira(splitLegsPreview[1].saleAmount)}. Previous debt: Cash {formatNaira(splitLegsPreview[0].oldDebtAmount)} + Transfer {formatNaira(splitLegsPreview[1].oldDebtAmount)}.</p>
+                    )}
+                  </div>
+                )}
+              </section>
+            )}
+            {(!splitEnabled || draft.paymentMode !== "split") && (
             <section aria-label="Payment for today&apos;s drinks" className="space-y-3 rounded-xl border border-stone-200 bg-white p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="font-bold text-stone-950">Today&apos;s sale</h2>
                 <strong className="text-2xl font-bold tabular-nums text-emerald-950">{total === undefined ? "Check drinks" : formatNaira(total)}</strong>
               </div>
-              <label htmlFor="sale-paid">Paying toward today&apos;s sale (₦)</label>
-              <div className="grid grid-cols-2 gap-2" role="group" aria-label="Quick payment for today&apos;s sale">
-                <button type="button" className="secondary w-full" aria-pressed={total !== undefined && draft.paid === String(total)} disabled={total === undefined} onClick={() => total !== undefined && update({ paid: String(total) })}>
-                  Pay in full
-                </button>
-                <button type="button" className="secondary w-full" aria-pressed={draft.paid === "0"} onClick={() => update({
-                  paid: "0",
-                  ...(Number(draft.oldDebtPaid) === 0 ? {
-                    paymentMode: "single", paymentMethod: "",
-                    splitCash: "0", splitTransfer: "0", splitCashToSale: "",
-                  } : {}),
-                })}>Pay later</button>
-              </div>
-              <input
-                id="sale-paid"
-                onFocus={selectDefaultZero}
-                onClick={selectDefaultZero}
-                inputMode="numeric"
-                pattern="[0-9]+"
-                maxLength={12}
-                value={draft.paid}
-                aria-invalid={Boolean(paymentInputError)}
-                aria-describedby={paymentInputError ? "sale-paid-error" : undefined}
-                onChange={(e) => update({ paid: e.target.value })}
-              />
-              {paymentInputError && <p id="sale-paid-error" role="alert" className="text-sm text-red-800">{paymentInputError}</p>}
+                  <label htmlFor="sale-paid">Paying toward today&apos;s sale (₦)</label>
+                  <div className="grid grid-cols-2 gap-2" role="group" aria-label="Quick payment for today&apos;s sale">
+                    <button type="button" className="secondary w-full" aria-pressed={total !== undefined && draft.paid === String(total)} disabled={total === undefined}
+                      onClick={() => total !== undefined && update({ paid: String(total) })}>Pay in full</button>
+                    <button type="button" className="secondary w-full" aria-pressed={draft.paid === "0"}
+                      onClick={() => update({
+                        paid: "0",
+                        ...(Number(draft.oldDebtPaid) === 0 ? {
+                          paymentMode: "single", paymentMethod: "",
+                          splitCash: "0", splitTransfer: "0", splitCashToSale: "",
+                        } : {}),
+                      })}>Pay later</button>
+                  </div>
+                  <input
+                    id="sale-paid" onFocus={selectDefaultZero} onClick={selectDefaultZero}
+                    inputMode="numeric" pattern="[0-9]+" maxLength={12}
+                    value={draft.paid} aria-invalid={Boolean(paymentInputError)}
+                    aria-describedby={paymentInputError ? "sale-paid-error" : undefined}
+                    onChange={(e) => update({ paid: e.target.value })}
+                  />
+                  {paymentInputError && <p id="sale-paid-error" role="alert" className="text-sm text-red-800">{paymentInputError}</p>}
             </section>
+            )}
+            {(oldDebtAmount !== 0 || needsClearHiddenOldDebtPayment(draft.oldDebtPaid)) && (
             <section id="sale-previous-debt" tabIndex={-1} aria-label="Previous customer debt" className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="font-bold text-stone-950">Previous money owed</h2>
@@ -1458,7 +1678,7 @@ export function SaleBuilder({
                   {needsClearHiddenOldDebtPayment(draft.oldDebtPaid) && !saveUncertain && (
                     <div role="alert" className="space-y-2">
                       <p className="text-sm text-red-800">The previous debt has been cleared. Remove the old-debt amount before continuing.</p>
-                      <button type="button" className="secondary w-full" onClick={() => update({ oldDebtPaid: "0", splitCashToSale: "" })}>
+                      <button type="button" className="secondary w-full" onClick={() => splitEnabled && draft.paymentMode === "split" ? updateSplitOldDebt("0") : update({ oldDebtPaid: "0", splitCashToSale: "" })}>
                         Clear old-debt payment
                       </button>
                     </div>
@@ -1467,150 +1687,60 @@ export function SaleBuilder({
               )}
               {oldDebtAmount !== null && oldDebtAmount > 0 && !debtChecking && (
                 <>
-                  <p className="text-sm leading-5 text-stone-700">They can clear some or all of their old balance while buying these drinks.</p>
-                  <label htmlFor="sale-old-debt-paid">Paying toward previous debt (₦)</label>
-                  <div className="grid grid-cols-2 gap-2" role="group" aria-label="Quick previous-debt payment">
-                    <button type="button" className="secondary w-full" aria-pressed={draft.oldDebtPaid === String(oldDebtAmount)} onClick={() => update({ oldDebtPaid: String(oldDebtAmount) })}>Pay old debt in full</button>
-                    <button type="button" className="secondary w-full" aria-pressed={draft.oldDebtPaid === "0"} onClick={() => update({ oldDebtPaid: "0", splitCashToSale: "" })}>Not today</button>
-                  </div>
-                  <input
-                    id="sale-old-debt-paid"
-                    inputMode="numeric"
-                    pattern="[0-9]+"
-                    maxLength={12}
-                    onFocus={selectDefaultZero}
-                    onClick={selectDefaultZero}
-                    value={draft.oldDebtPaid}
-                    aria-invalid={Boolean(oldDebtInputError)}
-                    aria-describedby={oldDebtInputError ? "old-debt-payment-error" : "old-debt-payment-note"}
-                    onChange={(e) => update({ oldDebtPaid: e.target.value,
-                      ...(e.target.value === "0" ? { splitCashToSale: "" } : {}),
-                    })}
-                  />
-                  <p id="old-debt-payment-note" className="text-xs text-stone-600">This pays down their older balance, not today&apos;s drinks.</p>
-                  {oldDebtInputError && <p id="old-debt-payment-error" role="alert" className="text-sm text-red-800">{oldDebtInputError}</p>}
+                  {splitEnabled && draft.paymentMode === "split" ? (
+                    <details open={Number(draft.oldDebtPaid) > 0 || Boolean(oldDebtInputError)} className="rounded-lg border border-amber-200 bg-white p-3">
+                      <summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold text-emerald-900">
+                        {Number(draft.oldDebtPaid) > 0
+                          ? `${formatNaira(Number(draft.oldDebtPaid))} going to old debt · Change`
+                          : "Use some of this payment to clear old debt"}
+                      </summary>
+                      <p className="mt-1 text-sm leading-5 text-stone-600">
+                        Optional. This takes part of the Cash + Transfer received away from today&apos;s sale and applies it to older debt.
+                      </p>
+                      <label className="mt-3 block" htmlFor="sale-old-debt-paid">Amount for previous debt (₦)</label>
+                      <input
+                        id="sale-old-debt-paid" inputMode="numeric" pattern="[0-9]+" maxLength={12}
+                        onFocus={selectDefaultZero} onClick={selectDefaultZero} value={draft.oldDebtPaid}
+                        aria-invalid={Boolean(oldDebtInputError)}
+                        aria-describedby={oldDebtInputError ? "old-debt-payment-error" : "old-debt-payment-note"}
+                        onChange={(e) => updateSplitOldDebt(e.target.value)}
+                      />
+                      <p id="old-debt-payment-note" className="mt-1 text-xs text-stone-600">
+                        Cash + Transfer stay the same. The amount still unpaid on today&apos;s sale will update.
+                      </p>
+                      {oldDebtInputError && <p id="old-debt-payment-error" role="alert" className="text-sm text-red-800">{oldDebtInputError}</p>}
+                    </details>
+                  ) : (
+                    <>
+                    <p className="text-sm leading-5 text-stone-700">They can clear some or all of their old balance while buying these drinks.</p>
+                    <label htmlFor="sale-old-debt-paid">Paying toward previous debt (₦)</label>
+                    <div className="grid grid-cols-2 gap-2" role="group" aria-label="Quick previous-debt payment">
+                      <button type="button" className="secondary w-full" aria-pressed={draft.oldDebtPaid === String(oldDebtAmount)} onClick={() => update({ oldDebtPaid: String(oldDebtAmount) })}>Pay old debt in full</button>
+                      <button type="button" className="secondary w-full" aria-pressed={draft.oldDebtPaid === "0"} onClick={() => update({ oldDebtPaid: "0", splitCashToSale: "" })}>Not today</button>
+                    </div>
+                    <input
+                      id="sale-old-debt-paid"
+                      inputMode="numeric"
+                      pattern="[0-9]+"
+                      maxLength={12}
+                      onFocus={selectDefaultZero}
+                      onClick={selectDefaultZero}
+                      value={draft.oldDebtPaid}
+                      aria-invalid={Boolean(oldDebtInputError)}
+                      aria-describedby={oldDebtInputError ? "old-debt-payment-error" : "old-debt-payment-note"}
+                      onChange={(e) => update({ oldDebtPaid: e.target.value,
+                        ...(e.target.value === "0" ? { splitCashToSale: "" } : {}),
+                      })}
+                    />
+                    <p id="old-debt-payment-note" className="text-xs text-stone-600">This pays down their older balance, not today&apos;s drinks.</p>
+                    {oldDebtInputError && <p id="old-debt-payment-error" role="alert" className="text-sm text-red-800">{oldDebtInputError}</p>}
+                    </>
+                  )}
                 </>
               )}
             </section>
-            {Number(draft.paid) + Number(draft.oldDebtPaid) > 0 && (
-              <section id="sale-method" tabIndex={-1} aria-label="How the customer is paying" className="rounded-xl border border-stone-200 bg-white p-4">
-                <h2 className="font-bold text-stone-950">How is the customer paying?</h2>
-                {splitEnabled && (
-                  <div role="group" aria-label="Payment arrangement" className="mt-3 grid grid-cols-2 gap-2">
-                    <button type="button" className={draft.paymentMode !== "split" ? "primary" : "secondary"}
-                      aria-pressed={draft.paymentMode !== "split"}
-                      onClick={() => update({ paymentMode: "single", paymentMethod: "", splitCash: "0", splitTransfer: "0", splitCashToSale: "" })}>
-                      One method
-                    </button>
-                    <button type="button" className={draft.paymentMode === "split" ? "primary" : "secondary"}
-                      aria-pressed={draft.paymentMode === "split"}
-                      onClick={() => update({ paymentMode: "split", paymentMethod: "mixed", splitCash: "0", splitTransfer: "0", splitCashToSale: "" })}>
-                      Cash + Transfer
-                    </button>
-                  </div>
-                )}
-                {draft.paymentMode === "split" && !splitEnabled && (
-                  <div role="alert" className="mt-3 space-y-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
-                    <p>Split payment is not available. Change to one payment method before continuing.</p>
-                    <button type="button" className="secondary w-full"
-                      onClick={() => update({ paymentMode: "single", paymentMethod: "", splitCash: "0", splitTransfer: "0", splitCashToSale: "" })}>
-                      Choose one method
-                    </button>
-                  </div>
-                )}
-                {draft.paymentMode !== "split" && (
-                  <>
-                    <label className="mt-3 block" htmlFor="sale-method-select">Payment method</label>
-                    <select id="sale-method-select" value={draft.paymentMethod} onChange={(e) => update({ paymentMethod: e.target.value })} required>
-                      <option value="">Choose method</option>
-                      <option value="cash">Cash</option><option value="transfer">Transfer</option><option value="pos">POS</option>
-                    </select>
-                    <p className="mt-1 text-xs text-stone-600">The selected method applies to everything collected now.</p>
-                  </>
-                )}
-                {splitEnabled && draft.paymentMode === "split" && (
-                  <div id="sale-split-payment" tabIndex={-1} className="mt-3 space-y-3">
-                    <p className="text-sm text-stone-600">Enter the amount received through each method.</p>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div>
-                        <label htmlFor="sale-cash-received">Cash received (₦)</label>
-                        <input id="sale-cash-received" inputMode="numeric" pattern="[0-9]+" maxLength={12}
-                          value={draft.splitCash} onFocus={selectDefaultZero} onClick={selectDefaultZero}
-                          onChange={(e) => update({ splitCash: e.target.value })} />
-                      </div>
-                      <div>
-                        <label htmlFor="sale-transfer-received">Transfer received (₦)</label>
-                        <input id="sale-transfer-received" inputMode="numeric" pattern="[0-9]+" maxLength={12}
-                          value={draft.splitTransfer} onFocus={selectDefaultZero} onClick={selectDefaultZero}
-                          onChange={(e) => update({ splitTransfer: e.target.value })} />
-                      </div>
-                    </div>
-                    <div className="rounded-lg bg-stone-50 p-3 text-sm" aria-live="polite">
-                      <div className="flex items-center justify-between gap-3">
-                        <span>Expected collection</span>
-                        <strong>{paymentBreakdown ? formatNaira(paymentBreakdown.collectNow) : "Check amounts"}</strong>
-                      </div>
-                      <div className="mt-2 flex items-center justify-between gap-3">
-                        <span>Entered across both methods</span>
-                        <strong>{/^\d+$/.test(draft.splitCash) && /^\d+$/.test(draft.splitTransfer)
-                          ? formatNaira(Number(draft.splitCash) + Number(draft.splitTransfer)) : "Check amounts"}</strong>
-                      </div>
-                    </div>
-                    {splitShortfall && (
-                      <div aria-label="Fix short split payment" className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm">
-                        <p className="font-semibold text-stone-950">
-                          {formatNaira(splitShortfall.shortfall)} less than planned.
-                        </p>
-                        <p className="mt-1 leading-5 text-stone-700">
-                          If the customer paid only {formatNaira(splitShortfall.received)}, record that amount instead. Choose which balance stays unpaid:
-                        </p>
-                        <div className="mt-3 grid gap-2">
-                          {splitShortfall.choices.map((choice) => (
-                            <button
-                              type="button"
-                              key={choice.appliesTo}
-                              className="secondary min-h-12 w-full text-left text-sm"
-                              onClick={() => update({
-                                paid: String(choice.salePaid),
-                                oldDebtPaid: String(choice.oldDebtPaid),
-                              })}
-                            >
-                              {choice.appliesTo === "sale"
-                                ? `Use ${formatNaira(splitShortfall.received)} · Today's sale unpaid: ${formatNaira(choice.saleUnpaid)}`
-                                : `Use ${formatNaira(splitShortfall.received)} · Previous debt left: ${formatNaira(choice.oldDebtLeft ?? 0)}`}
-                            </button>
-                          ))}
-                        </div>
-                        <p className="mt-2 text-xs leading-5 text-stone-600">
-                          Nothing changes until you choose. Or edit Cash and Transfer above if the customer paid more.
-                        </p>
-                      </div>
-                    )}
-                    {Number(draft.oldDebtPaid) === 0 && draft.splitCashToSale !== "" && (
-                      <button type="button" className="secondary w-full"
-                        onClick={() => update({ splitCashToSale: "" })}>
-                        Clear previous Cash allocation
-                      </button>
-                    )}
-                    {Number(draft.oldDebtPaid) > 0 && (
-                      <details className="rounded-lg border border-stone-200 p-3">
-                        <summary className="cursor-pointer font-semibold text-emerald-900">
-                          Change how Cash covers today&apos;s sale or previous debt
-                        </summary>
-                        <p className="mt-2 text-sm text-stone-600">By default, Cash pays toward today&apos;s sale first; Transfer pays the rest. You can change the amount of Cash used for today&apos;s sale.</p>
-                        <label className="mt-2 block" htmlFor="sale-split-cash-sale">Cash toward today&apos;s sale (₦)</label>
-                        <input id="sale-split-cash-sale" inputMode="numeric" pattern="[0-9]+" maxLength={12}
-                          placeholder="Use cash-first default" value={draft.splitCashToSale}
-                          onChange={(e) => update({ splitCashToSale: e.target.value })} />
-                      </details>
-                    )}
-                    {splitLegsPreview && Number(draft.oldDebtPaid) > 0 && (
-                      <p className="text-xs text-emerald-900">Allocated to today&apos;s sale: Cash {formatNaira(splitLegsPreview[0].saleAmount)} + Transfer {formatNaira(splitLegsPreview[1].saleAmount)}. Previous debt: Cash {formatNaira(splitLegsPreview[0].oldDebtAmount)} + Transfer {formatNaira(splitLegsPreview[1].oldDebtAmount)}.</p>
-                    )}
-                  </div>
-                )}
-              </section>
             )}
+            {(!splitEnabled || draft.paymentMode !== "split") && (
             <section aria-label="Money to collect and customer balance" className="rounded-xl border border-emerald-200 bg-white p-4" aria-live="polite">
               <div className="flex items-center justify-between gap-3">
                 <span className="font-semibold text-stone-900">Collect now</span>
@@ -1635,6 +1765,7 @@ export function SaleBuilder({
                 </dl>
               )}
             </section>
+            )}
             </fieldset>
             <div className="sale-sticky-actions sticky z-10 -mx-4 space-y-2 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
             {paymentIssue && (
@@ -1804,7 +1935,9 @@ export function SaleBuilder({
                 ? "Checking sale…"
                 : paymentIssue ? (paymentIssue.target === "sale-method" ? "Choose payment method" : "Fix payment details to continue")
                 : paymentBreakdown && paymentBreakdown.collectNow > 0
-                  ? `Review · Collect ${formatNaira(paymentBreakdown.collectNow)}`
+                  ? draft.paymentMode === "split"
+                    ? `Review · Received ${formatNaira(paymentBreakdown.collectNow)}`
+                    : `Review · Collect ${formatNaira(paymentBreakdown.collectNow)}`
                   : "Review sale · pay later"}
             </button>
             </div>

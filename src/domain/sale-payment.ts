@@ -95,6 +95,83 @@ export function splitTenderShortfallChoices(input: {
   return choices.length ? { received, shortfall, choices } : null;
 }
 
+/**
+ * Cash + Transfer records money actually received, not a second copy of a
+ * separately entered payment target. Previous debt receives NOTHING unless
+ * explicitly allocated by the operator.
+ *
+ * The UI only synchronizes draft.paid when status is valid. A typed partial/
+ * invalid input must never create a made-up payment.
+ */
+export function splitPaymentFromReceived(input: {
+  saleTotal: number | undefined;
+  oldDebt: number | null;
+  oldDebtPaid: string;
+  cash: string;
+  transfer: string;
+}): {
+  received: number | null;
+  salePaid: number | null;
+  oldDebtPaid: number | null;
+  extraForOldDebt: number;
+  issue: string | null;
+} {
+  const { saleTotal, oldDebt } = input;
+  const amounts = [input.cash, input.transfer, input.oldDebtPaid];
+  const digits = /^\d+$/;
+  if (!amounts.every((value) => digits.test(value)))
+    return { received: null, salePaid: null, oldDebtPaid: null, extraForOldDebt: 0,
+      issue: "Enter valid whole-naira amounts for Cash, Transfer and previous debt." };
+  const [cash, transfer, paidOld] = amounts.map(Number);
+  if ([cash, transfer, paidOld].some((value) =>
+    !Number.isSafeInteger(value) || value < 0 || value > 2147483647
+  ) || cash + transfer > 2147483647)
+    return { received: null, salePaid: null, oldDebtPaid: null, extraForOldDebt: 0,
+      issue: "Check the amounts received." };
+  const received = cash + transfer;
+  if (saleTotal === undefined)
+    return { received, salePaid: null, oldDebtPaid: paidOld, extraForOldDebt: 0,
+      issue: "Check today's sale total first." };
+  if (paidOld > 0 && oldDebt === null)
+    return { received, salePaid: null, oldDebtPaid: paidOld, extraForOldDebt: 0,
+      issue: "Wait until the previous debt is verified before paying it." };
+  if (oldDebt !== null && paidOld > oldDebt)
+    return { received, salePaid: null, oldDebtPaid: paidOld, extraForOldDebt: 0,
+      issue: `The previous debt is only ${formatNaira(oldDebt)}.` };
+  if (paidOld > received)
+    return { received, salePaid: null, oldDebtPaid: paidOld, extraForOldDebt: 0,
+      issue: "Payment toward old debt cannot exceed the money received." };
+  const salePaid = received - paidOld;
+  if (salePaid > saleTotal) {
+    const extraForOldDebt = salePaid - saleTotal;
+    return { received, salePaid: null, oldDebtPaid: paidOld, extraForOldDebt,
+      issue: `${formatNaira(extraForOldDebt)} exceeds today's sale. Choose whether to pay previous debt, or correct the received amounts.` };
+  }
+  return { received, salePaid, oldDebtPaid: paidOld, extraForOldDebt: 0, issue: null };
+}
+
+/** The single-method path must never inherit a stale planned payment from
+ * Cash + Transfer. Invalid receipts reset to zero, requiring new entry. */
+export function oneMethodAmountsFromReceived(
+  entry: ReturnType<typeof splitPaymentFromReceived>,
+): { paid: string; oldDebtPaid: string } {
+  return entry.issue === null && entry.salePaid !== null && entry.oldDebtPaid !== null
+    ? { paid: String(entry.salePaid), oldDebtPaid: String(entry.oldDebtPaid) }
+    : { paid: "0", oldDebtPaid: "0" };
+}
+
+/** A feature rollback must never hide recovery controls for an already
+ * stored split-tender draft, even when the planned paid amount is zero/stale. */
+export function showPaymentMethodControls(input: {
+  splitEnabled: boolean;
+  paymentMode: "single" | "split";
+  salePaid: string;
+  oldDebtPaid: string;
+}): boolean {
+  return input.splitEnabled || input.paymentMode === "split" ||
+    Number(input.salePaid) > 0 || Number(input.oldDebtPaid) > 0;
+}
+
 export function debtPaymentInputError(input: string, currentDebt: number | null): string | null {
   if (!/^\d+$/.test(input) || !Number.isSafeInteger(Number(input)) || Number(input) > 2147483647)
     return "Enter a whole amount toward previous debt, starting at 0.";
@@ -137,6 +214,7 @@ export function paymentReviewIssue(input: {
   splitTransfer?: string;
   splitCashToSale?: string;
   splitEnabled?: boolean;
+  splitEntryIssue?: string | null;
 }): PaymentReviewIssue | null {
   if (input.saleTotal === undefined)
     return { message: "Check the drinks and amounts before reviewing this sale.", target: "sale-paid" };
@@ -157,6 +235,8 @@ export function paymentReviewIssue(input: {
       // the always-rendered section offers the Clear old-debt payment action.
       target: (input.oldDebtAmount ?? 0) > 0 ? "sale-old-debt-paid" : "sale-previous-debt",
     };
+  if (input.paymentMode === "split" && input.splitEntryIssue)
+    return { message: input.splitEntryIssue, target: "sale-split-payment" };
   if (!input.breakdown)
     return { message: "Check today's payment and previous-debt amounts.", target: "sale-previous-debt" };
   if (input.paymentMode === "split") {
