@@ -20,7 +20,10 @@ begin
     or pg_catalog.strpos(v_source,
        'on conflict(business_id,bottle_type) do update')=0
     or pg_catalog.strpos(v_source,'private.can_read_legacy_customer(')<>0 then
-    raise exception 'Legacy branded-return source prerequisite drift';
+    raise exception 'Legacy branded-return source prerequisite drift: actor %, upsert %, alreadyScoped %',
+      pg_catalog.strpos(v_source,'private.verified_legacy_owner_read()'),
+      pg_catalog.strpos(v_source,'on conflict(business_id,bottle_type) do update'),
+      pg_catalog.strpos(v_source,'private.can_read_legacy_customer(');
   end if;
 
   for v_change in select * from (values
