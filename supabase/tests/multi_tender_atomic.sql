@@ -5,9 +5,9 @@ begin;
 create function pg_temp.ok(v boolean, m text) returns void language plpgsql as $$
 begin if v is distinct from true then raise exception '%', m; end if; end $$;
 
-select pg_temp.ok(not has_function_privilege('authenticated',
+select pg_temp.ok(has_function_privilege('authenticated',
  'public.save_sale_multi_tender(uuid,uuid,date,numeric,jsonb,jsonb,jsonb,numeric,jsonb)', 'EXECUTE'),
- 'New POS multi-tender saver must stay disabled pending release approval');
+ 'Activated POS multi-tender saver must be callable by signed-in owners');
 select pg_temp.ok(not has_function_privilege('anon',
  'public.save_sale_multi_tender(uuid,uuid,date,numeric,jsonb,jsonb,jsonb,numeric,jsonb)', 'EXECUTE'),
  'Anonymous users must never call the POS multi-tender saver');
@@ -60,11 +60,8 @@ create function pg_temp.all_three() returns jsonb language sql as $$
  );
 $$;
 
--- Release permission is simulated ONLY inside this rolled-back fixture.
--- Exercise the actual authenticated Supabase caller role, not just postgres.
-grant execute on function public.save_sale_multi_tender(
- uuid,uuid,date,numeric,jsonb,jsonb,jsonb,numeric,jsonb
-) to authenticated;
+-- Exercise the actual authenticated Supabase caller role with the
+-- separately activated grant; no fixture privilege escalation.
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000009931',true);
 
