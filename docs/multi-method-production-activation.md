@@ -9,7 +9,9 @@ of earlier customer debt. **It must not silently relabel or alter historical mon
 - Code: a new default-off `NEXT_PUBLIC_MULTI_TENDER_ENABLED` flag.
 - SQL: `20261017132205_generalize_multi_tender_guarded_20261017.sql` updates the immutable
   method constraint and deferred financial checks; it adds
-  `public.save_sale_multi_tender` but grants NO authenticated execute.
+  `public.save_sale_multi_tender` without a default grant. A SECOND reviewed
+  migration `20261017140000_activate_multi_tender_owner_only.sql` grants
+  authenticated-only EXECUTE once all schema and recovery prerequisites pass.
 - **Existing** `save_sale_split_tender` and `NEXT_PUBLIC_SPLIT_TENDER_ENABLED`
   remain intact. A partial rollout cannot disrupt verified Cash + Transfer.
 - Production Supabase migration versions diverge from repo filename versions.
@@ -27,14 +29,14 @@ of earlier customer debt. **It must not silently relabel or alter historical mon
    immutable trigger and split request fence are enabled, existing Cash +
    Transfer saver still works, and receipt verification exposes only
    token-authorized method amounts. Inspect exact migration history.
-3. Apply reviewed schema extension as a **tracked new migration**. Verify
+3. Confirm the already-applied schema extension and its **tracked production migration**. Verify
    `sale_tender_legs.method` now allows `pos`, the mixed-sale deferred
    trigger permits exactly 2–3 real methods, and
    `has_function_privilege('authenticated',...,'EXECUTE')` remains false
-   for the new saver until activation. A schema deployment alone does not
+   for the new saver before the separate activation migration. A schema deployment alone does not
    enable the new UI or direct API.
-4. After inspecting SQL release conditions, use a **separate approved tracked
-   migration** to grant only `authenticated` EXECUTE on
+4. After inspecting SQL release conditions, apply the separately reviewed
+   `20261017140000_activate_multi_tender_owner_only.sql` migration to grant only `authenticated` EXECUTE on
    `public.save_sale_multi_tender(uuid,uuid,date,numeric,jsonb,jsonb,jsonb,numeric,jsonb)`.
    Anonymous and PUBLIC must stay denied. Explicit owner authorization is
    checked *inside* the SECURITY DEFINER procedure. Revalidate via read-only
@@ -69,3 +71,10 @@ of earlier customer debt. **It must not silently relabel or alter historical mon
   legs, undo paid debt, or rewrite committed receipts.
 - If schema/rules are incompatible, **stop** before applying production SQL;
   do not repair version history by hand or bypass a failed preflight.
+
+## Status checklist (17 October 2026)
+
+- Schema extension deployed and read-only verified; two existing tender legs preserved.
+- Repo schema migration filename aligned with production-assigned version `20261017132205` in PR #138.
+- Authentication activation migration is tracked and disposable-PostgreSQL tested in a separate PR; not a signal that live checkout has been exercised.
+- Vercel `NEXT_PUBLIC_MULTI_TENDER_ENABLED` must stay OFF until the grant and deployment are separately verified.
