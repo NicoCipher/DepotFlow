@@ -58,19 +58,19 @@ do $extend_exact_empty_count_scope$
 declare
   v_oid oid := 'private.scope_legacy_operational_write()'::regprocedure;
   v_source text;
-  v_old_when constant text :=
-    E"if tg_table_schema='public' and tg_table_name='empty_bottle_stock'\n"
-    || E"     and tg_op in ('INSERT','UPDATE')";
-  v_new_when constant text :=
-    E"if tg_table_schema='public' and tg_table_name in ('empty_bottle_stock','empty_crate_stock')\n"
-    || E"     and tg_op in ('INSERT','UPDATE')";
-  v_old_gate constant text :=
-    E"    if not exists (\n"
-    || E"      select 1 from private.business_bottle_count_gate where enabled is true\n"
-    || E"    ) then\n"
-    || E"      raise exception 'Business empty-bottle counting is not available'\n"
-    || E"        using errcode='42501';\n"
-    || E"    end if;";
+  v_old_when constant text := $oldwhen$
+if tg_table_schema='public' and tg_table_name='empty_bottle_stock'
+     and tg_op in ('INSERT','UPDATE')$oldwhen$;
+  v_new_when constant text := $newwhen$
+if tg_table_schema='public' and tg_table_name in ('empty_bottle_stock','empty_crate_stock')
+     and tg_op in ('INSERT','UPDATE')$newwhen$;
+  v_old_gate constant text := $oldgate$
+    if not exists (
+      select 1 from private.business_bottle_count_gate where enabled is true
+    ) then
+      raise exception 'Business empty-bottle counting is not available'
+        using errcode='42501';
+    end if;$oldgate$;
   v_new_gate constant text := $gate$
     if tg_table_name='empty_bottle_stock' and not exists (
       select 1 from private.business_bottle_count_gate where enabled is true
