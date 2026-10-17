@@ -91,8 +91,8 @@ do $$ begin
   exception when unique_violation then null; end;
   begin
     insert into public.sale_tender_legs(sale_id,method,sale_amount,old_debt_amount)
-    values ('30000000-0000-4000-8000-000000009501','pos',1,0);
-    raise exception 'Unsupported POS split leg was accepted';
+    values ('30000000-0000-4000-8000-000000009501','crypto',1,0);
+    raise exception 'Unsupported tender method was accepted';
   exception when check_violation then null; end;
   begin
     insert into public.sale_tender_legs(sale_id,method,sale_amount,old_debt_amount)
