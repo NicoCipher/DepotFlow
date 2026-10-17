@@ -167,7 +167,11 @@ begin
   end if;
 end
 $legacy_release_scope$;
+-- public.release_held_empties is an intentional SECURITY INVOKER shim;
+-- it must be able to call this protected private helper. The helper itself
+-- authorizes the verified active legacy owner before touching any row.
 revoke all on function private.release_held_empties(uuid)
-  from public,anon,authenticated,service_role;
+  from public,anon,service_role;
+grant execute on function private.release_held_empties(uuid) to authenticated;
 
 commit;
