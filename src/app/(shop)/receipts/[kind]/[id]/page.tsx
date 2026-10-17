@@ -141,10 +141,9 @@ export default async function ReceiptPage({
       : leg.old_debt_amount,
   })).filter((leg) => leg.amount > 0);
   if (receipt.method === "mixed" &&
-      (paymentLegs.length !== 2 ||
-       new Set(paymentLegs.map((leg) => leg.method)).size !== 2 ||
-       !paymentLegs.some((leg) => leg.method === "cash") ||
-       !paymentLegs.some((leg) => leg.method === "transfer") ||
+      ((paymentLegs.length < 2 || paymentLegs.length > 3) ||
+       new Set(paymentLegs.map((leg) => leg.method)).size !== paymentLegs.length ||
+       paymentLegs.some((leg) => !["cash", "transfer", "pos"].includes(leg.method)) ||
        paymentLegs.reduce((sum, leg) => sum + leg.amount, 0) !== accountCollected)) {
     throw new Error("Saved payment methods did not match this receipt.");
   }
