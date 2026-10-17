@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 /**
@@ -12,10 +12,14 @@ export function SlowPageAction({ context }: { context: "home" | "sale" | "page" 
   const router = useRouter();
   const [slow, setSlow] = useState(false);
   const [retrying, setRetrying] = useState(false);
+  const retryTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setSlow(true), 8000);
-    return () => window.clearTimeout(timeout);
+    return () => {
+      window.clearTimeout(timeout);
+      if (retryTimeout.current !== null) window.clearTimeout(retryTimeout.current);
+    };
   }, []);
 
   if (!slow) return null;
@@ -33,6 +37,9 @@ export function SlowPageAction({ context }: { context: "home" | "sale" | "page" 
         onClick={() => {
           setRetrying(true);
           router.refresh();
+          // A failed refresh must not leave Try again disabled forever.
+          if (retryTimeout.current !== null) window.clearTimeout(retryTimeout.current);
+          retryTimeout.current = window.setTimeout(() => setRetrying(false), 5000);
         }}
         disabled={retrying}
       >
