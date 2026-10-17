@@ -4,7 +4,7 @@ Status: **NO-GO — history reconciliation required.** This is a deployment runb
 
 ## Fresh read-only history check — 17 October 2026
 
-A new Supabase migration-list read returned **55 applied versions**, latest **`20261017132742_activate_multi_tender_owner_only_20261017`**. This supersedes the 16 October count of 47 and tip `20261015233039`. The 22 proposed M2 migrations currently have timestamps from `20261016020000` through `20261017140100`; several are now **older than already-applied production migrations**. The live upgrade is therefore still blocked even if the earlier 47-versus-44 mismatch is later reconciled. Before a future release, replan the additive M2 sequence against a fresh, verified remote tip and reproduce the actual upgrade on a production-schema clone. **Do not rename timestamps merely to make a preflight pass**, and do not run any M2 migration against the live database from this draft branch.
+A new Supabase migration-list read returned **55 applied versions**, latest **`20261017132742_activate_multi_tender_owner_only_20261017`**. This supersedes the 16 October count of 47 and tip `20261015233039`. The 23 proposed M2 migrations currently have timestamps from `20261016020000` through `20261017140200`; several are now **older than already-applied production migrations**. The live upgrade is therefore still blocked even if the earlier 47-versus-44 mismatch is later reconciled. Before a future release, replan the additive M2 sequence against a fresh, verified remote tip and reproduce the actual upgrade on a production-schema clone. **Do not rename timestamps merely to make a preflight pass**, and do not run any M2 migration against the live database from this draft branch.
 
 
 ## Evidence captured 16 October 2026
