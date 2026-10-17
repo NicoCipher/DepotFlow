@@ -206,7 +206,7 @@ export function MultiPaymentPanel({
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 rounded-lg border border-emerald-100 bg-emerald-50/60 p-3 text-sm">
         <div>
-          <p className="text-xs text-stone-600">Paid for today's sale</p>
+          <p className="text-xs text-stone-600">Paid for today&apos;s sale</p>
           <p className="text-base font-bold tabular-nums">{preview.salePaid !== null ? formatNaira(preview.salePaid) : "—"}</p>
         </div>
         <div>
