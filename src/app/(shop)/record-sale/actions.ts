@@ -443,7 +443,7 @@ export async function recoverSplitSale(requestId: string, draft: SaleDraft) {
         !("state" in check))
       return { error: saleSaveUncertainMessage, code: "save_uncertain" as const };
     if (check.state === "absent") return {
-      error: "This sale was not saved. Your unfinished sale is still here. Choose one payment method to continue.",
+      error: "This sale was not saved. Your payment amounts are preserved. Check them before retrying; do not combine different payment methods into one.",
       code: "sale_not_saved" as const,
     };
     if (check.state !== "saved")
