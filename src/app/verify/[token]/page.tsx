@@ -100,9 +100,9 @@ export default async function VerifyPage({
   const amountCollected = account ? account.collected : result.amount;
   // RPC-provided amounts are trusted only after validating the exact total.
   const tenderRows = Array.isArray(result.tenders) ? result.tenders : [];
-  const validTenders = tenderRows.length === 2 &&
-    new Set(tenderRows.map((t) => t.method)).size === 2 &&
-    tenderRows.every((t) => ["cash", "transfer"].includes(t.method) &&
+  const validTenders = tenderRows.length >= 2 && tenderRows.length <= 3 &&
+    new Set(tenderRows.map((t) => t.method)).size === tenderRows.length &&
+    tenderRows.every((t) => ["cash", "transfer", "pos"].includes(t.method) &&
       [t.amount,t.saleAmount,t.oldDebtAmount].every((n) =>
         Number.isSafeInteger(n) && n >= 0) &&
       t.amount > 0 && t.amount === t.saleAmount + t.oldDebtAmount) &&
