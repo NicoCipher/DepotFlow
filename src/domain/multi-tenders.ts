@@ -30,6 +30,11 @@ export function allocateMultiTender(
       input.methods.length > 3 || new Set(input.methods).size !== input.methods.length ||
       input.methods.some(m => !paymentMethods.includes(m)))
     throw new Error("Choose two or three different payment methods.");
+  for (const method of paymentMethods) {
+    if (input.methods.includes(method)) continue;
+    if (input.received[method] !== "0" || input.towardOldDebt[method] !== "0")
+      throw new Error("Remove payments from a method before deselecting it.");
+  }
   const legs: SaleTenderLeg[] = [];
   for (const method of paymentMethods) {
     if (!input.methods.includes(method)) continue;
