@@ -60,7 +60,12 @@ create function pg_temp.all_three() returns jsonb language sql as $$
  );
 $$;
 
-set local role postgres;
+-- Release permission is simulated ONLY inside this rolled-back fixture.
+-- Exercise the actual authenticated Supabase caller role, not just postgres.
+grant execute on function public.save_sale_multi_tender(
+ uuid,uuid,date,numeric,jsonb,jsonb,jsonb,numeric,jsonb
+) to authenticated;
+set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000009931',true);
 
 -- Cash + POS can pay a whole sale, and old debt remains untouched.
