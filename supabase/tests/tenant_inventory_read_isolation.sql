@@ -167,13 +167,22 @@ values ('89600000-0000-4000-9000-000000000061',
  9999,'89600000-0000-4000-9000-000000000042');
 insert into public.sales(
  id,customer_id,total_amount,paid_amount,business_date,business_id,
- payment_method,account_receipt
+ payment_method,account_receipt,request_id,request_payload
 ) values (
  '89600000-0000-4000-9000-000000000081',
  '89600000-0000-4000-9000-000000000061',
  20000,5000,'2026-10-16',
  '89600000-0000-4000-9000-000000000042',
- 'mixed','{"paidOld":0}'::jsonb
+ 'mixed','{"paidOld":0}'::jsonb,
+ '89600000-0000-4000-9000-000000000091',
+ jsonb_build_object(
+   'customer','89600000-0000-4000-9000-000000000061'::uuid,
+   'date','2026-10-16'::date,
+   'paid',5000,
+   'lines','[{}]'::jsonb,
+   'returnedCrates','[]'::jsonb,
+   'returnedBottles','[]'::jsonb
+ )
 );
 -- Foreign Cash/Transfer ledger lines inherit their sale's business boundary.
 insert into public.sale_tender_legs(sale_id,method,sale_amount,old_debt_amount)
@@ -228,6 +237,42 @@ insert into public.sale_empty_decisions(
   '89600000-0000-4000-9000-000000000042'
 );
 alter table public.sale_empty_decisions enable trigger legacy_scope_business_write;
+
+-- The base sale saver itself must never hand a foreign idempotent replay
+-- back to the legacy owner, EVEN with an exact saved request payload.
+-- Both the foreign saved-sale request and an unknown request targeting a
+-- foreign customer must give the SAME private-data-neutral response.
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89600000-0000-4000-8000-000000000001',true);
+do $foreign_base_replay$
+declare
+  v_id uuid;
+  v_error text;
+  v_request uuid;
+begin
+  foreach v_request in array array[
+    '89600000-0000-4000-9000-000000000091'::uuid,
+    '89600000-0000-4000-9000-000000000092'::uuid
+  ] loop
+    begin
+      perform private.save_sale_v2(
+        v_request,
+        '89600000-0000-4000-9000-000000000061',
+        '2026-10-16'::date,5000,
+        '[{}]'::jsonb,'[]'::jsonb,'[]'::jsonb);
+      raise exception 'Legacy owner replayed/probed foreign sale' using errcode='PT001';
+    exception
+      when sqlstate '22023' then
+        get stacked diagnostics v_error = message_text;
+        if v_error <> 'Customer no longer exists. Review the sale.' then
+          raise exception 'Foreign sale probe leaked a distinct response: %',v_error;
+        end if;
+    end;
+  end loop;
+end;
+$foreign_base_replay$;
+reset role;
 
 -- A legacy SECURITY DEFINER operation must not learn a foreign balance via
 -- overpayment behaviour or a held decision's existence/release status.
