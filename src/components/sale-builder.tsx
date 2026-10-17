@@ -1597,7 +1597,8 @@ export function SaleBuilder({
                 {draft.paymentMode === "multi" ? (
                   multiEnabled ? (
                     <MultiPaymentPanel draft={draft} saleTotal={total} oldDebt={oldDebtAmount}
-                      update={update} useSingle={useMultiSingle} />
+                      oldDebtError={debtErrorMessage} onRetryDebt={() => setDebtRefresh(n => n + 1)}
+                      update={update} onUseSingle={useMultiSingle} />
                   ) : (
                     <div id="sale-split-payment" role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
                       Multiple payment methods are temporarily unavailable. Your amounts are preserved;
