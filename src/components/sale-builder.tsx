@@ -1594,6 +1594,18 @@ export function SaleBuilder({
                   </strong>
                 </div>
                 <div className="px-3 pb-4 pt-3 sm:px-4">
+                {draft.paymentMode === "multi" ? (
+                  multiEnabled ? (
+                    <MultiPaymentPanel draft={draft} saleTotal={total} oldDebt={oldDebtAmount}
+                      update={update} useSingle={useMultiSingle} />
+                  ) : (
+                    <div id="sale-split-payment" role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
+                      Multiple payment methods are temporarily unavailable. Your amounts are preserved;
+                      park this sale until the feature returns. Do not record them under one method.
+                    </div>
+                  )
+                ) : (
+                <>
                 <div>
                   <p className="mb-2 text-sm font-semibold tracking-tight text-stone-900">How was it paid?</p>
                   <div role="group" aria-label="How the customer paid"
@@ -1609,15 +1621,15 @@ export function SaleBuilder({
                         {method === "cash" ? "Cash" : method === "transfer" ? "Transfer" : "POS"}
                       </button>
                     ))}
-                    {splitEnabled && (
+                    {(splitEnabled || multiEnabled) && (
                       <button type="button"
                         className={draft.paymentMode === "split"
                           ? "flex min-h-12 items-center justify-center gap-2 rounded-xl border border-emerald-800 bg-emerald-900 px-2 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors"
                           : "flex min-h-12 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-stone-50/70 px-2 py-2.5 text-sm font-semibold text-stone-800 transition-colors hover:border-emerald-300 hover:bg-emerald-50"}
                         aria-pressed={draft.paymentMode === "split"}
-                        onClick={() => setPaymentModeSafely("split")}>
+                        onClick={() => setPaymentModeSafely(multiEnabled ? "multi" : "split")}>
                         <SaleIcon name="split" className="h-[18px] w-[18px] shrink-0" />
-                        Cash + Transfer
+                        {multiEnabled ? "Multiple methods" : "Cash + Transfer"}
                       </button>
                     )}
                   </div>
@@ -1632,6 +1644,8 @@ export function SaleBuilder({
                       <p className="mt-1 text-stone-700">
                         {requestedPaymentMode === "split"
                           ? "The previous payment amount will reset. Enter Cash and Transfer received."
+                          : requestedPaymentMode === "multi"
+                            ? "Your recorded payment will be carried into multiple methods. You can then add POS, Cash or Transfer."
                           : draft.paymentMode === "split"
                             ? splitConversionPreview?.issue
                               ? "The Cash + Transfer amounts cannot be verified. Changing methods will clear those amounts and reset both payments to ₦0. Keep the current method if this is not what you want."
@@ -1804,12 +1818,16 @@ export function SaleBuilder({
                     </details>
                   )}
                 </div>
+                </>
+                )}
                 <dl className="mt-4 rounded-xl border border-emerald-100 bg-gradient-to-b from-emerald-50/80 to-white px-3 py-3 text-sm sm:px-4" aria-live="polite">
                   <div className="grid grid-cols-1 gap-3 min-[440px]:grid-cols-2">
                     <div className="min-w-0">
                       <dt className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Received now</dt>
                       <dd className="mt-1 break-words text-xl font-bold tabular-nums text-emerald-950 [overflow-wrap:anywhere]">
                         {paymentBreakdown ? formatNaira(paymentBreakdown.collectNow)
+                          : multiEntry?.received !== null && multiEntry?.received !== undefined
+                            ? formatNaira(multiEntry.received)
                           : splitEntry?.received !== null && splitEntry?.received !== undefined
                             ? formatNaira(splitEntry.received) : "—"}
                       </dd>
@@ -2144,11 +2162,11 @@ export function SaleBuilder({
                 <>
                   <div className="flex justify-between gap-3 border-b border-stone-200 py-3">
                     <dt>Method</dt>
-                    <dd className="font-semibold">{draft.paymentMode === "split" ? "Cash + Transfer" : ({ cash: "Cash", transfer: "Bank transfer", pos: "POS" }[draft.paymentMethod as "cash" | "transfer" | "pos"] ?? "Choose a method")}</dd>
+                    <dd className="font-semibold">{draft.paymentMode === "multi" ? "Multiple methods" : draft.paymentMode === "split" ? "Cash + Transfer" : ({ cash: "Cash", transfer: "Bank transfer", pos: "POS" }[draft.paymentMethod as "cash" | "transfer" | "pos"] ?? "Choose a method")}</dd>
                   </div>
-                  {splitLegsPreview && splitLegsPreview.map((leg) => (
+                  {(draft.paymentMode === "multi" ? multiLegsPreview : splitLegsPreview)?.map((leg) => (
                     <div key={leg.method} className="flex justify-between gap-3 border-b border-stone-200 py-2 text-sm">
-                      <dt>{leg.method === "cash" ? "Cash received" : "Transfer received"}</dt>
+                      <dt>{leg.method === "cash" ? "Cash received" : leg.method === "pos" ? "POS received" : "Transfer received"}</dt>
                       <dd className="font-semibold">{formatNaira(leg.amount)}</dd>
                     </div>
                   ))}
@@ -2215,7 +2233,7 @@ export function SaleBuilder({
                     // Never re-run a split financial write while its original
                     // outcome is uncertain, even if the feature flag is still on.
                     // Reconcile the saved request under its advisory lock.
-                    response = saveUncertain && draft.paymentMode === "split"
+                    response = saveUncertain && (draft.paymentMode === "split" || draft.paymentMode === "multi")
                       ? await recoverSplitSale(requestId, draft)
                       : await saveSale(requestId, draft);
                   } catch {
