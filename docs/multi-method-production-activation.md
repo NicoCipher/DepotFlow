@@ -7,7 +7,7 @@ of earlier customer debt. **It must not silently relabel or alter historical mon
 ## Current release gates
 
 - Code: a new default-off `NEXT_PUBLIC_MULTI_TENDER_ENABLED` flag.
-- SQL: `20261017130000_generalize_multi_tender.sql` updates the immutable
+- SQL: `20261017132205_generalize_multi_tender_guarded_20261017.sql` updates the immutable
   method constraint and deferred financial checks; it adds
   `public.save_sale_multi_tender` but grants NO authenticated execute.
 - **Existing** `save_sale_split_tender` and `NEXT_PUBLIC_SPLIT_TENDER_ENABLED`
