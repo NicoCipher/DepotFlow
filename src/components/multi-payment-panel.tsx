@@ -15,13 +15,15 @@ const labels: Record<SaleTenderMethod, string> = {
 };
 
 export function MultiPaymentPanel({
-  draft, saleTotal, oldDebt, update, useSingle,
+  draft, saleTotal, oldDebt, oldDebtError, onRetryDebt, update, onUseSingle,
 }: {
   draft: SaleDraft;
   saleTotal: number | undefined;
   oldDebt: number | null;
+  oldDebtError: string;
+  onRetryDebt: () => void;
   update: (patch: Partial<SaleDraft>) => void;
-  useSingle: (method: SaleTenderMethod | "") => void;
+  onUseSingle: (method: SaleTenderMethod | "") => void;
 }) {
   const [removeMethod, setRemoveMethod] = useState<SaleTenderMethod | null>(null);
   const [payPrevious, setPayPrevious] = useState(Number(draft.oldDebtPaid) > 0);
@@ -128,11 +130,11 @@ export function MultiPaymentPanel({
       {preview.issue && <p role="alert" className="mt-2 rounded-lg bg-amber-50 p-2 text-sm text-amber-950">{preview.issue}</p>}
       {singleMethod.length === 1 && methods.filter(m => Number(draft.multiReceived[m]) > 0).length === 1 && (
         <button type="button" className="mt-2 min-h-11 text-sm font-semibold text-emerald-900 underline underline-offset-2"
-          onClick={() => useSingle(singleMethod[0])}>Only {labels[singleMethod[0]]} received? Use one method</button>
+          onClick={() => onUseSingle(singleMethod[0])}>Only {labels[singleMethod[0]]} received? Use one method</button>
       )}
       {received === 0 && payingOld === 0 && (
         <button type="button" className="mt-2 min-h-11 text-sm font-semibold text-emerald-900 underline underline-offset-2"
-          onClick={() => useSingle("")}>No payment received? Record as pay later</button>
+          onClick={() => onUseSingle("")}>No payment received? Record as pay later</button>
       )}
 
       <div id="sale-previous-debt" tabIndex={-1} className="mt-4 border-t border-stone-100 pt-3">
@@ -140,6 +142,12 @@ export function MultiPaymentPanel({
           <span className="font-semibold text-stone-900">Previous money owed</span>
           <strong className="tabular-nums">{oldDebt === null ? "Checking…" : formatNaira(oldDebt)}</strong>
         </div>
+        {oldDebtError && (
+          <div role="alert" className="mt-2 flex items-center justify-between gap-2 rounded-lg bg-amber-50 p-2 text-sm">
+            <span>{oldDebtError}</span>
+            <button type="button" className="secondary min-h-11 shrink-0 px-3" onClick={onRetryDebt}>Retry</button>
+          </div>
+        )}
         {oldDebt !== null && oldDebt > 0 && (
           <>
             <label className="mt-3 flex min-h-11 items-center gap-2 text-sm font-semibold text-stone-800">
