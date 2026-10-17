@@ -202,7 +202,15 @@ export function MultiPaymentPanel({
             )}
           </>
         )}
-        {oldDebt === 0 && payingOld > 0 && (
+        {oldDebt === null && payingOld > 0 && (
+          <div role="alert" className="mt-2 rounded-lg bg-amber-50 p-2 text-sm text-amber-950">
+            <p>Previous debt is not verified yet. Retry the balance check or remove this allocation.</p>
+            <button type="button" className="secondary mt-2 min-h-11 w-full" onClick={clearOldDebt}>
+              Clear previous-debt payment
+            </button>
+          </div>
+        )}
+        {oldDebt !== null && oldDebt <= 0 && payingOld > 0 && (
           <div role="alert" className="mt-2 rounded-lg bg-amber-50 p-2 text-sm text-amber-950">
             <p>Previous debt has been cleared. Remove the older-debt allocation to continue.</p>
             <button type="button" className="secondary mt-2 min-h-11 w-full" onClick={clearOldDebt}>
