@@ -8,6 +8,10 @@ insert into auth.users(id) values
 insert into private.shop_owner(user_id)
  values ('89600000-0000-4000-8000-000000000001');
 select private.link_legacy_shop_business();
+-- Same-business customer used to ensure an injected foreign product UUID
+-- cannot leak product metadata or stock via SECURITY DEFINER sale validation.
+insert into public.customers(id,name,phone)
+values('89600000-0000-4000-9000-000000000062','Legacy sale probe buyer','08000896062');
 
 insert into public.product_catalogue(id,name,manufacturer,image_path)
 values (
@@ -272,6 +276,71 @@ begin
   end loop;
 end;
 $foreign_base_replay$;
+reset role;
+
+-- Foreign product / branded crate identifiers must produce the same
+-- neutral "not available" class as missing IDs, even for a valid legacy
+-- customer and a syntactically valid sale. No payment, stock or empties write.
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89600000-0000-4000-8000-000000000001',true);
+do $foreign_sale_inventory$
+declare
+  v_id uuid;
+  v_err text;
+begin
+  foreach v_id in array array[
+    '89600000-0000-4000-9000-000000000023'::uuid,
+    '89600000-0000-4000-9000-000000000099'::uuid
+  ] loop
+    begin
+      perform public.save_sale_v2(
+        gen_random_uuid(),
+        '89600000-0000-4000-9000-000000000062',
+        '2026-10-16'::date,0,
+        jsonb_build_array(jsonb_build_object(
+          'productId',v_id,'expected','{}'::jsonb,
+          'quantity',jsonb_build_object('crates',0,'fraction',0,'bottles',1),
+          'returnedCrates',0,'returnedBottles',0
+        )),
+        '[]'::jsonb,'[]'::jsonb,'cash');
+      raise exception 'Foreign or missing product became a valid sale'
+        using errcode='PT001';
+    exception when invalid_parameter_value then
+      get stacked diagnostics v_err = message_text;
+      if v_err <> 'A drink no longer exists. Review the sale.' then
+        raise exception 'Foreign inventory existence/state oracle: %',v_err;
+      end if;
+    end;
+  end loop;
+  foreach v_id in array array[
+    '89600000-0000-4000-9000-000000000013'::uuid,
+    '89600000-0000-4000-9000-000000000098'::uuid
+  ] loop
+    begin
+      perform public.save_sale_v2(
+        gen_random_uuid(),
+        '89600000-0000-4000-9000-000000000062',
+        '2026-10-16'::date,0,
+        jsonb_build_array(jsonb_build_object(
+          'productId','89600000-0000-4000-9000-000000000021'::uuid,
+          'expected','{}'::jsonb,
+          'quantity',jsonb_build_object('crates',0,'fraction',0,'bottles',1),
+          'returnedCrates',0,'returnedBottles',0
+        )),
+        jsonb_build_array(jsonb_build_object('crateTypeId',v_id,'quantity',1)),
+        '[]'::jsonb,'cash');
+      raise exception 'Foreign or missing crate passed sale validation'
+        using errcode='PT001';
+    exception when invalid_parameter_value then
+      get stacked diagnostics v_err = message_text;
+      if v_err <> 'A returned crate type is no longer available.' then
+        raise exception 'Foreign crate identity oracle: %',v_err;
+      end if;
+    end;
+  end loop;
+end;
+$foreign_sale_inventory$;
 reset role;
 
 -- A legacy SECURITY DEFINER operation must not learn a foreign balance via
