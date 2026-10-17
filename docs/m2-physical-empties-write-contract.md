@@ -2,18 +2,22 @@
 
 **Status: NO-GO for a second depot.** This is an engineering acceptance contract, not an authorization to migrate the production database.
 
-## Reproduced defect
+## Defect reproduced in live schema; key change staged in the draft
 
-`public.empty_bottle_stock` has `PRIMARY KEY (bottle_type)`, not a business-qualified key. Two different depots both counting `Goldberg bottle` collide, even if both rows carry different `business_id` values. The disposable regression `supabase/tests/tenant_physical_empties_write_readiness.sql` reproduces this collision and proves the first shop's quantity is unchanged. A passing regression currently means **the limitation was correctly detected**, NOT that multi-business writes work.
+**Production still has `PRIMARY KEY (bottle_type)`.** Two different depots counting `Goldberg bottle` would collide. Do not sign up another depot on that schema.
 
-`public.empty_crate_stock` has `PRIMARY KEY (crate_type_id)`, and `crate_type_id` references the shop's branded crate identity. A unique crate-type UUID is not permission to reuse a global physical-stock key. Future migrations must enforce the composite tenant relationship `(business_id,crate_type_id)` and require the corresponding tenant ownership for all writes. Keep Gulder and Heineken separate even if both have 12 pockets. Bottle stock keys must preserve exact bottle identity without merging unrelated bottles.
+**Unmerged draft PR #107** now includes `20261017140200_tenant_physical_empty_stock_key.sql`. In disposable PostgreSQL 16 it adds an immutable surrogate physical-stock row ID and `UNIQUE NULLS NOT DISTINCT (business_id,bottle_type)`, preserving the one-row-per-type legacy NULL key during audited backfill. It retargets the original shop's two active bottle upserts (atomic sale, customer empty return) to the composite key without rewriting financial or receipt logic.
+
+`supabase/tests/tenant_physical_empties_write_readiness.sql` now proves the original shop and two independent depots can hold **3, 4 and 9 Goldberg empty bottles**, respectively, and their owners see only their own quantities. Revoked owner reads are rejected and new-depot writes remain prohibited. The full disposable SQL and concurrency suite has passed; **this does not grant checkout to new businesses**.
+
+`public.empty_crate_stock` is keyed on `crate_type_id`, which is an exact shop-owned UUID. M2c already adds the matching `(business_id,crate_type_id)` foreign key to a shop-scoped crate type; do not share crate UUIDs between businesses or substitute Gulder for Heineken merely because both have 12 pockets. An independently reviewed new-business crate count/return/receiving writer is still required.
 
 ## Required migration sequence
 
 1. On a **restorable production-schema clone**, audit all current stock keys, FKs, views, triggers and function definitions; collect before/after financial, stock, crate, bottle and receipt inventories. Resolve migration-history mismatch first. Never run this plan on production from the draft PR.
-2. Introduce the tenant-qualified physical-stock key for bottles: `(business_id,bottle_type)`. Keep business_id nullable during legacy backfill only; do not create an escape hatch where null or another shop's business_id is accepted from browser input. After audited backfill, make business_id mandatory for write-enabled businesses. For crates, use a business-qualified unique/foreign key tied to the exact shop-owned crate type.
+2. Verify the staged tenant-qualified physical-stock key for bottles: `(business_id,bottle_type)`. Keep business_id nullable during legacy backfill only; do not create an escape hatch where null or another shop's business_id is accepted from browser input. After audited backfill, make business_id mandatory for write-enabled businesses. For crates, retain the business-qualified foreign key tied to the exact shop-owned crate type.
 3. Update **every active SQL writer and reader**, not just the table keys: `save_sale_with_old_debt_payment`, `save_sale_split_tender`, `save_sale_multi_tender`, empty returns, held-empty release, stock receiving, physical empty counts, stock/activity reports and any trigger that increments, decrements, inserts or `ON CONFLICT`-upserts these balances. Each must derive the business from a verified active membership, not from an arbitrary client-supplied ID. A legacy-only function may continue using its legacy business only if its authorization and row predicate are explicit.
-4. Replace bottle upserts on `ON CONFLICT(bottle_type)` with tenant-qualified upserts; add `WHERE business_id = verified_business` to reads/updates. Prevent updates that change the row's business. Use transaction locks and idempotency to protect concurrent saves; never merge one business's empties into another's.
+4. The two original shop bottle upserts are retargeted in the draft; additionally scope every new-business stock reader/upsert by verified business identity before enabling it. Prove that the row identity cannot be reassigned, audited NULL-to-legacy backfill is the sole exception, and concurrency/idempotency never merges businesses' empties.
 5. Assert on a disposable database with **two authenticated business owners and one revoked owner**:
    - A and B each hold 4 and 9 `Goldberg bottle` empties; both see their own counts; neither sees or edits the other's.
    - A's bottle return, held release and count cannot change B's quantities; foreign identifiers are indistinguishable from missing identifiers.
