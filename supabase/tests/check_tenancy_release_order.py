@@ -38,6 +38,7 @@ M2_SUFFIXES = (
     "guard_legacy_payment_and_held_id_lookup",
     "scope_legacy_multi_tender_ledger_reads",
     "scope_legacy_mixed_write_rpcs",
+    "tenant_physical_empty_stock_key",
 )
 # This is a SNAPSHOT used only for testing the proposed branch; verify the
 # actual current database maximum immediately before a production release.
