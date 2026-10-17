@@ -28,7 +28,7 @@ export function blockSaleSaveAction(input: {
 export function visibleSaleStep(input: {
   customerAvailable: boolean;
   saveUncertain: boolean;
-  draftStep: "customer" | "drinks" | "quantity" | "empties" | "payment" | "review";
+  draftStep: "customer" | "drinks" | "check" | "quantity" | "empties" | "payment" | "review";
 }): typeof input.draftStep {
   if (input.customerAvailable || (input.saveUncertain && input.draftStep === "review"))
     return input.draftStep;
