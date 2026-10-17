@@ -225,6 +225,28 @@ set constraints all deferred;
 alter table public.stock_movements enable trigger legacy_scope_business_write;
 alter table public.empty_crate_movements enable trigger legacy_scope_business_write;
 
+-- Foreign historical opening balance, seeded by disposable admin only.
+-- This will test the original SECURITY DEFINER opening replay against a
+-- foreign saved request and an otherwise unknown request.
+alter table public.customer_opening_balances disable trigger legacy_scope_business_write;
+insert into public.customer_opening_balances(
+  customer_id,request_id,amount,business_date,note,crates,bottles,
+  request_payload,business_id
+) values (
+  '89600000-0000-4000-9000-000000000061',
+  '89600000-0000-4000-9000-000000000094',
+  1000,'2026-10-16','Foreign archive','[]'::jsonb,'[]'::jsonb,
+  jsonb_build_object(
+    'customer','89600000-0000-4000-9000-000000000061'::uuid,
+    'amount',1000,
+    'date','2026-10-16'::date,
+    'note','Foreign archive',
+    'crates','[]'::jsonb,'bottles','[]'::jsonb
+  ),
+  '89600000-0000-4000-9000-000000000042'
+);
+alter table public.customer_opening_balances enable trigger legacy_scope_business_write;
+
 -- Fixture for an UNRELEASED foreign held empty. No foreign shop is granted
 -- a real return API: the one seed write is administrator-only and rolled back.
 alter table public.sale_empty_decisions disable trigger legacy_scope_business_write;
@@ -341,6 +363,58 @@ begin
   end loop;
 end;
 $foreign_sale_inventory$;
+reset role;
+
+-- A known foreign opening request with the EXACT saved payload must
+-- behave like a missing request for the same foreign customer, not return
+-- its private opening record. Branded crate lookups must be equally opaque.
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89600000-0000-4000-8000-000000000001',true);
+do $opening_replay_isolation$
+declare
+  v_id uuid;
+  v_error text;
+begin
+  foreach v_id in array array[
+    '89600000-0000-4000-9000-000000000094'::uuid,
+    '89600000-0000-4000-9000-000000000095'::uuid
+  ] loop
+    begin
+      perform public.record_opening_balances(
+        v_id,'89600000-0000-4000-9000-000000000061',
+        1000,'2026-10-16','Foreign archive','[]'::jsonb,'[]'::jsonb);
+      raise exception 'Legacy owner replayed/probed foreign opening balances'
+        using errcode='PT001';
+    exception when invalid_parameter_value then
+      get stacked diagnostics v_error=message_text;
+      if v_error<>'opening_customer_unavailable' then
+        raise exception 'Foreign opening replay gave distinct response: %',v_error;
+      end if;
+    end;
+  end loop;
+  foreach v_id in array array[
+    '89600000-0000-4000-9000-000000000013'::uuid,
+    '89600000-0000-4000-9000-000000000098'::uuid
+  ] loop
+    begin
+      perform public.record_opening_balances(
+        gen_random_uuid(),
+        '89600000-0000-4000-9000-000000000062',
+        0,'2026-10-16','Legacy opening',
+        jsonb_build_array(jsonb_build_object('type',v_id,'quantity',1)),
+        '[]'::jsonb);
+      raise exception 'Foreign crate type accepted in legacy opening'
+        using errcode='PT001';
+    exception when invalid_parameter_value then
+      get stacked diagnostics v_error=message_text;
+      if v_error<>'opening_crate_unavailable' then
+        raise exception 'Foreign opening crate metadata oracle: %',v_error;
+      end if;
+    end;
+  end loop;
+end;
+$opening_replay_isolation$;
 reset role;
 
 -- A legacy SECURITY DEFINER operation must not learn a foreign balance via
