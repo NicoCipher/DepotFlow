@@ -102,8 +102,10 @@ begin
     'Goldberg bottle',4,0,'2026-10-17');
  if repeat is distinct from a then raise exception 'A replay changed original count';end if;
  if (select count(*) from public.empty_bottle_stock
-     where bottle_type='Goldberg bottle')<>2 then
-   raise exception 'A count incorrectly merged or duplicated the legacy balance';
+     where bottle_type='Goldberg bottle')<>1
+    or (select quantity from public.empty_bottle_stock
+      where bottle_type='Goldberg bottle')<>4 then
+   raise exception 'A must see only its own Goldberg bottles (4), not legacy stock';
  end if;
 end;
 $owner_a$;
