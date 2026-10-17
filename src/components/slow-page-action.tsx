@@ -12,7 +12,7 @@ export function SlowPageAction({ context }: { context: "home" | "sale" | "page" 
   const router = useRouter();
   const [slow, setSlow] = useState(false);
   const [retrying, setRetrying] = useState(false);
-  const retryTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryTimeout = useRef<number | null>(null);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setSlow(true), 8000);
