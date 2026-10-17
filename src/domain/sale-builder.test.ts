@@ -500,3 +500,32 @@ test("legacy drafts safely default to one method and changing customers clears s
   assert.equal(reset.splitTransfer, "0");
   assert.equal(reset.splitCashToSale, "");
 });
+
+
+test("multi-method drafts restore selected POS methods and invalidate confirmed Review for each monetary change", () => {
+  const draft = {
+    ...emptySaleDraft, paymentMode: "multi" as const, paymentMethod: "mixed",
+    paid: "1700", oldDebtPaid: "2200",
+    multiMethods: ["cash","transfer","pos"] as ("cash" | "transfer" | "pos")[],
+    multiReceived: { cash: "700", transfer: "2200", pos: "1000" },
+    multiOldDebt: { cash: "0", transfer: "2200", pos: "0" },
+  };
+  const read = readSaleDraft(JSON.stringify(draft));
+  assert.deepEqual(read.multiMethods, draft.multiMethods);
+  assert.deepEqual(read.multiReceived, draft.multiReceived);
+  assert.deepEqual(read.multiOldDebt, draft.multiOldDebt);
+  const confirmed = saleSaveConfirmationKey(draft,2200,1700);
+  assert.notEqual(confirmed,saleSaveConfirmationKey({ ...draft,
+    multiReceived: { ...draft.multiReceived, pos: "999" } },2200,1700));
+  assert.notEqual(confirmed,saleSaveConfirmationKey({ ...draft,
+    multiOldDebt: { ...draft.multiOldDebt, transfer: "2199" } },2200,1700));
+  assert.notEqual(confirmed,saleSaveConfirmationKey({ ...draft,
+    multiMethods: ["cash","transfer"] },2200,1700));
+  const switchedCustomer = { ...draft, ...changeSaleCustomer(draft,"another-customer") };
+  assert.equal(switchedCustomer.paymentMode, "single");
+  assert.equal(switchedCustomer.paid,"0");
+  assert.equal(switchedCustomer.oldDebtPaid,"0");
+  assert.deepEqual(switchedCustomer.multiMethods,[]);
+  assert.deepEqual(switchedCustomer.multiReceived,{ cash:"0", transfer:"0", pos:"0" });
+  assert.deepEqual(switchedCustomer.multiOldDebt,{ cash:"0", transfer:"0", pos:"0" });
+});
