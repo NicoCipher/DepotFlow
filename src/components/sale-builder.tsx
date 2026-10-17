@@ -17,6 +17,7 @@ import { MultiPaymentPanel } from "./multi-payment-panel";
 import { requestSaleReview } from "@/domain/sale-review-http";
 import { isSaleReviewProgressMessage, saleReviewCheckingMessage, saleReviewOpeningMessage, contextualSaleReviewMessage, clearOwnSaleReviewProgress, canApplySaleBalancePreview, shouldDisableSaleDraftControls } from "@/domain/sale-review-feedback";
 import { shouldFocusSaleStep } from "@/domain/sale-step-focus";
+import { blockSaleSaveAction, visibleSaleStep } from "@/domain/sale-save-action";
 import { useSaleDrafts } from "./sale-draft-session";
 import { hasSaleWork } from "@/domain/sale-drafts";
 import { PausedSalesLink } from "./paused-sales-link";
@@ -494,7 +495,9 @@ export function SaleBuilder({
         ? "Out of stock"
         : `Available: ${formatQuantity(p.available, p.bottles_per_crate)}`;
   }
-  const step = customer ? draft.step : "customer";
+  const step = visibleSaleStep({
+    customerAvailable: Boolean(customer), saveUncertain, draftStep: draft.step,
+  });
   const paymentDisplayMessage = contextualSaleReviewMessage(visibleMessage,
     reviewFeedbackContext, { customerId: draft.customerId, activeId, step });
   const customerToCheck = customer?.id ?? null;
@@ -655,14 +658,21 @@ export function SaleBuilder({
   }, [finalSaveConfirmed, saveUncertain]);
   // "Check Sale" must remain usable even when catalogue refresh is offline:
   // an uncertain save can only be resolved by the original request ID.
-  const reviewSaveBlocked = pending || (!ready && !saveUncertain) || !draft.businessDate ||
-    reviewTotal === undefined || !emptiesReview || emptiesNeedConfirmation ||
-    hasUnmatchedSaleEmpties(emptiesReview) || Number(draft.paid) > reviewTotal ||
-    (!saveUncertain && (!paymentBreakdown || debtChecking || Boolean(oldDebtInputError) ||
-      (draft.paymentMode === "split" && (!splitEnabled || !splitLegsPreview)) ||
-      (draft.paymentMode === "multi" && (!multiEnabled || !multiLegsPreview)) ||
-      (paymentBreakdown.collectNow > 0 && draft.paymentMode === "single" &&
-        !["cash", "transfer", "pos"].includes(draft.paymentMethod))));
+  const reviewSaveBlocked = blockSaleSaveAction({
+    pending,
+    saveUncertain,
+    ready,
+    hasBusinessDate: Boolean(draft.businessDate),
+    reviewedTotalAvailable: reviewTotal !== undefined,
+    emptiesValid: Boolean(emptiesReview && !emptiesNeedConfirmation &&
+      !hasUnmatchedSaleEmpties(emptiesReview)),
+    paidWithinTotal: reviewTotal !== undefined && Number(draft.paid) <= reviewTotal,
+    paymentValid: Boolean(paymentBreakdown && !debtChecking && !oldDebtInputError &&
+      (draft.paymentMode !== "split" || (splitEnabled && splitLegsPreview)) &&
+      (draft.paymentMode !== "multi" || (multiEnabled && multiLegsPreview)) &&
+      (paymentBreakdown.collectNow === 0 || draft.paymentMode !== "single" ||
+        ["cash", "transfer", "pos"].includes(draft.paymentMethod))),
+  });
   const progressStep =
     step === "customer"
       ? 0
