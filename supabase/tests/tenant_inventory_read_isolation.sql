@@ -203,8 +203,12 @@ insert into public.empty_crate_movements(
   '89600000-0000-4000-9000-000000000013',
   '89600000-0000-4000-9000-000000000042'
 );
+-- Drain the mixed-sale deferred ledger check before ALTER TABLE on sales.
+-- The seeded two-leg foreign sale is internally consistent.
+set constraints all immediate;
 alter table public.money_owed enable trigger legacy_scope_business_write;
 alter table public.sales enable trigger legacy_scope_business_write;
+set constraints all deferred;
 alter table public.stock_movements enable trigger legacy_scope_business_write;
 alter table public.empty_crate_movements enable trigger legacy_scope_business_write;
 
