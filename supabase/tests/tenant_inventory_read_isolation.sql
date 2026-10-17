@@ -256,11 +256,11 @@ begin
     '89600000-0000-4000-9000-000000000092'::uuid
   ] loop
     begin
-      perform private.save_sale_v2(
+      perform public.save_sale_v2(
         v_request,
         '89600000-0000-4000-9000-000000000061',
         '2026-10-16'::date,5000,
-        '[{}]'::jsonb,'[]'::jsonb,'[]'::jsonb);
+        '[{}]'::jsonb,'[]'::jsonb,'[]'::jsonb,'cash');
       raise exception 'Legacy owner replayed/probed foreign sale' using errcode='PT001';
     exception
       when sqlstate '22023' then
