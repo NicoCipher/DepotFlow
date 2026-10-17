@@ -26,6 +26,9 @@ export function transitionSaleToReview(
       stored.splitCash !== original.splitCash ||
       stored.splitTransfer !== original.splitTransfer ||
       stored.splitCashToSale !== original.splitCashToSale ||
+      JSON.stringify(stored.multiMethods) !== JSON.stringify(original.multiMethods) ||
+      JSON.stringify(stored.multiReceived) !== JSON.stringify(original.multiReceived) ||
+      JSON.stringify(stored.multiOldDebt) !== JSON.stringify(original.multiOldDebt) ||
       stored.businessDate !== original.businessDate ||
       JSON.stringify(stored.lines) !== JSON.stringify(original.lines) ||
       JSON.stringify(stored.emptiesV2) !== JSON.stringify(original.emptiesV2)) {

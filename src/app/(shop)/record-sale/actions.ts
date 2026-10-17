@@ -2,6 +2,7 @@
 
 import { validSaleReviewCustomerId } from "@/domain/sale-review-customer";
 import { allocateSplitTender } from "@/domain/sale-tenders";
+import { allocateMultiTender } from "@/domain/multi-tenders";
 import { readAccountReceipt } from "@/domain/account-receipt";
 
 import { ownerSession, requireOwner } from "@/lib/auth/owner";
@@ -221,8 +222,21 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
     return { error: "Check the sale date and amount paid." };
 
   const splitEnabled = process.env.NEXT_PUBLIC_SPLIT_TENDER_ENABLED === "true";
+  const multiEnabled = process.env.NEXT_PUBLIC_MULTI_TENDER_ENABLED === "true";
   let splitLegs: ReturnType<typeof allocateSplitTender> | null = null;
-  if (draft.paymentMode === "split") {
+  let multiLegs: ReturnType<typeof allocateMultiTender> | null = null;
+  if (draft.paymentMode === "multi") {
+    if (!multiEnabled)
+      return recoverSplitSale(requestId, draft);
+    try {
+      multiLegs = allocateMultiTender(Number(draft.paid), Number(draft.oldDebtPaid), {
+        methods: draft.multiMethods, received: draft.multiReceived,
+        towardOldDebt: draft.multiOldDebt,
+      });
+    } catch (cause) {
+      return { error: cause instanceof Error ? cause.message : "Check the payment methods and amounts." };
+    }
+  } else if (draft.paymentMode === "split") {
     if (!splitEnabled)
       // A stale open tab may still believe the flag is on after rollback.
       // Reconcile the original ID without retrying its financial write.
@@ -296,7 +310,19 @@ export async function saveSale(requestId: string, draft: SaleDraft) {
     });
 
     rpcStarted = true;
-    const { data, error } = splitLegs
+    const { data, error } = multiLegs
+      ? await supabase.rpc("save_sale_multi_tender", {
+          p_request_id: requestId,
+          p_customer_id: draft.customerId,
+          p_business_date: draft.businessDate,
+          p_paid: Number(draft.paid),
+          p_old_debt_paid: Number(draft.oldDebtPaid),
+          p_tenders: multiLegs,
+          p_lines: lines,
+          p_returned_crates: actual.crates,
+          p_returned_bottles: actual.bottles,
+        })
+      : splitLegs
       ? await supabase.rpc("save_sale_split_tender", {
           p_request_id: requestId,
           p_customer_id: draft.customerId,
@@ -434,13 +460,18 @@ export async function recoverSplitSale(requestId: string, draft: SaleDraft) {
     const account = readAccountReceipt(sale.account_receipt);
     if (!account || account.paidOld !== Number(draft.oldDebtPaid))
       return { error: saleSaveUncertainMessage, code: "save_uncertain" as const };
-    const expected = allocateSplitTender(Number(draft.paid), Number(draft.oldDebtPaid), {
-      cash: draft.splitCash, transfer: draft.splitTransfer,
-      ...(draft.splitCashToSale ? { cashToSale: draft.splitCashToSale } : {}),
-    });
+    const expected = draft.paymentMode === "multi"
+      ? allocateMultiTender(Number(draft.paid), Number(draft.oldDebtPaid), {
+          methods: draft.multiMethods, received: draft.multiReceived,
+          towardOldDebt: draft.multiOldDebt,
+        })
+      : allocateSplitTender(Number(draft.paid), Number(draft.oldDebtPaid), {
+          cash: draft.splitCash, transfer: draft.splitTransfer,
+          ...(draft.splitCashToSale ? { cashToSale: draft.splitCashToSale } : {}),
+        });
     const { data: legs, error: legsError } = await supabase.from("sale_tender_legs")
       .select("method,sale_amount,old_debt_amount").eq("sale_id", sale.id);
-    if (legsError || legs?.length !== 2 ||
+    if (legsError || legs?.length !== expected.length ||
         expected.some((leg) => !legs.some((actual) =>
           actual.method === leg.method && actual.sale_amount === leg.saleAmount &&
           actual.old_debt_amount === leg.oldDebtAmount)))

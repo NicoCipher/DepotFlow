@@ -78,3 +78,30 @@ test("Review refuses a changed sale identity, step or empty-return decision", ()
       draft, reviewed, "55555555-5555-4555-8555-555555555555"),
     /sale changed/i);
 });
+
+
+test("multi-method Review is fenced against changes to each received or old-debt allocation", () => {
+  const multi = { ...draft, paymentMode: "multi" as const, paymentMethod: "mixed",
+    multiMethods: ["cash","pos"] as ("cash" | "pos")[],
+    multiReceived: { cash: "700", transfer: "0", pos: "1000" },
+    multiOldDebt: { cash: "0", transfer: "0", pos: "0" },
+  };
+  const baseline: SaleDrafts = { ...state, active: { ...state.active!, draft: multi } };
+  const id = state.active!.id;
+  const ok = transitionSaleToReview(baseline, id, multi, reviewed, crypto.randomUUID());
+  assert.equal(ok.active?.draft.step,"review");
+  assert.deepEqual(ok.active?.draft.multiMethods, ["cash","pos"]);
+  const changes = [
+    { multiMethods: ["cash","transfer"] as ("cash" | "transfer")[] },
+    { multiReceived: { ...multi.multiReceived, cash: "701" } },
+    { multiOldDebt: { ...multi.multiOldDebt, pos: "1" } },
+  ];
+  for (const patch of changes) {
+    const changed: SaleDrafts = {
+      ...baseline,
+      active: { ...baseline.active!, draft: { ...multi, ...patch } },
+    };
+    assert.throws(() => transitionSaleToReview(changed,id,multi,reviewed,crypto.randomUUID()), /changed while Review/);
+    assert.equal(changed.active?.draft.step,"payment");
+  }
+});
