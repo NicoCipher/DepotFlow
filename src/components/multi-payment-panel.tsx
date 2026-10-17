@@ -36,6 +36,8 @@ export function MultiPaymentPanel({
   });
   const received = methods.reduce((sum, m) => sum + (Number(draft.multiReceived[m]) || 0), 0);
   const payingOld = methods.reduce((sum, m) => sum + (Number(draft.multiOldDebt[m]) || 0), 0);
+  const hasOldDebtAllocation = draft.oldDebtPaid !== "0" ||
+    paymentMethods.some(m => draft.multiOldDebt[m] !== "0");
 
   function change(methodsNext: SaleTenderMethod[], amounts: MultiMethodAmounts, debt: MultiMethodAmounts) {
     const entry = multiPaymentFromReceived({
@@ -77,7 +79,16 @@ export function MultiPaymentPanel({
   }
 
   function clearOldDebt() {
-    change(methods, draft.multiReceived, emptyMultiAmounts());
+    const nextOld = emptyMultiAmounts();
+    const entry = multiPaymentFromReceived({
+      methods, received: draft.multiReceived, towardOldDebt: nextOld,
+      saleTotal, verifiedOldDebt: oldDebt,
+    });
+    // Clearing stale debt must clear the draft's authoritative debt amount
+    // even if the remaining received money temporarily exceeds this sale.
+    // The invalid excess still blocks Review until the cashier corrects it.
+    update({ multiOldDebt: nextOld, oldDebtPaid: "0",
+      paid: entry.salePaid !== null ? String(entry.salePaid) : "0" });
     setPayPrevious(false);
     setConfirmStopDebt(false);
   }
@@ -153,10 +164,10 @@ export function MultiPaymentPanel({
         {oldDebt !== null && oldDebt > 0 && (
           <>
             <label className="mt-3 flex min-h-11 items-center gap-2 text-sm font-semibold text-stone-800">
-              <input type="checkbox" className="!h-5 !w-5 !min-w-5 !rounded" checked={payPrevious || payingOld > 0}
+              <input type="checkbox" className="!h-5 !w-5 !min-w-5 !rounded" checked={payPrevious || hasOldDebtAllocation}
                 onChange={event => {
                   if (event.target.checked) { setPayPrevious(true); setExpandAllocation(true); }
-                  else if (payingOld > 0) setConfirmStopDebt(true);
+                  else if (hasOldDebtAllocation) setConfirmStopDebt(true);
                   else setPayPrevious(false);
                 }} />
               Pay previous debt too
@@ -170,7 +181,7 @@ export function MultiPaymentPanel({
                 </div>
               </div>
             )}
-            {(payPrevious || payingOld > 0) && (
+            {(payPrevious || hasOldDebtAllocation) && (
               <div className="mt-2 rounded-xl border border-stone-200 bg-stone-50/70 p-3">
                 <div className="flex items-center justify-between gap-2">
                   <div>
@@ -202,7 +213,7 @@ export function MultiPaymentPanel({
             )}
           </>
         )}
-        {oldDebt === null && payingOld > 0 && (
+        {oldDebt === null && hasOldDebtAllocation && (
           <div role="alert" className="mt-2 rounded-lg bg-amber-50 p-2 text-sm text-amber-950">
             <p>Previous debt is not verified yet. Retry the balance check or remove this allocation.</p>
             <button type="button" className="secondary mt-2 min-h-11 w-full" onClick={clearOldDebt}>
@@ -210,7 +221,7 @@ export function MultiPaymentPanel({
             </button>
           </div>
         )}
-        {oldDebt !== null && oldDebt <= 0 && payingOld > 0 && (
+        {oldDebt !== null && oldDebt <= 0 && hasOldDebtAllocation && (
           <div role="alert" className="mt-2 rounded-lg bg-amber-50 p-2 text-sm text-amber-950">
             <p>Previous debt has been cleared. Remove the older-debt allocation to continue.</p>
             <button type="button" className="secondary mt-2 min-h-11 w-full" onClick={clearOldDebt}>
