@@ -10,7 +10,7 @@ of earlier customer debt. **It must not silently relabel or alter historical mon
 - SQL: `20261017132205_generalize_multi_tender_guarded_20261017.sql` updates the immutable
   method constraint and deferred financial checks; it adds
   `public.save_sale_multi_tender` without a default grant. A SECOND reviewed
-  migration `20261017140000_activate_multi_tender_owner_only.sql` grants
+  migration `20261017132742_activate_multi_tender_owner_only_20261017.sql` grants
   authenticated-only EXECUTE once all schema and recovery prerequisites pass.
 - **Existing** `save_sale_split_tender` and `NEXT_PUBLIC_SPLIT_TENDER_ENABLED`
   remain intact. A partial rollout cannot disrupt verified Cash + Transfer.
@@ -36,7 +36,7 @@ of earlier customer debt. **It must not silently relabel or alter historical mon
    for the new saver before the separate activation migration. A schema deployment alone does not
    enable the new UI or direct API.
 4. After inspecting SQL release conditions, apply the separately reviewed
-   `20261017140000_activate_multi_tender_owner_only.sql` migration to grant only `authenticated` EXECUTE on
+   `20261017132742_activate_multi_tender_owner_only_20261017.sql` migration to grant only `authenticated` EXECUTE on
    `public.save_sale_multi_tender(uuid,uuid,date,numeric,jsonb,jsonb,jsonb,numeric,jsonb)`.
    Anonymous and PUBLIC must stay denied. Explicit owner authorization is
    checked *inside* the SECURITY DEFINER procedure. Revalidate via read-only
