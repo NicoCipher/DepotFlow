@@ -1,6 +1,8 @@
 import { formatQuantity, toBottles, validateStock } from "./quantity.ts";
 import { normalizePhone } from "./customers.ts";
 import { formatNaira } from "./products.ts";
+import { emptyMultiAmounts, paymentMethods, type MultiMethodAmounts } from "./multi-tenders.ts";
+import type { SaleTenderMethod } from "./sale-tenders.ts";
 export type SaleProduct = {
   id: string;
   name: string;
@@ -295,6 +297,14 @@ export type SaleDraft = {
   businessDate: string;
   paid: string;
   paymentMethod: string;
+  paymentMode: "single" | "split" | "multi";
+  multiMethods: SaleTenderMethod[];
+  multiReceived: MultiMethodAmounts;
+  multiOldDebt: MultiMethodAmounts;
+  splitCash: string;
+  splitTransfer: string;
+  /** Blank applies Cash toward today's sale first. */
+  splitCashToSale: string;
   oldDebtPaid: string;
   allEmpties: boolean;
   returns: Record<string, { crates: string; bottles: string }>;
@@ -322,7 +332,12 @@ export function hasCustomerBoundSaleWork(draft: SaleDraft): boolean {
   const empties = draft.emptiesV2;
   return draft.lines.length > 0 ||
     Number(draft.paid) > 0 || Number(draft.oldDebtPaid) > 0 ||
-    Boolean(draft.paymentMethod) || Boolean(empties.confirmedAllReturned) ||
+    Boolean(draft.paymentMethod) ||
+    (draft.paymentMode !== "single") ||
+    Object.values(draft.multiReceived).some(value => Number(value) > 0) ||
+    Object.values(draft.multiOldDebt).some(value => Number(value) > 0) ||
+    Number(draft.splitCash) > 0 || Number(draft.splitTransfer) > 0 ||
+    Boolean(draft.splitCashToSale) || Boolean(empties.confirmedAllReturned) ||
     (empties.decisions?.length ?? 0) > 0 ||
     Object.values(empties.cratesTaken).some((value) => Number(value) > 0) ||
     Object.values(empties.returnedCrates).some((value) => Number(value) > 0) ||
@@ -340,6 +355,11 @@ export function changeSaleCustomer(draft: SaleDraft, customerId: string): Partia
     paid: "0",
     oldDebtPaid: "0",
     paymentMethod: "",
+    paymentMode: "single",
+    multiMethods: [], multiReceived: emptyMultiAmounts(), multiOldDebt: emptyMultiAmounts(),
+    splitCash: "0",
+    splitTransfer: "0",
+    splitCashToSale: "",
     emptiesV2: {
       ...draft.emptiesV2,
       mode: "exact",
@@ -364,7 +384,10 @@ export function modeForSaleDrink(draft: SaleDraft, existing: SaleQuantity | unde
 export function saleSaveConfirmationKey(draft: SaleDraft, currentOldDebt: number | null, reviewedAmount: number | undefined): string {
   return JSON.stringify([
     draft.customerId, draft.lines, draft.emptiesV2,
-    draft.paid, draft.oldDebtPaid, draft.paymentMethod, draft.businessDate,
+    draft.paid, draft.oldDebtPaid, draft.paymentMethod,
+    draft.paymentMode, draft.splitCash, draft.splitTransfer, draft.splitCashToSale,
+    draft.multiMethods, draft.multiReceived, draft.multiOldDebt,
+    draft.businessDate,
     currentOldDebt, reviewedAmount,
   ]);
 }
@@ -376,6 +399,11 @@ export const emptySaleDraft: SaleDraft = {
   businessDate: "",
   paid: "0",
   paymentMethod: "",
+  paymentMode: "single",
+  multiMethods: [], multiReceived: emptyMultiAmounts(), multiOldDebt: emptyMultiAmounts(),
+  splitCash: "0",
+  splitTransfer: "0",
+  splitCashToSale: "",
   oldDebtPaid: "0",
   allEmpties: true,
   returns: {},
@@ -484,6 +512,17 @@ export function readSaleDraft(raw: string | null): SaleDraft {
       businessDate: typeof d.businessDate === "string" ? d.businessDate : "",
       paid: typeof d.paid === "string" ? d.paid : "0",
       paymentMethod: typeof d.paymentMethod === "string" ? d.paymentMethod : "",
+      paymentMode: d.paymentMode === "split" ? "split" : d.paymentMode === "multi" ? "multi" : "single",
+      multiMethods: Array.isArray(d.multiMethods) && d.multiMethods.length <= 3 &&
+        d.multiMethods.every((m: unknown) => paymentMethods.includes(m as SaleTenderMethod)) &&
+        new Set(d.multiMethods).size === d.multiMethods.length ? d.multiMethods : [],
+      multiReceived: Object.fromEntries(paymentMethods.map(m => [m,
+        typeof d.multiReceived?.[m] === "string" ? d.multiReceived[m] : "0"])) as MultiMethodAmounts,
+      multiOldDebt: Object.fromEntries(paymentMethods.map(m => [m,
+        typeof d.multiOldDebt?.[m] === "string" ? d.multiOldDebt[m] : "0"])) as MultiMethodAmounts,
+      splitCash: typeof d.splitCash === "string" ? d.splitCash : "0",
+      splitTransfer: typeof d.splitTransfer === "string" ? d.splitTransfer : "0",
+      splitCashToSale: typeof d.splitCashToSale === "string" ? d.splitCashToSale : "",
       oldDebtPaid: typeof d.oldDebtPaid === "string" ? d.oldDebtPaid : "0",
       sellingMode: d.sellingMode === "retail" ? "retail" : "wholesale",
       preferredSellingMode: d.preferredSellingMode === "retail" ? "retail" : "wholesale",

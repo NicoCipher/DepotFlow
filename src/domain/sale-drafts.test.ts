@@ -19,6 +19,7 @@ import {
   isSaleRequestId,
   replaceActiveSaleId,
   setActiveSaleSaveUncertain,
+  recoverConfirmedUnsavedSplit,
   selectSaleCustomer,
 } from "./sale-drafts.ts";
 const product: SaleProduct = {
@@ -376,4 +377,67 @@ test("adding a new customer during checkout cannot carry the earlier customer's 
   assert.equal(next.active?.draft.emptiesV2.confirmedAllReturned, null);
   assert.deepEqual(next.active?.draft.emptiesV2.returnedBottles, {});
   assert.deepEqual(next.active?.draft.emptiesV2.decisions, []);
+});
+
+test("confirmed absent split request rotates ID, unlocks and preserves all sale work", () => {
+  const oldId = "40000000-0000-4000-8000-000000009721";
+  const freshId = "40000000-0000-4000-8000-000000009725";
+  const work = {
+    ...draft, step: "review" as const, paid: "1700", oldDebtPaid: "0",
+    paymentMode: "split" as const, paymentMethod: "mixed",
+    splitCash: "700", splitTransfer: "1000", splitCashToSale: "",
+  };
+  const current = updateActiveSale(emptySaleDrafts, null, work, oldId);
+  const uncertain = setActiveSaleSaveUncertain(current, oldId, true);
+  const next = recoverConfirmedUnsavedSplit(uncertain, oldId, freshId);
+  assert.equal(next.active?.id, freshId);
+  assert.equal(next.active?.saveUncertain, false);
+  assert.equal(next.active?.draft.step, "payment");
+  assert.equal(next.active?.draft.paymentMode, "split", "operator must explicitly select a new payment mode");
+  assert.equal(next.active?.draft.splitCash, "700");
+  assert.equal(next.active?.draft.splitTransfer, "1000");
+  assert.deepEqual(next.active?.draft.lines, work.lines, "do not lose drinks or empty returns");
+  assert.equal(next.active?.draft.customerId, work.customerId);
+  assert.deepEqual(readSaleDrafts(JSON.stringify(next)), next, "rotated request must survive reload");
+  assert.throws(() => recoverConfirmedUnsavedSplit(uncertain, freshId, crypto.randomUUID()), /active sale changed/i);
+  assert.throws(() => recoverConfirmedUnsavedSplit(current, oldId, freshId), /active sale changed/i);
+  assert.throws(() => recoverConfirmedUnsavedSplit(uncertain, oldId, oldId), /new sale request ID/i);
+});
+
+
+test("parked and uncertain POS + Cash + Transfer drafts keep exact received and old debt allocations", () => {
+  const requestId = "40000000-0000-4000-8000-000000009999";
+  const work = { ...draft, step: "payment" as const,
+    paymentMode: "multi" as const, paymentMethod: "mixed",
+    paid: "1700", oldDebtPaid: "2200",
+    multiMethods: ["cash","transfer","pos"] as ("cash"|"transfer"|"pos")[],
+    multiReceived: { cash:"700", transfer:"2200", pos:"1000" },
+    multiOldDebt: { cash:"0", transfer:"2200", pos:"0" },
+  };
+  const first = updateActiveSale(emptySaleDrafts, null, work, requestId);
+  const uncertain = setActiveSaleSaveUncertain(first,requestId,true);
+  const parked = parkActiveSale(uncertain,requestId,now);
+  const resumed = resumeSale(readSaleDrafts(JSON.stringify(parked)),requestId,now);
+  assert.equal(resumed.active?.id,requestId);
+  assert.equal(resumed.active?.saveUncertain,true);
+  assert.deepEqual(resumed.active?.draft.multiReceived,work.multiReceived);
+  assert.deepEqual(resumed.active?.draft.multiOldDebt,work.multiOldDebt);
+  assert.deepEqual(resumed.active?.draft.multiMethods,work.multiMethods);
+  const fenced = recoverConfirmedUnsavedSplit(resumed,requestId,"40000000-0000-4000-8000-000000009998");
+  assert.equal(fenced.active?.draft.paymentMode,"multi");
+  assert.equal(fenced.active?.draft.step,"payment");
+  assert.deepEqual(fenced.active?.draft.multiOldDebt,work.multiOldDebt);
+});
+
+test("older Cash + Transfer parked drafts remain on original saver after multi upgrade", () => {
+  const old = { ...emptySaleDraft, paymentMode: "split" as const,
+    paymentMethod:"mixed", paid:"1700", splitCash:"700",splitTransfer:"1000" };
+  const raw = { ...old } as Record<string, unknown>;
+  delete raw.multiMethods; delete raw.multiReceived; delete raw.multiOldDebt;
+  const restored = readSaleDraft(JSON.stringify(raw));
+  assert.equal(restored.paymentMode,"split");
+  assert.equal(restored.splitCash,"700");
+  assert.equal(restored.splitTransfer,"1000");
+  assert.deepEqual(restored.multiMethods,[]);
+  assert.deepEqual(restored.multiReceived,{cash:"0",transfer:"0",pos:"0"});
 });

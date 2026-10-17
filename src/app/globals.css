@@ -44,6 +44,17 @@ select {
   padding: 0.75rem;
   font-size: 1rem;
 }
+/* Choice inputs should not inherit the full-width, tall text field styling. */
+input[type="checkbox"],
+input[type="radio"] {
+  width: 1.25rem;
+  height: 1.25rem;
+  min-height: 1.25rem;
+  padding: 0;
+  flex-shrink: 0;
+  accent-color: #065f46;
+}
+input[type="checkbox"] { border-radius: 0.25rem; }
 input:focus,
 textarea:focus,
 select:focus { border-color: #047857; }

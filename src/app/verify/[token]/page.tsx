@@ -24,6 +24,13 @@ type PublicReceiptItem = {
   amount: number;
 };
 
+type ReceiptTender = {
+  method: "cash" | "transfer";
+  amount: number;
+  saleAmount: number;
+  oldDebtAmount: number;
+};
+
 type PublicReceipt = {
   number: string;
   amount: number;
@@ -39,6 +46,7 @@ type PublicReceipt = {
   business_snapshot?: boolean;
   business?: PublicBusiness | null;
   items?: PublicReceiptItem[];
+  tenders?: ReceiptTender[];
 };
 
 export default async function VerifyPage({
@@ -90,6 +98,17 @@ export default async function VerifyPage({
     result.business_snapshot ?? Boolean(business?.name);
   const account = isSale ? readAccountReceipt(result.account) : null;
   const amountCollected = account ? account.collected : result.amount;
+  // RPC-provided amounts are trusted only after validating the exact total.
+  const tenderRows = Array.isArray(result.tenders) ? result.tenders : [];
+  const validTenders = tenderRows.length >= 2 && tenderRows.length <= 3 &&
+    new Set(tenderRows.map((t) => t.method)).size === tenderRows.length &&
+    tenderRows.every((t) => ["cash", "transfer", "pos"].includes(t.method) &&
+      [t.amount,t.saleAmount,t.oldDebtAmount].every((n) =>
+        Number.isSafeInteger(n) && n >= 0) &&
+      t.amount > 0 && t.amount === t.saleAmount + t.oldDebtAmount) &&
+    tenderRows.reduce((sum,t) => sum+t.amount,0) === amountCollected;
+  if (result.method === "mixed" && !validTenders)
+    throw new Error("Could not verify the saved payment breakdown.");
 
   return (
     <div className="mx-auto w-full max-w-xl space-y-5">
@@ -196,6 +215,19 @@ export default async function VerifyPage({
           </div>
         )}
 
+        {validTenders && (
+          <section aria-label="Verified payment methods" className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+            <h2 className="font-bold text-emerald-950">How the customer paid</h2>
+            <dl className="mt-2 divide-y divide-emerald-100 text-sm">
+              {tenderRows.map((t) => (
+                <div key={t.method} className="flex justify-between gap-4 py-2">
+                  <dt>{methodLabel(t.method)}</dt>
+                  <dd className="font-bold tabular-nums">{formatNaira(t.amount)}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        )}
         <dl className="mt-5 divide-y divide-stone-100">
           {[
             ["Customer", result.customer],

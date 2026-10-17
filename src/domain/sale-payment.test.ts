@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { debtPaymentInputError, salePaymentTotals, paymentReviewIssue, needsClearHiddenOldDebtPayment } from "./sale-payment.ts";
+import { debtPaymentInputError, salePaymentTotals, paymentReviewIssue, needsClearHiddenOldDebtPayment, splitTenderShortfallChoices, splitPaymentFromReceived, oneMethodAmountsFromReceived, showPaymentMethodControls } from "./sale-payment.ts";
 
 test("old debt is settled independently of today's sale", () => {
   assert.deepEqual(salePaymentTotals(12000, 8000, 5000, 3000), {
@@ -43,6 +43,7 @@ test("payment review tells the owner what blocks the next step rather than silen
     paymentInputError: "",
     oldDebtInputError: null,
     oldDebtAmount: 2200,
+    oldDebtPaid: "2200",
     debtChecking: false,
     debtErrorMessage: "",
     breakdown: paid,
@@ -95,6 +96,46 @@ test("payment review tells the owner what blocks the next step rather than silen
   })?.target, "sale-paid");
 });
 
+test("a regular sale can reach server Review while independent old-debt preview is unavailable", () => {
+  const base = {
+    saleTotal: 12300, paymentInputError: "", oldDebtInputError: null,
+    oldDebtAmount: null, oldDebtPaid: "0",
+    debtChecking: true, debtErrorMessage: "",
+    breakdown: salePaymentTotals(12300, 12300, 0, 0), paymentMethod: "transfer",
+  };
+  assert.equal(paymentReviewIssue(base), null,
+    "unverified old debt should not trap a sale with no old-debt collection");
+  assert.equal(paymentReviewIssue({
+    ...base, debtChecking: false, debtErrorMessage: "Old balance unavailable",
+  }), null, "failed preview must not block the fresh server Review check");
+  assert.equal(paymentReviewIssue({
+    ...base, paymentMethod: "",
+  })?.target, "sale-method", "sale payments still require a valid method");
+  assert.equal(paymentReviewIssue({
+    ...base, oldDebtPaid: "200", breakdown: null,
+    oldDebtInputError: "Check the customer's existing balance.",
+  })?.target, "sale-previous-debt", "old-debt collection must stay protected");
+  assert.equal(paymentReviewIssue({
+    ...base, oldDebtPaid: "abc", breakdown: null,
+    oldDebtInputError: "Enter a whole amount",
+  })?.target, "sale-previous-debt", "corrupt old-debt input never bypasses validation");
+});
+
+test("positive previous-debt payments must wait for balance verification", () => {
+  const base = {
+    saleTotal: 1700, paymentInputError: "", oldDebtInputError: null,
+    oldDebtAmount: null, oldDebtPaid: "500", debtChecking: true,
+    debtErrorMessage: "", breakdown: salePaymentTotals(1700, 1700, 500, 500),
+    paymentMethod: "cash",
+  };
+  assert.equal(paymentReviewIssue(base)?.target, "sale-previous-debt");
+  assert.equal(paymentReviewIssue({ ...base, debtChecking: false,
+    debtErrorMessage: "Balance unavailable" })?.target, "sale-previous-debt");
+  assert.equal(paymentReviewIssue({ ...base, oldDebtPaid: "0",
+    breakdown: salePaymentTotals(1700, 1700, 0, 0) }), null,
+    "₦1700 cash sale with no older-debt collection stays eligible for Review");
+});
+
 test("hidden old-debt input always provides recovery for invalid and stale drafts", () => {
   for (const value of ["", "abc", " ", "-100", "0.5", "2,000", "2200", "1"]) {
     assert.equal(needsClearHiddenOldDebtPayment(value), true, `Show Clear for hidden value "${value}"`);
@@ -107,8 +148,183 @@ test("hidden old-debt input always provides recovery for invalid and stale draft
   const invalid = debtPaymentInputError("abc", 0);
   assert.equal(paymentReviewIssue({
     saleTotal: 1700, paymentInputError: "",
-    oldDebtInputError: invalid, oldDebtAmount: 0,
+    oldDebtInputError: invalid, oldDebtAmount: 0, oldDebtPaid: "abc",
     debtChecking: false, debtErrorMessage: "",
     breakdown: null, paymentMethod: "cash",
   })?.target, "sale-previous-debt");
+});
+
+test("cash plus transfer checkout shows actionable Review errors until tender totals match", () => {
+  const base = {
+    saleTotal: 1700, paymentInputError: "", oldDebtInputError: null,
+    oldDebtAmount: 0, oldDebtPaid: "0", debtChecking: false,
+    debtErrorMessage: "", breakdown: salePaymentTotals(1700, 1700, 0, 0),
+    paymentMethod: "mixed", paymentMode: "split" as const,
+    salePaid: "1700", splitCash: "700", splitTransfer: "1000",
+    splitCashToSale: "", splitEnabled: true,
+  };
+  assert.equal(paymentReviewIssue(base), null);
+  assert.equal(paymentReviewIssue({ ...base, splitEnabled: false })?.target, "sale-method");
+  assert.equal(paymentReviewIssue({ ...base, splitTransfer: "900" })?.target, "sale-split-payment");
+  assert.equal(paymentReviewIssue({ ...base, splitCash: "0" })?.target, "sale-split-payment");
+  assert.equal(paymentReviewIssue({ ...base, splitCash: "700.5" })?.target, "sale-split-payment");
+  assert.equal(paymentReviewIssue({ ...base, splitCashToSale: "701" })?.target, "sale-split-payment");
+  assert.equal(paymentReviewIssue({ ...base, salePaid: "0",
+    breakdown: salePaymentTotals(1700, 0, 0, 0), splitCash: "0", splitTransfer: "0" })?.target, "sale-split-payment");
+});
+test("customer old-debt split can send Cash to previous debt and Transfer to sale", () => {
+  const input = {
+    saleTotal: 1500, paymentInputError: "", oldDebtInputError: null,
+    oldDebtAmount: 500, oldDebtPaid: "500", debtChecking: false,
+    debtErrorMessage: "", breakdown: salePaymentTotals(1500, 1500, 500, 500),
+    paymentMethod: "mixed", paymentMode: "split" as const,
+    salePaid: "1500", splitCash: "500", splitTransfer: "1500",
+    splitCashToSale: "0", splitEnabled: true,
+  };
+  assert.equal(paymentReviewIssue(input), null);
+});
+
+test("5000 collected instead of 5250 offers an explicit partial sale payment", () => {
+  const plan = splitTenderShortfallChoices({
+    saleTotal: 5250, salePaid: "5250", oldDebt: 2200, oldDebtPaid: "0",
+    cash: "3000", transfer: "2000", cashToSale: "",
+  });
+  assert.deepEqual(plan, {
+    received: 5000, shortfall: 250,
+    choices: [{ appliesTo: "sale", salePaid: 5000, oldDebtPaid: 0, saleUnpaid: 250, oldDebtLeft: 2200 }],
+  });
+  assert.deepEqual(salePaymentTotals(5250, plan!.choices[0].salePaid, 2200, 0), {
+    oldDebtRemaining: 2200, saleRemaining: 250, collectNow: 5000, totalOwedAfter: 2450,
+  });
+});
+
+test("split shortfall never silently decides to reduce a previous debt payment", () => {
+  const plan = splitTenderShortfallChoices({
+    saleTotal: 5250, salePaid: "3500", oldDebt: 2200, oldDebtPaid: "1750",
+    cash: "3000", transfer: "2000", cashToSale: "",
+  });
+  assert.equal(plan?.shortfall, 250);
+  assert.deepEqual(plan?.choices, [
+    { appliesTo: "sale", salePaid: 3250, oldDebtPaid: 1750, saleUnpaid: 2000, oldDebtLeft: 450 },
+    { appliesTo: "oldDebt", salePaid: 3500, oldDebtPaid: 1500, saleUnpaid: 1750, oldDebtLeft: 700 },
+  ]);
+});
+
+test("short split payment suggestions fail closed for invalid inputs or custom cash allocations", () => {
+  const base = {
+    saleTotal: 5250, salePaid: "5250", oldDebt: 2200,
+    oldDebtPaid: "0", cash: "3000", transfer: "2000", cashToSale: "",
+  };
+  assert.equal(splitTenderShortfallChoices({ ...base, cash: "3k" }), null);
+  assert.equal(splitTenderShortfallChoices({ ...base, transfer: "0" }), null);
+  assert.equal(splitTenderShortfallChoices({ ...base, cash: "3250" }), null, "exact money needs no correction");
+  assert.equal(splitTenderShortfallChoices({ ...base, cash: "4000" }), null, "overpayment must not be silently allocated");
+  assert.equal(splitTenderShortfallChoices({ ...base, cashToSale: "5250" }), null, "incompatible custom allocation gets no shortcut");
+  assert.deepEqual(splitTenderShortfallChoices({ ...base, oldDebt: null })?.choices[0].oldDebtLeft, null);
+});
+
+test("Cash 3000 plus Transfer 2000 immediately pays 5000 of a 5250 sale", () => {
+  const result = splitPaymentFromReceived({
+    saleTotal: 5250, cash: "3000", transfer: "2000",
+    oldDebt: 2200, oldDebtPaid: "0",
+  });
+  assert.deepEqual(result, {
+    received: 5000, salePaid: 5000, oldDebtPaid: 0, extraForOldDebt: 0, issue: null,
+  });
+  assert.deepEqual(salePaymentTotals(5250, result.salePaid!, 2200, 0), {
+    collectNow: 5000, saleRemaining: 250, oldDebtRemaining: 2200, totalOwedAfter: 2450,
+  });
+});
+
+test("Cash + Transfer respects an explicitly chosen old-debt allocation", () => {
+  const result = splitPaymentFromReceived({
+    saleTotal: 5250, cash: "3000", transfer: "2000",
+    oldDebt: 2200, oldDebtPaid: "1500",
+  });
+  assert.equal(result.issue, null);
+  assert.equal(result.salePaid, 3500);
+  assert.deepEqual(salePaymentTotals(5250, result.salePaid!, 2200, result.oldDebtPaid!), {
+    collectNow: 5000, saleRemaining: 1750, oldDebtRemaining: 700, totalOwedAfter: 2450,
+  });
+});
+
+test("Cash + Transfer never silently allocates a surplus to previous debt", () => {
+  const result = splitPaymentFromReceived({
+    saleTotal: 5250, cash: "4000", transfer: "2000",
+    oldDebt: 2200, oldDebtPaid: "0",
+  });
+  assert.equal(result.received, 6000);
+  assert.equal(result.salePaid, null);
+  assert.equal(result.extraForOldDebt, 750);
+  assert.match(result.issue ?? "", /exceeds today's sale/);
+  const accepted = splitPaymentFromReceived({
+    saleTotal: 5250, cash: "4000", transfer: "2000",
+    oldDebt: 2200, oldDebtPaid: "750",
+  });
+  assert.equal(accepted.issue, null);
+  assert.equal(accepted.salePaid, 5250);
+});
+
+test("Cash + Transfer entry fails closed on invalid or excess allocations", () => {
+  const base = {
+    saleTotal: 5250, cash: "3000", transfer: "2000",
+    oldDebt: 2200, oldDebtPaid: "0",
+  };
+  for (const raw of ["", "1.2", "-1", "2,000", "NaN"]) {
+    assert.notEqual(splitPaymentFromReceived({ ...base, cash: raw }).issue, null);
+  }
+  assert.notEqual(splitPaymentFromReceived({ ...base, oldDebtPaid: "6000" }).issue, null);
+  assert.notEqual(splitPaymentFromReceived({ ...base, oldDebtPaid: "2400" }).issue, null);
+  assert.notEqual(splitPaymentFromReceived({ ...base, oldDebt: null, oldDebtPaid: "500" }).issue, null);
+  assert.equal(splitPaymentFromReceived({ ...base, oldDebt: null }).salePaid, 5000);
+  assert.notEqual(splitPaymentFromReceived({ ...base, transfer: "2147483647" }).issue, null);
+  assert.equal(splitPaymentFromReceived({ ...base, cash: "0", transfer: "0" }).salePaid, 0,
+    "Zero is previewable, but split saving still requires both positive methods.");
+});
+
+test("split payment review explains input mistakes directly", () => {
+  const base = {
+    saleTotal: 5250, paymentInputError: "", oldDebtInputError: null,
+    oldDebtAmount: 2200, oldDebtPaid: "0", debtChecking: false,
+    debtErrorMessage: "", breakdown: null, paymentMethod: "mixed",
+    paymentMode: "split" as const, splitEnabled: true,
+    salePaid: "0", splitCash: "3000", splitTransfer: "2000",
+    splitCashToSale: "", splitEntryIssue: "The received amount exceeds today's sale.",
+  };
+  assert.equal(paymentReviewIssue(base)?.target, "sale-split-payment");
+  assert.match(paymentReviewIssue(base)?.message ?? "", /received amount/);
+});
+
+test("one-method conversion replaces stale split draft money rather than retaining planned values", () => {
+  const received = splitPaymentFromReceived({
+    saleTotal: 5250, cash: "5000", transfer: "0", oldDebt: 2200, oldDebtPaid: "0",
+  });
+  assert.deepEqual(oneMethodAmountsFromReceived(received), { paid: "5000", oldDebtPaid: "0" });
+  assert.notEqual(oneMethodAmountsFromReceived(received).paid, "5250");
+  const withOldDebt = splitPaymentFromReceived({
+    saleTotal: 5250, cash: "3000", transfer: "2000", oldDebt: 2200, oldDebtPaid: "1500",
+  });
+  assert.deepEqual(oneMethodAmountsFromReceived(withOldDebt), { paid: "3500", oldDebtPaid: "1500" });
+  const invalid = splitPaymentFromReceived({
+    saleTotal: 5250, cash: "3000", transfer: "", oldDebt: 2200, oldDebtPaid: "0",
+  });
+  assert.deepEqual(oneMethodAmountsFromReceived(invalid), { paid: "0", oldDebtPaid: "0" });
+});
+
+test("feature-off recovery remains visible for stored split drafts with zero or stale paid", () => {
+  assert.equal(showPaymentMethodControls({
+    splitEnabled: false, paymentMode: "split", salePaid: "0", oldDebtPaid: "0",
+  }), true);
+  assert.equal(showPaymentMethodControls({
+    splitEnabled: false, paymentMode: "split", salePaid: "", oldDebtPaid: "0",
+  }), true);
+  assert.equal(showPaymentMethodControls({
+    splitEnabled: false, paymentMode: "single", salePaid: "0", oldDebtPaid: "0",
+  }), false);
+  assert.equal(showPaymentMethodControls({
+    splitEnabled: true, paymentMode: "single", salePaid: "0", oldDebtPaid: "0",
+  }), true);
+  assert.equal(showPaymentMethodControls({
+    splitEnabled: false, paymentMode: "single", salePaid: "1000", oldDebtPaid: "0",
+  }), true);
 });

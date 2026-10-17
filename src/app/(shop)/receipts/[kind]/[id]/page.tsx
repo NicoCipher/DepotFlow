@@ -122,6 +122,31 @@ export default async function ReceiptPage({
   const account = receipt.kind === "sale" ? receipt.accountReceipt ?? null : null;
   const accountUnpaid = account ? account.cd > 0 : receipt.owed_after > 0;
   const accountCollected = account ? account.collected : receipt.amount;
+  // Query only real mixed receipts. Existing one-method history has no legs
+  // and remains readable on deployments before the ledger migration.
+  const tenderResult = receipt.method === "mixed"
+    ? kind === "sale"
+      ? await db.from("sale_tender_legs")
+          .select("method,sale_amount,old_debt_amount")
+          .eq("sale_id", receipt.id).order("method")
+      : await db.from("sale_tender_legs")
+          .select("method,sale_amount,old_debt_amount")
+          .eq("old_debt_payment_id", receipt.id).order("method")
+    : null;
+  if (tenderResult?.error) throw new Error("Could not load saved payment methods.");
+  const paymentLegs = (tenderResult?.data ?? []).map((leg) => ({
+    method: leg.method,
+    amount: kind === "sale"
+      ? leg.sale_amount + leg.old_debt_amount
+      : leg.old_debt_amount,
+  })).filter((leg) => leg.amount > 0);
+  if (receipt.method === "mixed" &&
+      ((paymentLegs.length < 2 || paymentLegs.length > 3) ||
+       new Set(paymentLegs.map((leg) => leg.method)).size !== paymentLegs.length ||
+       paymentLegs.some((leg) => !["cash", "transfer", "pos"].includes(leg.method)) ||
+       paymentLegs.reduce((sum, leg) => sum + leg.amount, 0) !== accountCollected)) {
+    throw new Error("Saved payment methods did not match this receipt.");
+  }
   const items = itemsResult.data ?? [];
   const url = receiptUrl(receipt.verification_token);
   const qr = await QRCode.toDataURL(url, {
@@ -201,6 +226,10 @@ export default async function ReceiptPage({
           customer: receipt.receipt_customer_name,
           date: formatBusinessDate(receipt.business_date),
           method: methodLabel(receipt.method),
+          tenders: paymentLegs.map((leg) => ({
+            method: methodLabel(leg.method),
+            amount: formatNaira(leg.amount),
+          })),
           amount: formatNaira(accountCollected),
           account: account ? {
             bd: formatNaira(account.bd),
@@ -304,6 +333,19 @@ export default async function ReceiptPage({
             Payment towards money already owed. This receipt does not record a
             new sale.
           </p>
+        )}
+        {paymentLegs.length > 0 && (
+          <section aria-label="Saved payment methods" className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+            <h2 className="font-semibold text-emerald-950">How the customer paid</h2>
+            <dl className="mt-2 divide-y divide-emerald-100">
+              {paymentLegs.map((leg) => (
+                <div key={leg.method} className="flex justify-between gap-4 py-2 text-sm">
+                  <dt>{methodLabel(leg.method)}</dt>
+                  <dd className="font-bold tabular-nums">{formatNaira(leg.amount)}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
         )}
         {account ? (
           <section aria-label="Balance brought down and carried down" className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">

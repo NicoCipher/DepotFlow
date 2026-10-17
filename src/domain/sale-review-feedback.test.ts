@@ -6,6 +6,8 @@ import {
   saleReviewOpeningMessage,
   contextualSaleReviewMessage,
   clearOwnSaleReviewProgress,
+  canApplySaleBalancePreview,
+  shouldDisableSaleDraftControls,
 } from "./sale-review-feedback.ts";
 
 test("review progress is neutral status rather than a red error alert", () => {
@@ -46,4 +48,29 @@ test("stale responses clear only their own progress, never another request or re
   assert.equal(clearOwnSaleReviewProgress(saleReviewOpeningMessage, 4, 4), "");
   assert.equal(clearOwnSaleReviewProgress(saleReviewCheckingMessage, 4, 5), saleReviewCheckingMessage);
   assert.equal(clearOwnSaleReviewProgress("Network failed. Try again.", 4, 4), "Network failed. Try again.");
+});
+
+
+test("a delayed old-debt preview cannot overwrite the confirmed Review amount", () => {
+  // The preview was initiated in generation 7. Server Review later
+  // invalidates generation 7 before installing a fresh balance.
+  assert.equal(canApplySaleBalancePreview(7, 7, true), true);
+  assert.equal(canApplySaleBalancePreview(7, 8, true), false);
+  assert.equal(canApplySaleBalancePreview(7, 7, false), false);
+  // Retrying the preview after a failed Review uses a new generation.
+  assert.equal(canApplySaleBalancePreview(9, 9, true), true);
+});
+
+
+test("Review remains tappable while an unrelated checkout transition is pending", () => {
+  assert.equal(shouldDisableSaleDraftControls("payment", true, false), false,
+    "old fieldset disabled all controls while the button appeared active");
+  assert.equal(shouldDisableSaleDraftControls("payment", false, false), false);
+  assert.equal(shouldDisableSaleDraftControls("payment", false, true), true,
+    "a running Review must reject duplicate taps");
+  assert.equal(shouldDisableSaleDraftControls("payment", true, true), true);
+  for (const step of ["customer", "drinks", "empties", "quantity", "review"]) {
+    assert.equal(shouldDisableSaleDraftControls(step, true, false), true,
+      `${step} must still await a draft-changing transition`);
+  }
 });

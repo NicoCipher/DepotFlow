@@ -4,15 +4,20 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import {
   refreshSaleCatalog,
   saveSale,
+  recoverSplitSale,
 } from "@/app/(shop)/record-sale/actions";
 import { CustomerForm } from "./customer-form";
 import { emptyCustomer } from "@/domain/customers";
 import { ProductImage } from "@/components/product-image";
 import { SaleIcon } from "@/components/sale-icon";
-import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment } from "@/domain/sale-payment";
+import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment, splitPaymentFromReceived, oneMethodAmountsFromReceived } from "@/domain/sale-payment";
+import { allocateSplitTender } from "@/domain/sale-tenders";
+import { allocateMultiTender, emptyMultiAmounts, multiPaymentFromReceived } from "@/domain/multi-tenders";
+import { MultiPaymentPanel } from "./multi-payment-panel";
 import { requestSaleReview } from "@/domain/sale-review-http";
-import { isSaleReviewProgressMessage, saleReviewCheckingMessage, saleReviewOpeningMessage, contextualSaleReviewMessage, clearOwnSaleReviewProgress } from "@/domain/sale-review-feedback";
+import { isSaleReviewProgressMessage, saleReviewCheckingMessage, saleReviewOpeningMessage, contextualSaleReviewMessage, clearOwnSaleReviewProgress, canApplySaleBalancePreview, shouldDisableSaleDraftControls } from "@/domain/sale-review-feedback";
 import { shouldFocusSaleStep } from "@/domain/sale-step-focus";
+import { blockSaleSaveAction, visibleSaleStep } from "@/domain/sale-save-action";
 import { useSaleDrafts } from "./sale-draft-session";
 import { hasSaleWork } from "@/domain/sale-drafts";
 import { PausedSalesLink } from "./paused-sales-link";
@@ -78,18 +83,25 @@ export function SaleBuilder({
   const [customerQuery, setCustomerQuery] = useState("");
   const [removeLineId, setRemoveLineId] = useState<string | null>(null);
   const [requestedMode, setRequestedMode] = useState<"wholesale" | "retail" | null>(null);
+  const [requestedPaymentMode, setRequestedPaymentMode] = useState<"single" | "split" | "multi" | null>(null);
+  const [requestedSingleMethod, setRequestedSingleMethod] = useState<"cash" | "transfer" | "pos" | null>(null);
   const [requestedCustomerId, setRequestedCustomerId] = useState<string | null>(null);
   const [confirmNewCustomer, setConfirmNewCustomer] = useState(false);
   const [confirmedSaveKey, setConfirmedSaveKey] = useState<string | null>(null);
-  const [saveAcknowledged, setSaveAcknowledged] = useState(false);
   const pricingMode = draft.sellingMode === "retail" ? "retail" : "wholesale";
   const browsingMode = draft.preferredSellingMode === "retail" ? "retail" : "wholesale";
+  const splitEnabled = process.env.NEXT_PUBLIC_SPLIT_TENDER_ENABLED === "true";
+  const multiEnabled = process.env.NEXT_PUBLIC_MULTI_TENDER_ENABLED === "true";
   const [catalog, setCatalog] = useState(initialCatalog);
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState("");
   const [oldDebt, setOldDebt] = useState<{ key: string; amount: number } | null>(null);
   const [debtError, setDebtError] = useState<{ key: string; message: string } | null>(null);
   const [debtRefresh, setDebtRefresh] = useState(0);
+  // A slower background balance preview must never overwrite a fresh,
+  // authoritative Review response, even if it resolves on the next tick.
+  const debtPreviewGeneration = useRef(0);
+  const debtPreviewAbort = useRef<AbortController | null>(null);
   useEffect(() => {
     if (!notice) return;
     const timer = window.setTimeout(() => setNotice(""), 4000);
@@ -111,6 +123,10 @@ export function SaleBuilder({
     name: string;
   } | null>(null);
   const [pending, startTransition] = useTransition();
+  // Review is an independent, abortable HTTP read, not a Server Action.
+  // A different checkout transition must never silently swallow Review taps.
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const reviewBusyRef = useRef(false);
   const stepHeading = useRef<HTMLHeadingElement>(null);
   const previousStep = useRef<{ step: string; activeId: string | null } | null>(null);
   const activeId = sales.state.active
@@ -174,14 +190,162 @@ export function SaleBuilder({
     }
     void sales.update(patch);
     setConfirmedSaveKey(null);
-    setSaveAcknowledged(false);
     setRemoveLineId(null);
     setRequestedMode(null);
+    setRequestedPaymentMode(null);
+    setRequestedSingleMethod(null);
     setRequestedCustomerId(null);
     setConfirmNewCustomer(false);
     setMessage("");
     setNotice("");
     setCancelDraftId(null);
+  }
+  function setPaymentModeSafely(next: "single" | "split" | "multi") {
+    if (draft.paymentMode === next) return;
+    const hasPayment = draft.paymentMode === "split"
+      ? draft.splitCash !== "0" || draft.splitTransfer !== "0" || draft.oldDebtPaid !== "0"
+      : draft.paymentMode === "multi"
+        ? Object.values(draft.multiReceived).some(v => v !== "0") ||
+          Object.values(draft.multiOldDebt).some(v => v !== "0")
+        : Number(draft.paid) > 0 || Number(draft.oldDebtPaid) > 0;
+    if (hasPayment) {
+      setRequestedPaymentMode(next);
+      return;
+    }
+    applyPaymentMode(next);
+  }
+  function chooseSingleMethod(method: "cash" | "transfer" | "pos") {
+    if (draft.paymentMode === "single" && draft.paymentMethod === method) return;
+    if (draft.paymentMode === "multi" && draft.multiMethods.filter(m => Number(draft.multiReceived[m]) > 0).length > 1) {
+      setMessage("More than one payment method has money entered. Remove the extra method before switching to one.");
+      return;
+    }
+    if (draft.paymentMode === "split" && Number(draft.splitCash) > 0 && Number(draft.splitTransfer) > 0) {
+      setMessage("Cash and Transfer are both recorded. Correct the amounts first; do not label both as one method.");
+      return;
+    }
+    const hasPayment = Number(draft.paid) > 0 || Number(draft.oldDebtPaid) > 0 ||
+      Number(draft.splitCash) > 0 || Number(draft.splitTransfer) > 0;
+    if (hasPayment && (draft.paymentMode !== "single" || Boolean(draft.paymentMethod))) {
+      setRequestedPaymentMode("single");
+      setRequestedSingleMethod(method);
+      return;
+    }
+    if (draft.paymentMode === "single") update({ paymentMethod: method });
+    else applyPaymentMode("single", method);
+  }
+  function applyPaymentMode(next: "single" | "split" | "multi", method: "cash" | "transfer" | "pos" | "" = "") {
+    if (next === "multi") {
+      const validMethod = ["cash", "transfer", "pos"].includes(draft.paymentMethod)
+        ? draft.paymentMethod as "cash" | "transfer" | "pos" : null;
+      if (draft.paymentMode === "split") {
+        try {
+          const legs = allocateSplitTender(Number(draft.paid), Number(draft.oldDebtPaid), {
+            cash: draft.splitCash, transfer: draft.splitTransfer,
+            ...(draft.splitCashToSale ? { cashToSale: draft.splitCashToSale } : {}),
+          });
+          update({ paymentMode: "multi", paymentMethod: "mixed",
+            multiMethods: ["cash", "transfer"],
+            multiReceived: {cash: draft.splitCash, transfer: draft.splitTransfer, pos: "0"},
+            multiOldDebt: {cash: String(legs[0].oldDebtAmount), transfer: String(legs[1].oldDebtAmount), pos: "0"} });
+        } catch {
+          setMessage("Correct the Cash and Transfer amounts before switching to multiple methods.");
+        }
+        return;
+      }
+      update({ paymentMode: "multi", paymentMethod: "mixed",
+        multiMethods: validMethod ? [validMethod] : [],
+        multiReceived: { ...emptyMultiAmounts(), ...(validMethod ? { [validMethod]: String(Number(draft.paid) + Number(draft.oldDebtPaid)) } : {}) },
+        multiOldDebt: { ...emptyMultiAmounts(), ...(validMethod ? { [validMethod]: draft.oldDebtPaid } : {}) },
+      });
+    } else if (next === "split")
+      update({ paymentMode: "split", paymentMethod: "mixed", paid: "0",
+        oldDebtPaid: "0", splitCash: "0", splitTransfer: "0", splitCashToSale: "" });
+    else if (draft.paymentMode === "single") {
+      // Changing only the tender method must NEVER reset entered money.
+      update({ paymentMethod: method });
+    } else {
+      if (draft.paymentMode === "multi") {
+        const positive = draft.multiMethods.filter(m => Number(draft.multiReceived[m]) > 0);
+        if (positive.length > 1) {
+          setMessage("Remove extra payment methods before choosing one.");
+          return;
+        }
+        const selected = positive[0];
+        if (selected && selected !== method) {
+          setMessage("The recorded payment is " + selected.toUpperCase() + ". Choose the same method before continuing.");
+          return;
+        }
+        const received = selected ? Number(draft.multiReceived[selected]) : 0;
+        const old = selected ? Number(draft.multiOldDebt[selected]) : 0;
+        if (!Number.isSafeInteger(received) || !Number.isSafeInteger(old) || old > received) {
+          setMessage("Correct the received and previous-debt amounts first.");
+          return;
+        }
+        update({ paymentMode: "single", paymentMethod: method,
+          paid: String(received - old), oldDebtPaid: String(old),
+          multiMethods: [], multiReceived: emptyMultiAmounts(), multiOldDebt: emptyMultiAmounts() });
+        return;
+      }
+      if (Number(draft.splitCash) > 0 && Number(draft.splitTransfer) > 0) {
+        setMessage("Keep Cash and Transfer separate. Do not record both as one method.");
+        return;
+      }
+      // Never carry a stale planned paid amount out of a resumed split draft.
+      // Invalid received amounts are explicitly discarded, not silently
+      // recorded as a valid one-method payment.
+      const entry = splitPaymentFromReceived({
+        saleTotal: total, oldDebt: oldDebtAmount, oldDebtPaid: draft.oldDebtPaid,
+        cash: draft.splitCash, transfer: draft.splitTransfer,
+      });
+      update({ paymentMode: "single", paymentMethod: method,
+        ...oneMethodAmountsFromReceived(entry),
+        splitCash: "0", splitTransfer: "0", splitCashToSale: "" });
+    }
+  }
+  function useMultiSingle(method: "cash" | "transfer" | "pos" | "") {
+    const positives = draft.multiMethods.filter(m => Number(draft.multiReceived[m]) > 0);
+    if (positives.length > 1 || (method && positives.length === 1 && positives[0] !== method)) {
+      setMessage("Keep the recorded methods separate. Remove an extra method first.");
+      return;
+    }
+    const received = method ? Number(draft.multiReceived[method]) : 0;
+    const towardOld = method ? Number(draft.multiOldDebt[method]) : 0;
+    if (!Number.isSafeInteger(received) || !Number.isSafeInteger(towardOld) ||
+        towardOld < 0 || received < towardOld) {
+      setMessage("Correct the payment amounts first.");
+      return;
+    }
+    update({ paymentMode: "single", paymentMethod: method,
+      paid: String(received - towardOld), oldDebtPaid: String(towardOld),
+      multiMethods: [], multiReceived: emptyMultiAmounts(), multiOldDebt: emptyMultiAmounts() });
+  }
+  // Keep entered money and sale-paid ledger fields in one atomic draft patch.
+  // An invalid/incomplete input stays editable, but never creates a new paid amount.
+  function updateSplitTender(field: "splitCash" | "splitTransfer", raw: string) {
+    const cash = field === "splitCash" ? raw : draft.splitCash;
+    const transfer = field === "splitTransfer" ? raw : draft.splitTransfer;
+    const entry = splitPaymentFromReceived({
+      saleTotal: total, oldDebt: oldDebtAmount,
+      oldDebtPaid: draft.oldDebtPaid, cash, transfer,
+    });
+    update({
+      [field]: raw,
+      ...(entry.issue === null && entry.salePaid !== null
+        ? { paid: String(entry.salePaid) } : {}),
+    });
+  }
+  function updateSplitOldDebt(raw: string) {
+    const entry = splitPaymentFromReceived({
+      saleTotal: total, oldDebt: oldDebtAmount,
+      oldDebtPaid: raw, cash: draft.splitCash, transfer: draft.splitTransfer,
+    });
+    update({
+      oldDebtPaid: raw,
+      splitCashToSale: "",
+      ...(entry.issue === null && entry.salePaid !== null
+        ? { paid: String(entry.salePaid) } : {}),
+    });
   }
   function edit(p: SaleProduct) {
     const setupIssue = saleProductSetupIssue(p);
@@ -331,7 +495,9 @@ export function SaleBuilder({
         ? "Out of stock"
         : `Available: ${formatQuantity(p.available, p.bottles_per_crate)}`;
   }
-  const step = customer ? draft.step : "customer";
+  const step = visibleSaleStep({
+    customerAvailable: Boolean(customer), saveUncertain, draftStep: draft.step,
+  });
   const paymentDisplayMessage = contextualSaleReviewMessage(visibleMessage,
     reviewFeedbackContext, { customerId: draft.customerId, activeId, step });
   const customerToCheck = customer?.id ?? null;
@@ -341,7 +507,10 @@ export function SaleBuilder({
   useEffect(() => {
     if (!customerToCheck || !debtKey) return;
     let current = true;
+    const generation = ++debtPreviewGeneration.current;
     const controller = new AbortController();
+    debtPreviewAbort.current = controller;
+    const canApply = () => canApplySaleBalancePreview(generation, debtPreviewGeneration.current, current);
     // Unlike a Server Function, this independent HTTP request can be aborted.
     // A stalled read must never trap the customer on this payment screen.
     const timeout = window.setTimeout(() => controller.abort(), 12000);
@@ -356,7 +525,7 @@ export function SaleBuilder({
           signal: controller.signal,
         });
         const payload: unknown = await response.json();
-        if (!current) return;
+        if (!canApply()) return;
         if (response.status === 401 || response.status === 403) {
           setSessionExpired(true);
           setMessage(saleSessionExpiredMessage);
@@ -378,7 +547,7 @@ export function SaleBuilder({
         setOldDebt({ key: debtKey, amount });
         setDebtError(null);
       } catch {
-        if (current) {
+        if (canApply()) {
           setDebtError({
             key: debtKey,
             message: controller.signal.aborted
@@ -400,30 +569,110 @@ export function SaleBuilder({
   const debtChecking = Boolean(debtKey && oldDebt?.key !== debtKey && !debtErrorMessage);
   const oldDebtAmount = debtKey && oldDebt?.key === debtKey ? oldDebt.amount : null;
   const oldDebtInputError = debtPaymentInputError(draft.oldDebtPaid, oldDebtAmount);
+  const multiEntry = multiEnabled && draft.paymentMode === "multi" ? multiPaymentFromReceived({
+    methods: draft.multiMethods, received: draft.multiReceived, towardOldDebt: draft.multiOldDebt,
+    saleTotal: total, verifiedOldDebt: oldDebtAmount,
+  }) : null;
+  const multiEntryNeedsSync = !!multiEntry && multiEntry.issue === null &&
+    (multiEntry.salePaid !== Number(draft.paid) || multiEntry.oldDebtPaid !== Number(draft.oldDebtPaid));
+  const splitEntry = splitEnabled && draft.paymentMode === "split" ? splitPaymentFromReceived({
+    saleTotal: total, oldDebt: oldDebtAmount,
+    oldDebtPaid: draft.oldDebtPaid, cash: draft.splitCash, transfer: draft.splitTransfer,
+  }) : null;
+  const splitConversionPreview = draft.paymentMode === "split" ?
+    splitPaymentFromReceived({
+      saleTotal: total, oldDebt: oldDebtAmount,
+      oldDebtPaid: draft.oldDebtPaid, cash: draft.splitCash, transfer: draft.splitTransfer,
+    }) : null;
+  const splitEntryNeedsSync = !!splitEntry && splitEntry.issue === null &&
+    splitEntry.salePaid !== Number(draft.paid);
   const paymentBreakdown = (() => {
-    if (total === undefined || oldDebtAmount === null || paymentInputError || oldDebtInputError) return null;
-    try { return salePaymentTotals(total, Number(draft.paid), oldDebtAmount, Number(draft.oldDebtPaid)); }
+    if (splitEntry && (splitEntry.issue || splitEntryNeedsSync)) return null;
+    if (draft.paymentMode === "multi" && (!multiEnabled || !multiEntry || multiEntry.issue || multiEntryNeedsSync))
+      return null;
+    if (total === undefined || paymentInputError || oldDebtInputError) return null;
+    // Until a fresh balance arrives, use zero ONLY to preview what is
+    // collected today when no old debt is being paid. Never display the
+    // unverified final customer balance as though it were authoritative.
+    if (oldDebtAmount === null && Number(draft.oldDebtPaid) !== 0) return null;
+    try { return salePaymentTotals(total, Number(draft.paid), oldDebtAmount ?? 0, Number(draft.oldDebtPaid)); }
     catch { return null; }
   })();
-  const paymentIssue = paymentReviewIssue({
+  const splitLegsPreview = (() => {
+    if (!splitEnabled || draft.paymentMode !== "split") return null;
+    try {
+      return allocateSplitTender(Number(draft.paid), Number(draft.oldDebtPaid), {
+        cash: draft.splitCash, transfer: draft.splitTransfer,
+        ...(draft.splitCashToSale ? { cashToSale: draft.splitCashToSale } : {}),
+      });
+    } catch {
+      return null;
+    }
+  })();
+  const multiLegsPreview = (() => {
+    if (!multiEnabled || draft.paymentMode !== "multi" || !multiEntry || multiEntry.issue) return null;
+    try {
+      return allocateMultiTender(Number(draft.paid), Number(draft.oldDebtPaid), {
+        methods: draft.multiMethods, received: draft.multiReceived, towardOldDebt: draft.multiOldDebt,
+      });
+    } catch { return null; }
+  })();
+  const basePaymentIssue = paymentReviewIssue({
     saleTotal: total,
     paymentInputError,
     oldDebtInputError,
     oldDebtAmount,
+    oldDebtPaid: draft.oldDebtPaid,
     debtChecking,
     debtErrorMessage,
     breakdown: paymentBreakdown,
-    paymentMethod: draft.paymentMethod,
+    paymentMethod: draft.paymentMode === "multi" ? "cash" : draft.paymentMethod,
+    salePaid: draft.paid,
+    paymentMode: draft.paymentMode === "multi" ? "single" : draft.paymentMode,
+    splitCash: draft.splitCash,
+    splitTransfer: draft.splitTransfer,
+    splitCashToSale: draft.splitCashToSale,
+    splitEnabled,
+    splitEntryIssue: splitEntry?.issue || (splitEntryNeedsSync
+      ? "Use the received Cash + Transfer amount to update this unfinished sale." : null),
   });
+  const paymentIssue = draft.paymentMode === "multi"
+    ? !multiEnabled
+      ? { message: "Multiple payment methods are temporarily unavailable. Keep this sale parked until they return.", target: "sale-method" as const }
+      : multiEntry?.issue
+        ? { message: multiEntry.issue, target: "sale-split-payment" as const }
+        : multiEntryNeedsSync
+          ? { message: "Check the money received before continuing.", target: "sale-split-payment" as const }
+          : basePaymentIssue
+    : basePaymentIssue;
+  const navigationBusy = pending || reviewBusy;
   const reviewKey = saleSaveConfirmationKey(draft, oldDebtAmount, reviewTotal);
   const finalSaveConfirmed = confirmedSaveKey === reviewKey;
+  // Keep the first-step button mounted at the same location: repeated taps
+  // activate Check again, never the distinct final Save action.
+  const savePromptRef = useRef<HTMLParagraphElement>(null);
+  // Move keyboard focus to non-actionable guidance; Tab then reaches final Save.
+  // Never autofocus the financial write button or reuse the initial tap target.
+  useEffect(() => {
+    if (finalSaveConfirmed && !saveUncertain) savePromptRef.current?.focus();
+  }, [finalSaveConfirmed, saveUncertain]);
   // "Check Sale" must remain usable even when catalogue refresh is offline:
   // an uncertain save can only be resolved by the original request ID.
-  const reviewSaveBlocked = pending || (!ready && !saveUncertain) || !draft.businessDate ||
-    reviewTotal === undefined || !emptiesReview || emptiesNeedConfirmation ||
-    hasUnmatchedSaleEmpties(emptiesReview) || Number(draft.paid) > reviewTotal ||
-    (!saveUncertain && (!paymentBreakdown || debtChecking || Boolean(oldDebtInputError) ||
-      (paymentBreakdown.collectNow > 0 && !["cash", "transfer", "pos"].includes(draft.paymentMethod))));
+  const reviewSaveBlocked = blockSaleSaveAction({
+    pending,
+    saveUncertain,
+    ready,
+    hasBusinessDate: Boolean(draft.businessDate),
+    reviewedTotalAvailable: reviewTotal !== undefined,
+    emptiesValid: Boolean(emptiesReview && !emptiesNeedConfirmation &&
+      !hasUnmatchedSaleEmpties(emptiesReview)),
+    paidWithinTotal: reviewTotal !== undefined && Number(draft.paid) <= reviewTotal,
+    paymentValid: Boolean(paymentBreakdown && !debtChecking && !oldDebtInputError &&
+      (draft.paymentMode !== "split" || (splitEnabled && splitLegsPreview)) &&
+      (draft.paymentMode !== "multi" || (multiEnabled && multiLegsPreview)) &&
+      (paymentBreakdown.collectNow === 0 || draft.paymentMode !== "single" ||
+        ["cash", "transfer", "pos"].includes(draft.paymentMethod))),
+  });
   const progressStep =
     step === "customer"
       ? 0
@@ -600,11 +849,12 @@ export function SaleBuilder({
         </div>
       )}
       <fieldset
-        disabled={pending}
+        disabled={shouldDisableSaleDraftControls(step, pending, reviewBusy)}
+        aria-busy={reviewBusy || pending}
         aria-label="Sale draft"
         className="space-y-3 pb-4"
       >
-        <header className="space-y-3 border-b border-stone-200 pb-3">
+        <header className={step === "payment" ? "space-y-2 border-b border-stone-200 pb-2" : "space-y-3 border-b border-stone-200 pb-3"}>
           <div className="flex min-w-0 items-center justify-between gap-2">
             <p className="shrink-0 text-xs font-bold uppercase tracking-wide text-emerald-800">
               Step {progressStep + 1} of 5
@@ -614,7 +864,7 @@ export function SaleBuilder({
                 <button
                   type="button"
                   className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-sm font-semibold text-emerald-950 hover:border-emerald-700 hover:bg-emerald-100"
-                  disabled={saveUncertain}
+                  disabled={saveUncertain || navigationBusy}
                   title="Park this unfinished sale on this device"
                   onClick={() => {
                     setCancelDraftId(null);
@@ -633,7 +883,7 @@ export function SaleBuilder({
                   ref={cancelSaleButton}
                   type="button"
                   className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 text-sm font-semibold text-stone-800 hover:border-red-300 hover:bg-red-50"
-                  disabled={saveUncertain}
+                  disabled={saveUncertain || navigationBusy}
                   title="Cancel and discard this unfinished sale"
                   aria-expanded={confirmCancel}
                   aria-controls="cancel-sale-panel"
@@ -644,18 +894,19 @@ export function SaleBuilder({
               </div>
             )}
           </div>
-          {backStep && !saveUncertain && (
+          {backStep && !saveUncertain && step !== "payment" && (
             <button type="button" className="inline-flex min-h-11 w-fit items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-900"
+              disabled={navigationBusy}
               onClick={() => update({ step: backStep })}>
               <span aria-hidden="true">←</span> Back to {backLabel}
             </button>
           )}
-          <h1 ref={stepHeading} tabIndex={-1} className="outline-none">
+          <h1 ref={stepHeading} tabIndex={-1} className={step === "payment" ? "text-2xl font-bold tracking-tight text-emerald-950 outline-none" : "outline-none"}>
             {step === "customer" ? "Who is buying?" : step === "drinks" ? "Choose drinks" : step === "quantity" ? "Set the quantity" : step === "empties" ? "Check the empties" : step === "payment" ? "Record payment" : "Review and save"}
           </h1>
-          {step !== "drinks" && (
+          {step !== "drinks" && step !== "payment" && (
             <p className="text-sm leading-5 text-stone-600">
-              {step === "customer" ? "Find the customer to begin." : step === "quantity" ? "Enter the quantity, then add it to the sale." : step === "empties" ? "Check the empty crates and empty bottles returned." : step === "payment" ? "Enter what the customer paid today." : "Check the sale details before saving."}
+              {step === "customer" ? "Find the customer to begin." : step === "quantity" ? "Enter the quantity, then add it to the sale." : step === "empties" ? "Check the empty crates and empty bottles returned." : "Check the sale details before saving."}
             </p>
           )}
           <nav aria-label="Sale progress">
@@ -670,15 +921,15 @@ export function SaleBuilder({
           </nav>
         </header>
         {customer && step !== "customer" && (
-          <section aria-label="Current customer" className="flex min-w-0 items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-900">
+          <section aria-label="Current customer" className={step === "payment" ? "flex min-w-0 items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2" : "flex min-w-0 items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2"}>
+            <span className={step === "payment" ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-900" : "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-900"}>
               <SaleIcon name="user" className="h-4 w-4" />
             </span>
             <div className="min-w-0 flex-1">
               <span className="block text-xs text-stone-500">Customer</span>
               <strong className="block truncate text-sm text-stone-950 sm:text-base" title={customer.name}>{customer.name}</strong>
             </div>
-            <button type="button" className="secondary min-h-11 shrink-0 gap-1 px-3 py-2 text-sm" onClick={() => update({ step: "customer" })}>
+            <button type="button" className={step === "payment" ? "min-h-11 shrink-0 rounded-lg px-2 text-sm font-semibold text-emerald-900 underline underline-offset-2" : "secondary min-h-11 shrink-0 gap-1 px-3 py-2 text-sm"} onClick={() => update({ step: "customer" })}>
               <SaleIcon name="edit" className="h-4 w-4" /> Change
             </button>
           </section>
@@ -699,6 +950,7 @@ export function SaleBuilder({
                     ref={keepSaleButton}
                     type="button"
                     className="secondary w-full"
+                    disabled={navigationBusy}
                     onClick={() => {
                       setCancelDraftId(null);
                       cancelSaleButton.current?.focus();
@@ -709,6 +961,7 @@ export function SaleBuilder({
                   <button
                     type="button"
                     className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-red-800 px-4 py-3 font-semibold text-white hover:bg-red-900"
+                    disabled={navigationBusy}
                     onClick={() => {
                       const id = cancelDraftId;
                       if (!id || id !== sales.state.active?.id) return;
@@ -1338,131 +1591,294 @@ export function SaleBuilder({
         )}
         {step === "payment" && (
           <>
-            <section aria-label="Payment for today&apos;s drinks" className="space-y-3 rounded-xl border border-stone-200 bg-white p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="font-bold text-stone-950">Today&apos;s sale</h2>
-                <strong className="text-2xl font-bold tabular-nums text-emerald-950">{total === undefined ? "Check drinks" : formatNaira(total)}</strong>
-              </div>
-              <label htmlFor="sale-paid">Paying toward today&apos;s sale (₦)</label>
-              <div className="grid grid-cols-2 gap-2" role="group" aria-label="Quick payment for today&apos;s sale">
-                <button type="button" className="secondary w-full" aria-pressed={total !== undefined && draft.paid === String(total)} disabled={total === undefined} onClick={() => total !== undefined && update({ paid: String(total) })}>
-                  Pay in full
-                </button>
-                <button type="button" className="secondary w-full" aria-pressed={draft.paid === "0"} onClick={() => update({ paid: "0" })}>Pay later</button>
-              </div>
-              <input
-                id="sale-paid"
-                onFocus={selectDefaultZero}
-                onClick={selectDefaultZero}
-                inputMode="numeric"
-                pattern="[0-9]+"
-                maxLength={12}
-                value={draft.paid}
-                aria-invalid={Boolean(paymentInputError)}
-                aria-describedby={paymentInputError ? "sale-paid-error" : undefined}
-                onChange={(e) => update({ paid: e.target.value })}
-              />
-              {paymentInputError && <p id="sale-paid-error" role="alert" className="text-sm text-red-800">{paymentInputError}</p>}
-            </section>
-            <section id="sale-previous-debt" tabIndex={-1} aria-label="Previous customer debt" className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="font-bold text-stone-950">Previous money owed</h2>
-                <strong className="text-2xl font-bold tabular-nums text-amber-950">
-                  {oldDebtAmount === null ? "Checking…" : formatNaira(oldDebtAmount)}
-                </strong>
-              </div>
-              {debtChecking && (
-                <div className="space-y-2">
-                  <p role="status" className="text-sm text-amber-950">Checking the customer&apos;s current balance…</p>
-                  <button type="button" className="secondary min-h-11" onClick={() => setDebtRefresh((n) => n + 1)}>
-                    Try again
-                  </button>
+            <fieldset disabled={pending || reviewBusy} aria-label="Payment details" className="min-w-0">
+              <section id="sale-method" tabIndex={-1} aria-label="Payment and customer balance"
+                className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-[0_4px_18px_rgba(16,65,46,0.07)]">
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 bg-gradient-to-r from-emerald-950 via-emerald-900 to-emerald-800 px-4 py-3.5 text-white">
+                  <div className="min-w-0">
+                    <h2 className="text-sm font-medium text-emerald-100">Today&apos;s sale</h2>
+                    <p className="mt-0.5 text-xs text-emerald-200">Amount to settle</p>
+                  </div>
+                  <strong className="min-w-0 break-words text-2xl font-bold tracking-tight tabular-nums text-white [overflow-wrap:anywhere]">
+                    {total === undefined ? "Check drinks" : formatNaira(total)}
+                  </strong>
                 </div>
-              )}
-              {debtErrorMessage && (
-                <div role="alert" className="space-y-2 text-sm text-amber-950">
-                  <p>{debtErrorMessage}</p>
-                  <button type="button" className="secondary" onClick={() => setDebtRefresh((n) => n + 1)}>Try again</button>
-                </div>
-              )}
-              {oldDebtAmount !== null && oldDebtAmount === 0 && !debtChecking && (
+                <div className="px-3 pb-4 pt-3 sm:px-4">
+                {draft.paymentMode === "multi" ? (
+                  multiEnabled ? (
+                    <MultiPaymentPanel draft={draft} saleTotal={total} oldDebt={oldDebtAmount}
+                      oldDebtError={debtErrorMessage} onRetryDebt={() => setDebtRefresh(n => n + 1)}
+                      update={update} onUseSingle={useMultiSingle} />
+                  ) : (
+                    <div id="sale-split-payment" role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
+                      Multiple payment methods are temporarily unavailable. Your amounts are preserved;
+                      park this sale until the feature returns. Do not record them under one method.
+                    </div>
+                  )
+                ) : (
                 <>
-                  <p className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
-                    <SaleIcon name="check" className="h-4 w-4" /> No previous money owed.
-                  </p>
-                  {needsClearHiddenOldDebtPayment(draft.oldDebtPaid) && !saveUncertain && (
-                    <div role="alert" className="space-y-2">
-                      <p className="text-sm text-red-800">The previous debt has been cleared. Remove the old-debt amount before continuing.</p>
-                      <button type="button" className="secondary w-full" onClick={() => update({ oldDebtPaid: "0" })}>
+                <div>
+                  <p className="mb-2 text-sm font-semibold tracking-tight text-stone-900">How was it paid?</p>
+                  <div role="group" aria-label="How the customer paid"
+                    className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {(["cash", "transfer", "pos"] as const).map((method) => (
+                      <button key={method} type="button"
+                        className={draft.paymentMode !== "split" && draft.paymentMethod === method
+                          ? "flex min-h-12 items-center justify-center gap-2 rounded-xl border border-emerald-800 bg-emerald-900 px-2 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors"
+                          : "flex min-h-12 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-stone-50/70 px-2 py-2.5 text-sm font-semibold text-stone-800 transition-colors hover:border-emerald-300 hover:bg-emerald-50"}
+                        aria-pressed={draft.paymentMode !== "split" && draft.paymentMethod === method}
+                        onClick={() => chooseSingleMethod(method)}>
+                        <SaleIcon name={method} className="h-[18px] w-[18px] shrink-0" />
+                        {method === "cash" ? "Cash" : method === "transfer" ? "Transfer" : "POS"}
+                      </button>
+                    ))}
+                    {(splitEnabled || multiEnabled) && (
+                      <button type="button"
+                        className={draft.paymentMode === "split"
+                          ? "flex min-h-12 items-center justify-center gap-2 rounded-xl border border-emerald-800 bg-emerald-900 px-2 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors"
+                          : "flex min-h-12 items-center justify-center gap-2 rounded-xl border border-stone-200 bg-stone-50/70 px-2 py-2.5 text-sm font-semibold text-stone-800 transition-colors hover:border-emerald-300 hover:bg-emerald-50"}
+                        aria-pressed={draft.paymentMode === "split"}
+                        onClick={() => setPaymentModeSafely(multiEnabled ? "multi" : "split")}>
+                        <SaleIcon name="split" className="h-[18px] w-[18px] shrink-0" />
+                        {multiEnabled ? "Multiple methods" : "Cash + Transfer"}
+                      </button>
+                    )}
+                  </div>
+                  {draft.paymentMode === "split" && Number(draft.splitCash) > 0 &&
+                    Number(draft.splitTransfer) > 0 && (
+                    <p className="mt-2 text-xs text-stone-600">Both methods have money entered. Change one amount to ₦0 before switching to one method.</p>
+                  )}
+                  {requestedPaymentMode && (
+                    <div role="group" aria-label="Confirm payment method change"
+                      className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">
+                      <p className="font-semibold text-stone-900">Change payment method?</p>
+                      <p className="mt-1 text-stone-700">
+                        {requestedPaymentMode === "split"
+                          ? "The previous payment amount will reset. Enter Cash and Transfer received."
+                          : requestedPaymentMode === "multi"
+                            ? "Your recorded payment will be carried into multiple methods. You can then add POS, Cash or Transfer."
+                          : draft.paymentMode === "split"
+                            ? splitConversionPreview?.issue
+                              ? "The Cash + Transfer amounts cannot be verified. Changing methods will clear those amounts and reset both payments to ₦0. Keep the current method if this is not what you want."
+                              : "The split breakdown will be cleared and the verified received amount will be used."
+                            : "The amount stays the same, but its payment method will change."}
+                      </p>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <button type="button" className="secondary min-h-11 text-sm"
+                          onClick={() => { setRequestedPaymentMode(null); setRequestedSingleMethod(null); }}>Keep current</button>
+                        <button type="button" className="primary min-h-11 text-sm"
+                          onClick={() => applyPaymentMode(requestedPaymentMode, requestedSingleMethod ?? "")}>Confirm change</button>
+                      </div>
+                    </div>
+                  )}
+                  {draft.paymentMode === "split" && !splitEnabled && (
+                    <div id="sale-split-payment" role="alert" className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
+                      <p>Cash + Transfer is temporarily unavailable. Keep both real payment methods recorded. If both have money entered, park this sale until split payments return; do not record them as one method.</p>
+                      <p className="mt-1 font-semibold">Cash {draft.splitCash ? formatNaira(Number(draft.splitCash)) : "—"} · Transfer {draft.splitTransfer ? formatNaira(Number(draft.splitTransfer)) : "—"}</p>
+                      {!(Number(draft.splitCash) > 0 && Number(draft.splitTransfer) > 0) && (
+                        <button type="button" className="secondary mt-2 w-full min-h-11"
+                          onClick={() => setPaymentModeSafely("single")}>Return to one method</button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {draft.paymentMode !== "split" && (
+                  <div className="mt-4 border-t border-stone-100 pt-3">
+                    <label className="mb-1 text-sm" htmlFor="sale-paid">Received for today&apos;s sale (₦)</label>
+                    <div className="flex min-w-0 gap-2">
+                      <input id="sale-paid" inputMode="numeric" pattern="[0-9]+" maxLength={12}
+                        onFocus={selectDefaultZero} onClick={selectDefaultZero}
+                        value={draft.paid} aria-invalid={Boolean(paymentInputError)}
+                        aria-describedby={paymentInputError ? "sale-paid-error" : undefined}
+                        onChange={(event) => update({ paid: event.target.value })} />
+                      <button type="button" className="secondary min-h-11 shrink-0 px-3 text-sm"
+                        disabled={total === undefined}
+                        onClick={() => total !== undefined && update({ paid: String(total) })}>
+                        Full
+                      </button>
+                    </div>
+                    {paymentInputError && <p id="sale-paid-error" role="alert" className="mt-1 text-sm text-red-800">{paymentInputError}</p>}
+                    {Number(draft.paid) === 0 && <p className="mt-1 text-xs text-stone-500">₦0 means the customer will pay later.</p>}
+                  </div>
+                )}
+
+                {draft.paymentMode === "split" && splitEnabled && (
+                  <div id="sale-split-payment" tabIndex={-1} className="mt-4 border-t border-stone-100 pt-3">
+                    <p className="mb-2 text-sm font-semibold text-stone-900">Amount received</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="min-w-0">
+                        <label className="mb-1 text-xs" htmlFor="sale-cash-received">Cash (₦)</label>
+                        <input id="sale-cash-received" inputMode="numeric" pattern="[0-9]+" maxLength={12}
+                          value={draft.splitCash} onFocus={selectDefaultZero} onClick={selectDefaultZero}
+                          onChange={(event) => updateSplitTender("splitCash", event.target.value)} />
+                      </div>
+                      <div className="min-w-0">
+                        <label className="mb-1 text-xs" htmlFor="sale-transfer-received">Transfer (₦)</label>
+                        <input id="sale-transfer-received" inputMode="numeric" pattern="[0-9]+" maxLength={12}
+                          value={draft.splitTransfer} onFocus={selectDefaultZero} onClick={selectDefaultZero}
+                          onChange={(event) => updateSplitTender("splitTransfer", event.target.value)} />
+                      </div>
+                    </div>
+                    {splitEntry && splitEntry.issue === null && splitEntry.received !== null &&
+                      ((Number(draft.splitCash) > 0 && Number(draft.splitTransfer) === 0) ||
+                       (Number(draft.splitTransfer) > 0 && Number(draft.splitCash) === 0)) && (
+                      <button type="button" className="mt-2 text-sm font-semibold text-emerald-900 underline underline-offset-2"
+                        onClick={() => update({
+                          paymentMode: "single",
+                          paymentMethod: Number(draft.splitCash) > 0 ? "cash" : "transfer",
+                          ...oneMethodAmountsFromReceived(splitEntry),
+                          splitCash: "0", splitTransfer: "0", splitCashToSale: "",
+                        })}>
+                        Only one method received? Switch to {Number(draft.splitCash) > 0 ? "Cash" : "Transfer"}
+                      </button>
+                    )}
+                    {Number(draft.splitCash) === 0 && Number(draft.splitTransfer) === 0 &&
+                      Number(draft.oldDebtPaid) === 0 && (
+                      <button type="button" className="mt-2 text-sm font-semibold text-emerald-900 underline underline-offset-2"
+                        onClick={() => update({ paymentMode: "single", paymentMethod: "", paid: "0",
+                          oldDebtPaid: "0", splitCash: "0", splitTransfer: "0", splitCashToSale: "" })}>
+                        No payment today? Record as pay later
+                      </button>
+                    )}
+                    {splitEntry?.issue && (
+                      <p role="alert" className="mt-2 rounded-md bg-amber-50 p-2 text-sm text-amber-950">{splitEntry.issue}</p>
+                    )}
+                    {splitEntry && splitEntry.extraForOldDebt > 0 && oldDebtAmount !== null &&
+                      Number(draft.oldDebtPaid) + splitEntry.extraForOldDebt <= oldDebtAmount && (
+                      <button type="button" className="secondary mt-2 min-h-11 w-full text-sm"
+                        onClick={() => updateSplitOldDebt(String(Number(draft.oldDebtPaid) + splitEntry.extraForOldDebt))}>
+                        Apply extra {formatNaira(splitEntry.extraForOldDebt)} to old debt
+                      </button>
+                    )}
+                    {Number(draft.oldDebtPaid) === 0 && draft.splitCashToSale !== "" && (
+                      <button type="button" className="secondary mt-2 min-h-11 w-full text-sm"
+                        onClick={() => update({ splitCashToSale: "" })}>
+                        Clear previous Cash allocation
+                      </button>
+                    )}
+                    {splitEntryNeedsSync && splitEntry?.salePaid !== null && (
+                      <button type="button" className="secondary mt-2 min-h-11 w-full text-sm"
+                        onClick={() => update({ paid: String(splitEntry.salePaid) })}>
+                        Reconcile resumed payment to {formatNaira(splitEntry.received ?? 0)}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                <div id="sale-previous-debt" tabIndex={-1} className="mt-4 border-t border-stone-100 pt-3">
+                  <div className="flex items-center justify-between gap-2 text-sm">
+                    <span className="font-semibold text-stone-800">Previous debt</span>
+                    <strong className="tabular-nums text-stone-900">
+                      {oldDebtAmount === null ? "Checking…" : formatNaira(oldDebtAmount)}
+                    </strong>
+                  </div>
+                  {debtChecking && <p role="status" className="mt-1 text-xs text-stone-600">Checking the current balance…</p>}
+                  {debtErrorMessage && (
+                    <div role="alert" className="mt-2 flex items-center justify-between gap-2 text-sm text-amber-950">
+                      <span>{debtErrorMessage}</span>
+                      <button type="button" className="secondary shrink-0 min-h-11 px-2 text-sm"
+                        onClick={() => setDebtRefresh((value) => value + 1)}>Retry</button>
+                    </div>
+                  )}
+                  {oldDebtAmount === 0 && needsClearHiddenOldDebtPayment(draft.oldDebtPaid) && (
+                    <div className="mt-2 rounded-lg bg-amber-50 p-2 text-sm text-amber-950">
+                      Previous debt is cleared. Remove the old-debt payment to continue.
+                      <button type="button" className="secondary mt-2 w-full min-h-11 text-sm"
+                        onClick={() => splitEnabled && draft.paymentMode === "split" ?
+                          updateSplitOldDebt("0") : update({ oldDebtPaid: "0", splitCashToSale: "" })}>
                         Clear old-debt payment
                       </button>
                     </div>
                   )}
+                  {oldDebtAmount !== null && oldDebtAmount > 0 && (
+                    <details open={Number(draft.oldDebtPaid) > 0 || Boolean(oldDebtInputError)}
+                      className="mt-2 rounded-lg border border-stone-200 px-3 py-2">
+                      <summary className="flex min-h-11 cursor-pointer items-center py-2 text-sm font-semibold text-emerald-900">
+                        {Number(draft.oldDebtPaid) > 0
+                          ? `${formatNaira(Number(draft.oldDebtPaid))} paying old debt · Change`
+                          : "Pay some old debt (optional)"}
+                      </summary>
+                      <p className="mt-1 text-xs text-stone-600">Only money actually received can be applied to previous debt.</p>
+                      <label className="mb-1 mt-2 text-sm" htmlFor="sale-old-debt-paid">Amount for old debt (₦)</label>
+                      <input id="sale-old-debt-paid" inputMode="numeric" pattern="[0-9]+" maxLength={12}
+                        onFocus={selectDefaultZero} onClick={selectDefaultZero}
+                        value={draft.oldDebtPaid} aria-invalid={Boolean(oldDebtInputError)}
+                        aria-describedby={oldDebtInputError ? "old-debt-payment-error" : undefined}
+                        onChange={(event) => draft.paymentMode === "split" && splitEnabled
+                          ? updateSplitOldDebt(event.target.value)
+                          : update({ oldDebtPaid: event.target.value, splitCashToSale: "" })} />
+                      {oldDebtInputError && <p id="old-debt-payment-error" role="alert" className="mt-1 text-sm text-red-800">{oldDebtInputError}</p>}
+                      {draft.paymentMode === "split" && splitEnabled && Number(draft.oldDebtPaid) > 0 && (
+                        <details open={draft.splitCashToSale !== ""} className="mt-2 rounded-lg border border-stone-200 px-2 py-2">
+                          <summary className="cursor-pointer text-xs font-semibold text-emerald-900">
+                            Adjust Cash used for today&apos;s sale
+                          </summary>
+                          <label className="mt-2 text-sm" htmlFor="sale-split-cash-sale">Cash for today&apos;s sale (₦)</label>
+                          <input id="sale-split-cash-sale" inputMode="numeric" pattern="[0-9]+" maxLength={12}
+                            placeholder="Cash first" value={draft.splitCashToSale}
+                            onChange={(event) => update({ splitCashToSale: event.target.value })} />
+                          {splitLegsPreview && (
+                            <p className="mt-1 text-xs text-stone-600">
+                              Today&apos;s sale: Cash {formatNaira(splitLegsPreview[0].saleAmount)} + Transfer {formatNaira(splitLegsPreview[1].saleAmount)}.
+                              Old debt: Cash {formatNaira(splitLegsPreview[0].oldDebtAmount)} + Transfer {formatNaira(splitLegsPreview[1].oldDebtAmount)}.
+                            </p>
+                          )}
+                        </details>
+                      )}
+                    </details>
+                  )}
+                </div>
                 </>
-              )}
-              {oldDebtAmount !== null && oldDebtAmount > 0 && !debtChecking && (
-                <>
-                  <p className="text-sm leading-5 text-stone-700">They can clear some or all of their old balance while buying these drinks.</p>
-                  <label htmlFor="sale-old-debt-paid">Paying toward previous debt (₦)</label>
-                  <div className="grid grid-cols-2 gap-2" role="group" aria-label="Quick previous-debt payment">
-                    <button type="button" className="secondary w-full" aria-pressed={draft.oldDebtPaid === String(oldDebtAmount)} onClick={() => update({ oldDebtPaid: String(oldDebtAmount) })}>Pay old debt in full</button>
-                    <button type="button" className="secondary w-full" aria-pressed={draft.oldDebtPaid === "0"} onClick={() => update({ oldDebtPaid: "0" })}>Not today</button>
+                )}
+                <dl className="mt-4 rounded-xl border border-emerald-100 bg-gradient-to-b from-emerald-50/80 to-white px-3 py-3 text-sm sm:px-4" aria-live="polite">
+                  <div className="grid grid-cols-1 gap-3 min-[440px]:grid-cols-2">
+                    <div className="min-w-0">
+                      <dt className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Received now</dt>
+                      <dd className="mt-1 break-words text-xl font-bold tabular-nums text-emerald-950 [overflow-wrap:anywhere]">
+                        {paymentBreakdown ? formatNaira(paymentBreakdown.collectNow)
+                          : multiEntry?.received !== null && multiEntry?.received !== undefined
+                            ? formatNaira(multiEntry.received)
+                          : splitEntry?.received !== null && splitEntry?.received !== undefined
+                            ? formatNaira(splitEntry.received) : "—"}
+                      </dd>
+                    </div>
+                    <div className="min-w-0">
+                      <dt className="text-xs font-semibold uppercase tracking-wide text-stone-600">Unpaid today</dt>
+                      <dd className="mt-1 break-words text-xl font-bold tabular-nums text-stone-900 [overflow-wrap:anywhere]">
+                        {paymentBreakdown ? formatNaira(paymentBreakdown.saleRemaining) : "—"}
+                      </dd>
+                    </div>
                   </div>
-                  <input
-                    id="sale-old-debt-paid"
-                    inputMode="numeric"
-                    pattern="[0-9]+"
-                    maxLength={12}
-                    onFocus={selectDefaultZero}
-                    onClick={selectDefaultZero}
-                    value={draft.oldDebtPaid}
-                    aria-invalid={Boolean(oldDebtInputError)}
-                    aria-describedby={oldDebtInputError ? "old-debt-payment-error" : "old-debt-payment-note"}
-                    onChange={(e) => update({ oldDebtPaid: e.target.value })}
-                  />
-                  <p id="old-debt-payment-note" className="text-xs text-stone-600">This pays down their older balance, not today&apos;s drinks.</p>
-                  {oldDebtInputError && <p id="old-debt-payment-error" role="alert" className="text-sm text-red-800">{oldDebtInputError}</p>}
-                </>
-              )}
-            </section>
-            {Number(draft.paid) + Number(draft.oldDebtPaid) > 0 && (
-              <div>
-                <label htmlFor="sale-method">How is the customer paying?</label>
-                <select id="sale-method" value={draft.paymentMethod} onChange={(e) => update({ paymentMethod: e.target.value })} required>
-                  <option value="">Choose method</option>
-                  <option value="cash">Cash</option><option value="transfer">Transfer</option><option value="pos">POS</option>
-                </select>
-                <p className="mt-1 text-xs text-stone-600">The same method applies to both amounts. The old-debt payment gets its own receipt.</p>
-              </div>
-            )}
-            <section aria-label="Money to collect and customer balance" className="rounded-xl border border-emerald-200 bg-white p-4" aria-live="polite">
-              <div className="flex items-center justify-between gap-3">
-                <span className="font-semibold text-stone-900">Collect now</span>
-                <strong className="text-2xl font-bold tabular-nums text-emerald-950">{paymentBreakdown ? formatNaira(paymentBreakdown.collectNow) : "—"}</strong>
-              </div>
-              {paymentBreakdown && (
-                <dl className="mt-3 space-y-2 border-t border-stone-200 pt-3 text-sm">
-                  <div className="flex justify-between gap-3">
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-emerald-100 pt-2.5">
                     <dt className="text-stone-600">Old debt left</dt>
-                    <dd className="font-semibold">{formatNaira(paymentBreakdown.oldDebtRemaining)}</dd>
+                    <dd className="min-w-0 break-words text-right font-semibold tabular-nums [overflow-wrap:anywhere]">
+                      {paymentBreakdown && oldDebtAmount !== null
+                        ? formatNaira(paymentBreakdown.oldDebtRemaining)
+                        : "Confirm on Review"}
+                    </dd>
                   </div>
-                  <div className="flex justify-between gap-3">
-                    <dt className="text-stone-600">Today&apos;s sale still unpaid</dt>
-                    <dd className="font-semibold">{formatNaira(paymentBreakdown.saleRemaining)}</dd>
-                  </div>
-                  <div className="flex justify-between gap-3 border-t border-stone-200 pt-2 font-bold">
-                    <dt>Total customer will owe</dt>
-                    <dd className={paymentBreakdown.totalOwedAfter > 0 ? "text-amber-900" : "text-emerald-900"}>
-                      {formatNaira(paymentBreakdown.totalOwedAfter)}
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                    <dt className="font-semibold text-stone-900">Total customer will owe</dt>
+                    <dd className="min-w-0 break-words text-right text-base font-bold tabular-nums text-amber-900 [overflow-wrap:anywhere]">
+                      {paymentBreakdown && oldDebtAmount !== null
+                        ? formatNaira(paymentBreakdown.totalOwedAfter)
+                        : "Confirm on Review"}
                     </dd>
                   </div>
                 </dl>
-              )}
-            </section>
+                </div>
+              </section>
+            </fieldset>
             <div className="sale-sticky-actions sticky z-10 -mx-4 space-y-2 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
             {paymentIssue && (
-              <p id="payment-review-help" role="status" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950">
+              <p id="payment-review-help" role="alert" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950">
                 {paymentIssue.message}
+              </p>
+            )}
+            {!paymentIssue && oldDebtAmount === null && (
+              <p role="status" className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-700">
+                Previous balance will be checked securely when you tap Review. No payment toward old debt will be recorded.
               </p>
             )}
             {!paymentIssue && paymentDisplayMessage && (
@@ -1479,6 +1895,7 @@ export function SaleBuilder({
             <div className="flex items-center gap-3">
             <button
               className="secondary min-h-12 shrink-0 px-4"
+              disabled={navigationBusy}
               onClick={() => update({ step: backStep ?? "empties" })}
             >
               Back
@@ -1486,15 +1903,21 @@ export function SaleBuilder({
             <button
               type="button"
               className="primary min-w-0 flex-1"
-              disabled={pending}
+              disabled={reviewBusy}
               aria-describedby={paymentIssue ? "payment-review-help" : undefined}
               onClick={() => {
                 if (paymentIssue) {
+                  // Explain why the tap cannot advance, rather than only
+                  // scrolling to a field (which appeared to do nothing).
+                  setMessage(paymentIssue.message);
                   const target = document.getElementById(paymentIssue.target);
                   target?.scrollIntoView({ behavior: "smooth", block: "center" });
                   target?.focus({ preventScroll: true });
                   return;
                 }
+                if (reviewBusyRef.current) return;
+                reviewBusyRef.current = true;
+                setReviewBusy(true);
                 // Immediate visible acknowledgement proves the tap was received.
                 // This also distinguishes a blocked network read from a blocked
                 // draft-storage write on the customer's phone.
@@ -1503,108 +1926,120 @@ export function SaleBuilder({
                 setMessage(saleReviewCheckingMessage);
                 const clearOwnProgress = () => setMessage((current) =>
                   clearOwnSaleReviewProgress(current, requestId, reviewFeedbackAttempt.current));
-                startTransition(async () => {
-                  const customerForReview = customer?.id;
-                  const saleForReview = activeId;
-                  if (!customerForReview) {
-                    setMessage("Choose a customer first.");
-                    return;
-                  }
-                  const reviewIsCurrent = () =>
-                    checkoutContext.current.customerId === customerForReview &&
-                    checkoutContext.current.activeId === saleForReview &&
-                    checkoutContext.current.step === "payment" &&
-                    reviewFeedbackAttempt.current === requestId;
-                  let fresh: SaleCatalog;
-                  let latestDebt: number;
+                void (async () => {
                   try {
-                    // A stalled background Server Function must not block
-                    // payment Review. This independent HTTP read is abortable.
-                    const controller = new AbortController();
-                    const timeout = window.setTimeout(() => controller.abort(), 20000);
-                    let response: Awaited<ReturnType<typeof requestSaleReview>>;
+                    const customerForReview = customer?.id;
+                    const saleForReview = activeId;
+                    if (!customerForReview) {
+                      setMessage("Choose a customer first.");
+                      return;
+                    }
+                    const reviewIsCurrent = () =>
+                      checkoutContext.current.customerId === customerForReview &&
+                      checkoutContext.current.activeId === saleForReview &&
+                      checkoutContext.current.step === "payment" &&
+                      reviewFeedbackAttempt.current === requestId;
+                    let fresh: SaleCatalog;
+                    let latestDebt: number;
                     try {
-                      response = await requestSaleReview(customerForReview, controller.signal);
-                    } finally {
-                      window.clearTimeout(timeout);
-                    }
-                    // Auth expiry affects the entire checkout, even if another
-                    // customer or draft was selected while the request ran.
-                    if ("error" in response && response.code === "session_expired") {
-                      setSessionExpired(true);
-                      setMessage(saleSessionExpiredMessage);
-                      return;
-                    }
-                    // Customer-bound responses belong only to their original
-                    // customer, active sale and payment step.
-                    if (!reviewIsCurrent()) {
-                      clearOwnProgress();
-                      return;
-                    }
-                    if ("error" in response) {
-                      const errorMessage = response.error ?? saleNetworkMessage;
-                      if (response.code === "debt_unavailable") {
-                        if (debtKey) setDebtError({ key: debtKey, message: errorMessage });
+                      // A stalled background Server Function must not block
+                      // payment Review. This independent HTTP read is abortable.
+                      const controller = new AbortController();
+                      const timeout = window.setTimeout(() => controller.abort(), 20000);
+                      let response: Awaited<ReturnType<typeof requestSaleReview>>;
+                      try {
+                        response = await requestSaleReview(customerForReview, controller.signal);
+                      } finally {
+                        window.clearTimeout(timeout);
                       }
-                      setMessage(errorMessage);
-                      return;
-                    }
-                    fresh = response.catalog;
-                    latestDebt = response.amount;
-                    setMessage(saleReviewOpeningMessage);
-                    if (activeId) setVerifiedId(activeId);
-                    setCheckError("");
-                  } catch {
-                    // Any failed/hung request returns an actionable message
-                    // beside Review. A retry creates a new independent fetch.
-                    if (reviewIsCurrent())
-                      setMessage("Could not check this sale. Check your connection and tap Review again.");
-                    else clearOwnProgress();
-                    return;
-                  }
-                  try {
-                    if (debtKey) setOldDebt({ key: debtKey, amount: latestDebt });
-                    setDebtError(null);
-                    salePaymentTotals(total!, Number(draft.paid), latestDebt, Number(draft.oldDebtPaid));
-                    setCatalog(fresh);
-                    matchSaleEmpties(draft, fresh);
-                    const lines = draft.lines.map((line) => {
-                      const p = fresh.products.find(
-                        (item) => item.id === line.productId,
-                      );
-                      if (!p) throw new Error("Drink unavailable.");
-                      priceQuantity(p, line.quantity);
-                      return reviewedLine(line, p);
-                    });
-                    const moved = await sales.update({
-                      lines,
-                      businessDate:
-                        draft.businessDate ||
-                        new Date().toLocaleDateString("sv-SE"),
-                      step: "review",
-                    });
-                    if (!moved) {
-                      if (reviewIsCurrent()) setMessage("Could not open Review. The active sale may have changed in another tab, or this device could not save the step. Check the currently open or paused sale before retrying.");
+                      // Auth expiry affects the entire checkout, even if another
+                      // customer or draft was selected while the request ran.
+                      if ("error" in response && response.code === "session_expired") {
+                        setSessionExpired(true);
+                        setMessage(saleSessionExpiredMessage);
+                        return;
+                      }
+                      // Customer-bound responses belong only to their original
+                      // customer, active sale and payment step.
+                      if (!reviewIsCurrent()) {
+                        clearOwnProgress();
+                        return;
+                      }
+                      if ("error" in response) {
+                        const errorMessage = response.error ?? saleNetworkMessage;
+                        if (response.code === "debt_unavailable") {
+                          if (debtKey) setDebtError({ key: debtKey, message: errorMessage });
+                        }
+                        setMessage(errorMessage);
+                        return;
+                      }
+                      fresh = response.catalog;
+                      latestDebt = response.amount;
+                      setMessage(saleReviewOpeningMessage);
+                      if (activeId) setVerifiedId(activeId);
+                      setCheckError("");
+                    } catch {
+                      // Any failed/hung request returns an actionable message
+                      // beside Review. A retry creates a new independent fetch.
+                      if (reviewIsCurrent())
+                        setMessage("Could not check this sale. Check your connection and tap Review again.");
                       else clearOwnProgress();
                       return;
                     }
-                    clearOwnProgress();
-                  } catch (e) {
-                    if (reviewIsCurrent()) setMessage(
-                      e instanceof Error
-                        ? e.message
-                        : "Check this sale and try again.",
-                    );
-                    else clearOwnProgress();
+                    try {
+                      // Review is the authority. Invalidate any older preview
+                      // request BEFORE installing this balance, or a stale
+                      // response could overwrite it after navigation.
+                      debtPreviewGeneration.current++;
+                      debtPreviewAbort.current?.abort();
+                      debtPreviewAbort.current = null;
+                      if (debtKey) setOldDebt({ key: debtKey, amount: latestDebt });
+                      setDebtError(null);
+                      salePaymentTotals(total!, Number(draft.paid), latestDebt, Number(draft.oldDebtPaid));
+                      setCatalog(fresh);
+                      matchSaleEmpties(draft, fresh);
+                      const lines = draft.lines.map((line) => {
+                        const p = fresh.products.find(
+                          (item) => item.id === line.productId,
+                        );
+                        if (!p) throw new Error("Drink unavailable.");
+                        priceQuantity(p, line.quantity);
+                        return reviewedLine(line, p);
+                      });
+                      const moved = await sales.enterReview(draft, {
+                        lines,
+                        businessDate:
+                          draft.businessDate ||
+                          new Date().toLocaleDateString("sv-SE"),
+                      });
+                      if (!moved) {
+                        if (reviewIsCurrent()) setMessage("Could not open Review. The active sale may have changed in another tab, or this device could not save the step. Check the currently open or paused sale before retrying.");
+                        else clearOwnProgress();
+                        return;
+                      }
+                      clearOwnProgress();
+                    } catch (e) {
+                      if (reviewIsCurrent()) setMessage(
+                        e instanceof Error
+                          ? e.message
+                          : "Check this sale and try again.",
+                      );
+                      else clearOwnProgress();
+                    }
+                  } finally {
+                    reviewBusyRef.current = false;
+                    setReviewBusy(false);
                   }
-                });
+                })();
               }}
             >
-              {pending
-                ? "Checking…"
-                : paymentIssue?.target === "sale-method" ? "Choose payment method"
+              {reviewBusy
+                ? "Checking sale…"
+                : paymentIssue ? (paymentIssue.target === "sale-method" ? "Choose payment method" : "Fix payment details to continue")
                 : paymentBreakdown && paymentBreakdown.collectNow > 0
-                  ? `Review · Collect ${formatNaira(paymentBreakdown.collectNow)}`
+                  ? draft.paymentMode === "split"
+                    ? `Review · Received ${formatNaira(paymentBreakdown.collectNow)}`
+                    : `Review · Collect ${formatNaira(paymentBreakdown.collectNow)}`
                   : "Review sale · pay later"}
             </button>
             </div>
@@ -1613,23 +2048,22 @@ export function SaleBuilder({
         )}
         {step === "review" && (
           <>
-            <p className="text-stone-700">Check the drinks, empty returns and money before saving.</p>
-            <p className="text-sm text-stone-600">
-              Sale date: {draft.businessDate}
-            </p>
-            <details>
-              <summary className="quiet-link cursor-pointer">Change date</summary>
-              <label className="mt-3 block" htmlFor="sale-date">
-                Business date
-              </label>
-              <input
-                id="sale-date"
-                type="date"
-                disabled={saveUncertain}
-                value={draft.businessDate}
-                onChange={(e) => update({ businessDate: e.target.value })}
-              />
-            </details>
+            <section aria-label="Sale overview" className="rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Final review</p>
+              <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <h2 className="min-w-0 break-words text-lg font-bold text-stone-950">{customer?.name ?? "Customer"}</h2>
+                <p className="text-2xl font-bold tabular-nums text-stone-950">{reviewTotal === undefined ? "Check drinks" : formatNaira(reviewTotal)}</p>
+              </div>
+              <p className="mt-1 text-sm text-stone-600">{draft.lines.length} {draft.lines.length === 1 ? "drink" : "drinks"} · Check amounts and empty returns below before saving.</p>
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-stone-600">
+                <span>Sale date: {draft.businessDate}</span>
+                <details>
+                  <summary className="cursor-pointer font-semibold text-emerald-800 underline underline-offset-4">Change date</summary>
+                  <label className="mt-2 block" htmlFor="sale-date">Business date</label>
+                  <input id="sale-date" type="date" disabled={saveUncertain} value={draft.businessDate} onChange={(e) => update({ businessDate: e.target.value })} />
+                </details>
+              </div>
+            </section>
 
             <section aria-labelledby="review-drinks">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1651,8 +2085,8 @@ export function SaleBuilder({
                   try {
                     const amount = formatNaira(reviewedLineTotal(line));
                     return (
-                      <li key={line.productId} className="flex min-w-0 items-start gap-3 py-4">
-                        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-stone-50">
+                      <li key={line.productId} className="flex min-w-0 items-start gap-3 py-3">
+                        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-stone-50 sm:h-20 sm:w-20">
                           {p ? <ProductImage src={p.image_url} name={p.name} /> : <span className="block p-2 text-xs">No photo</span>}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -1661,7 +2095,7 @@ export function SaleBuilder({
                           {packaging && (packaging.cratesOwed > 0 || packaging.bottlesOwed > 0) && (
                             <p className="mt-2 text-sm font-medium text-amber-900">{missingEmptiesMessage(packaging, p?.name ?? "Drink")}</p>
                           )}
-                          <p className="mt-2 text-lg font-bold tabular-nums text-stone-950">{amount}</p>
+                          <p className="mt-1 text-base font-bold tabular-nums text-stone-950">{amount}</p>
                         </div>
                       </li>
                     );
@@ -1729,53 +2163,57 @@ export function SaleBuilder({
                 <dt>Paid toward today&apos;s sale</dt>
                 <dd className="font-semibold">{formatNaira(Number(draft.paid))}</dd>
               </div>
-              <div className="flex justify-between gap-3 border-b border-stone-200 py-3">
-                <dt>Paid toward previous debt</dt>
-                <dd className="font-semibold">{formatNaira(Number(draft.oldDebtPaid))}</dd>
-              </div>
-              {Number(draft.paid) + Number(draft.oldDebtPaid) > 0 && <div className="flex justify-between gap-3 border-b border-stone-200 py-3"><dt>Method</dt><dd className="font-semibold">{{ cash: "Cash", transfer: "Bank transfer", pos: "POS" }[draft.paymentMethod as "cash" | "transfer" | "pos"] ?? "Choose a method"}</dd></div>}
+              {Number(draft.oldDebtPaid) > 0 && (
+                <div className="flex justify-between gap-3 border-b border-stone-200 py-3">
+                  <dt>Paid toward previous debt</dt>
+                  <dd className="font-semibold">{formatNaira(Number(draft.oldDebtPaid))}</dd>
+                </div>
+              )}
+              {Number(draft.paid) + Number(draft.oldDebtPaid) > 0 && (
+                <>
+                  <div className="flex justify-between gap-3 border-b border-stone-200 py-3">
+                    <dt>Method</dt>
+                    <dd className="font-semibold">{draft.paymentMode === "multi" ? "Multiple methods" : draft.paymentMode === "split" ? "Cash + Transfer" : ({ cash: "Cash", transfer: "Bank transfer", pos: "POS" }[draft.paymentMethod as "cash" | "transfer" | "pos"] ?? "Choose a method")}</dd>
+                  </div>
+                  {(draft.paymentMode === "multi" ? multiLegsPreview : splitLegsPreview)?.map((leg) => (
+                    <div key={leg.method} className="flex justify-between gap-3 border-b border-stone-200 py-2 text-sm">
+                      <dt>{leg.method === "cash" ? "Cash received" : leg.method === "pos" ? "POS received" : "Transfer received"}</dt>
+                      <dd className="font-semibold">{formatNaira(leg.amount)}</dd>
+                    </div>
+                  ))}
+                </>
+              )}
               <div className="flex justify-between gap-3 py-3 text-lg font-semibold">
                 <dt>Total to collect now</dt>
-                <dd>{reviewTotal === undefined || oldDebtAmount === null ? "Check balances" : formatNaira(Number(draft.paid) + Number(draft.oldDebtPaid))}</dd>
+                <dd>{reviewTotal === undefined ? "Check drinks" : oldDebtAmount === null && Number(draft.oldDebtPaid) !== 0 ? "Check balances" : formatNaira(Number(draft.paid) + Number(draft.oldDebtPaid))}</dd>
               </div>
             </dl>
-            {paymentBreakdown && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                <p className="text-sm font-semibold text-amber-950">Customer balance after this sale</p>
-                <p className="mt-1 text-2xl font-bold tabular-nums text-amber-950">{formatNaira(paymentBreakdown.totalOwedAfter)}</p>
-                <p className="mt-1 text-xs text-amber-950">Includes previous unpaid debt and any unpaid part of today&apos;s sale. Rechecked when saving.</p>
+            {paymentBreakdown && oldDebtAmount !== null && (
+              <div className={paymentBreakdown.totalOwedAfter > 0 ? "rounded-xl border border-amber-200 bg-amber-50 p-4" : "rounded-xl border border-emerald-200 bg-emerald-50 p-4"}>
+                <p className={paymentBreakdown.totalOwedAfter > 0 ? "text-sm font-semibold text-amber-950" : "text-sm font-semibold text-emerald-950"}>
+                  {paymentBreakdown.totalOwedAfter > 0 ? "Customer will still owe" : "No balance owed after this sale"}
+                </p>
+                <p className={paymentBreakdown.totalOwedAfter > 0 ? "mt-1 text-2xl font-bold tabular-nums text-amber-950" : "mt-1 text-2xl font-bold tabular-nums text-emerald-950"}>{formatNaira(paymentBreakdown.totalOwedAfter)}</p>
+                {paymentBreakdown.totalOwedAfter > 0 && <p className="mt-1 text-xs text-amber-950">Includes unpaid previous debt and any unpaid amount from this sale.</p>}
               </div>
+            )}
+            {oldDebtAmount === null && !saveUncertain && (
+              <p role="status" className="text-sm text-stone-600">Checking the customer&apos;s previous balance. Any amount still owed will be confirmed when saving.</p>
             )}
             {debtErrorMessage && <p role="alert" className="text-sm text-amber-900">{debtErrorMessage}</p>}
-            <div className="sale-sticky-actions sticky z-10 -mx-4 border-t border-stone-200 bg-background px-4 pb-4 pt-3 sm:mx-0 sm:px-0">
-            <p className="mb-1 truncate text-sm font-semibold text-emerald-950">Sale for {customer?.name}</p>
-            <p className="mb-2 text-xs text-stone-600">Saving updates stock, payment and any amount owed.</p>
-            {!saveUncertain && finalSaveConfirmed && (
-              <div role="group" aria-label="Confirm saving sale" className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-                <p className="font-bold text-emerald-950">Save this sale for {customer?.name}?</p>
-                <p className="mt-1 text-sm text-emerald-950">
-                  {draft.lines.length} {draft.lines.length === 1 ? "drink" : "drinks"} · Sale total {reviewTotal === undefined ? "unavailable" : formatNaira(reviewTotal)} · Collect {formatNaira(Number(draft.paid) + Number(draft.oldDebtPaid))}.
-                </p>
-                <p className="mt-1 text-xs text-stone-700">Saving updates stock and customer balances. If the connection fails, use Check Sale instead of starting another save.</p>
-                <label className="mt-3 flex min-h-11 items-center gap-3 rounded-lg border border-emerald-200 bg-white p-3 text-sm font-semibold text-emerald-950">
-                  <input type="checkbox" className="h-5 w-5 shrink-0" checked={saveAcknowledged} onChange={(event) => setSaveAcknowledged(event.currentTarget.checked)} />
-                  I have checked the customer, money and empty returns.
-                </label>
-                <button type="button" className="secondary mt-2 min-h-11 w-full" onClick={() => { setConfirmedSaveKey(null); setSaveAcknowledged(false); }}>Keep editing</button>
-              </div>
-            )}
-            {!saveUncertain && !finalSaveConfirmed && (
-              <button type="button" className="primary w-full"
-                disabled={reviewSaveBlocked}
-                onClick={() => { setSaveAcknowledged(false); setConfirmedSaveKey(reviewKey); }}>
-                Review final confirmation
-              </button>
-            )}
+            <div className="sale-sticky-actions sticky z-10 -mx-4 border-t border-stone-200 bg-background/95 px-4 pb-3 pt-3 shadow-[0_-6px_18px_rgba(0,0,0,0.04)] backdrop-blur-sm sm:mx-0 sm:px-0 sm:shadow-none">
+              {!saveUncertain && finalSaveConfirmed && (
+                <div role="status" aria-live="polite" aria-label="Confirm saving sale" className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                  <p ref={savePromptRef} tabIndex={-1} className="font-bold text-emerald-950">Save this sale?</p>
+                  <p className="mt-1 text-sm text-emerald-950">{customer?.name} · {reviewTotal === undefined ? "Check total" : formatNaira(reviewTotal)} sale · Collect {formatNaira(Number(draft.paid) + Number(draft.oldDebtPaid))}</p>
+                  <p className="mt-1 text-xs text-stone-700">Confirm to update stock, payment and customer balance.</p>
+                </div>
+              )}
             {(saveUncertain || finalSaveConfirmed) && (
               <button
                 type="button"
                 className="primary w-full"
-                disabled={reviewSaveBlocked || (!saveUncertain && !saveAcknowledged)}
+                disabled={reviewSaveBlocked}
               onClick={() => {
                 startTransition(async () => {
                   const activeDraftId = sales.state.active?.id;
@@ -1803,7 +2241,12 @@ export function SaleBuilder({
 
                   let response: Awaited<ReturnType<typeof saveSale>>;
                   try {
-                    response = await saveSale(requestId, draft);
+                    // Never re-run a split financial write while its original
+                    // outcome is uncertain, even if the feature flag is still on.
+                    // Reconcile the saved request under its advisory lock.
+                    response = saveUncertain && (draft.paymentMode === "split" || draft.paymentMode === "multi")
+                      ? await recoverSplitSale(requestId, draft)
+                      : await saveSale(requestId, draft);
                   } catch {
                     setMessage(saleSaveUncertainMessage);
                     return;
@@ -1811,6 +2254,21 @@ export function SaleBuilder({
 
                   if (response.error) {
                     if (response.code === "save_uncertain") {
+                      setMessage(response.error);
+                      return;
+                    }
+                    if (response.code === "sale_not_saved") {
+                      // The database fenced the original ID against late
+                      // writes. Rotate the draft ID before unlocking it.
+                      // Never unlock the old request, even if device storage
+                      // cannot be updated right now.
+                      if (!(await sales.restartAfterConfirmedNonSave(requestId))) {
+                        setMessage(sales.error ||
+                          "This sale was not saved, but the draft could not be unlocked. Keep it open and tap Check Sale again.");
+                        return;
+                      }
+                      setConfirmedSaveKey(null);
+                      setVerifiedId(null);
                       setMessage(response.error);
                       return;
                     }
@@ -1863,7 +2321,7 @@ export function SaleBuilder({
                     return;
                   }
 
-                  if (response.result) {
+                  if ("result" in response && response.result) {
                     if (await sales.complete(requestId))
                       setSaved({
                         ...response.result,
@@ -1880,28 +2338,26 @@ export function SaleBuilder({
                 : saveUncertain
                   ? "Check Sale"
                   : finalSaveConfirmed
-                    ? "Yes, confirm & save sale"
+                    ? "Confirm & save sale"
                     : "Confirm sale details"}
-            </button>
-            )}
+              </button>
+              )}
+              {!saveUncertain && (
+                <>
+                  <button
+                    type="button"
+                    className={finalSaveConfirmed ? "secondary mt-2 w-full" : "primary w-full"}
+                    disabled={reviewSaveBlocked}
+                    onClick={() => setConfirmedSaveKey(finalSaveConfirmed ? null : reviewKey)}
+                  >
+                    {finalSaveConfirmed ? "Check again" : "Continue to save"}
+                  </button>
+                  <button type="button" className="quiet-link mt-1 w-full text-sm font-semibold" onClick={() => update({ step: "payment" })}>
+                    ← Edit payment
+                  </button>
+                </>
+              )}
             </div>
-            {!saveUncertain && (
-              <>
-                <button
-                  className="secondary w-full"
-                  onClick={() => update({ step: "payment" })}
-                >
-                  Back to Payment
-                </button>
-                <button
-                  type="button"
-                  className="secondary w-full gap-2"
-                  onClick={() => update({ step: "empties" })}
-                >
-                  <SaleIcon name="edit" className="h-4 w-4" /> Edit empties
-                </button>
-              </>
-            )}
           </>
         )}
       </fieldset>

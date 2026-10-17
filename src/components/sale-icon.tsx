@@ -10,7 +10,11 @@ type SaleIconName =
   | "bag"
   | "receipt"
   | "edit"
-  | "shield";
+  | "shield"
+  | "cash"
+  | "transfer"
+  | "pos"
+  | "split";
 
 export function SaleIcon({
   name,
@@ -56,6 +60,29 @@ export function SaleIcon({
       <>
         <path d="m4 16-1 5 5-1L19 9l-4-4L4 16Z" />
         <path d="m13 7 4 4" />
+      </>
+    ),
+    cash: (
+      <>
+        <rect x="2.5" y="5" width="19" height="14" rx="2" />
+        <circle cx="12" cy="12" r="3" />
+        <path d="M5.5 9h1M17.5 15h1" />
+      </>
+    ),
+    transfer: (
+      <>
+        <path d="M3 9h18L12 4 3 9ZM5 9v9M10 9v9M14 9v9M19 9v9M3 20h18" />
+      </>
+    ),
+    pos: (
+      <>
+        <rect x="5" y="2" width="14" height="20" rx="2" />
+        <path d="M8 6h8v5H8zM8 15h2M14 15h2M8 18h2M14 18h2" />
+      </>
+    ),
+    split: (
+      <>
+        <path d="M4 5h8a4 4 0 0 1 4 4v10M16 19l-3-3m3 3 3-3M4 19h4a4 4 0 0 0 4-4v-4M12 11l-3 3m3-3 3 3" />
       </>
     ),
     shield: (
