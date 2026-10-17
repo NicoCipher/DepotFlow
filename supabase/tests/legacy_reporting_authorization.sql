@@ -127,6 +127,10 @@ $legacy_owner$;
 reset role;
 
 select private.backfill_legacy_shop_rows(private.legacy_scope_snapshot());
+-- The newer mixed-tender ledger adds a deferred SALE INSERT trigger.
+-- Flush its pending event before the in-transaction ALTER TABLE VALIDATE;
+-- then restore deferral for any subsequent atomic mixed-tender writes.
+set constraints all immediate;
 do $validate$
 declare r record;v_count integer:=0;
 begin
@@ -146,6 +150,7 @@ begin
  if v_count<>31 then raise exception 'M2c relationships are incomplete: %',v_count; end if;
 end;
 $validate$;
+set constraints all deferred;
 select private.enable_legacy_write_scope(private.legacy_scope_snapshot());
 
 -- Verified active owner still sees exactly the same data after activation.
