@@ -78,7 +78,7 @@ begin
   select pg_catalog.pg_get_functiondef(v_oid) into v_source;
   if v_source is null
     or (length(v_source)-length(replace(v_source,v_anchor,'')))/length(v_anchor)<>1
-    or pg_catalog.strpos(v_source,'private.can_manage_new_customer(')=0
+    or pg_catalog.strpos(v_source,'tg_table_name=''customers''')=0
     or pg_catalog.strpos(v_source,'private.business_bottle_count_gate')<>0 then
     raise exception 'Operational scope trigger drift; manual review required';
   end if;
