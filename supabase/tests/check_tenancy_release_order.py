@@ -31,9 +31,19 @@ M2_SUFFIXES = (
     "legacy_customer_reader_scope",
     "guard_legacy_drink_lifecycle",
     "guard_legacy_write_rpc_entrypoints",
+    "tenant_inventory_read_barriers",
+    "scope_legacy_inventory_reports",
+    "scope_legacy_financial_read_policies",
+    "scope_legacy_drink_lifecycle_lookup",
+    "guard_legacy_payment_and_held_id_lookup",
+    "scope_legacy_multi_tender_ledger_reads",
+    "scope_legacy_mixed_write_rpcs",
 )
 # This is a SNAPSHOT used only for testing the proposed branch; verify the
 # actual current database maximum immediately before a production release.
+# This historic baseline verifies ordering only; the real live tip advanced
+# with mixed-tender migrations on 17 Oct. --remote-history must be supplied
+# to qualify any release, and it correctly blocks older un-applied M2 files.
 RECORDED_PRODUCTION_TIP = "20261015233039"
 ROOT = Path(__file__).resolve().parents[1] / "migrations"
 
