@@ -236,6 +236,10 @@ $legacy$;
 
 -- VALIDATE against known-good fixtures (test transaction only): production
 -- must validate after M2b backfill and tenant-RPC completeness reconciliation.
+-- The newer mixed-tender ledger adds a deferred SALE INSERT trigger.
+-- Flush its pending event before the in-transaction ALTER TABLE VALIDATE;
+-- then restore deferral for any subsequent atomic mixed-tender writes.
+set constraints all immediate;
 do $validate$
 declare r record; v_count int:=0;
 begin
@@ -254,4 +258,5 @@ begin
   end if;
 end;
 $validate$;
+set constraints all deferred;
 rollback;
