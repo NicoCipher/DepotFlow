@@ -32,3 +32,14 @@
 - A fixed bottle key alone does not unlock production; legacy RPCs still use singleton assumptions.
 - Never create the official Walnik Ventures business by copying the TEST shop. Official onboarding and atomic opening balances are a separate gated release.
 - The release preflight in `check_tenancy_release_order.py` must pass against **fresh** remote history before any DDL. Do not bypass it with migration repair or `--include-all`.
+
+
+## Staged bottle-count writer (M2f-9)
+
+`20261017140400_stage_tenant_empty_bottle_count.sql` adds a narrowly scoped count-only atomic RPC and an append-only private event table. **This does not activate any new business or sales flow.** The `private.business_bottle_count_gate` defaults to disabled and `public.count_business_empty_bottles` has no `authenticated` or anonymous EXECUTE permission.
+
+The owner RPC is authorized by a locked active owner/business membership, scopes every quantity read and upsert to `(business_id,bottle_type)`, and requires a real prior quantity to prevent stale overwrites. A repeated request ID for the same shop returns the original recorded result; a reused ID with different counts/date is rejected. Separate shops can reuse their own request IDs without sharing physical balances. A revoked owner cannot replay prior counts. Only exact bottles belonging to that business can be affected; table-level DML remains revoked.
+
+`supabase/tests/tenant_empty_bottle_count_atomic.sql` temporarily grants permission and enables the gate **inside a rolled-back disposable PostgreSQL transaction**. It checks legacy, A and B independent bottle counts, business-scoped visibility, conflicting stale counts, a repeated request, malicious cross-shop IDs, and revocation. The tests do **not** simulate an approved production feature rollout. Before release, reconcile production migration history, test the actual stock schema on a restorable clone, and separately review any authenticated grant/gate activation.
+
+**Still missing:** tenant-aware crate counts, stock receiving, sale/debt/returns/held empties, multi-method receipts, business enrollment and audited opening balances. New owners must not be permitted to transact merely because this narrow count path exists.
