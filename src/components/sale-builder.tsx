@@ -1879,12 +1879,11 @@ export function SaleBuilder({
                         priceQuantity(p, line.quantity);
                         return reviewedLine(line, p);
                       });
-                      const moved = await sales.update({
+                      const moved = await sales.enterReview(draft, {
                         lines,
                         businessDate:
                           draft.businessDate ||
                           new Date().toLocaleDateString("sv-SE"),
-                        step: "review",
                       });
                       if (!moved) {
                         if (reviewIsCurrent()) setMessage("Could not open Review. The active sale may have changed in another tab, or this device could not save the step. Check the currently open or paused sale before retrying.");

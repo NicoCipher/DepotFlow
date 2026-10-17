@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import { withBoundedSaleDraftLock } from "@/domain/sale-draft-lock";
+import { transitionSaleToReview } from "@/domain/sale-review-transition";
 import {
   emptySaleDraft,
   readSaleDraft,
@@ -63,7 +64,18 @@ export function useSaleDrafts(ownerId: string) {
       const write = () => {
         const current = readSaleDrafts(getSnapshot());
         const next = transform(current);
-        localStorage.setItem(key, JSON.stringify(next));
+        // A successful storage call is not sufficient if the draft cannot
+        // round-trip through the very parser used by the checkout screen.
+        // Never claim Review opened when its persisted step is unreadable.
+        const serialized = JSON.stringify(next);
+        const restored = readSaleDrafts(serialized);
+        if ((restored.active?.id ?? null) !== (next.active?.id ?? null) ||
+            restored.active?.draft.step !== next.active?.draft.step ||
+            restored.paused.length !== next.paused.length)
+          throw new Error("The unfinished sale could not be verified on this device.");
+        localStorage.setItem(key, serialized);
+        if (localStorage.getItem(key) !== serialized)
+          throw new Error("The unfinished sale was not saved on this device.");
         try {
           sessionStorage.removeItem(previousKey);
         } catch {
@@ -101,6 +113,14 @@ export function useSaleDrafts(ownerId: string) {
       mutate((current) =>
         updateActiveSale(current, activeId, patch, crypto.randomUUID()),
       ),
+    // Review must commit only the payment/empties that the server checked.
+    // This is a local draft step, NOT a sale or financial database write.
+    enterReview: (
+      expectedDraft: SaleDraft,
+      reviewed: Pick<SaleDraft, "lines" | "businessDate">,
+    ) => mutate((current) =>
+      transitionSaleToReview(current, activeId, expectedDraft, reviewed, crypto.randomUUID()),
+    ),
     selectCustomer: (expectedId: string | null, customerId: string) =>
       mutate((current) =>
         selectSaleCustomer(

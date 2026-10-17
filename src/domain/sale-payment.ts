@@ -223,7 +223,7 @@ export function paymentReviewIssue(input: {
   // An independent balance preview must not trap an otherwise valid sale.
   // Review makes a fresh, authenticated server-side balance check anyway.
   // Only a real payment toward OLD debt needs the preview first.
-  const paysOldDebt = /^\\d+$/.test(input.oldDebtPaid) && Number(input.oldDebtPaid) > 0;
+  const paysOldDebt = /^\d+$/.test(input.oldDebtPaid) && Number(input.oldDebtPaid) > 0;
   if (paysOldDebt && input.debtErrorMessage)
     return { message: "The previous balance needs checking. Use Try again above.", target: "sale-previous-debt" };
   if (paysOldDebt && (input.debtChecking || input.oldDebtAmount === null))

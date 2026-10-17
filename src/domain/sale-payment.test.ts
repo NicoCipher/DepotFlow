@@ -121,6 +121,21 @@ test("a regular sale can reach server Review while independent old-debt preview 
   })?.target, "sale-previous-debt", "corrupt old-debt input never bypasses validation");
 });
 
+test("positive previous-debt payments must wait for balance verification", () => {
+  const base = {
+    saleTotal: 1700, paymentInputError: "", oldDebtInputError: null,
+    oldDebtAmount: null, oldDebtPaid: "500", debtChecking: true,
+    debtErrorMessage: "", breakdown: salePaymentTotals(1700, 1700, 500, 500),
+    paymentMethod: "cash",
+  };
+  assert.equal(paymentReviewIssue(base)?.target, "sale-previous-debt");
+  assert.equal(paymentReviewIssue({ ...base, debtChecking: false,
+    debtErrorMessage: "Balance unavailable" })?.target, "sale-previous-debt");
+  assert.equal(paymentReviewIssue({ ...base, oldDebtPaid: "0",
+    breakdown: salePaymentTotals(1700, 1700, 0, 0) }), null,
+    "₦1700 cash sale with no older-debt collection stays eligible for Review");
+});
+
 test("hidden old-debt input always provides recovery for invalid and stale drafts", () => {
   for (const value of ["", "abc", " ", "-100", "0.5", "2,000", "2200", "1"]) {
     assert.equal(needsClearHiddenOldDebtPayment(value), true, `Show Clear for hidden value "${value}"`);
