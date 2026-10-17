@@ -16,7 +16,8 @@ declare
 begin
   v_source:=pg_catalog.pg_get_functiondef(v_oid);
   if v_source is null
-    or pg_catalog.strpos(v_source,'private.verified_legacy_owner_read()')=0
+    or pg_catalog.strpos(v_source,
+      'if auth.uid() is null or not public.is_shop_owner() then')=0
     or pg_catalog.strpos(v_source,
        'on conflict(business_id,bottle_type) do update')=0
     or pg_catalog.strpos(v_source,'private.can_read_legacy_customer(')<>0 then
@@ -25,6 +26,12 @@ begin
       pg_catalog.strpos(v_source,'on conflict(business_id,bottle_type) do update'),
       pg_catalog.strpos(v_source,'private.can_read_legacy_customer(');
   end if;
+
+  -- This legacy API was omitted from the earlier 15-entry RPC hardening
+  -- allowlist. Replace the permissive singleton check at its ENTRYPOINT.
+  v_source:=replace(v_source,
+    'if auth.uid() is null or not public.is_shop_owner() then',
+    'if not private.verified_legacy_owner_read() then');
 
   for v_change in select * from (values
     (
