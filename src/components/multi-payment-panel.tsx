@@ -84,6 +84,10 @@ export function MultiPaymentPanel({
   const singleMethod = methods.filter(m => Number(draft.multiReceived[m]) > 0);
   return (
     <div id="sale-split-payment" tabIndex={-1} className="mt-4 border-t border-stone-100 pt-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-stone-50 px-3 py-2 text-sm">
+        <span className="font-semibold text-stone-800">Previous money owed</span>
+        <strong className="tabular-nums text-stone-950">{oldDebt === null ? "Checking…" : formatNaira(oldDebt)}</strong>
+      </div>
       <p className="mb-2 text-sm font-semibold text-stone-900">Select payment methods</p>
       <div role="group" aria-label="Select methods received" className="grid grid-cols-3 gap-2">
         {paymentMethods.map(method => {
@@ -138,10 +142,7 @@ export function MultiPaymentPanel({
       )}
 
       <div id="sale-previous-debt" tabIndex={-1} className="mt-4 border-t border-stone-100 pt-3">
-        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-          <span className="font-semibold text-stone-900">Previous money owed</span>
-          <strong className="tabular-nums">{oldDebt === null ? "Checking…" : formatNaira(oldDebt)}</strong>
-        </div>
+
         {oldDebtError && (
           <div role="alert" className="mt-2 flex items-center justify-between gap-2 rounded-lg bg-amber-50 p-2 text-sm">
             <span>{oldDebtError}</span>
@@ -204,28 +205,10 @@ export function MultiPaymentPanel({
           <p role="alert" className="mt-2 text-sm text-amber-950">Previous debt has been cleared. Set its allocations to ₦0 to continue.</p>
         )}
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-2 rounded-lg border border-emerald-100 bg-emerald-50/60 p-3 text-sm">
-        <div>
-          <p className="text-xs text-stone-600">Paid for today&apos;s sale</p>
-          <p className="text-base font-bold tabular-nums">{preview.salePaid !== null ? formatNaira(preview.salePaid) : "—"}</p>
-        </div>
-        <div>
-          <p className="text-xs text-stone-600">Paid toward old debt</p>
-          <p className="text-base font-bold tabular-nums">{preview.oldDebtPaid !== null ? formatNaira(preview.oldDebtPaid) : "—"}</p>
-        </div>
-        {preview.salePaid !== null && saleTotal !== undefined && (
-          <div>
-            <p className="text-xs text-stone-600">Unpaid today</p>
-            <p className="font-semibold tabular-nums">{formatNaira(saleTotal - preview.salePaid)}</p>
-          </div>
-        )}
-        {preview.oldDebtPaid !== null && oldDebt !== null && (
-          <div>
-            <p className="text-xs text-stone-600">Previous debt left</p>
-            <p className="font-semibold tabular-nums">{formatNaira(oldDebt - preview.oldDebtPaid)}</p>
-          </div>
-        )}
-      </div>
+      <p className="mt-3 text-xs text-stone-600">
+        Today's sale paid: {preview.salePaid === null ? "—" : formatNaira(preview.salePaid)}
+        {payingOld > 0 && <> · Previous debt paid: {formatNaira(payingOld)}</>}
+      </p>
     </div>
   );
 }
