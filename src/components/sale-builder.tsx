@@ -12,6 +12,8 @@ import { ProductImage } from "@/components/product-image";
 import { SaleIcon } from "@/components/sale-icon";
 import { salePaymentTotals, debtPaymentInputError, paymentReviewIssue, needsClearHiddenOldDebtPayment, splitPaymentFromReceived, oneMethodAmountsFromReceived } from "@/domain/sale-payment";
 import { allocateSplitTender } from "@/domain/sale-tenders";
+import { allocateMultiTender, emptyMultiAmounts, multiPaymentFromReceived } from "@/domain/multi-tenders";
+import { MultiPaymentPanel } from "./multi-payment-panel";
 import { requestSaleReview } from "@/domain/sale-review-http";
 import { isSaleReviewProgressMessage, saleReviewCheckingMessage, saleReviewOpeningMessage, contextualSaleReviewMessage, clearOwnSaleReviewProgress, canApplySaleBalancePreview, shouldDisableSaleDraftControls } from "@/domain/sale-review-feedback";
 import { shouldFocusSaleStep } from "@/domain/sale-step-focus";
@@ -80,7 +82,7 @@ export function SaleBuilder({
   const [customerQuery, setCustomerQuery] = useState("");
   const [removeLineId, setRemoveLineId] = useState<string | null>(null);
   const [requestedMode, setRequestedMode] = useState<"wholesale" | "retail" | null>(null);
-  const [requestedPaymentMode, setRequestedPaymentMode] = useState<"single" | "split" | null>(null);
+  const [requestedPaymentMode, setRequestedPaymentMode] = useState<"single" | "split" | "multi" | null>(null);
   const [requestedSingleMethod, setRequestedSingleMethod] = useState<"cash" | "transfer" | "pos" | null>(null);
   const [requestedCustomerId, setRequestedCustomerId] = useState<string | null>(null);
   const [confirmNewCustomer, setConfirmNewCustomer] = useState(false);
@@ -88,6 +90,7 @@ export function SaleBuilder({
   const pricingMode = draft.sellingMode === "retail" ? "retail" : "wholesale";
   const browsingMode = draft.preferredSellingMode === "retail" ? "retail" : "wholesale";
   const splitEnabled = process.env.NEXT_PUBLIC_SPLIT_TENDER_ENABLED === "true";
+  const multiEnabled = process.env.NEXT_PUBLIC_MULTI_TENDER_ENABLED === "true";
   const [catalog, setCatalog] = useState(initialCatalog);
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState("");
@@ -196,11 +199,14 @@ export function SaleBuilder({
     setNotice("");
     setCancelDraftId(null);
   }
-  function setPaymentModeSafely(next: "single" | "split") {
+  function setPaymentModeSafely(next: "single" | "split" | "multi") {
     if (draft.paymentMode === next) return;
     const hasPayment = draft.paymentMode === "split"
       ? draft.splitCash !== "0" || draft.splitTransfer !== "0" || draft.oldDebtPaid !== "0"
-      : Number(draft.paid) > 0 || Number(draft.oldDebtPaid) > 0;
+      : draft.paymentMode === "multi"
+        ? Object.values(draft.multiReceived).some(v => v !== "0") ||
+          Object.values(draft.multiOldDebt).some(v => v !== "0")
+        : Number(draft.paid) > 0 || Number(draft.oldDebtPaid) > 0;
     if (hasPayment) {
       setRequestedPaymentMode(next);
       return;
@@ -209,13 +215,17 @@ export function SaleBuilder({
   }
   function chooseSingleMethod(method: "cash" | "transfer" | "pos") {
     if (draft.paymentMode === "single" && draft.paymentMethod === method) return;
+    if (draft.paymentMode === "multi" && draft.multiMethods.filter(m => Number(draft.multiReceived[m]) > 0).length > 1) {
+      setMessage("More than one payment method has money entered. Remove the extra method before switching to one.");
+      return;
+    }
     if (draft.paymentMode === "split" && Number(draft.splitCash) > 0 && Number(draft.splitTransfer) > 0) {
       setMessage("Cash and Transfer are both recorded. Correct the amounts first; do not label both as one method.");
       return;
     }
     const hasPayment = Number(draft.paid) > 0 || Number(draft.oldDebtPaid) > 0 ||
       Number(draft.splitCash) > 0 || Number(draft.splitTransfer) > 0;
-    if (hasPayment && (draft.paymentMode === "split" || Boolean(draft.paymentMethod))) {
+    if (hasPayment && (draft.paymentMode !== "single" || Boolean(draft.paymentMethod))) {
       setRequestedPaymentMode("single");
       setRequestedSingleMethod(method);
       return;
@@ -223,14 +233,59 @@ export function SaleBuilder({
     if (draft.paymentMode === "single") update({ paymentMethod: method });
     else applyPaymentMode("single", method);
   }
-  function applyPaymentMode(next: "single" | "split", method: "cash" | "transfer" | "pos" | "" = "") {
-    if (next === "split")
+  function applyPaymentMode(next: "single" | "split" | "multi", method: "cash" | "transfer" | "pos" | "" = "") {
+    if (next === "multi") {
+      const validMethod = ["cash", "transfer", "pos"].includes(draft.paymentMethod)
+        ? draft.paymentMethod as "cash" | "transfer" | "pos" : null;
+      if (draft.paymentMode === "split") {
+        try {
+          const legs = allocateSplitTender(Number(draft.paid), Number(draft.oldDebtPaid), {
+            cash: draft.splitCash, transfer: draft.splitTransfer,
+            ...(draft.splitCashToSale ? { cashToSale: draft.splitCashToSale } : {}),
+          });
+          update({ paymentMode: "multi", paymentMethod: "mixed",
+            multiMethods: ["cash", "transfer"],
+            multiReceived: {cash: draft.splitCash, transfer: draft.splitTransfer, pos: "0"},
+            multiOldDebt: {cash: String(legs[0].oldDebtAmount), transfer: String(legs[1].oldDebtAmount), pos: "0"} });
+        } catch {
+          setMessage("Correct the Cash and Transfer amounts before switching to multiple methods.");
+        }
+        return;
+      }
+      update({ paymentMode: "multi", paymentMethod: "mixed",
+        multiMethods: validMethod ? [validMethod] : [],
+        multiReceived: { ...emptyMultiAmounts(), ...(validMethod ? { [validMethod]: String(Number(draft.paid) + Number(draft.oldDebtPaid)) } : {}) },
+        multiOldDebt: { ...emptyMultiAmounts(), ...(validMethod ? { [validMethod]: draft.oldDebtPaid } : {}) },
+      });
+    } else if (next === "split")
       update({ paymentMode: "split", paymentMethod: "mixed", paid: "0",
         oldDebtPaid: "0", splitCash: "0", splitTransfer: "0", splitCashToSale: "" });
     else if (draft.paymentMode === "single") {
       // Changing only the tender method must NEVER reset entered money.
       update({ paymentMethod: method });
     } else {
+      if (draft.paymentMode === "multi") {
+        const positive = draft.multiMethods.filter(m => Number(draft.multiReceived[m]) > 0);
+        if (positive.length > 1) {
+          setMessage("Remove extra payment methods before choosing one.");
+          return;
+        }
+        const selected = positive[0];
+        if (selected && selected !== method) {
+          setMessage("The recorded payment is " + selected.toUpperCase() + ". Choose the same method before continuing.");
+          return;
+        }
+        const received = selected ? Number(draft.multiReceived[selected]) : 0;
+        const old = selected ? Number(draft.multiOldDebt[selected]) : 0;
+        if (!Number.isSafeInteger(received) || !Number.isSafeInteger(old) || old > received) {
+          setMessage("Correct the received and previous-debt amounts first.");
+          return;
+        }
+        update({ paymentMode: "single", paymentMethod: method,
+          paid: String(received - old), oldDebtPaid: String(old),
+          multiMethods: [], multiReceived: emptyMultiAmounts(), multiOldDebt: emptyMultiAmounts() });
+        return;
+      }
       if (Number(draft.splitCash) > 0 && Number(draft.splitTransfer) > 0) {
         setMessage("Keep Cash and Transfer separate. Do not record both as one method.");
         return;
@@ -246,6 +301,23 @@ export function SaleBuilder({
         ...oneMethodAmountsFromReceived(entry),
         splitCash: "0", splitTransfer: "0", splitCashToSale: "" });
     }
+  }
+  function useMultiSingle(method: "cash" | "transfer" | "pos" | "") {
+    const positives = draft.multiMethods.filter(m => Number(draft.multiReceived[m]) > 0);
+    if (positives.length > 1 || (method && positives.length === 1 && positives[0] !== method)) {
+      setMessage("Keep the recorded methods separate. Remove an extra method first.");
+      return;
+    }
+    const received = method ? Number(draft.multiReceived[method]) : 0;
+    const towardOld = method ? Number(draft.multiOldDebt[method]) : 0;
+    if (!Number.isSafeInteger(received) || !Number.isSafeInteger(towardOld) ||
+        towardOld < 0 || received < towardOld) {
+      setMessage("Correct the payment amounts first.");
+      return;
+    }
+    update({ paymentMode: "single", paymentMethod: method,
+      paid: String(received - towardOld), oldDebtPaid: String(towardOld),
+      multiMethods: [], multiReceived: emptyMultiAmounts(), multiOldDebt: emptyMultiAmounts() });
   }
   // Keep entered money and sale-paid ledger fields in one atomic draft patch.
   // An invalid/incomplete input stays editable, but never creates a new paid amount.
