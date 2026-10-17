@@ -57,7 +57,8 @@ export function MultiPaymentPanel({
       change([...methods, method], draft.multiReceived, draft.multiOldDebt);
       return;
     }
-    if (draft.multiReceived[method] !== "0" && Number(draft.multiReceived[method]) > 0) {
+    if ((draft.multiReceived[method] !== "0" && draft.multiReceived[method] !== "") ||
+        (draft.multiOldDebt[method] !== "0" && draft.multiOldDebt[method] !== "")) {
       setRemoveMethod(method);
       return;
     }
@@ -202,7 +203,12 @@ export function MultiPaymentPanel({
           </>
         )}
         {oldDebt === 0 && payingOld > 0 && (
-          <p role="alert" className="mt-2 text-sm text-amber-950">Previous debt has been cleared. Set its allocations to ₦0 to continue.</p>
+          <div role="alert" className="mt-2 rounded-lg bg-amber-50 p-2 text-sm text-amber-950">
+            <p>Previous debt has been cleared. Remove the older-debt allocation to continue.</p>
+            <button type="button" className="secondary mt-2 min-h-11 w-full" onClick={clearOldDebt}>
+              Clear previous-debt payment
+            </button>
+          </div>
         )}
       </div>
       <p className="mt-3 text-xs text-stone-600">
