@@ -58,12 +58,9 @@ do $extend_exact_empty_count_scope$
 declare
   v_oid oid := 'private.scope_legacy_operational_write()'::regprocedure;
   v_source text;
-  v_old_when constant text := $oldwhen$
-if tg_table_schema='public' and tg_table_name='empty_bottle_stock'
-     and tg_op in ('INSERT','UPDATE')$oldwhen$;
-  v_new_when constant text := $newwhen$
-if tg_table_schema='public' and tg_table_name in ('empty_bottle_stock','empty_crate_stock')
-     and tg_op in ('INSERT','UPDATE')$newwhen$;
+  v_old_when constant text := 'tg_table_name=''empty_bottle_stock''';
+  v_new_when constant text :=
+    'tg_table_name in (''empty_bottle_stock'',''empty_crate_stock'')';
   v_old_gate constant text := $oldgate$
     if not exists (
       select 1 from private.business_bottle_count_gate where enabled is true
