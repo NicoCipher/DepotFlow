@@ -116,7 +116,8 @@ begin
     v_matches:=(length(v_source)-length(replace(v_source,v_old,'')))
       /length(v_old);
     if v_matches<>1 or pg_catalog.strpos(v_source,v_new)<>0
-       or pg_catalog.strpos(v_source,'private.verified_legacy_owner_read()')=0 then
+       or (pg_catalog.strpos(v_source,'private.verified_legacy_owner_read()')=0
+         and pg_catalog.strpos(v_source,'public.is_shop_owner()')=0) then
       raise exception 'Bottle writer source drift or missing owner guard: %',r.signature;
     end if;
     execute replace(v_source,v_old,v_new);
