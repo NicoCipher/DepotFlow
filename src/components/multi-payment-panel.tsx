@@ -212,7 +212,7 @@ export function MultiPaymentPanel({
         )}
       </div>
       <p className="mt-3 text-xs text-stone-600">
-        Today's sale paid: {preview.salePaid === null ? "—" : formatNaira(preview.salePaid)}
+        Today&apos;s sale paid: {preview.salePaid === null ? "—" : formatNaira(preview.salePaid)}
         {payingOld > 0 && <> · Previous debt paid: {formatNaira(payingOld)}</>}
       </p>
     </div>
