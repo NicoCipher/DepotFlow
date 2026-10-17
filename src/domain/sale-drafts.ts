@@ -1,4 +1,6 @@
 import { isUuid } from "./ids.ts";
+import { paymentMethods, type MultiMethodAmounts } from "./multi-tenders.ts";
+import type { SaleTenderMethod } from "./sale-tenders.ts";
 import {
   emptySaleDraft,
   readSaleDraft,
@@ -131,7 +133,14 @@ function cleanDraft(draft: SaleDraft): SaleDraft {
   return {
     ...draft,
     oldDebtPaid: typeof draft.oldDebtPaid === "string" ? draft.oldDebtPaid : "0",
-    paymentMode: draft.paymentMode === "split" ? "split" : "single",
+    paymentMode: draft.paymentMode === "split" ? "split" : draft.paymentMode === "multi" ? "multi" : "single",
+    multiMethods: Array.isArray(draft.multiMethods) && draft.multiMethods.length <= 3 &&
+      draft.multiMethods.every(m => paymentMethods.includes(m as SaleTenderMethod)) &&
+      new Set(draft.multiMethods).size === draft.multiMethods.length ? [...draft.multiMethods] : [],
+    multiReceived: Object.fromEntries(paymentMethods.map(m => [m,
+      typeof draft.multiReceived?.[m] === "string" ? draft.multiReceived[m] : "0"])) as MultiMethodAmounts,
+    multiOldDebt: Object.fromEntries(paymentMethods.map(m => [m,
+      typeof draft.multiOldDebt?.[m] === "string" ? draft.multiOldDebt[m] : "0"])) as MultiMethodAmounts,
     splitCash: typeof draft.splitCash === "string" ? draft.splitCash : "0",
     splitTransfer: typeof draft.splitTransfer === "string" ? draft.splitTransfer : "0",
     splitCashToSale: typeof draft.splitCashToSale === "string" ? draft.splitCashToSale : "",
