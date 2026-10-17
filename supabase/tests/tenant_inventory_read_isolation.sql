@@ -417,6 +417,71 @@ end;
 $opening_replay_isolation$;
 reset role;
 
+-- Foreign saved customer return: the idempotent request must not reveal
+-- its payload or whether the other depot's customer exists.
+alter table private.customer_empty_returns disable trigger legacy_scope_business_write;
+insert into private.customer_empty_returns(
+  request_id,customer_id,request_payload,business_id
+) values(
+  '89600000-0000-4000-9000-000000000096',
+  '89600000-0000-4000-9000-000000000061',
+  jsonb_build_object(
+    'customer','89600000-0000-4000-9000-000000000061'::uuid,
+    'crates','[]'::jsonb,'bottles','[]'::jsonb,
+    'released','[]'::jsonb
+  ),
+  '89600000-0000-4000-9000-000000000042'
+);
+alter table private.customer_empty_returns enable trigger legacy_scope_business_write;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89600000-0000-4000-8000-000000000001',true);
+do $foreign_empty_return_isolation$
+declare
+  v_id uuid;
+  v_error text;
+begin
+  foreach v_id in array array[
+    '89600000-0000-4000-9000-000000000096'::uuid,
+    '89600000-0000-4000-9000-000000000097'::uuid
+  ] loop
+    begin
+      perform public.record_customer_empty_return(
+        v_id,'89600000-0000-4000-9000-000000000061',
+        '[]'::jsonb,'[]'::jsonb,array[]::uuid[]);
+      raise exception 'Foreign return request allowed privileged replay'
+        using errcode='PT001';
+    exception when invalid_parameter_value then
+      get stacked diagnostics v_error=message_text;
+      if v_error<>'Customer no longer exists.' then
+        raise exception 'Foreign return event probe exposed state: %',v_error;
+      end if;
+    end;
+  end loop;
+  foreach v_id in array array[
+    '89600000-0000-4000-9000-000000000013'::uuid,
+    '89600000-0000-4000-9000-000000000098'::uuid
+  ] loop
+    begin
+      perform public.record_customer_empty_return(
+        gen_random_uuid(),'89600000-0000-4000-9000-000000000062',
+        jsonb_build_array(jsonb_build_object(
+          'crateTypeId',v_id,'quantity',1)),
+        '[]'::jsonb,array[]::uuid[]);
+      raise exception 'Foreign owed branded crate accepted'
+        using errcode='PT001';
+    exception when invalid_parameter_value then
+      get stacked diagnostics v_error=message_text;
+      if v_error<>'Unknown owed crate type.' then
+        raise exception 'Foreign owed crate metadata oracle: %',v_error;
+      end if;
+    end;
+  end loop;
+end;
+$foreign_empty_return_isolation$;
+reset role;
+
 -- A legacy SECURITY DEFINER operation must not learn a foreign balance via
 -- overpayment behaviour or a held decision's existence/release status.
 set local role authenticated;
