@@ -89,7 +89,9 @@ begin
   if v_source is null or
      (length(v_source)-length(replace(v_source,v_old_when,'')))/length(v_old_when)<>1 or
      (length(v_source)-length(replace(v_source,v_old_gate,'')))/length(v_old_gate)<>1 then
-    raise exception 'Business physical-empty write trigger drift';
+    raise exception 'Business physical-empty write trigger drift: when %, gate %',
+      (length(v_source)-length(replace(v_source,v_old_when,'')))/length(v_old_when),
+      (length(v_source)-length(replace(v_source,v_old_gate,'')))/length(v_old_gate);
   end if;
   v_source:=replace(v_source,v_old_when,v_new_when);
   v_source:=replace(v_source,v_old_gate,v_new_gate);
