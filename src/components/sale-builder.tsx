@@ -566,6 +566,12 @@ export function SaleBuilder({
   const debtChecking = Boolean(debtKey && oldDebt?.key !== debtKey && !debtErrorMessage);
   const oldDebtAmount = debtKey && oldDebt?.key === debtKey ? oldDebt.amount : null;
   const oldDebtInputError = debtPaymentInputError(draft.oldDebtPaid, oldDebtAmount);
+  const multiEntry = multiEnabled && draft.paymentMode === "multi" ? multiPaymentFromReceived({
+    methods: draft.multiMethods, received: draft.multiReceived, towardOldDebt: draft.multiOldDebt,
+    saleTotal: total, verifiedOldDebt: oldDebtAmount,
+  }) : null;
+  const multiEntryNeedsSync = !!multiEntry && multiEntry.issue === null &&
+    (multiEntry.salePaid !== Number(draft.paid) || multiEntry.oldDebtPaid !== Number(draft.oldDebtPaid));
   const splitEntry = splitEnabled && draft.paymentMode === "split" ? splitPaymentFromReceived({
     saleTotal: total, oldDebt: oldDebtAmount,
     oldDebtPaid: draft.oldDebtPaid, cash: draft.splitCash, transfer: draft.splitTransfer,
@@ -579,6 +585,8 @@ export function SaleBuilder({
     splitEntry.salePaid !== Number(draft.paid);
   const paymentBreakdown = (() => {
     if (splitEntry && (splitEntry.issue || splitEntryNeedsSync)) return null;
+    if (draft.paymentMode === "multi" && (!multiEnabled || !multiEntry || multiEntry.issue || multiEntryNeedsSync))
+      return null;
     if (total === undefined || paymentInputError || oldDebtInputError) return null;
     // Until a fresh balance arrives, use zero ONLY to preview what is
     // collected today when no old debt is being paid. Never display the
@@ -598,7 +606,15 @@ export function SaleBuilder({
       return null;
     }
   })();
-  const paymentIssue = paymentReviewIssue({
+  const multiLegsPreview = (() => {
+    if (!multiEnabled || draft.paymentMode !== "multi" || !multiEntry || multiEntry.issue) return null;
+    try {
+      return allocateMultiTender(Number(draft.paid), Number(draft.oldDebtPaid), {
+        methods: draft.multiMethods, received: draft.multiReceived, towardOldDebt: draft.multiOldDebt,
+      });
+    } catch { return null; }
+  })();
+  const basePaymentIssue = paymentReviewIssue({
     saleTotal: total,
     paymentInputError,
     oldDebtInputError,
@@ -607,9 +623,9 @@ export function SaleBuilder({
     debtChecking,
     debtErrorMessage,
     breakdown: paymentBreakdown,
-    paymentMethod: draft.paymentMethod,
+    paymentMethod: draft.paymentMode === "multi" ? "cash" : draft.paymentMethod,
     salePaid: draft.paid,
-    paymentMode: draft.paymentMode,
+    paymentMode: draft.paymentMode === "multi" ? "single" : draft.paymentMode,
     splitCash: draft.splitCash,
     splitTransfer: draft.splitTransfer,
     splitCashToSale: draft.splitCashToSale,
@@ -617,6 +633,15 @@ export function SaleBuilder({
     splitEntryIssue: splitEntry?.issue || (splitEntryNeedsSync
       ? "Use the received Cash + Transfer amount to update this unfinished sale." : null),
   });
+  const paymentIssue = draft.paymentMode === "multi"
+    ? !multiEnabled
+      ? { message: "Multiple payment methods are temporarily unavailable. Keep this sale parked until they return.", target: "sale-method" as const }
+      : multiEntry?.issue
+        ? { message: multiEntry.issue, target: "sale-split-payment" as const }
+        : multiEntryNeedsSync
+          ? { message: "Check the money received before continuing.", target: "sale-split-payment" as const }
+          : basePaymentIssue
+    : basePaymentIssue;
   const navigationBusy = pending || reviewBusy;
   const reviewKey = saleSaveConfirmationKey(draft, oldDebtAmount, reviewTotal);
   const finalSaveConfirmed = confirmedSaveKey === reviewKey;
@@ -635,7 +660,8 @@ export function SaleBuilder({
     hasUnmatchedSaleEmpties(emptiesReview) || Number(draft.paid) > reviewTotal ||
     (!saveUncertain && (!paymentBreakdown || debtChecking || Boolean(oldDebtInputError) ||
       (draft.paymentMode === "split" && (!splitEnabled || !splitLegsPreview)) ||
-      (paymentBreakdown.collectNow > 0 && draft.paymentMode !== "split" &&
+      (draft.paymentMode === "multi" && (!multiEnabled || !multiLegsPreview)) ||
+      (paymentBreakdown.collectNow > 0 && draft.paymentMode === "single" &&
         !["cash", "transfer", "pos"].includes(draft.paymentMethod))));
   const progressStep =
     step === "customer"
