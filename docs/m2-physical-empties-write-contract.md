@@ -43,3 +43,12 @@ The owner RPC is authorized by a locked active owner/business membership, scopes
 `supabase/tests/tenant_empty_bottle_count_atomic.sql` temporarily grants permission and enables the gate **inside a rolled-back disposable PostgreSQL transaction**. It checks legacy, A and B independent bottle counts, business-scoped visibility, conflicting stale counts, a repeated request, malicious cross-shop IDs, and revocation. The tests do **not** simulate an approved production feature rollout. Before release, reconcile production migration history, test the actual stock schema on a restorable clone, and separately review any authenticated grant/gate activation.
 
 **Still missing:** tenant-aware crate counts, stock receiving, sale/debt/returns/held empties, multi-method receipts, business enrollment and audited opening balances. New owners must not be permitted to transact merely because this narrow count path exists.
+
+
+## Staged exact empty-crate counting (M2f-10)
+
+`20261017140500_stage_tenant_empty_crate_count.sql` introduces `public.count_business_empty_crates` and a private immutable count-event record. It validates the caller's active business membership, the crate type's **same-business UUID identity**, and the expected previous quantity before writing. A same-pocket count never substitutes one branded crate type for another. Stock and audit changes are atomic, idempotent by `(business_id,request_id)`, and fail for stale or revoked sessions.
+
+This RPC has NO `authenticated` or anonymous EXECUTE permission. Its own `private.business_crate_count_gate` defaults **off**, independently of the bottle gate. Disposable `supabase/tests/tenant_empty_crate_count_atomic.sql` simulates access only within a rollback and proves separate legacy/A/B inventory, distinct Gulder/Heineken 12-pocket crates, per-business read visibility, replay, stale count rejection, foreign crate UUID rejection and revocation.
+
+Neither staged counting RPC is user-facing. The missing catalogue-to-shop crate registration, receiving, sales, returns, old debts and mixed-method financial writes must be developed and tested before any shop onboarding. The current checked-in branch is explicitly **not production-approved**.
