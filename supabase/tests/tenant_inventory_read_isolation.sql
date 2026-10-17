@@ -201,6 +201,71 @@ alter table public.sales enable trigger legacy_scope_business_write;
 alter table public.stock_movements enable trigger legacy_scope_business_write;
 alter table public.empty_crate_movements enable trigger legacy_scope_business_write;
 
+-- Fixture for an UNRELEASED foreign held empty. No foreign shop is granted
+-- a real return API: the one seed write is administrator-only and rolled back.
+alter table public.sale_empty_decisions disable trigger legacy_scope_business_write;
+insert into public.sale_empty_decisions(
+  id,sale_id,customer_id,product_id,product_name,kind,
+  returned_type,returned_name,owed_type,owed_name,quantity,decision,business_id
+) values (
+  '89600000-0000-4000-9000-000000000085',
+  '89600000-0000-4000-9000-000000000081',
+  '89600000-0000-4000-9000-000000000061',
+  '89600000-0000-4000-9000-000000000023',
+  'B Gulder','bottle',
+  'B only bottle','B only bottle','B Gulder','B Gulder',1,'hold',
+  '89600000-0000-4000-9000-000000000042'
+);
+alter table public.sale_empty_decisions enable trigger legacy_scope_business_write;
+
+-- A legacy SECURITY DEFINER operation must not learn a foreign balance via
+-- overpayment behaviour or a held decision's existence/release status.
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89600000-0000-4000-8000-000000000001',true);
+do $foreign_write_oracle_guard$
+declare
+  v_id uuid:='89600000-0000-4000-9000-000000000061';
+  v_hold uuid:='89600000-0000-4000-9000-000000000085';
+  v_unknown uuid:='89600000-0000-4000-9000-000000000086';
+  v_error text;
+  v_amount integer;
+begin
+  for v_amount in select unnest(array[1,9999,10000]) loop
+    begin
+      perform public.record_payment(
+        '89600000-0000-4000-9000-000000000088',
+        v_id,v_amount,'2026-10-16','cash'
+      );
+      raise exception 'Cross-business debt was accessible'
+        using errcode='PT001';
+    exception when sqlstate '22023' then
+      get stacked diagnostics v_error=message_text;
+      if v_error<>'Customer no longer exists.' then
+        raise exception 'Foreign debt oracle for amount %: %',v_amount,v_error;
+      end if;
+    end;
+  end loop;
+
+  -- Foreign and unknown held-decision IDs produce the same harmless no-op.
+  perform public.release_held_empties(v_hold);
+  perform public.release_held_empties(v_unknown);
+end;
+$foreign_write_oracle_guard$;
+reset role;
+
+select pg_temp.assert_true(
+ (select amount=9999 from public.money_owed where
+   customer_id='89600000-0000-4000-9000-000000000061')
+ and (select released_at is null from public.sale_empty_decisions where
+   id='89600000-0000-4000-9000-000000000085')
+ and not exists(select 1 from private.held_empty_collections
+   where decision_id='89600000-0000-4000-9000-000000000085')
+ and not exists(select 1 from public.customer_payments where
+   customer_id='89600000-0000-4000-9000-000000000061'),
+ 'Cross-business payment or held release modified foreign shop data'
+);
+
 -- Direct table reads must not expose B's debts or sales, regardless
 -- of the security-definer dashboard hiding the same foreign amounts.
 set local role authenticated;
