@@ -74,10 +74,30 @@ returns trigger language plpgsql security definer set search_path=''
 as $$
 begin
   if old.stock_id is distinct from new.stock_id
-     or old.business_id is distinct from new.business_id
      or old.bottle_type is distinct from new.bottle_type then
     raise exception using errcode='42501',
       message='A recorded empty bottle stock identity cannot be reassigned.';
+  end if;
+  if old.business_id is distinct from new.business_id then
+    -- The audited M2b backfill is the ONE exception: a historic NULL row
+    -- may be tagged with the verified old singleton while the write gate is
+    -- still disabled. A new business ID, retagged existing row, or any
+    -- reassignment after activation remains forbidden. Business_id UPDATE
+    -- is never granted to ordinary owners through the Data API.
+    if not (
+      old.business_id is null and new.business_id is not null
+      and not exists(
+        select 1 from private.legacy_write_scope_gate where enabled is true
+      )
+      and exists (
+        select 1 from private.businesses b
+        where b.id=new.business_id and b.legacy_singleton is true
+          and b.status='active'
+      )
+    ) then
+      raise exception using errcode='42501',
+        message='A recorded empty bottle stock identity cannot be reassigned.';
+    end if;
   end if;
   return new;
 end
