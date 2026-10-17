@@ -74,8 +74,10 @@ export function multiPaymentFromReceived(input: MultiPaymentInput & {
   if (!Array.isArray(input.methods) || new Set(input.methods).size !== input.methods.length ||
       input.methods.some(m => !paymentMethods.includes(m)))
     return { received: null, salePaid: null, oldDebtPaid: null, issue: "Choose valid payment methods." };
+  // Array.isArray narrows the union to any[]; restore the validated enum type.
+  const methods: readonly SaleTenderMethod[] = input.methods as readonly SaleTenderMethod[];
   try {
-    for (const method of input.methods) {
+    for (const method of methods) {
       const amount = parseTenderNaira(input.received[method], method);
       const old = parseTenderNaira(input.towardOldDebt[method], method + " toward previous debt");
       if (old > amount)
@@ -104,7 +106,7 @@ export function multiPaymentFromReceived(input: MultiPaymentInput & {
     return { received: totalReceived, salePaid: null, oldDebtPaid: paidOld,
       issue: formatNaira(salePaid - input.saleTotal) +
         " exceeds today's sale. Correct the amounts or explicitly apply money to previous debt." };
-  if (input.methods.filter(method => Number(input.received[method]) > 0).length < 2)
+  if (methods.filter(method => Number(input.received[method]) > 0).length < 2)
     return { received: totalReceived, salePaid, oldDebtPaid: paidOld,
       issue: "Enter two payment amounts, or use one method." };
   return { received: totalReceived, salePaid, oldDebtPaid: paidOld, issue: null };
