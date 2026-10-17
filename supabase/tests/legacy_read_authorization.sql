@@ -128,6 +128,10 @@ reset role;
 -- Preserve exact original business scope with no new signup.
 select private.backfill_legacy_shop_rows(private.legacy_scope_snapshot());
 
+-- The newer mixed-tender ledger adds a deferred SALE INSERT trigger.
+-- Flush its pending event before the in-transaction ALTER TABLE VALIDATE;
+-- then restore deferral for any subsequent atomic mixed-tender writes.
+set constraints all immediate;
 do $validate$
 declare r record; v_count integer:=0;
 begin
@@ -149,6 +153,7 @@ begin
  end if;
 end;
 $validate$;
+set constraints all deferred;
 select private.enable_legacy_write_scope(private.legacy_scope_snapshot());
 
 -- Owner still sees their own shop after successful activation.
