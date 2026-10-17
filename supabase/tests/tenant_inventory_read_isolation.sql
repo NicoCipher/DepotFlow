@@ -166,13 +166,20 @@ insert into public.money_owed(customer_id,amount,business_id)
 values ('89600000-0000-4000-9000-000000000061',
  9999,'89600000-0000-4000-9000-000000000042');
 insert into public.sales(
- id,customer_id,total_amount,paid_amount,business_date,business_id
+ id,customer_id,total_amount,paid_amount,business_date,business_id,
+ payment_method,account_receipt
 ) values (
  '89600000-0000-4000-9000-000000000081',
  '89600000-0000-4000-9000-000000000061',
  20000,5000,'2026-10-16',
- '89600000-0000-4000-9000-000000000042'
+ '89600000-0000-4000-9000-000000000042',
+ 'mixed','{"paidOld":0}'::jsonb
 );
+-- Foreign Cash/Transfer ledger lines inherit their sale's business boundary.
+insert into public.sale_tender_legs(sale_id,method,sale_amount,old_debt_amount)
+values
+ ('89600000-0000-4000-9000-000000000081','cash',3000,0),
+ ('89600000-0000-4000-9000-000000000081','transfer',2000,0);
 insert into public.stock_movements(
   id,product_id,movement_type,quantity_change,resulting_stock,
   business_date,request_id,crates,loose_bottles,bottles_per_crate,
@@ -273,8 +280,9 @@ select set_config('request.jwt.claim.sub',
  '89600000-0000-4000-8000-000000000001',true);
 select pg_temp.assert_true(
  not exists(select 1 from public.money_owed)
- and not exists(select 1 from public.sales),
- 'Legacy owner directly read foreign business debt or sale');
+ and not exists(select 1 from public.sales)
+ and not exists(select 1 from public.sale_tender_legs),
+ 'Legacy owner directly read foreign business debt, sale or mixed tender breakdown');
 reset role;
 
 -- Positive original-shop report plus negative foreign inventory/financial
