@@ -158,7 +158,7 @@ begin
  -- while permitting two branches with the same name in different addresses.
  if exists(
   select 1 from private.business_memberships m
-   join private.business_profiles p on p.business_id=m.business_id
+   join public.business_profiles p on p.business_id=m.business_id
    join private.businesses b on b.id=m.business_id
   where m.user_id=v_actor and m.member_kind='owner'
     and b.legacy_singleton is null
