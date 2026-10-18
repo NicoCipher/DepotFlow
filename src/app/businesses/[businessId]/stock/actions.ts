@@ -54,7 +54,8 @@ export async function recordBusinessOpeningCount(
     pack = drink.packSize;
     quantity = parseOpeningQuantity(form.get("full_crates"));
     const readLoose = parseOpeningQuantity(form.get("loose_bottles"));
-    if (!isValidDrinkOpeningQuantity(quantity, readLoose, pack)) {
+    if (quantity === null || readLoose === null ||
+      !isValidDrinkOpeningQuantity(quantity, readLoose, pack)) {
       return { message: "Enter whole crates and loose bottles below one full crate." };
     }
     loose = readLoose;
