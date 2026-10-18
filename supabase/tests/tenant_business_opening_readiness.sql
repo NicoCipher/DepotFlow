@@ -224,6 +224,131 @@ end;
 $review_not_activation$;
 reset role;
 
+-- Owner sign-off is a STAGED audit only, not the Start Operations switch.
+-- It requires a new gate and a fresh server review token, all five explicit
+-- confirmations, and an exact match to the owning depot's business name.
+do $signoff_defaults$
+begin
+ if (select enabled from private.business_opening_review_gate)
+    or has_function_privilege('authenticated',
+      'public.prepare_business_opening_review(uuid)','EXECUTE')
+    or has_function_privilege('authenticated',
+      'public.confirm_business_opening_review(uuid,uuid,text,text,boolean,boolean,boolean,boolean,boolean)','EXECUTE')
+    or has_function_privilege('anon',
+      'public.confirm_business_opening_review(uuid,uuid,text,text,boolean,boolean,boolean,boolean,boolean)','EXECUTE')
+ then
+  raise exception 'Owner review RPCs were exposed before release approval';
+ end if;
+end;
+$signoff_defaults$;
+grant execute on function public.prepare_business_opening_review(uuid)
+ to authenticated;
+grant execute on function public.confirm_business_opening_review(
+ uuid,uuid,text,text,boolean,boolean,boolean,boolean,boolean
+) to authenticated;
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89b00000-0000-4000-8000-000000000002',true);
+do $review_disabled$
+begin
+ begin
+  perform public.prepare_business_opening_review(
+    '89b00000-0000-4000-9000-000000000021');
+  raise exception 'Disabled sign-off preview was accessible'
+   using errcode='PT001';
+ exception when insufficient_privilege then null;
+ end;
+end;
+$review_disabled$;
+reset role;
+update private.business_opening_review_gate set enabled=true where singleton;
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89b00000-0000-4000-8000-000000000002',true);
+do $confirm_owner_attestation$
+declare
+ v_review jsonb;
+ v_token text;
+ v_confirmation jsonb;
+ v_replayed jsonb;
+ v_id uuid:='89b00000-0000-4000-9000-000000000078';
+begin
+ v_review:=public.prepare_business_opening_review(
+  '89b00000-0000-4000-9000-000000000021');
+ v_token:=v_review->>'reviewToken';
+ if v_review->>'canActivate'<>'false'
+  or v_review->>'reviewOnly'<>'true'
+  or v_review->'snapshot'->>'technicalChecklistComplete'<>'true'
+  or length(v_token)<>32 then
+  raise exception 'Owner review incorrectly grants activation: %',v_review;
+ end if;
+ begin
+  perform public.confirm_business_opening_review(
+    '89b00000-0000-4000-9000-000000000021',
+    v_id,repeat('0',32),'Sample Depot A',
+    true,true,true,true,true);
+  raise exception 'Stale token accepted' using errcode='PT001';
+ exception when invalid_parameter_value then null;
+ end;
+ begin
+  perform public.confirm_business_opening_review(
+    '89b00000-0000-4000-9000-000000000021',
+    v_id,v_token,'Sample Depot B',
+    true,true,true,true,true);
+  raise exception 'Wrong business name accepted' using errcode='PT001';
+ exception when invalid_parameter_value then null;
+ end;
+ begin
+  perform public.confirm_business_opening_review(
+    '89b00000-0000-4000-9000-000000000021',
+    v_id,v_token,'Sample Depot A',
+    true,true,true,true,false);
+  raise exception 'Unconfirmed zero-history customer accepted'
+    using errcode='PT001';
+ exception when invalid_parameter_value then null;
+ end;
+ v_confirmation:=public.confirm_business_opening_review(
+  '89b00000-0000-4000-9000-000000000021',
+  v_id,v_token,'Sample Depot A',
+  true,true,true,true,true);
+ if v_confirmation->>'recorded'<>'true'
+  or v_confirmation->>'canActivate'<>'false'
+  or v_confirmation->>'savedReplay'<>'false' then
+  raise exception 'Review signoff result invalid: %',v_confirmation;
+ end if;
+ v_replayed:=public.confirm_business_opening_review(
+  '89b00000-0000-4000-9000-000000000021',
+  v_id,v_token,'Sample Depot A',
+  true,true,true,true,true);
+ if v_replayed->>'savedReplay'<>'true' then
+  raise exception 'Signoff retry was not recovered: %',v_replayed;
+ end if;
+ begin
+  perform public.confirm_business_opening_review(
+    '89b00000-0000-4000-9000-000000000021',
+    '89b00000-0000-4000-9000-000000000079',
+    v_token,'Sample Depot A',
+    true,true,true,true,true);
+  raise exception 'Second signoff overwrote original' using errcode='PT001';
+ exception when invalid_parameter_value then null;
+ end;
+end;
+$confirm_owner_attestation$;
+reset role;
+do $review_still_setup$
+begin
+ if (select status from private.businesses
+  where id='89b00000-0000-4000-9000-000000000021')<>'setup'
+  or (select count(*) from private.business_opening_owner_reviews
+      where business_id='89b00000-0000-4000-9000-000000000021')<>1
+  or (select snapshot->>'technicalChecklistComplete'
+     from private.business_opening_owner_reviews
+     where business_id='89b00000-0000-4000-9000-000000000021')<>'true' then
+  raise exception 'Signoff activated business or lost immutable review';
+ end if;
+end;
+$review_still_setup$;
+
 -- Active-customer counts and opening-customer counts must use the
 -- SAME population. Archived opening debt is still historical but must
 -- never make an unreviewed active customer appear reviewed.
