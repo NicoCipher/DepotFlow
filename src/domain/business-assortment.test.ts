@@ -5,6 +5,7 @@ import { parseBusinessAssortment, validateDrinkSetup } from "./business-assortme
 const business = "89f00000-0000-4000-9000-000000000021";
 const sample = {
   businessId: business, businessStatus: "setup", readOnly: true, canActivate: false,
+  truncated: false, catalogueTotal: 1, crateTypesTotal: 1, configuredDrinksTotal: 1,
   catalogue: [{ id: business, name: "Goldberg", manufacturer: "NB", imagePath: null }],
   crateTypes: [{ id: business, name: "NBL shared", family: "NBL", pockets: 20, variant: null }],
   configuredDrinks: [{ id: business, catalogueId: business, name: "Goldberg",
@@ -17,6 +18,16 @@ test("owner assortment DTO rejects a foreign business or activation flag", () =>
   assert.equal(parseBusinessAssortment(sample, "89f00000-0000-4000-9000-000000000022"), null);
   assert.equal(parseBusinessAssortment({ ...sample, canActivate: true }, business), null);
   assert.equal(parseBusinessAssortment({ ...sample, crateTypes: "not-an-array" }, business), null);
+});
+
+test("owner assortment refuses missing totals and page-cap truncation", () => {
+  assert.ok(parseBusinessAssortment(sample, business));
+  assert.equal(parseBusinessAssortment({ ...sample, truncated: true }, business), null);
+  assert.equal(parseBusinessAssortment({ ...sample, catalogueTotal: 251 }, business), null);
+  assert.equal(parseBusinessAssortment({ ...sample, crateTypesTotal: 2 }, business), null);
+  assert.equal(parseBusinessAssortment({ ...sample, configuredDrinksTotal: 2 }, business), null);
+  assert.equal(parseBusinessAssortment({ ...sample, catalogueTotal: undefined }, business), null);
+  assert.equal(parseBusinessAssortment({ ...sample, truncated: undefined }, business), null);
 });
 
 test("selling prices use ₦50 increments and pack size is explicit", () => {
