@@ -124,7 +124,9 @@ begin
   ) a(old_text,new_text) loop
     v_hits:=(length(v_source)-length(replace(v_source,r.old_text,'')))
       /length(r.old_text);
-    if v_hits<>1 then
+    if v_hits<>(case when r.old_text=
+      'from public.customer_payments where request_id = v_payment_request_id)'
+      then 2 else 1 end) then
       raise exception 'Old-debt wrapper lookup drift: % (hits %)',
         pg_catalog.left(r.old_text,100),v_hits;
     end if;
