@@ -85,6 +85,12 @@ finally:
       delete from private.legacy_customer_creation_requests
        where owner_id='{owner}';
       delete from public.customers where phone='{phone}';
+      -- User-scoped catalogue/price history is seeded by database triggers.
+      -- Tear it down before deleting the referenced Auth user.
+      delete from public.product_selling_price_history
+       where owner_user_id='{owner}';
+      delete from public.product_cost_history
+       where owner_user_id='{owner}';
       delete from private.shop_owner where user_id='{owner}';
       delete from auth.users where id='{owner}';
       commit;""")
