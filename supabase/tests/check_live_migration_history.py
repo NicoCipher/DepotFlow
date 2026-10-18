@@ -51,10 +51,14 @@ def remote_migrations(payload: object) -> dict[str, str | None]:
             raise ValueError(f"Invalid remote migration version: {item!r}")
         if version in result:
             raise ValueError(f"Duplicate remote migration version: {version}")
-        name = names.get(version)
-        if name is not None and (not isinstance(name, str) or not name):
-            raise ValueError(f"Invalid remote migration name for {version}")
-        result[version] = name
+        top_name = names.get(version)
+        embedded_name = item.get("name") if isinstance(item, dict) else None
+        for candidate in (top_name, embedded_name):
+            if candidate is not None and (not isinstance(candidate, str) or not candidate):
+                raise ValueError(f"Invalid remote migration name for {version}")
+        if top_name is not None and embedded_name is not None and top_name != embedded_name:
+            raise ValueError(f"Conflicting remote migration names for {version}")
+        result[version] = embedded_name if embedded_name is not None else top_name
     if not result:
         raise ValueError("Empty remote migration history")
     if any(key not in result for key in names):
