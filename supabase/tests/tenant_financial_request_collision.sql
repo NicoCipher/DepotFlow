@@ -12,7 +12,7 @@ insert into private.shop_owner(user_id)
 select private.link_legacy_shop_business();
 insert into public.customers(id,name,phone) values(
  '89c00000-0000-4000-9000-000000000011',
- 'Legacy payment test buyer','0800089c0011');
+ 'Legacy payment test buyer','08000890011');
 insert into public.money_owed(customer_id,amount) values(
  '89c00000-0000-4000-9000-000000000011',1000);
 
@@ -45,7 +45,7 @@ select set_config('request.jwt.claim.sub',
  '89c00000-0000-4000-8000-000000000002',true);
 insert into public.customers(id,name,phone,business_id)
  values('89c00000-0000-4000-9000-000000000022',
- 'Foreign debtor','0800089c0022',
+ 'Foreign debtor','08000890022',
  '89c00000-0000-4000-9000-000000000021');
 reset role;
 
