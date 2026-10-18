@@ -36,6 +36,27 @@ class MigrationHistoryChecks(unittest.TestCase):
         )
         self.assertTrue(any("name mismatches" in issue for issue in issues))
 
+    def test_embedded_name_is_not_discarded(self):
+        remote = remote_migrations({"versions": [
+            {"version": "20261017132742", "name": "original"}
+        ]})
+        self.assertEqual(remote["20261017132742"], "original")
+        self.assertTrue(any("name mismatches" in issue for issue in
+            problems({"20261017132742": "different"}, remote)))
+
+    def test_conflicting_embedded_and_top_level_names_fail(self):
+        with self.assertRaisesRegex(ValueError, "Conflicting"):
+            remote_migrations({
+                "versions": [{"version": "20261017132742", "name": "original"}],
+                "names": {"20261017132742": "different"},
+            })
+
+    def test_malformed_embedded_name_fails(self):
+        with self.assertRaisesRegex(ValueError, "Invalid remote migration name"):
+            remote_migrations({"versions": [
+                {"version": "20261017132742", "name": ""}
+            ]})
+
     def test_duplicate_remote_versions_fail(self):
         with self.assertRaisesRegex(ValueError, "Duplicate"):
             remote_migrations({"versions": ["20261017132742", "20261017132742"]})
