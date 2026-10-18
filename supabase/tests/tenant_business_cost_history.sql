@@ -101,9 +101,6 @@ begin
     or (a->>'eventId')=(b->>'eventId') then
   raise exception 'Same cost request UUID was not safely scoped to A/B';
  end if;
- if (select count(*) from private.business_cost_history_requests)<>2 then
-  raise exception 'A/B request records must remain independent';
- end if;
  retry:=public.record_business_buying_cost(
   '89c00000-0000-4000-9000-000000000021',
   '89c00000-0000-4000-9000-000000000041',c,9000,'2026-10-18');
@@ -147,6 +144,21 @@ begin
 end;
 $a_b_owner$;
 reset role;
+-- Inspect the private audit only as the disposable test administrator.
+-- Business owners must NEVER receive private audit table SELECT rights.
+do $audit_isolation$
+begin
+ if (select count(*) from private.business_cost_history_requests)<>2
+    or (select count(distinct business_id)
+        from private.business_cost_history_requests)<>2
+    or (select count(distinct history_id)
+        from private.business_cost_history_requests)<>2
+    or (select count(distinct request_id)
+        from private.business_cost_history_requests)<>1 then
+  raise exception 'Same request UUID was not independently audited for A/B';
+ end if;
+end;
+$audit_isolation$;
 
 -- The original shop can only see the earlier legacy quote; new depot costs
 -- are not copied to or mixed with the original pilot's history.
