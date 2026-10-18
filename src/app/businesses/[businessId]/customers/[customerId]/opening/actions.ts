@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { isUuid } from "@/domain/ids";
 import { parseOpeningQuantity } from "@/domain/opening-physical-count";
+import { validCapturedOpeningDate } from "@/domain/opening-business-date";
 import { loadOwnerAssortment } from "@/lib/businesses/setup";
 import { createClient } from "@/lib/supabase/server";
 
@@ -38,15 +39,6 @@ function parseLines(
   }
 }
 
-function dateInLagos(): string {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Africa/Lagos",
-    year: "numeric", month: "2-digit", day: "2-digit",
-  }).formatToParts(new Date());
-  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
-  return `${get("year")}-${get("month")}-${get("day")}`;
-}
-
 /** Customer financial and empty-container openings are ONE business-scoped
  * PostgreSQL transaction through the already-staged RPC. Do not emulate
  * it with separate debt/deposit/obligation table writes.
@@ -58,10 +50,14 @@ export async function saveCustomerOpening(
   const businessId = String(form.get("business_id") ?? "");
   const customerId = String(form.get("customer_id") ?? "");
   const requestId = String(form.get("request_id") ?? "");
+  const capturedBusinessDate = form.get("business_date");
   if (!isUuid(businessId) || !isUuid(customerId) || !isUuid(requestId)) {
     return { message: "Opening request is invalid. Reopen this customer's setup." };
   }
 
+  if (!validCapturedOpeningDate(capturedBusinessDate)) {
+    return { message: "The original opening date is missing. Reopen this customer." };
+  }
   if (form.get("confirmed") !== "on") {
     return { message: "Confirm that these are balances from before DepotFlow." };
   }
@@ -111,7 +107,7 @@ export async function saveCustomerOpening(
     p_customer_id: customerId,
     p_amount: amount,
     p_deposit: deposit,
-    p_business_date: dateInLagos(),
+    p_business_date: capturedBusinessDate,
     p_note: note,
     p_crates: crates,
     p_bottles: bottles,
