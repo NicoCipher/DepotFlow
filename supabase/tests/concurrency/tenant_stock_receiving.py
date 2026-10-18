@@ -12,7 +12,7 @@ BASE = ["psql","-h","/tmp","-p","55439","-d","postgres",
 
 ids = {key: str(uuid.uuid4()) for key in
        ("legacy","actor","business","crate","product",
-        "first_a","first_b","next_a","stale")}
+        "first_a","first_b","next_a","stale","mixed")}
 
 def sql(query: str):
     return subprocess.run(BASE, input=query, text=True, capture_output=True)
@@ -29,6 +29,15 @@ def receive(request: str, crates: int, stock: int, empties: int):
      select public.receive_business_stock(
        '{ids["business"]}','{request}','{ids["product"]}',
        {crates},{stock},{empties},12,'{ids["crate"]}','2026-10-18');
+     commit;""")
+
+def count(request: str, crates: int, loose: int, expected: int):
+    return sql(f"""begin;
+     set local role authenticated;
+     select set_config('request.jwt.claim.sub','{ids["actor"]}',true);
+     select public.count_business_product_stock(
+       '{ids["business"]}','{request}','{ids["product"]}',
+       {crates},{loose},{expected},12,'2026-10-18');
      commit;""")
 
 assert checked("select count(*) from private.shop_owner") == "0", "Requires disposable empty DB"
@@ -82,6 +91,10 @@ try:
       grant execute on function public.receive_business_stock(
         uuid,uuid,uuid,numeric,integer,integer,integer,uuid,date) to authenticated;
       update private.business_receiving_gate set enabled=true where singleton;
+      grant execute on function public.count_business_product_stock(
+        uuid,uuid,uuid,numeric,numeric,integer,integer,date) to authenticated;
+      update private.business_product_stock_count_gate
+        set enabled=true where singleton;
     """)
 
     # Two different request IDs both saw 24 bottles and 6 empty crates.
@@ -125,7 +138,37 @@ try:
     assert original.returncode == 0, original.stderr
     assert '"stock_after": 36' in original.stdout, original.stdout
     assert_totals(60,3,2)
-    print("Business receiving concurrency and unchanged-original-replay passed")
+    # A RECEIVE and a COUNT are separate operations, even with one request
+    # UUID. They share the per-business advisory lock. Exactly one can win;
+    # the loser must not write a second event or overwrite the stock.
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        pending = [
+            pool.submit(receive, ids["mixed"], 1, 60, 3),
+            pool.submit(count, ids["mixed"], 5, 0, 60),
+        ]
+        mixed = [f.result() for f in pending]
+    assert sum(r.returncode == 0 for r in mixed) == 1, [
+        r.stderr for r in mixed
+    ]
+    if mixed[0].returncode == 0:
+        assert_totals(72,2,3)
+        assert checked(f"""select count(*) from private.business_product_stock_counts
+          where business_id='{ids["business"]}'""") == "0"
+        retry = receive(ids["mixed"], 1, 60, 3)
+        assert retry.returncode == 0, retry.stderr
+        losing = count(ids["mixed"], 5, 0, 60)
+        assert losing.returncode != 0, "Receiving UUID reused by stock count"
+        assert_totals(72,2,3)
+    else:
+        assert_totals(60,3,2)
+        assert checked(f"""select count(*) from private.business_product_stock_counts
+          where business_id='{ids["business"]}'""") == "1"
+        retry = count(ids["mixed"], 5, 0, 60)
+        assert retry.returncode == 0, retry.stderr
+        losing = receive(ids["mixed"], 1, 60, 3)
+        assert losing.returncode != 0, "Count UUID reused by receiving"
+        assert_totals(60,3,2)
+    print("Business receiving + count concurrency and exact replay passed")
 finally:
     checked(f"""begin;
       set local session_replication_role=replica;
@@ -149,6 +192,8 @@ finally:
       $delete_business_rows$;
       delete from private.business_receiving_requests
         where business_id='{ids["business"]}';
+      delete from private.business_product_stock_counts
+        where business_id='{ids["business"]}';
       delete from private.stock_receipts where business_id='{ids["business"]}';
       delete from public.stock_movements where business_id='{ids["business"]}';
       delete from public.empty_crate_stock where crate_type_id='{ids["crate"]}';
@@ -165,6 +210,10 @@ finally:
       delete from private.businesses where id='{ids["business"]}' or legacy_singleton is true;
       delete from auth.users where id in('{ids["legacy"]}','{ids["actor"]}');
       update private.business_receiving_gate set enabled=false where singleton;
+      update private.business_product_stock_count_gate
+        set enabled=false where singleton;
+      revoke execute on function public.count_business_product_stock(
+        uuid,uuid,uuid,numeric,numeric,integer,integer,date) from authenticated;
       revoke execute on function public.receive_business_stock(
         uuid,uuid,uuid,numeric,integer,integer,integer,uuid,date) from authenticated;
       commit;""")
