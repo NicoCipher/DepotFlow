@@ -14,12 +14,16 @@ select private.link_legacy_shop_business();
 do $no_direct_business_insert$
 begin
  if has_column_privilege('authenticated','public.customers','business_id','INSERT')
- or not has_column_privilege('authenticated','public.customers','id','INSERT')
+ or has_column_privilege('authenticated','public.customers','id','INSERT')
  or not has_column_privilege('authenticated','public.customers','phone','INSERT')
  or has_table_privilege('anon','public.customers','INSERT')
  or has_function_privilege('authenticated',
    'public.register_business_customer(uuid,uuid,text,text,text,text)',
    'EXECUTE')
+ or not has_function_privilege('authenticated',
+   'public.create_legacy_customer(uuid,text,text,text,text)','EXECUTE')
+ or has_function_privilege('anon',
+   'public.create_legacy_customer(uuid,text,text,text,text)','EXECUTE')
  then raise exception 'Data API customer grant boundary is unsafe';end if;
 end;
 $no_direct_business_insert$;
@@ -28,8 +32,22 @@ $no_direct_business_insert$;
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
  '89c00000-0000-4000-8000-000000000001',true);
-insert into public.customers(id,name,phone) values
- ('89c00000-0000-4000-9000-000000000011','Pilot before backfill','08012340011');
+do $before_backfill_create$
+declare v jsonb;r jsonb;
+begin
+ v:=public.create_legacy_customer(
+  '89c00000-0000-4000-9000-000000000011',
+  'Pilot before backfill','08012340011',null,null);
+ r:=public.create_legacy_customer(
+  '89c00000-0000-4000-9000-000000000011',
+  'Pilot before backfill','08012340011',null,null);
+ if v->>'customerId'='89c00000-0000-4000-9000-000000000011'
+  or v->>'customerId'<>r->>'customerId'
+  or r->>'savedReplay'<>'true' then
+  raise exception 'Legacy RPC reused caller-owned PK or lost retry';
+ end if;
+end;
+$before_backfill_create$;
 reset role;
 
 select private.backfill_legacy_shop_rows(private.legacy_scope_snapshot());
@@ -57,10 +75,23 @@ select private.enable_legacy_write_scope(private.legacy_scope_snapshot());
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
  '89c00000-0000-4000-8000-000000000001',true);
-insert into public.customers(id,name,phone) values
- ('89c00000-0000-4000-9000-000000000012','Pilot after backfill','08012340012');
-update public.customers set name='Pilot edited after backfill'
- where id='89c00000-0000-4000-9000-000000000012';
+do $after_backfill_create$
+declare v jsonb;r jsonb;v_id uuid;
+begin
+ v:=public.create_legacy_customer(
+  '89c00000-0000-4000-9000-000000000012',
+  'Pilot after backfill','08012340012',null,null);
+ v_id:=(v->>'customerId')::uuid;
+ r:=public.create_legacy_customer(
+  '89c00000-0000-4000-9000-000000000012',
+  'Pilot after backfill','08012340012',null,null);
+ if v_id='89c00000-0000-4000-9000-000000000012'::uuid
+   or r->>'customerId'<>v_id::text or r->>'savedReplay'<>'true' then
+   raise exception 'Post-backfill legacy create retry failed';
+ end if;
+ update public.customers set name='Pilot edited after backfill' where id=v_id;
+end;
+$after_backfill_create$;
 do $original_shop_unbroken$
 begin
  -- Inspect only owner-visible public rows in the authenticated fixture.
@@ -69,12 +100,32 @@ begin
    or (select count(distinct business_id) from public.customers)<>1
    or exists(select 1 from public.customers where business_id is null)
    or (select name from public.customers
-       where id='89c00000-0000-4000-9000-000000000012')
+       where phone='08012340012')
        <>'Pilot edited after backfill' then
    raise exception 'Original shop customer create/edit broke';
  end if;
 end;
 $original_shop_unbroken$;
+reset role;
+
+-- Even the original verified owner cannot use a guessed customer
+-- primary key in a direct Data API insert: both known and unused IDs must
+-- be blocked BEFORE the global PK uniqueness check.
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89c00000-0000-4000-8000-000000000001',true);
+do $legacy_direct_pk_denied$
+begin
+ begin
+  insert into public.customers(id,name,phone) values(
+   '89c00000-0000-4000-9000-000000000099',
+   'Guessed PK','08012340099');
+  raise exception 'Legacy caller selected customer primary key'
+   using errcode='PT001';
+ exception when insufficient_privilege then null;
+ end;
+end;
+$legacy_direct_pk_denied$;
 reset role;
 
 -- Other owners have separate business memberships, but direct INSERT
