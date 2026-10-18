@@ -445,6 +445,122 @@ reset role;
 rollback to savepoint overflow_owned_crates;
 release savepoint overflow_owned_crates;
 
+-- Original-shop crate management must not reveal NEW depot's crate IDs.
+-- This test runs with the legacy write gate AND new-business assortment
+-- gate ON. Savepoint keeps the original A/B configuration counts unchanged.
+savepoint original_shop_crate_management;
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89600000-0000-4000-8000-000000000003',true);
+do $foreign_pocket$
+declare v uuid;
+begin
+ v:=public.create_business_crate_type(
+  '89600000-0000-4000-9000-000000000022',
+  '89600000-0000-4000-9000-000000000099',
+  'B private 24-pocket','Other',24,null);
+ if v is null then raise exception 'Could not seed foreign-only pocket'; end if;
+ perform set_config('fixture.b_exclusive24',v::text,true);
+end;
+$foreign_pocket$;
+select set_config('request.jwt.claim.sub',
+ '89600000-0000-4000-8000-000000000001',true);
+do $legacy_crate_management$
+declare
+ v_owned uuid;
+ v_replacement uuid;
+ v_foreign uuid:=current_setting('fixture.b_crate')::uuid;
+ v_unknown uuid:='89600000-0000-4000-9000-000000000098';
+ v_target uuid;
+begin
+ v_owned:=public.create_legacy_crate_type(
+   '89600000-0000-4000-9000-000000000081',
+   'Original 20-pocket','NB',20,null);
+ v_replacement:=public.create_legacy_crate_type(
+   '89600000-0000-4000-9000-000000000082',
+   'Original spare','NB',20,null);
+ -- Older Walnik management operations must continue working.
+ if public.edit_crate_type(
+   v_owned,'Original renamed','NB',20,'shape')<>v_owned then
+   raise exception 'Own crate edit returned wrong identity';
+ end if;
+ perform public.set_crate_swap_rules(v_owned,array[v_replacement]);
+ if not exists(select 1 from public.crate_swap_rules
+    where owed_crate_type_id=v_owned and returned_crate_type_id=v_replacement) then
+    raise exception 'Own crate swap no longer persists';
+ end if;
+ perform public.set_crate_deposit_price(20,550,500);
+ if not exists(select 1 from public.crate_deposit_prices
+    where pocket_count=20 and complete_crate_amount=550
+      and crate_only_amount=500) then
+   raise exception 'Original shop deposit edit no longer works';
+ end if;
+ -- Both a real B crate UUID and an arbitrary unused UUID must return
+ -- IDENTICAL errors; no reads, edits, deletes, swaps, deposit probes.
+ foreach v_target in array array[v_foreign,v_unknown] loop
+   begin
+     perform public.edit_crate_type(v_target,'Probe','NB',20,null);
+     raise exception 'Original owner edited an unowned crate' using errcode='PT001';
+   exception when invalid_parameter_value then
+     if sqlerrm<>'Crate type not found.' then raise; end if;
+   end;
+   begin
+     perform public.delete_unused_crate_type(v_target);
+     raise exception 'Original owner deleted an unowned crate' using errcode='PT001';
+   exception when no_data_found then
+     if sqlerrm<>'Crate type not found.' then raise; end if;
+   end;
+   begin
+     perform public.set_crate_swap_rules(v_target,'{}'::uuid[]);
+     raise exception 'Foreign owed crate swap succeeded' using errcode='PT001';
+   exception when invalid_parameter_value then
+     if sqlerrm<>'Choose an exact crate type.' then raise; end if;
+   end;
+   begin
+     perform public.set_crate_swap_rules(v_owned,array[v_target]);
+     raise exception 'Foreign returned crate swap succeeded' using errcode='PT001';
+   exception when invalid_parameter_value then
+     if sqlerrm<>'Choose only exact replacement crate types.' then raise; end if;
+   end;
+ end loop;
+ -- B-only 24 pockets and unknown 25 pockets are indistinguishable.
+ foreach v_target in array array[24,25] loop
+   begin
+     perform public.set_crate_deposit_price(v_target::numeric,550,500);
+     raise exception 'Foreign-only deposit pocket probe worked' using errcode='PT001';
+   exception when invalid_parameter_value then
+     if sqlerrm<>'Choose a pocket count used by an exact crate type.' then
+       raise;
+     end if;
+   end;
+ end loop;
+ -- Old crate swap and delete remain functional for unused own crate.
+ perform public.set_crate_swap_rules(v_owned,'{}'::uuid[]);
+ perform public.delete_unused_crate_type(v_replacement);
+ if exists(select 1 from public.crate_types where id=v_replacement) then
+    raise exception 'Original owner could not delete an unused own crate';
+ end if;
+ -- Public AND private entrypoints must reject ownership after revocation.
+end;
+$legacy_crate_management$;
+reset role;
+do $foreign_untouched$
+begin
+ if not exists(select 1 from public.crate_types
+   where id=current_setting('fixture.b_crate')::uuid
+     and business_id='89600000-0000-4000-9000-000000000022'
+     and name='B Goldberg own crate') then
+   raise exception 'B crate was modified by the original shop';
+ end if;
+ if exists(select 1 from public.crate_deposit_prices
+   where pocket_count=24) then
+   raise exception 'Foreign-only deposit pocket was modified';
+ end if;
+end;
+$foreign_untouched$;
+rollback to savepoint original_shop_crate_management;
+release savepoint original_shop_crate_management;
+
 do $verify$
 begin
  if (select count(*) from public.products)<>4
