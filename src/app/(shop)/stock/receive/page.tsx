@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireOwner } from "@/lib/auth/owner";
 import { StockProductChoice } from "@/components/stock-product-choice";
 import { productSearchFilter } from "@/domain/products";
+import { currentProductImage } from "@/domain/product-images";
 
 export default async function ChooseReceivingProductPage({
   searchParams,
@@ -18,7 +19,7 @@ export default async function ChooseReceivingProductPage({
   );
   let request = supabase
     .from("products")
-    .select("id,name,size,image_url,bottles_per_crate", { count: "exact" })
+    .select("id,name,size,image_url,bottles_per_crate,product_catalogue(image_path)", { count: "exact" })
     .eq("is_active", true)
     .order("name")
     .order("id")
@@ -67,7 +68,7 @@ export default async function ChooseReceivingProductPage({
         <ul className="space-y-3">
           {data.map((product) => (
             <li key={product.id}>
-              <StockProductChoice product={product} action="receive" />
+              <StockProductChoice product={{ ...product, image_url: currentProductImage(product) }} action="receive" />
             </li>
           ))}
         </ul>
