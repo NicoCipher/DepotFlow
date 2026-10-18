@@ -64,7 +64,7 @@ export default async function NewDepotCustomersPage({
       </header>
       {query.added === "1" && (
         <p className="rounded-xl bg-stone-100 p-3 text-sm font-semibold" role="status">
-          Customer saved in this depot. Add another customer or continue to opening balances.
+          Customer saved in this depot. Select Old balances next to a customer to record their previous debt, refundable deposit or empty-container obligations.
         </p>
       )}
       <section className="rounded-2xl bg-stone-100 p-4">
@@ -74,9 +74,15 @@ export default async function NewDepotCustomersPage({
         {result.data.length > 0 ? (
           <ul className="mt-2 divide-y divide-stone-200">
             {result.data.map((customer) => (
-              <li key={customer.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                <strong className="min-w-0 break-words text-sm">{customer.name}</strong>
-                <span className="text-xs tabular-nums text-stone-600">{customer.phone}</span>
+              <li key={customer.id} className="flex items-center justify-between gap-3 py-2">
+                <span className="min-w-0">
+                  <strong className="block break-words text-sm">{customer.name}</strong>
+                  <span className="text-xs tabular-nums text-stone-600">{customer.phone}</span>
+                </span>
+                <Link href={`/businesses/${businessId}/customers/${customer.id}/opening`}
+                  className="secondary shrink-0 text-xs">
+                  Old balances
+                </Link>
               </li>
             ))}
           </ul>
