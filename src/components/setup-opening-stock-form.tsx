@@ -52,7 +52,7 @@ export function SetupOpeningStockForm({
   return (
     <section className="rounded-2xl border border-stone-200 bg-white p-4">
       <h2 className="text-base font-extrabold text-stone-950">
-        Count what's physically in your depot
+        Count the items physically in your depot
       </h2>
       <p className="mt-1 text-sm leading-6 text-stone-600">
         Choose one item, enter its starting quantity, then save. Zero is a
