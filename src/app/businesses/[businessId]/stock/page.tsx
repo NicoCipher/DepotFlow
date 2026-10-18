@@ -94,9 +94,13 @@ export default async function NewDepotStockPage({
           className="secondary inline-flex min-h-11 items-center justify-center">
           Back to drinks
         </Link>
+        <Link href={`/businesses/${businessId}/customers`}
+          className="primary inline-flex min-h-11 items-center justify-center">
+          Next: Register customers →
+        </Link>
         <Link href={`/businesses/${businessId}/opening`}
           className="secondary inline-flex min-h-11 items-center justify-center">
-          Review setup checklist →
+          Review setup checklist
         </Link>
       </div>
     </section>
