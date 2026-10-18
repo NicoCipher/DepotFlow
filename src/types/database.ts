@@ -215,9 +215,9 @@ export type Database = {
         Relationships: []
       }
       customer_opening_balances: {
-        Row: { id: string; customer_id: string; request_id: string; amount: number; business_date: string; note: string; crates: Json; bottles: Json; request_payload: Json; created_at: string }
-        Insert: { id?: string; customer_id: string; request_id: string; amount: number; business_date: string; note?: string; crates: Json; bottles: Json; request_payload: Json; created_at?: string }
-        Update: { id?: string; customer_id?: string; request_id?: string; amount?: number; business_date?: string; note?: string; crates?: Json; bottles?: Json; request_payload?: Json; created_at?: string }
+        Row: { id: string; business_id: string | null; customer_id: string; request_id: string; amount: number; deposit_amount: number; business_date: string; note: string; crates: Json; bottles: Json; request_payload: Json; created_at: string }
+        Insert: { id?: string; business_id?: string | null; customer_id: string; request_id: string; amount: number; deposit_amount?: number; business_date: string; note?: string; crates: Json; bottles: Json; request_payload: Json; created_at?: string }
+        Update: { id?: string; business_id?: string | null; customer_id?: string; request_id?: string; amount?: number; deposit_amount?: number; business_date?: string; note?: string; crates?: Json; bottles?: Json; request_payload?: Json; created_at?: string }
         Relationships: [{ foreignKeyName: "customer_opening_balances_customer_id_fkey"; columns: ["customer_id"]; isOneToOne: true; referencedRelation: "customers"; referencedColumns: ["id"] }]
       }
       customer_payments: {
