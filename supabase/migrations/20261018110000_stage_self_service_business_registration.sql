@@ -106,7 +106,7 @@ begin
  v_address:=pg_catalog.btrim(pg_catalog.regexp_replace(p_address,'[[:space:]]+',' ','g'));
  v_phone:=pg_catalog.btrim(p_phone);
  if pg_catalog.length(v_name) not between 2 and 120
-    or pg_catalog.length(v_address) not between 5 and 400
+    or pg_catalog.length(v_address) not between 1 and 400
     or pg_catalog.length(v_phone)>40
     or v_name ~ '[[:cntrl:]]' or v_address ~ '[[:cntrl:]]'
     or v_phone ~ '[[:cntrl:]]' then
