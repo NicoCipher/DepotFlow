@@ -10,6 +10,7 @@ export type AssortmentSetup = {
     id: string; catalogueId: string | null; name: string;
     crateTypeId: string | null; packSize: number | null;
     sellingPrice: number; active: boolean;
+    returnable: boolean; bottleType: string | null;
   }[];
 };
 
@@ -29,7 +30,9 @@ export function parseBusinessAssortment(value: unknown, businessId: string): Ass
         typeof v.pockets === "number" && v.pockets > 0) ||
       !o.configuredDrinks.every((v) => v && typeof v === "object" &&
         validId(v.id) && typeof v.name === "string" &&
-        typeof v.sellingPrice === "number")) return null;
+        typeof v.sellingPrice === "number" &&
+        typeof v.returnable === "boolean" &&
+        (v.bottleType === null || typeof v.bottleType === "string"))) return null;
   return o as AssortmentSetup;
 }
 
