@@ -41,14 +41,9 @@ export async function registerDepot(
   }
   // This is NOT a service-role/admin call. Both the session and the DB's
   // confirmed-email/registration gate check must authorize the request.
-  const { data: eligible, error: eligibleError } =
-    await supabase.rpc("can_register_business");
-  if (eligibleError || eligible !== true) {
-    return {
-      name, address, phone,
-      message: "New depot registration is not available for this account.",
-    };
-  }
+  // Let the SECURITY DEFINER writer make the final eligibility decision.
+  // An owner who just reached the 3-depot cap must still be able to replay
+  // their third successful request after a lost network response.
 
   const { data, error } = await supabase.rpc("register_my_business", {
     p_request_id: requestId,
