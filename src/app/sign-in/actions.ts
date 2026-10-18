@@ -4,8 +4,34 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ownerAuthorized } from "@/domain/authorization";
 import { safeSignInReturnPath } from "@/domain/auth-navigation";
+import { clearRejectedSignInCookies } from "@/lib/auth/rejected-signin-cleanup";
 
 export type SignInState = { email: string; message: string };
+
+type AuthClient = Awaited<ReturnType<typeof createClient>>;
+
+/** Never ignore a {error} signOut result on an already authenticated user. */
+async function rejectAuthenticatedLogin(
+  supabase: AuthClient, email: string, deniedMessage: string,
+): Promise<SignInState> {
+  try {
+    const { error } = await supabase.auth.signOut({ scope: "local" });
+    if (!error) return { email, message: deniedMessage };
+  } catch {
+    // Cookie cleanup below still runs if the Auth service is unreachable.
+  }
+  try {
+    if (await clearRejectedSignInCookies()) {
+      return { email, message: deniedMessage };
+    }
+  } catch {
+    // Cannot claim a safely cleared session.
+  }
+  return {
+    email,
+    message: "Sign-in was rejected but session cleanup could not be confirmed. Close this browser before sharing this device and try again.",
+  };
+}
 export async function signIn(
   _previous: SignInState,
   formData: FormData,
@@ -48,20 +74,16 @@ export async function signIn(
         (!depots.data?.length &&
           (registration?.error || registration?.data !== true))
       ) {
-        await supabase.auth.signOut({ scope: "local" });
-        return {
-          email,
-          message: "Multi-business setup is not available for this account yet.",
-        };
+        return rejectAuthenticatedLogin(
+          supabase, email, "Multi-business setup is not available for this account yet.",
+        );
       }
     } else {
       const owner = await supabase.rpc("is_shop_owner");
       if (!ownerAuthorized(data.user.id, owner.data, owner.error)) {
-        await supabase.auth.signOut({ scope: "local" });
-        return {
-          email,
-          message: "This app is only available to the shop owner.",
-        };
+        return rejectAuthenticatedLogin(
+          supabase, email, "This app is only available to the shop owner.",
+        );
       }
     }
   } catch {
