@@ -65,7 +65,12 @@ do $$ declare t record; begin
   for t in select c.relname,c.relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r'
   loop
     if not t.relrowsecurity then raise exception 'RLS missing on %',t.relname; end if;
-    if t.relname <> 'customers' and has_table_privilege('authenticated',format('public.%I',t.relname),'INSERT,UPDATE,DELETE') then raise exception 'Unexpected writes on %',t.relname; end if;
+    -- business_profiles is the first intentionally writable nonlegacy table.
+    -- Its access is isolated by the separate two-owner RLS regression suite.
+    if t.relname not in ('customers','business_profiles')
+       and has_table_privilege('authenticated',format('public.%I',t.relname),'INSERT,UPDATE,DELETE') then
+      raise exception 'Unexpected writes on %',t.relname;
+    end if;
   end loop;
 end $$;
 rollback;
