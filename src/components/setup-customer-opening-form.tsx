@@ -75,6 +75,10 @@ export function SetupCustomerOpeningForm({
   crates: Item[];
   bottleTypes: Item[];
 }) {
+  // A retried financial opening is immutable, including its effective
+  // Lagos date; keep both values even when the server rerenders this form.
+  const [originalRequestId] = useState(requestId);
+  const [originalBusinessDate] = useState(businessDate);
   const [crateEntries, setCrateEntries] = useState<Entry[]>([]);
   const [bottleEntries, setBottleEntries] = useState<Entry[]>([]);
   const [state, action, pending] = useActionState(saveCustomerOpening, initial);
@@ -84,8 +88,8 @@ export function SetupCustomerOpeningForm({
       className="space-y-4 rounded-2xl border border-stone-200 bg-white p-4">
       <input type="hidden" name="business_id" value={businessId} />
       <input type="hidden" name="customer_id" value={customerId} />
-      <input type="hidden" name="request_id" value={requestId} />
-      <input type="hidden" name="business_date" value={businessDate} />
+      <input type="hidden" name="request_id" value={originalRequestId} />
+      <input type="hidden" name="business_date" value={originalBusinessDate} />
       <input type="hidden" name="crates"
         value={JSON.stringify(crateEntries.map((x) =>
           ({ type: x.type, quantity: Number(x.quantity) })))} />
