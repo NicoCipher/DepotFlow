@@ -80,7 +80,7 @@ declare
   v_actor uuid := auth.uid();
   v_name text := pg_catalog.btrim(p_name);
   v_family text := pg_catalog.btrim(p_empty_family);
-  v_variant text := pg_catalog.nullif(pg_catalog.btrim(p_variant),'');
+  v_variant text := nullif(pg_catalog.btrim(p_variant),'');
   v_crate public.crate_types%rowtype;
 begin
   if v_actor is null or p_business_id is null then
@@ -153,8 +153,8 @@ declare
   v_crate public.crate_types%rowtype;
   v_product public.products%rowtype;
   v_name text;
-  v_size text := pg_catalog.nullif(pg_catalog.btrim(p_size),'');
-  v_bottle_type text := pg_catalog.nullif(pg_catalog.btrim(p_bottle_type),'');
+  v_size text := nullif(pg_catalog.btrim(p_size),'');
+  v_bottle_type text := nullif(pg_catalog.btrim(p_bottle_type),'');
 begin
   if v_actor is null or p_business_id is null then
     raise exception 'Verified business owner session required'
