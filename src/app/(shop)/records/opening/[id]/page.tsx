@@ -17,7 +17,7 @@ export default async function OpeningRecordPage({
   const db = await requireOwner();
   const { data: opening, error } = await db
     .from("customer_opening_balances")
-    .select("id,customer_id,business_date,amount,crates,bottles,note")
+    .select("id,customer_id,business_date,amount,deposit_amount,crates,bottles,note")
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error("Could not load the saved opening record.");
@@ -49,6 +49,15 @@ export default async function OpeningRecordPage({
           <p className="mt-1 text-3xl font-extrabold tabular-nums text-white">{formatNaira(opening.amount)}</p>
         </div>
       </header>
+      {opening.deposit_amount > 0 && (
+        <section className="rounded-2xl border border-stone-200 bg-white p-4">
+          <h2 className="text-sm font-semibold text-stone-800">Refundable deposit held for this customer</h2>
+          <p className="mt-1 text-xl font-extrabold tabular-nums">{formatNaira(opening.deposit_amount)}</p>
+          <p className="mt-1 text-xs text-stone-600">
+            Kept separate from money the customer owes the depot; not a payment received today.
+          </p>
+        </section>
+      )}
       <section className="grid grid-cols-2 gap-3" aria-label="Physical empties brought forward">
         <div className="rounded-2xl border border-stone-200 bg-white p-4">
           <p className="text-xs text-stone-600">Crates owed before</p>
