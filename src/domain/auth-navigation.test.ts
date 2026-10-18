@@ -4,6 +4,7 @@ import { safeSignInReturnPath } from "./auth-navigation.ts";
 
 test("sign-in return path allows only known internal sale pages", () => {
   assert.equal(safeSignInReturnPath("/record-sale"), "/record-sale");
+  assert.equal(safeSignInReturnPath("/businesses"), "/businesses");
   assert.equal(
     safeSignInReturnPath("/record-sale/paused"),
     "/record-sale/paused",
