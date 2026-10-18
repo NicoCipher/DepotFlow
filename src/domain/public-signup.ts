@@ -44,6 +44,14 @@ export function resolvePublicSignupConfig(
 }
 
 export function publicSignupConfig(): PublicSignupConfig {
+  // The app switch is NOT a security boundary: a public Supabase key can
+  // call /auth/v1/signup directly. Require an independently verified
+  // Auth-service signup policy before presenting this UI as available.
+  // The deployment operator must keep Supabase Auth signup disabled until
+  // its own abuse controls and confirmation policy have been reviewed.
+  if (process.env.DEPOTFLOW_AUTH_SIGNUP_POLICY_VERIFIED !== "true") {
+    return { enabled: false, emailRedirectTo: null };
+  }
   return resolvePublicSignupConfig(
     process.env.DEPOTFLOW_PUBLIC_SIGNUP_ENABLED,
     process.env.DEPOTFLOW_SIGNUP_REDIRECT_ORIGIN,
