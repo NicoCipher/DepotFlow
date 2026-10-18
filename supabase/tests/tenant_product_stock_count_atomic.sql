@@ -283,6 +283,43 @@ begin
 end;
 $verify_cross_business_counts$;
 
+-- A successful stock count can be retried after drink packaging changed.
+-- Replaying the immutable old request must win over CURRENT pack metadata,
+-- while a fresh count using stale pack details must fail.
+savepoint replay_after_stock_metadata_change;
+alter table public.products disable trigger legacy_scope_business_write;
+update public.products set bottles_per_crate=13
+ where id='89e00000-0000-4000-9000-000000000041';
+alter table public.products enable trigger legacy_scope_business_write;
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89e00000-0000-4000-8000-000000000002',true);
+do $retry_after_pack_change$
+declare v jsonb;
+begin
+ v:=public.count_business_product_stock(
+  '89e00000-0000-4000-9000-000000000021',
+  '89e00000-0000-4000-9000-000000000101',
+  '89e00000-0000-4000-9000-000000000041',
+  2,3,0,12,'2026-10-18');
+ if (v->>'total')::int<>27 then
+  raise exception 'Old stock count did not replay after pack change: %',v;
+ end if;
+ begin
+  perform public.count_business_product_stock(
+   '89e00000-0000-4000-9000-000000000021',
+   '89e00000-0000-4000-9000-000000000111',
+   '89e00000-0000-4000-9000-000000000041',
+   2,3,37,12,'2026-10-18');
+  raise exception 'New count accepted obsolete pack size' using errcode='PT001';
+ exception when invalid_parameter_value then null;
+ end;
+end;
+$retry_after_pack_change$;
+reset role;
+rollback to savepoint replay_after_stock_metadata_change;
+release savepoint replay_after_stock_metadata_change;
+
 update private.business_memberships set status='disabled'
  where business_id='89e00000-0000-4000-9000-000000000022';
 set local role authenticated;
