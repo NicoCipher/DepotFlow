@@ -123,6 +123,24 @@ begin
   raise exception 'Duplicate same branch used another request ID' using errcode='PT001';
  exception when invalid_parameter_value then null;
  end;
+ -- Profile editing is allowed after registration. Repeated spaces and
+ -- surrounding whitespace in an existing profile must not permit
+ -- registering a second identity for the SAME physical depot.
+ update public.business_profiles
+ set name='  Official   Depot A ',address='   Ikeja,   Lagos  '
+ where business_id=dep;
+ begin
+  perform public.register_my_business(
+   '89f00000-0000-4000-9000-000000000048',
+   'Official Depot A','Ikeja, Lagos','08005550041');
+  raise exception 'Edited profile whitespace bypassed duplicate prevention'
+    using errcode='PT001';
+ exception when invalid_parameter_value then null;
+ end;
+ update public.business_profiles
+ set name='Official Depot A',address='Ikeja, Lagos'
+ where business_id=dep;
+
 
  -- Two branches are valid if the same brand serves DIFFERENT addresses.
  perform public.register_my_business(
