@@ -109,7 +109,17 @@ export default async function BusinessOpeningReviewPage({
       <Link href="/businesses" className="quiet-link mb-4 inline-flex self-start">
         ← Your depots
       </Link>
-      <div className="mb-4"><Link href={`/businesses/${businessId}/drinks`} className="secondary inline-flex">Review drinks and crate setup</Link></div>
+      <div className="mb-4 flex flex-wrap gap-2">
+        <Link href={`/businesses/${businessId}/drinks`} className="secondary inline-flex min-h-11 items-center">
+          Drinks and crates
+        </Link>
+        <Link href={`/businesses/${businessId}/stock`} className="secondary inline-flex min-h-11 items-center">
+          Starting stock
+        </Link>
+        <Link href={`/businesses/${businessId}/customers`} className="secondary inline-flex min-h-11 items-center">
+          Customers
+        </Link>
+      </div>
       <OnboardingOpeningReview snapshot={snapshot} />
       {signoffToken && snapshot.profile?.name ? (
         <OnboardingOwnerSignoffForm
