@@ -8,7 +8,8 @@ const sample = {
   catalogue: [{ id: business, name: "Goldberg", manufacturer: "NB", imagePath: null }],
   crateTypes: [{ id: business, name: "NBL shared", family: "NBL", pockets: 20, variant: null }],
   configuredDrinks: [{ id: business, catalogueId: business, name: "Goldberg",
-    crateTypeId: business, packSize: 20, sellingPrice: 10000, active: true }],
+    crateTypeId: business, packSize: 20, sellingPrice: 10000, active: true,
+    returnable: true, bottleType: "Goldberg bottle" }],
 };
 
 test("owner assortment DTO rejects a foreign business or activation flag", () => {
