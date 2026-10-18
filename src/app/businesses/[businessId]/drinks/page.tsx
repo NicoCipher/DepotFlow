@@ -15,13 +15,16 @@ export default async function NewDepotDrinksPage({
   const { businessId } = await params;
   if (!isUuid(businessId)) return null;
   const data = await loadOwnerAssortment(businessId);
-  if (data.state === "disabled") return (
+  if (data.state !== "ready") return (
     <section className="mx-auto max-w-2xl space-y-4">
       <Link href="/businesses" className="quiet-link">← Your depots</Link>
-      <h1>Drink setup is not available yet</h1>
+      <h1>{data.state === "incomplete"
+        ? "Complete drinks catalogue is unavailable"
+        : "Drink setup is not available yet"}</h1>
       <p className="text-sm text-stone-600">
-        No prices, crates or stock were changed. Guided setup is locked
-        until the multi-business release has been approved.
+        {data.state === "incomplete"
+          ? "The catalogue is larger than the safe setup preview limit. Setup is paused until the full list can be loaded; no prices or stock were changed."
+          : "No prices, crates or stock were changed. Guided setup is locked until the multi-business release has been approved."}
       </p>
     </section>
   );
