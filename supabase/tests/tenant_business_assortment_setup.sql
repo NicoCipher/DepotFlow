@@ -36,7 +36,7 @@ select private.enable_legacy_write_scope(private.legacy_scope_snapshot());
 
 insert into private.businesses(id,status) values
  ('89600000-0000-4000-9000-000000000021','setup'),
- ('89600000-0000-4000-9000-000000000022','active');
+ ('89600000-0000-4000-9000-000000000022','setup');
 insert into private.business_memberships(
  business_id,user_id,status,member_kind
 ) values
