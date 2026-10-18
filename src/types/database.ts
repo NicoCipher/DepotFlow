@@ -1026,6 +1026,19 @@ export type Database = {
       }
     }
     Functions: {
+      record_business_physical_opening: {
+        Args: {
+          p_business_id: string
+          p_request_id: string
+          p_kind: "drink" | "crate" | "bottle"
+          p_resource: string
+          p_quantity: number
+          p_loose: number
+          p_pack: number
+          p_business_date: string
+        }
+        Returns: Json
+      }
       preview_business_assortment_setup: {
         Args: { p_business_id: string }
         Returns: Json
