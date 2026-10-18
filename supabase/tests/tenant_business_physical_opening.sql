@@ -272,6 +272,36 @@ end;
 $owner_b$;
 reset role;
 
+-- After final activation, the original stock-count response remains
+-- recoverable, while new physical opening events are forbidden.
+update private.businesses set status='active'
+ where id='89a00000-0000-4000-9000-000000000022';
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89a00000-0000-4000-8000-000000000003',true);
+do $activated_physical_replay_only$
+declare v jsonb;
+begin
+ v:=public.record_business_physical_opening(
+   '89a00000-0000-4000-9000-000000000022',
+   '89a00000-0000-4000-9000-000000000061',
+   'drink','89a00000-0000-4000-9000-000000000042',
+   1,1,20,'2026-10-18');
+ if (v->'count'->>'total')::integer<>21 then
+  raise exception 'Saved B drink opening not recoverable after activation';
+ end if;
+ begin
+  perform public.record_business_physical_opening(
+   '89a00000-0000-4000-9000-000000000022',
+   '89a00000-0000-4000-9000-000000000070',
+   'bottle','Goldberg return bottle',10,0,0,'2026-10-18');
+  raise exception 'ACTIVE business accepted new bottle opening' using errcode='PT001';
+ exception when insufficient_privilege then null;
+ end;
+end;
+$activated_physical_replay_only$;
+reset role;
+
 do $verify$
 begin
  -- Private audit is inspected only as the disposable TEST ADMIN, not as
