@@ -45,6 +45,10 @@ declare
  v_existing private.legacy_customer_creation_requests%rowtype;
  v_customer_id uuid;
 begin
+  if not private.verified_legacy_owner_read() then
+    raise exception 'Verified original shop ownership required'
+      using errcode='42501';
+  end if;
  if v_actor is null then
   raise exception 'Original shop owner sign-in required' using errcode='42501';
  end if;
