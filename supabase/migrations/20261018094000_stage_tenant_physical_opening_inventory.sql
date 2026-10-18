@@ -47,6 +47,7 @@ language plpgsql security definer set search_path=''
 as $opening$
 declare
  v_actor uuid:=auth.uid();
+ v_business_status text;
  v_key text;
  v_payload jsonb;
  v_prior private.business_physical_opening_lines%rowtype;
@@ -59,11 +60,11 @@ begin
  end if;
  -- A previously saved inventory-opening request is visible ONLY while this
  -- actor still owns the verified SETUP-state business.
- perform 1 from private.business_memberships m
+ select b.status into v_business_status from private.business_memberships m
  join private.businesses b on b.id=m.business_id
  where m.business_id=p_business_id and m.user_id=v_actor
   and m.member_kind='owner' and m.status='active'
-  and b.legacy_singleton is null and b.status='setup'
+  and b.legacy_singleton is null and b.status in ('setup','active')
  for share of m,b;
  if not found then
   raise exception 'Business setup is not available' using errcode='42501';
@@ -134,6 +135,13 @@ begin
    'requestId',p_request_id,'businessId',p_business_id,
    'kind',p_kind,'resource',v_key,'count',v_prior.result
   );
+ end if;
+
+ -- An ACTIVE business can RECOVER a saved opening after a lost HTTP reply,
+ -- but it may never create a new opening after final cutover.
+ if v_business_status<>'setup' then
+  raise exception 'New opening entries are closed after activation'
+   using errcode='42501';
  end if;
 
  -- A request UUID already used for any different stock operation must NOT
