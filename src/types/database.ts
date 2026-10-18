@@ -1026,6 +1026,16 @@ export type Database = {
       }
     }
     Functions: {
+      can_register_business: { Args: Record<string, never>; Returns: boolean }
+      register_my_business: {
+        Args: {
+          p_request_id: string
+          p_name: string
+          p_address: string
+          p_phone: string
+        }
+        Returns: Json
+      }
       list_my_businesses_for_setup: {
         Args: Record<string, never>
         Returns: {
