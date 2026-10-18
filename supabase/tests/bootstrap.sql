@@ -4,7 +4,10 @@
 -- Run once against a disposable Postgres 16 database, before migrations.
 create schema if not exists auth;
 create table if not exists auth.users (
-  id uuid primary key default gen_random_uuid()
+  id uuid primary key default gen_random_uuid(),
+  -- Supabase Auth stores email verification here. Registration must check
+  -- verified identity, not caller-controlled user_metadata/JWT role claims.
+  email_confirmed_at timestamptz
 );
 create or replace function auth.uid() returns uuid
 language sql stable as $$
