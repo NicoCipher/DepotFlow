@@ -270,4 +270,198 @@ begin
  end if;
 end;
 $verify$;
+
+-- M2f: the remaining original-shop crate metadata RPCs must not expose
+-- another business's UUID through success/failure or privilege-dependent
+-- trigger errors. These procedures retain their existing public signatures.
+-- This policy is used BEFORE each read, write or related-table operation.
+create function private.legacy_crate_management_business()
+returns uuid language plpgsql volatile security definer set search_path=''
+as $scope$
+declare
+ v_actor uuid;
+ v_business uuid;
+begin
+ v_actor:=private.assert_legacy_assortment_owner();
+ select b.id into v_business
+ from private.shop_owner o
+ join private.business_memberships m on m.user_id=o.user_id
+ join private.businesses b on b.id=m.business_id
+ where o.user_id=v_actor
+   and m.member_kind='owner'
+   and b.legacy_singleton is true
+ for share of o,m,b;
+ -- Before initial backfill, the original shop's records have business_id
+ -- NULL. After membership exists, only that shop's own UUID is permitted.
+ return v_business;
+end;
+$scope$;
+revoke all on function private.legacy_crate_management_business()
+ from public,anon,authenticated,service_role;
+
+create or replace function private.edit_crate_type(
+ p_id uuid,p_name text,p_empty_family text,p_pocket_count numeric,p_variant text
+) returns uuid language plpgsql volatile security definer set search_path=''
+as $edit$
+declare
+ v_business uuid;
+ v_is_legacy boolean;
+begin
+ v_business:=private.legacy_crate_management_business();
+ p_name:=pg_catalog.btrim(p_name);
+ p_empty_family:=pg_catalog.btrim(p_empty_family);
+ p_variant:=nullif(pg_catalog.btrim(p_variant),'');
+ if p_id is null or p_name is null or pg_catalog.length(p_name) not between 1 and 120
+    or p_empty_family is null or pg_catalog.length(p_empty_family) not between 1 and 80
+    or pg_catalog.length(p_variant)>120 or p_pocket_count is null
+    or p_pocket_count<1 or p_pocket_count>2147483647
+    or p_pocket_count<>pg_catalog.trunc(p_pocket_count)
+    or p_pocket_count='NaN'::numeric then
+   raise exception 'Enter a name, family and positive whole pocket count.'
+     using errcode='22023';
+ end if;
+ -- For both missing and foreign UUIDs, return the SAME result. The row
+ -- lock precedes product-count trigger checks and protects concurrent edits.
+ select c.is_legacy into v_is_legacy from public.crate_types c
+ where c.id=p_id and (
+    (v_business is not null and c.business_id=v_business)
+    or (c.business_id is null and not exists(
+      select 1 from private.legacy_write_scope_gate where enabled is true
+    ))
+ ) for update;
+ if not found then
+   raise exception 'Crate type not found.' using errcode='22023';
+ end if;
+ if v_is_legacy then
+   raise exception 'This older crate record cannot be edited directly. Create an exact crate type and assign products to it instead.'
+     using errcode='55000';
+ end if;
+ update public.crate_types
+ set name=p_name,empty_family=p_empty_family,
+     pocket_count=p_pocket_count::integer,variant=p_variant
+ where id=p_id;
+ return p_id;
+end;
+$edit$;
+
+create or replace function private.delete_unused_crate_type(p_id uuid)
+returns void language plpgsql volatile security definer set search_path=''
+as $delete$
+declare
+ v_business uuid;
+begin
+ v_business:=private.legacy_crate_management_business();
+ if p_id is null then
+   raise exception 'Choose a crate type.' using errcode='22023';
+ end if;
+ delete from public.crate_types c
+ where c.id=p_id and (
+    (v_business is not null and c.business_id=v_business)
+    or (c.business_id is null and not exists(
+      select 1 from private.legacy_write_scope_gate where enabled is true
+    ))
+ );
+ if not found then
+   raise exception 'Crate type not found.' using errcode='P0002';
+ end if;
+ -- Linked stock, sales, empties and swap FKs still prevent deletion.
+end;
+$delete$;
+
+create or replace function private.set_crate_swap_rules(
+ p_owed_crate_type_id uuid,p_returned_crate_type_ids uuid[]
+) returns void language plpgsql volatile security definer set search_path=''
+as $swap$
+declare
+ v_business uuid;
+ v_legacy boolean;
+begin
+ v_business:=private.legacy_crate_management_business();
+ if p_owed_crate_type_id is null then
+   raise exception 'Choose a crate type.' using errcode='22023';
+ end if;
+ select c.is_legacy into v_legacy from public.crate_types c
+ where c.id=p_owed_crate_type_id and (
+    (v_business is not null and c.business_id=v_business)
+    or (c.business_id is null and not exists(
+      select 1 from private.legacy_write_scope_gate where enabled is true
+    ))
+ ) for key share;
+ if not found or v_legacy then
+   raise exception 'Choose an exact crate type.' using errcode='22023';
+ end if;
+ -- Every returned crate must ALSO be owned by this shop. A known foreign
+ -- returned ID and an unknown ID both receive exactly the same rejection.
+ if exists(
+    select 1
+    from pg_catalog.unnest(coalesce(p_returned_crate_type_ids,'{}'::uuid[]))
+      as selected(returned_id)
+    left join public.crate_types c
+      on c.id=selected.returned_id and (
+        (v_business is not null and c.business_id=v_business)
+        or (c.business_id is null and not exists(
+          select 1 from private.legacy_write_scope_gate where enabled is true
+        ))
+      )
+    where selected.returned_id is null
+       or selected.returned_id=p_owed_crate_type_id
+       or c.id is null or c.is_legacy
+ ) then
+   raise exception 'Choose only exact replacement crate types.'
+     using errcode='22023';
+ end if;
+ delete from public.crate_swap_rules
+ where owed_crate_type_id=p_owed_crate_type_id;
+ insert into public.crate_swap_rules(owed_crate_type_id,returned_crate_type_id)
+ select p_owed_crate_type_id,chosen.returned_id
+ from (select distinct returned_id from
+    pg_catalog.unnest(coalesce(p_returned_crate_type_ids,'{}'::uuid[]))
+    as returned(returned_id)) chosen;
+end;
+$swap$;
+
+create or replace function private.set_crate_deposit_price(
+ p_crate_type_id uuid,p_amount numeric
+) returns void language plpgsql volatile security definer set search_path=''
+as $deposit$
+declare
+ v_business uuid;
+ v_legacy boolean;
+begin
+ v_business:=private.legacy_crate_management_business();
+ if p_crate_type_id is null then
+   raise exception 'Choose a crate type.' using errcode='22023';
+ end if;
+ select c.is_legacy into v_legacy from public.crate_types c
+ where c.id=p_crate_type_id and (
+    (v_business is not null and c.business_id=v_business)
+    or (c.business_id is null and not exists(
+      select 1 from private.legacy_write_scope_gate where enabled is true
+    ))
+ ) for key share;
+ if not found or v_legacy then
+   raise exception 'Choose an exact crate type.' using errcode='22023';
+ end if;
+ if p_amount is null then
+   delete from public.crate_deposit_prices
+   where crate_type_id=p_crate_type_id;
+   return;
+ end if;
+ if p_amount='NaN'::numeric or p_amount<1 or p_amount>2147483647
+    or p_amount<>pg_catalog.trunc(p_amount)
+    or pg_catalog.mod(p_amount,50)<>0 then
+   raise exception 'Enter a deposit price in whole naira, in ₦50 steps.'
+     using errcode='22023';
+ end if;
+ insert into public.crate_deposit_prices(crate_type_id,amount,updated_at)
+ values(p_crate_type_id,p_amount::integer,pg_catalog.now())
+ on conflict(crate_type_id) do update
+ set amount=excluded.amount,updated_at=excluded.updated_at;
+end;
+$deposit$;
+
+-- Keep metadata operations exposed only through their existing explicitly
+-- gated public wrappers (and original private grants), not a new broad API.
+-- Creation still flows exclusively through server-generated-ID functions.
+
 commit;
