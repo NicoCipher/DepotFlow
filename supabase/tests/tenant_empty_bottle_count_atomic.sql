@@ -43,6 +43,29 @@ values
  ('89a00000-0000-4000-9000-000000000012',
   '89a00000-0000-4000-8000-000000000003','active','owner');
 
+-- Bottle inventory must correspond to a configured returnable drink in
+-- this exact business. Create controlled admin-only product fixtures.
+alter table public.crate_types disable trigger legacy_scope_business_write;
+alter table public.products disable trigger legacy_scope_business_write;
+insert into public.crate_types(id,business_id,name,empty_family,pocket_count)
+values
+ ('89a00000-0000-4000-9000-000000000031',
+  '89a00000-0000-4000-9000-000000000011','A Goldberg crate','NBL',20),
+ ('89a00000-0000-4000-9000-000000000032',
+  '89a00000-0000-4000-9000-000000000012','B Goldberg crate','NBL',20);
+insert into public.products(
+ id,business_id,name,bottles_per_crate,full_crate_price,
+ bottles_returnable,bottle_type,crate_type_id
+) values
+ ('89a00000-0000-4000-9000-000000000041',
+  '89a00000-0000-4000-9000-000000000011','A Goldberg',
+  20,10000,true,'Goldberg bottle','89a00000-0000-4000-9000-000000000031'),
+ ('89a00000-0000-4000-9000-000000000042',
+  '89a00000-0000-4000-9000-000000000012','B Goldberg',
+  20,12000,true,'Goldberg bottle','89a00000-0000-4000-9000-000000000032');
+alter table public.crate_types enable trigger legacy_scope_business_write;
+alter table public.products enable trigger legacy_scope_business_write;
+
 -- The new write surface must be unavailable until a distinct approved
 -- release explicitly grants EXECUTE and switches the administrative gate.
 do $default_off$
@@ -89,6 +112,15 @@ select set_config('request.jwt.claim.sub',
 do $owner_a$
 declare a jsonb;repeat jsonb;
 begin
+ -- A made-up label must NOT create accepted physical bottle stock.
+ begin
+  perform public.count_business_empty_bottles(
+    '89a00000-0000-4000-9000-000000000011',
+    '89a00000-0000-4000-9000-000000000110',
+    'invented bottle',8,0,'2026-10-17');
+  raise exception 'Invented returnable bottle was counted' using errcode='PT001';
+ exception when invalid_parameter_value then null;
+ end;
  a:=public.count_business_empty_bottles(
     '89a00000-0000-4000-9000-000000000011',
     '89a00000-0000-4000-9000-000000000101',
@@ -188,6 +220,42 @@ begin
 end;
 $stale_and_replay$;
 reset role;
+
+-- A saved request must remain replayable even after the returnable
+-- product is reconfigured. Only NEW requests need today's product identity.
+savepoint removed_bottle_identity;
+alter table public.products disable trigger legacy_scope_business_write;
+update public.products
+ set bottles_returnable=false,bottle_type=null
+ where id='89a00000-0000-4000-9000-000000000041';
+alter table public.products enable trigger legacy_scope_business_write;
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89a00000-0000-4000-8000-000000000002',true);
+do $replay_after_product_change$
+declare v jsonb;
+begin
+ v:=public.count_business_empty_bottles(
+   '89a00000-0000-4000-9000-000000000011',
+   '89a00000-0000-4000-9000-000000000101',
+   'Goldberg bottle',4,0,'2026-10-17');
+ if (v->>'quantity')::int<>4 then
+  raise exception 'Removed bottle identity broke saved count replay';
+ end if;
+ begin
+  perform public.count_business_empty_bottles(
+   '89a00000-0000-4000-9000-000000000011',
+   '89a00000-0000-4000-9000-000000000111',
+   'Goldberg bottle',5,5,'2026-10-17');
+  raise exception 'New count accepted withdrawn bottle identity'
+   using errcode='PT001';
+ exception when invalid_parameter_value then null;
+ end;
+end;
+$replay_after_product_change$;
+reset role;
+rollback to savepoint removed_bottle_identity;
+release savepoint removed_bottle_identity;
 
 do $bottle_totals$
 begin
