@@ -33,13 +33,26 @@ export async function signIn(
         email,
         message: "Could not sign in. Check your details and try again.",
       };
-    const owner = await supabase.rpc("is_shop_owner");
-    if (!ownerAuthorized(data.user.id, owner.data, owner.error)) {
-      await supabase.auth.signOut({ scope: "local" });
-      return {
-        email,
-        message: "This app is only available to the shop owner.",
-      };
+    // New-depot owners enter through a separate verified membership path.
+    // NEVER relax the legacy is_shop_owner() check for existing shop URLs.
+    if (returnTo === "/businesses") {
+      const depots = await supabase.rpc("list_my_businesses_for_setup");
+      if (depots.error || !depots.data?.length) {
+        await supabase.auth.signOut({ scope: "local" });
+        return {
+          email,
+          message: "Multi-business setup is not available for this account yet.",
+        };
+      }
+    } else {
+      const owner = await supabase.rpc("is_shop_owner");
+      if (!ownerAuthorized(data.user.id, owner.data, owner.error)) {
+        await supabase.auth.signOut({ scope: "local" });
+        return {
+          email,
+          message: "This app is only available to the shop owner.",
+        };
+      }
     }
   } catch {
     return { email, message: "Could not connect. Please try again." };
