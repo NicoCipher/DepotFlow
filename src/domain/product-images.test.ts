@@ -65,8 +65,22 @@ test("shared master photo wins over another depot's stale cached image", () => {
     currentProductImage({ image_url: cached, product_catalogue: { image_path: "first-party/new-goldberg.webp" } }),
     "/catalogue-photos/new-goldberg.webp",
   );
+  // Removing a master photo is a meaningful change, not a missing join:
+  // every linked depot must stop showing its historical cached image.
+  assert.equal(
+    currentProductImage({ image_url: cached, product_catalogue: { image_path: null } }),
+    null,
+  );
+  assert.equal(
+    currentProductImage({ image_url: cached, product_catalogue: { image_path: "" } }),
+    null,
+  );
   assert.equal(
     currentProductImage({ image_url: cached, product_catalogue: null }),
+    cached,
+  );
+  assert.equal(
+    currentProductImage({ image_url: cached }),
     cached,
   );
   assert.equal(
