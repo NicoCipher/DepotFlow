@@ -91,7 +91,7 @@ function actions(fail = false, deny = false, malformed?: "request" | "customer")
                     error: null,
                     data: {
                       customerId: malformed === "customer" ? "not-a-uuid" : issuedCustomerId,
-                      requestId: malformed === "request" ? customerId : args.p_request_id,
+                      requestId: malformed === "request" ? issuedCustomerId : args.p_request_id,
                       savedReplay: false,
                     },
                   };
