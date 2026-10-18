@@ -74,6 +74,7 @@ select set_config('request.jwt.claim.sub',
 do $verified_one$
 declare
  v jsonb;
+ v_blank text;
  replay jsonb;
  dep uuid;
 begin
@@ -145,11 +146,11 @@ begin
  -- A registered branch must never release its globally reserved name/address
  -- by blanking only the editable profile. The actual profile UPDATE path
  -- must reject this, not just the registration form.
- for v in
+ for v_blank in
   select value from (values (''::text),('   '::text)) as blanks(value)
  loop
   begin
-   update public.business_profiles set address=v
+   update public.business_profiles set address=v_blank
     where business_id=dep;
    raise exception 'Registered depot address was erased' using errcode='PT001';
   exception when invalid_parameter_value then null;
