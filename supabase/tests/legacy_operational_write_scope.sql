@@ -1,6 +1,10 @@
 -- M2d-1 verification on a disposable PG16 database only.
 -- All fixtures, payments, sales, and ownership changes roll back.
 begin;
+-- Rollback-only legacy ID fixture: customers are now created through a
+-- generated-ID legacy RPC, NOT direct authenticated INSERT(id). Preserve
+-- historical trigger/RLS constraints under a temporary test-only grant.
+grant insert(id) on public.customers to authenticated;
 
 insert into auth.users(id) values
  ('88000000-0000-4000-8000-000000000001'),
