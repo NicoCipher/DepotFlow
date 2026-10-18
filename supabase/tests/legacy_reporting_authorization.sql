@@ -2,6 +2,10 @@
 -- revoked legacy membership despite bypassing ordinary table RLS.
 -- Public verification-by-token intentionally stays accessible to anon.
 begin;
+-- Rollback-only legacy ID fixture: customers are now created through a
+-- generated-ID legacy RPC, NOT direct authenticated INSERT(id). Preserve
+-- historical trigger/RLS constraints under a temporary test-only grant.
+grant insert(id) on public.customers to authenticated;
 insert into auth.users(id) values
  ('89100000-0000-4000-8000-000000000001'),
  ('89100000-0000-4000-8000-000000000002');
