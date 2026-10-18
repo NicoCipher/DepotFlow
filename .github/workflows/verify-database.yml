@@ -80,6 +80,24 @@ jobs:
       - name: Run SQL test suite (each file is self-contained and rolls back)
         run: |
           set -euo pipefail
+          # Assert production privilege first: neither old nor new depot
+          # browsers may submit a chosen global customer PK anymore.
+          psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 <<'SQL'
+          do $guard$
+          begin
+           if has_column_privilege('authenticated','public.customers','id','INSERT')
+              or has_column_privilege('authenticated','public.customers','business_id','INSERT')
+           then raise exception 'Unaudited customer-ID insert grant remains';end if;
+          end;
+          $guard$;
+          SQL
+          # Historical isolated SQL fixtures intentionally submit fixed IDs
+          # to exercise old trigger/RLS/reporting behavior. Grant ONLY in
+          # disposable SQL test suite; never production, and REVOKE before
+          # running new real-concurrency scripts. The dedicated Data API
+          # test revokes it within its own transaction to verify live policy.
+          psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+            -c 'grant insert(id) on public.customers to authenticated;'
           for f in supabase/tests/*.sql; do
             case "$f" in
               */customer_archiving.sql|*/customer_payments.sql|*/empties_rules.sql|*/sale_partial_pricing.sql|*/record_sale_v2_empties.sql) continue ;;
@@ -87,6 +105,10 @@ jobs:
             echo "Running $f"
             psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 -f "$f"
           done
+          psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+            -c 'revoke insert(id) on public.customers from authenticated;'
+          psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+            -c "select case when has_column_privilege('authenticated','public.customers','id','INSERT') then 1/0 else 1 end;"
 
       - name: Run real-concurrency checks
         run: |
