@@ -2,6 +2,11 @@
 -- each other's rows, and the original pilot owner cannot read either.
 -- This test is disposable and rolls back. No public registration is enabled.
 begin;
+-- Rollback-only legacy ID fixture. The REAL migrated schema revokes
+-- authenticated INSERT(id), and every production customer gets a DB UUID
+-- through an owner-verified request-RPC. This historic adversarial fixture
+-- temporarily grants a chosen ID to test old RLS and legacy RPC isolation.
+grant insert(id) on public.customers to authenticated;
 
 insert into auth.users(id) values
  ('89300000-0000-4000-8000-000000000001'),
