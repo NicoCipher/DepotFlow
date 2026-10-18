@@ -63,6 +63,11 @@ declare
     || ' and private.can_read_legacy_customer(business_id);';
   v_old_movement constant text :=
     'from public.stock_movements where request_id=p_request_id';
+  v_recv_movement_old constant text :=
+    'from public.stock_movements where request_id = p_request_id';
+  v_recv_movement_new constant text :=
+    'from public.stock_movements where request_id = p_request_id'
+    || ' and private.can_read_legacy_customer(business_id)';
   v_new_movement constant text :=
     'from public.stock_movements where request_id=p_request_id'
     || ' and private.can_read_legacy_customer(business_id)';
@@ -92,10 +97,10 @@ begin
         /length(v_old_receipt);
       if v_hits<>1 then raise exception 'Expected one receiving replay, got %',v_hits;end if;
       v_source:=replace(v_source,v_old_receipt,v_new_receipt);
-      v_hits:=(length(v_source)-length(replace(v_source,v_old_movement,'')))
-        /length(v_old_movement);
+      v_hits:=(length(v_source)-length(replace(v_source,v_recv_movement_old,'')))
+        /length(v_recv_movement_old);
       if v_hits<>1 then raise exception 'Expected one receiving movement probe, got %',v_hits;end if;
-      v_source:=replace(v_source,v_old_movement,v_new_movement);
+      v_source:=replace(v_source,v_recv_movement_old,v_recv_movement_new);
     else
       v_hits:=(length(v_source)-length(replace(v_source,v_old_movement,'')))
         /length(v_old_movement);
