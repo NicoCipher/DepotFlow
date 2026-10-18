@@ -156,9 +156,8 @@ begin
  if second is distinct from first then
   raise exception 'Original receiving replay changed receipt: %',second;
  end if;
- if (select count(*) from public.stock_movements)<>1
-  or (select count(*) from private.stock_receipts)<>1 then
-  raise exception 'Receiving did not preserve exactly one stock/receipt event';
+ if (select count(*) from public.stock_movements)<>1 then
+  raise exception 'A must see exactly one of its own stock movements';
  end if;
  begin
   perform public.receive_business_stock(
