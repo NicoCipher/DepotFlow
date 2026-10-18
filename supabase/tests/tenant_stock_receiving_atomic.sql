@@ -242,6 +242,62 @@ end;
 $first_owners$;
 reset role;
 
+-- Cross-operation request reuse must fail in BOTH directions. The first
+-- receiving already committed in this disposable transaction (request 101).
+-- Enable the independently gated count RPC only inside this savepoint.
+savepoint two_operation_request_namespace;
+grant execute on function public.count_business_product_stock(
+ uuid,uuid,uuid,numeric,numeric,integer,integer,date
+) to authenticated;
+update private.business_product_stock_count_gate
+ set enabled=true where singleton;
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89f00000-0000-4000-8000-000000000002',true);
+do $count_and_receive_are_distinct$
+declare
+  v_result jsonb;
+begin
+  -- RECEIVING committed first. A same-request stock count must reject
+  -- even if the requested quantity is unchanged.
+  begin
+    perform public.count_business_product_stock(
+      '89f00000-0000-4000-9000-000000000021',
+      '89f00000-0000-4000-9000-000000000101',
+      '89f00000-0000-4000-9000-000000000041',
+      4,0,48,12,'2026-10-18');
+    raise exception 'Receiving request was reused by stock count'
+      using errcode='PT001';
+  exception when invalid_parameter_value then null;
+  end;
+
+  -- COUNT committed first. Receiving with the same UUID must also reject
+  -- before deducting any empty crates or making a movement/receipt.
+  v_result:=public.count_business_product_stock(
+    '89f00000-0000-4000-9000-000000000021',
+    '89f00000-0000-4000-9000-000000000106',
+    '89f00000-0000-4000-9000-000000000041',
+    4,0,48,12,'2026-10-18');
+  if (v_result->>'total')::int<>48 then
+    raise exception 'Test setup count changed stock unexpectedly';
+  end if;
+  begin
+    perform public.receive_business_stock(
+      '89f00000-0000-4000-9000-000000000021',
+      '89f00000-0000-4000-9000-000000000106',
+      '89f00000-0000-4000-9000-000000000041',
+      1,48,3,12,'89f00000-0000-4000-9000-000000000031',
+      '2026-10-18');
+    raise exception 'Stock count request was reused by receiving'
+      using errcode='PT001';
+  exception when invalid_parameter_value then null;
+  end;
+end;
+$count_and_receive_are_distinct$;
+reset role;
+rollback to savepoint two_operation_request_namespace;
+release savepoint two_operation_request_namespace;
+
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
  '89f00000-0000-4000-8000-000000000003',true);
