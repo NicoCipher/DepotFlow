@@ -262,6 +262,10 @@ end;
 $review_disabled$;
 reset role;
 update private.business_opening_review_gate set enabled=true where singleton;
+-- Direct bottle count permission is given ONLY in this rollback test,
+-- to prove a same-quantity count makes the stored review token stale.
+grant execute on function public.count_business_empty_bottles(
+ uuid,uuid,text,integer,integer,date) to authenticated;
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
  '89b00000-0000-4000-8000-000000000002',true);
@@ -276,6 +280,27 @@ begin
  v_review:=public.prepare_business_opening_review(
   '89b00000-0000-4000-9000-000000000021');
  v_token:=v_review->>'reviewToken';
+ -- A NEW ordinary count can record the exact same zero bottle balance.
+ -- It must invalidate this preview token. Roll back the test-only recount
+ -- in a PL/pgSQL subtransaction so a fresh sign-off can still succeed.
+ begin
+  perform public.count_business_empty_bottles(
+   '89b00000-0000-4000-9000-000000000021',
+   '89b00000-0000-4000-9000-000000000077',
+   'Goldberg bottle',0,0,'2026-10-18');
+  begin
+   perform public.confirm_business_opening_review(
+    '89b00000-0000-4000-9000-000000000021',
+    v_id,v_token,'Sample Depot A',
+    true,true,true,true,true);
+   raise exception 'Same-quantity recount was accepted as fresh owner review'
+    using errcode='PT001';
+  exception when invalid_parameter_value then null;
+  end;
+  raise exception 'Revert disposable recount after stale-token test'
+    using errcode='PT002';
+ exception when sqlstate 'PT002' then null;
+ end;
  if v_review->>'canActivate'<>'false'
   or v_review->>'reviewOnly'<>'true'
   or v_review->'snapshot'->>'technicalChecklistComplete'<>'true'
