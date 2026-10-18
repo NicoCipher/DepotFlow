@@ -36,8 +36,8 @@ async function save(
       errors: {},
       message: "Please reopen this form and try again.",
     };
+  let savedId = id;
   try {
-    let savedId = id;
     if (editing) {
       const result = await supabase
         .from("customers")
@@ -78,11 +78,6 @@ async function save(
       savedId = result.data.customerId;
     }
 
-    revalidatePath("/customers");
-    revalidatePath(`/customers/${savedId}`);
-    if (returnToSale && !editing)
-      return { values, errors: {}, createdId: savedId };
-    redirect(`/customers/${savedId}?saved=${editing ? "updated" : "added"}`);
   } catch {
     return {
       values,
@@ -91,8 +86,12 @@ async function save(
         "Could not connect. Your details are still here. Please try again.",
     };
   }
-  // Errors above return form state. Successful redirects must happen
-  // after the try/catch so Next.js's redirect exception is never caught.
+  revalidatePath("/customers");
+  revalidatePath(`/customers/${savedId}`);
+  if (returnToSale && !editing)
+    return { values, errors: {}, createdId: savedId };
+  // Redirect OUTSIDE try/catch; Next.js uses a thrown sentinel.
+  redirect(`/customers/${savedId}?saved=${editing ? "updated" : "added"}`);
 }
 
 export async function addCustomer(
