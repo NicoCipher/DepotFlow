@@ -102,8 +102,7 @@ begin
  then raise exception 'Idempotent business registration failed: %',replay;end if;
 
  if (select count(*) from public.business_profiles)<>1
- or (select count(*) from private.business_memberships
-     where user_id='89f00000-0000-4000-8000-000000000001')<>1 then
+ or (select count(*) from public.list_my_businesses_for_setup())<>1 then
   raise exception 'Registration request created duplicate partial records';
  end if;
  begin
