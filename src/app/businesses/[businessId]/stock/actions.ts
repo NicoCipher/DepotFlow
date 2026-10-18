@@ -2,20 +2,13 @@
 
 import { redirect } from "next/navigation";
 import { isUuid } from "@/domain/ids";
+import { parseOpeningQuantity, isValidDrinkOpeningQuantity } from "@/domain/opening-physical-count";
 import { loadOwnerAssortment } from "@/lib/businesses/setup";
 import { createClient } from "@/lib/supabase/server";
 
 export type OpeningCountState = { message: string };
 
 type OpeningKind = "drink" | "crate" | "bottle";
-
-function parseCount(value: FormDataEntryValue | null): number | null {
-  const string = typeof value === "string" ? value.trim() : "";
-  if (!/^[0-9]{1,10}$/.test(string)) return null;
-  const number = Number(string);
-  return Number.isSafeInteger(number) && number <= 2147483647
-    ? number : null;
-}
 
 function businessDate() {
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -59,15 +52,14 @@ export async function recordBusinessOpeningCount(
       return { message: "Choose an active drink belonging to this depot." };
     }
     pack = drink.packSize;
-    quantity = parseCount(form.get("full_crates"));
-    const readLoose = parseCount(form.get("loose_bottles"));
-    if (quantity === null || readLoose === null || readLoose >= pack ||
-      quantity * pack + readLoose > 2147483647) {
+    quantity = parseOpeningQuantity(form.get("full_crates"));
+    const readLoose = parseOpeningQuantity(form.get("loose_bottles"));
+    if (!isValidDrinkOpeningQuantity(quantity, readLoose, pack)) {
       return { message: "Enter whole crates and loose bottles below one full crate." };
     }
     loose = readLoose;
   } else {
-    quantity = parseCount(form.get("quantity"));
+    quantity = parseOpeningQuantity(form.get("quantity"));
     if (quantity === null) return { message: "Enter a valid whole-unit count, including zero." };
     if (kind === "crate" && !snapshot.crateTypes.some((c) =>
       c.id === resource && isUuid(resource))) {
