@@ -19,18 +19,30 @@ function OwedTypes({
 }) {
   const unused = options.filter((o) =>
     !entries.some((row) => row.type === o.type));
+  const key = label === "Empty crates" ? "crate" : "bottle";
   return (
     <div className="space-y-2">
       <h4 className="text-sm font-semibold">{label}</h4>
       {entries.map((row, i) => (
-        <div className="flex items-center gap-2" key={row.type}>
-          <span className="min-w-0 flex-1 break-words text-sm">
-            {options.find((o) => o.type === row.type)?.name ?? row.type}
-          </span>
-          <label className="sr-only" htmlFor={`owed-${label}-${i}`}>
+        <div className="flex flex-wrap items-center gap-2" key={i}>
+          <label className="sr-only" htmlFor={`owed-${key}-type-${i}`}>
+            Choose {label.toLowerCase()} type
+          </label>
+          <select id={`owed-${key}-type-${i}`} required
+            value={row.type} className="min-w-36 flex-1"
+            onChange={(e) => onChange(entries.map((item, j) =>
+              j === i ? { ...item, type: e.target.value } : item))}>
+            <option value="">Choose exact type</option>
+            {options.filter((o) => o.type === row.type ||
+              !entries.some((other, j) => j !== i && other.type === o.type))
+              .map((item) => (
+                <option key={item.type} value={item.type}>{item.name}</option>
+              ))}
+          </select>
+          <label className="sr-only" htmlFor={`owed-${key}-quantity-${i}`}>
             Quantity owed
           </label>
-          <input id={`owed-${label}-${i}`} type="number"
+          <input id={`owed-${key}-quantity-${i}`} type="number"
             inputMode="numeric" min={1} step={1} required
             className="w-20 shrink-0"
             value={row.quantity}
@@ -38,12 +50,12 @@ function OwedTypes({
               j === i ? { ...current, quantity: e.target.value } : current))} />
           <button type="button" className="secondary min-h-10 px-2 text-xs"
             onClick={() => onChange(entries.filter((_, j) => j !== i))}
-            aria-label={`Remove ${row.type}`}>Remove</button>
+            aria-label={`Remove ${label.toLowerCase()} entry`}>Remove</button>
         </div>
       ))}
       <button type="button" className="quiet-link min-h-11 text-sm"
         disabled={!unused.length}
-        onClick={() => onChange([...entries, { type: unused[0].type, quantity: "1" }])}>
+        onClick={() => onChange([...entries, { type: "", quantity: "1" }])}>
         {unused.length ? `+ Add ${label.toLowerCase()}` : "All types selected"}
       </button>
     </div>
