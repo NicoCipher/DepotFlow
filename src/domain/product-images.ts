@@ -73,7 +73,9 @@ export function currentProductImage(product: {
   image_url: string | null;
   product_catalogue?: { image_path: string | null } | null;
 }): string | null {
-  if (product.product_catalogue?.image_path) {
+  // A linked master row is authoritative even when its photo is withdrawn.
+  // Falling back to image_url here would resurrect an old or revoked image.
+  if (product.product_catalogue != null) {
     return catalogueImageUrl(product.product_catalogue.image_path);
   }
   return product.image_url;
