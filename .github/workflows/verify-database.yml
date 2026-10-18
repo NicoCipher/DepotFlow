@@ -107,7 +107,12 @@ jobs:
           # legacy_assortment_identity_boundary.sql test revokes again inside
           # its rollback-only transaction to prove real client access is blocked.
           psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 <<'SQL'
-          grant insert on public.products to authenticated;
+          grant insert (
+            id,name,size,image_url,bottles_per_crate,full_crate_price,
+            half_crate_price,quarter_crate_price,bottle_price,bottles_returnable,
+            empty_family,crate_type,bottle_type,crate_type_id,catalogue_product_id,
+            is_active,created_at
+          ) on public.products to authenticated;
           grant execute on function public.create_crate_type(uuid,text,text,numeric,text) to authenticated;
           grant execute on function private.create_crate_type(uuid,text,text,numeric,text) to authenticated;
           SQL
@@ -121,7 +126,12 @@ jobs:
           psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
             -c 'revoke insert (id,name,phone,business_name,address) on public.customers from authenticated;'
           psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 <<'SQL'
-          revoke insert on public.products from authenticated;
+          revoke insert (
+            id,name,size,image_url,bottles_per_crate,full_crate_price,
+            half_crate_price,quarter_crate_price,bottle_price,bottles_returnable,
+            empty_family,crate_type,bottle_type,crate_type_id,catalogue_product_id,
+            is_active,created_at
+          ) on public.products from authenticated;
           revoke execute on function public.create_crate_type(uuid,text,text,numeric,text) from authenticated;
           revoke execute on function private.create_crate_type(uuid,text,text,numeric,text) from authenticated;
           SQL
