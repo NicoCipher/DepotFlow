@@ -252,6 +252,24 @@ begin
  or (select count(*) from public.list_my_businesses_for_setup())<>1 then
   raise exception 'Second owner mixed registrations from A';
  end if;
+
+ -- A moved away from its original address. The current-profile UNIQUE
+ -- index does not include A's old Ikeja address anymore. B must not
+ -- acquire A's private reservation through an ordinary profile UPDATE.
+ begin
+  update public.business_profiles
+    set name='  Official   Depot A  ',
+        address='  Ikeja,    Lagos  '
+    where business_id=(v->>'businessId')::uuid;
+  raise exception 'B profile claimed original registered identity of A'
+    using errcode='PT001';
+ exception when invalid_parameter_value then null;
+ end;
+ if (select address from public.business_profiles
+     where business_id=(v->>'businessId')::uuid)
+   is distinct from 'Ibadan, Oyo' then
+  raise exception 'Rejected B profile update modified its actual address';
+ end if;
  if (select business_name from public.list_my_businesses_for_setup())
    <>'Official Depot A' then
   raise exception 'Other owner cannot see their own registered business';
