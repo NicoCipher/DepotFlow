@@ -423,7 +423,7 @@ $swap$;
 -- The historical UUID-keyed deposit function was retired in September.
 -- Do NOT reintroduce it; scope its replacement, the pocket-count API.
 create or replace function private.set_crate_deposit_price(
- p_pocket_count numeric,p_complete_amount numeric,p_crate_only_amount numeric
+ p_pocket_count numeric,p_complete_amount numeric,p_crate_only_amount numeric default null
 ) returns void language plpgsql volatile security definer set search_path=''
 as $deposit$
 declare
