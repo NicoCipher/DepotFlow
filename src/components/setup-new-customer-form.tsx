@@ -50,7 +50,7 @@ export function SetupNewCustomerForm({
         <div className="mt-3 space-y-3">
           <div>
             <label className="block text-sm font-semibold" htmlFor="setup-customer-business">
-              Customer's business name
+              Customer business name
             </label>
             <input id="setup-customer-business" name="business_name"
               maxLength={160} disabled={pending} className="mt-1 w-full" />
