@@ -9,12 +9,13 @@ import {
 
 const storageKey = "depotflow-appearance";
 const themeEvent = "depotflow-appearance-change";
+let tabOnlyPreference: ThemePreference = "system";
 
 function readPreference(): ThemePreference {
   try {
     return parseThemePreference(window.localStorage.getItem(storageKey));
   } catch {
-    return "system";
+    return tabOnlyPreference;
   }
 }
 
@@ -48,6 +49,7 @@ export function ThemeSelect() {
   }, []);
 
   function choose(preference: ThemePreference) {
+    tabOnlyPreference = preference;
     try {
       window.localStorage.setItem(storageKey, preference);
     } catch {

@@ -304,3 +304,15 @@ html[data-theme="dark"] [class~="text-[#0C4B37]"] { color: #d1fae5; }
   html[data-theme="dark"] .text-stone-950,
   html[data-theme="dark"] .text-stone-900 { color: #1c1917; }
 }
+
+
+/* Less common translucent surfaces and selection states. */
+html[data-theme="dark"] [class~="bg-white/65"] { background-color: rgba(248, 252, 248, 0.12); }
+html[data-theme="dark"] [class~="bg-white/80"] { background-color: rgba(25, 40, 33, 0.88); }
+html[data-theme="dark"] [class~="border-stone-200/80"] { border-color: rgba(52, 75, 62, 0.8); }
+html[data-theme="dark"] .border-emerald-700,
+html[data-theme="dark"] .border-emerald-800,
+html[data-theme="dark"] .border-emerald-900 { border-color: #59b989; }
+html[data-theme="dark"] [class~="hover:bg-emerald-50/30"]:hover { background-color: #2b533f; }
+html[data-theme="dark"] [class~="hover:border-emerald-400"]:hover { border-color: #65c994; }
+html[data-theme="dark"] [class~="group-hover:text-emerald-800"]:hover { color: #9be8b8; }
