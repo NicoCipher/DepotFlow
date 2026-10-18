@@ -1,7 +1,8 @@
 "use server";
 
 import { publicSignupConfig } from "@/domain/public-signup";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
+import { supabaseConfig } from "@/lib/supabase/config";
 
 export type CreateAccountState = {
   email: string;
@@ -41,7 +42,13 @@ export async function createPersonalAccount(
   }
 
   try {
-    const supabase = await createClient();
+    // Isolated stateless client: never reads or writes Supabase session cookies.
+    // If the Auth project misconfigures email confirmation and returns a
+    // session, that ephemeral response cannot authenticate this browser.
+    const { url, key } = supabaseConfig();
+    const supabase = createClient(url, key, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    });
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -60,7 +67,8 @@ export async function createPersonalAccount(
     // project incorrectly auto-issues a signup session, terminate it and
     // fail closed rather than silently bypassing the verification step.
     if (data.session) {
-      await supabase.auth.signOut({ scope: "local" });
+      // No cookie-backed session exists to clean up; this client is
+      // deliberately stateless. Do not rely on signOut() as a safety gate.
       return {
         email: "", submitted: false,
         message: "Account creation requires email confirmation. It is not configured correctly yet.",
