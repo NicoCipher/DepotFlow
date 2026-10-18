@@ -288,11 +288,13 @@ $verify_cross_business_counts$;
 -- while a fresh count using stale pack details must fail.
 savepoint replay_after_stock_metadata_change;
 alter table public.crate_types disable trigger legacy_scope_business_write;
-update public.crate_types set pocket_count=13
- where id='89e00000-0000-4000-9000-000000000031';
+insert into public.crate_types(id,name,empty_family,pocket_count,business_id)
+ values('89e00000-0000-4000-9000-000000000034','A replacement crate','NB',13,
+ '89e00000-0000-4000-9000-000000000021');
 alter table public.crate_types enable trigger legacy_scope_business_write;
 alter table public.products disable trigger legacy_scope_business_write;
-update public.products set bottles_per_crate=13
+update public.products set bottles_per_crate=13,
+ crate_type_id='89e00000-0000-4000-9000-000000000034'
  where id='89e00000-0000-4000-9000-000000000041';
 alter table public.products enable trigger legacy_scope_business_write;
 set local role authenticated;
