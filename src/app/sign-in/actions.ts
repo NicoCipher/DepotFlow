@@ -37,7 +37,17 @@ export async function signIn(
     // NEVER relax the legacy is_shop_owner() check for existing shop URLs.
     if (returnTo === "/businesses") {
       const depots = await supabase.rpc("list_my_businesses_for_setup");
-      if (depots.error || !depots.data?.length) {
+      // A confirmed owner with ZERO depots must still be able to sign in
+      // to REGISTER their first one. Registration has its OWN disabled gate.
+      // If listing is unavailable, never bypass that prerequisite.
+      const registration = !depots.error && !depots.data?.length
+        ? await supabase.rpc("can_register_business")
+        : null;
+      if (
+        depots.error ||
+        (!depots.data?.length &&
+          (registration?.error || registration?.data !== true))
+      ) {
         await supabase.auth.signOut({ scope: "local" });
         return {
           email,
