@@ -71,7 +71,7 @@ export default async function ChooseBusinessPage() {
             <li key={business.business_id}>
               {business.business_status === "setup" ? (
                 <Link
-                  href={`/businesses/${business.business_id}/opening`}
+                  href={`/businesses/${business.business_id}/drinks`}
                   className="flex min-h-20 items-center justify-between gap-4 rounded-2xl border border-stone-200 bg-white p-4 transition hover:border-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-800"
                 >
                   <span className="min-w-0">
