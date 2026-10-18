@@ -3,6 +3,7 @@ import { PageIntro } from "@/components/page-intro";
 import Link from "next/link";
 import { requireOwner } from "@/lib/auth/owner";
 import { StockCard } from "@/components/stock-card";
+import { currentProductImage } from "@/domain/product-images";
 
 export default async function StockPage({
   searchParams,
@@ -17,7 +18,7 @@ export default async function StockPage({
   );
   const { data, error, count } = await supabase
     .from("products")
-    .select("id,name,size,image_url,bottles_per_crate,stock(total_bottles)", {
+    .select("id,name,size,image_url,bottles_per_crate,stock(total_bottles),product_catalogue(image_path)", {
       count: "exact",
     })
     .eq("is_active", true)
@@ -83,7 +84,7 @@ export default async function StockPage({
           {data.map((product) => (
             <li key={product.id}>
               <StockCard
-                product={product}
+                product={{ ...product, image_url: currentProductImage(product) }}
                 totalBottles={product.stock?.total_bottles ?? null}
               />
             </li>
