@@ -9,8 +9,8 @@ insert into private.shop_owner(user_id)
 values ('89600000-0000-4000-8000-000000000001');
 select private.link_legacy_shop_business();
 insert into public.product_catalogue(id,name,manufacturer) values
- ('89600000-0000-4000-9000-000000000090','Goldberg setup test','NBL'),
- ('89600000-0000-4000-9000-000000000091','33 setup test','NBL'),
+ ('89600000-0000-4000-9000-000000000090','Goldberg setup test','NB'),
+ ('89600000-0000-4000-9000-000000000091','33 setup test','NB'),
  ('89600000-0000-4000-9000-000000000092','Heineken setup test','NBL');
 select private.backfill_legacy_shop_rows(private.legacy_scope_snapshot());
 do $validate$
