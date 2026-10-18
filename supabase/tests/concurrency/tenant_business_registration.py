@@ -88,12 +88,15 @@ try:
 finally:
     checked(f"""begin;
     set local session_replication_role=replica;
+    create temporary table race_businesses as
+      select business_id from private.business_memberships
+      where user_id='{actor}';
     delete from private.business_registration_requests where owner_id='{actor}';
     delete from public.business_profiles where business_id in (
-      select business_id from private.business_memberships where user_id='{actor}');
+      select business_id from race_businesses);
     delete from private.business_memberships where user_id='{actor}';
-    delete from private.businesses where id not in (
-      select business_id from private.business_memberships);
+    delete from private.businesses where id in (
+      select business_id from race_businesses);
     delete from auth.users where id='{actor}';
     update private.business_registration_gate set enabled=false;
     update private.business_selection_gate set enabled=false;
