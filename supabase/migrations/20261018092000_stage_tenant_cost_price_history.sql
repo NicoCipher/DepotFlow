@@ -45,6 +45,10 @@ create unique index prebackfill_owner_cost_history_unique
   on public.product_cost_history(
     owner_user_id,catalogue_product_id,effective_on,cost_price
   ) where business_id is null;
+-- Composite row identity allows a private request to enforce exact
+-- business ownership of the appended financial-cost ledger row.
+create unique index product_cost_history_business_row_unique
+  on public.product_cost_history(business_id,id);
 -- PostgreSQL truncates auto-generated constraint names at 63 bytes.
 -- Drop only the exact verified UNIQUE definition, not a guessed name.
 do $drop_historical_cost_unique$
@@ -83,6 +87,25 @@ insert into private.business_cost_history_gate(singleton,enabled)
  values(true,false);
 alter table private.business_cost_history_gate enable row level security;
 revoke all on private.business_cost_history_gate
+  from public,anon,authenticated,service_role;
+
+-- Request UUIDs are business-qualified; cost history row IDs remain globally
+-- unique independently. Two depots may legitimately submit one request UUID.
+create table private.business_cost_history_requests (
+  business_id uuid not null references private.businesses(id) on delete restrict,
+  request_id uuid not null,
+  actor_id uuid not null references auth.users(id) on delete restrict,
+  catalogue_product_id uuid not null references public.product_catalogue(id) on delete restrict,
+  cost_price integer not null check(cost_price>=0),
+  effective_on date not null,
+  history_id uuid not null,
+  created_at timestamptz not null default now(),
+  primary key(business_id,request_id),
+  foreign key(business_id,history_id)
+    references public.product_cost_history(business_id,id) on delete restrict
+);
+alter table private.business_cost_history_requests enable row level security;
+revoke all on private.business_cost_history_requests
   from public,anon,authenticated,service_role;
 
 -- Only an internally authorized INSERT may pass the legacy operational
@@ -143,7 +166,7 @@ language plpgsql security definer set search_path=''
 as $record_cost$
 declare
   v_actor uuid:=auth.uid();
-  v_event public.product_cost_history%rowtype;
+  v_event private.business_cost_history_requests%rowtype;
   v_written uuid;
 begin
   -- Membership and gate checks MUST happen before immutable event lookup;
@@ -181,18 +204,19 @@ begin
   perform pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended(p_business_id::text||':'||p_event_id::text,0)
   );
-  select * into v_event from public.product_cost_history
-    where id=p_event_id and business_id=p_business_id for update;
+  select * into v_event from private.business_cost_history_requests
+    where request_id=p_event_id and business_id=p_business_id for update;
   if found then
     if v_event.catalogue_product_id is distinct from p_catalogue_product_id
        or v_event.cost_price is distinct from p_cost_price
        or v_event.effective_on is distinct from p_effective_on
-       or v_event.owner_user_id is distinct from v_actor then
+       or v_event.actor_id is distinct from v_actor then
       raise exception 'This buying-cost request was already used'
         using errcode='22023';
     end if;
     return jsonb_build_object(
-      'eventId',v_event.id,'businessId',p_business_id,
+      'requestId',p_event_id,'eventId',v_event.history_id,
+      'businessId',p_business_id,
       'catalogueProductId',v_event.catalogue_product_id,
       'costPrice',v_event.cost_price,'effectiveOn',v_event.effective_on
     );
@@ -204,17 +228,23 @@ begin
     raise exception 'Master catalogue drink not found' using errcode='22023';
   end if;
   insert into public.product_cost_history(
-    id,owner_user_id,business_id,catalogue_product_id,cost_price,effective_on
+    owner_user_id,business_id,catalogue_product_id,cost_price,effective_on
   ) values(
-    p_event_id,v_actor,p_business_id,p_catalogue_product_id,
-    p_cost_price,p_effective_on
+    v_actor,p_business_id,p_catalogue_product_id,p_cost_price,p_effective_on
   ) on conflict do nothing returning id into v_written;
   if v_written is null then
-    raise exception 'Buying-cost event or identical quote already exists'
+    raise exception 'Identical business buying-cost quote already recorded'
       using errcode='22023';
   end if;
+  insert into private.business_cost_history_requests(
+    business_id,request_id,actor_id,catalogue_product_id,
+    cost_price,effective_on,history_id
+  ) values(
+    p_business_id,p_event_id,v_actor,p_catalogue_product_id,
+    p_cost_price,p_effective_on,v_written
+  );
   return jsonb_build_object(
-    'eventId',p_event_id,'businessId',p_business_id,
+    'requestId',p_event_id,'eventId',v_written,'businessId',p_business_id,
     'catalogueProductId',p_catalogue_product_id,
     'costPrice',p_cost_price,'effectiveOn',p_effective_on
   );
