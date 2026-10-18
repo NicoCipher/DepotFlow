@@ -64,7 +64,7 @@ export default async function OpeningBalancesPage({
               <dt>Refundable deposit held for customer</dt>
               <dd className="font-semibold">{formatNaira(opening.deposit_amount)}</dd>
             </div>
-          )
+          )}
         </dl>
         {(
           [
