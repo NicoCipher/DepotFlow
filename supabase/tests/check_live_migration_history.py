@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1] / "migrations"
-PATTERN = re.compile(r"^(\\d{14})_([a-z][a-z0-9_]*)\\.sql$")
+PATTERN = re.compile(r"^(\d{14})_([a-z][a-z0-9_]*)\.sql$")
 
 
 def local_migrations(directory: Path = ROOT) -> dict[str, str]:
@@ -47,7 +47,7 @@ def remote_migrations(payload: object) -> dict[str, str | None]:
     result: dict[str, str | None] = {}
     for item in versions:
         version = item if isinstance(item, str) else item.get("version") if isinstance(item, dict) else None
-        if not isinstance(version, str) or not re.fullmatch(r"\\d{14}", version):
+        if not isinstance(version, str) or not re.fullmatch(r"\d{14}", version):
             raise ValueError(f"Invalid remote migration version: {item!r}")
         if version in result:
             raise ValueError(f"Duplicate remote migration version: {version}")
