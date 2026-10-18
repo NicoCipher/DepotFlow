@@ -55,15 +55,12 @@ select count(*) into v_customer_openings
    )
  );
  select ($new$;
-  v_old_label constant text:="'changedAfterOpening',v_physical_drift,";
-  v_new_label constant text:=
-    "'changedAfterOpening',v_physical_drift,"||E'\n    'includingSameQuantityRecounts',true,';
   v_count integer;
 begin
   v_src:=pg_catalog.pg_get_functiondef(v_oid);
   if v_src is null
     or pg_catalog.strpos(v_src,'private.business_opening_readiness_gate')=0
-    or pg_catalog.strpos(v_src,'includingSameQuantityRecounts')<>0
+    or pg_catalog.strpos(v_src,'select count(*) into v_physical_drift')=0
   then
     raise exception 'Readiness source/gate drift; manual review required';
   end if;
@@ -82,11 +79,6 @@ begin
     /pg_catalog.length(v_old_tail);
   if v_count<>1 then raise exception 'Drift query tail changed: %',v_count;end if;
   v_src:=pg_catalog.replace(v_src,v_old_tail,v_new_tail);
-  v_count:=(pg_catalog.length(v_src)
-   -pg_catalog.length(pg_catalog.replace(v_src,v_old_label,'')))
-    /pg_catalog.length(v_old_label);
-  if v_count<>1 then raise exception 'Drift response source changed: %',v_count;end if;
-  v_src:=pg_catalog.replace(v_src,v_old_label,v_new_label);
   execute v_src;
 end;
 $patch_opening_readiness$;
