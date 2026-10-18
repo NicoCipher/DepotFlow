@@ -107,8 +107,14 @@ jobs:
           done
           psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
             -c 'revoke insert(id) on public.customers from authenticated;'
-          psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
-            -c "select case when has_column_privilege('authenticated','public.customers','id','INSERT') then 1/0 else 1 end;"
+          psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 <<'SQL'
+          do $post_sql_fixture$
+          begin
+           if has_column_privilege('authenticated','public.customers','id','INSERT')
+           then raise exception 'Customer chosen-PK privilege leaked out of SQL fixture';end if;
+          end;
+          $post_sql_fixture$;
+          SQL
 
       - name: Run real-concurrency checks
         run: |
