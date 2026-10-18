@@ -25,6 +25,16 @@ For 11 same-timestamp migrations, 2 SQL texts are byte-identical and 9 match aft
 1. **Live `20260927154550_customer_archiving`** maps to local `20260926224656_customer_archiving.sql`. The local SQL contains a trailing `REVOKE ALL ON FUNCTION private.save_sale(uuid,uuid,date,numeric,jsonb) FROM public,anon,authenticated;` before COMMIT. That revocation is **absent in the recorded applied live SQL**. Confirm the current actual function and EXECUTE grants read-only (a later migration could independently revoke it) before drafting a forward-only security repair.
 2. **Live `20261014072834_sale_with_old_debt_payment`** maps by name to `20261014110000_sale_with_old_debt_payment.sql`, but their SQL bodies differ materially: live starts with an atomic old-debt and sale saver, while the repository candidate includes receipt-snapshot setup. Do **not** treat these as alternate timestamps for equivalent migrations.
 
+## Current live privilege checks (same read-only session)
+
+A separate SELECT-only inspection of `pg_proc` and `information_schema` showed:
+
+- `private.save_sale(uuid,uuid,date,numeric,jsonb)` **does not currently exist** in live production. The historical source difference above is real, but **does not itself establish a currently exposed RPC**; later migrations retired that signature. Recheck on the actual schema clone.
+- The old `public.create_crate_type(uuid,text,text,numeric,text)` and `private.create_crate_type(...)` are executable by `authenticated` and not `anon`. Their caller-supplied ID handling remains a cross-tenant collision risk **once another depot has records**.
+- `authenticated` still has `INSERT(id)` privilege on `public.products`, as well as other direct product INSERT privileges. The original shop's product editor also retains UPDATE permission. The direct selected-PK INSERT must be removed and replaced with a safe generated-ID creation path before live tenant assortment is activated.
+
+These findings reinforce that lexical history matches do **not** establish security parity or readiness. They are not a reason to mutate live Auth/roles/grants in advance of a reviewed forward-only migration.
+
 ## Thirteen live migrations without exact suffix candidates
 
 `20260925113009_product_images`,
