@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import Link from "next/link";
 import { SetupCrateForm } from "@/components/setup-crate-form";
+import { ProductImage } from "@/components/product-image";
+import { catalogueImageUrl } from "@/domain/product-images";
 import { loadOwnerAssortment } from "@/lib/businesses/setup";
 import { isUuid } from "@/domain/ids";
 
@@ -94,9 +96,14 @@ export default async function NewDepotDrinksPage({
         <ul className="mt-3 divide-y divide-stone-200 overflow-hidden rounded-2xl border border-stone-200 bg-white">
           {options.map((item) => (
             <li key={item.id} className="flex items-center justify-between gap-3 p-3">
-              <span className="min-w-0">
-                <strong className="block break-words text-sm">{item.name}</strong>
-                {item.manufacturer && <span className="text-xs text-stone-600">{item.manufacturer}</span>}
+              <span className="flex min-w-0 items-center gap-3">
+                <span className="h-16 w-12 shrink-0 overflow-hidden rounded-xl bg-stone-100">
+                  <ProductImage src={catalogueImageUrl(item.imagePath)} name={item.name} />
+                </span>
+                <span className="min-w-0">
+                  <strong className="block break-words text-sm">{item.name}</strong>
+                  {item.manufacturer && <span className="text-xs text-stone-600">{item.manufacturer}</span>}
+                </span>
               </span>
               {snapshot.crateTypes.length>0 ? (
                 <Link className="secondary shrink-0" href={`/businesses/${businessId}/drinks/add?catalogue=${item.id}`}>
