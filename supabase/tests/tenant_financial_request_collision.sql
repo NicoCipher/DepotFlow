@@ -40,6 +40,10 @@ insert into private.businesses(id,status)
 insert into private.business_memberships(business_id,user_id,status,member_kind)
  values('89c00000-0000-4000-9000-000000000021',
         '89c00000-0000-4000-8000-000000000002','active','owner');
+-- Rollback-only financial fixture: temporarily restore legacy tenant
+-- INSERT(business_id) solely to create a foreign customer for testing
+-- older privileged financial RPC isolation. Never in production.
+grant insert(business_id) on public.customers to authenticated;
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
  '89c00000-0000-4000-8000-000000000002',true);
@@ -48,6 +52,7 @@ insert into public.customers(id,name,phone,business_id)
  'Foreign debtor','08000890022',
  '89c00000-0000-4000-9000-000000000021');
 reset role;
+revoke insert(business_id) on public.customers from authenticated;
 
 -- The foreign financial rows are fixture-only superuser inserts. The new
 -- owner is NOT permitted to record sales, stock, payment or empty returns.
