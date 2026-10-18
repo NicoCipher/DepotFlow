@@ -106,7 +106,8 @@ begin
  v_address:=pg_catalog.btrim(pg_catalog.regexp_replace(p_address,'[[:space:]]+',' ','g'));
  v_phone:=pg_catalog.btrim(p_phone);
  if pg_catalog.length(v_name) not between 2 and 120
-    or pg_catalog.length(v_address)>400 or pg_catalog.length(v_phone)>40
+    or pg_catalog.length(v_address) not between 5 and 400
+    or pg_catalog.length(v_phone)>40
     or v_name ~ '[[:cntrl:]]' or v_address ~ '[[:cntrl:]]'
     or v_phone ~ '[[:cntrl:]]' then
    raise exception 'Check the depot name, address and phone length'
@@ -154,8 +155,13 @@ begin
    using errcode='22023';
  end if;
 
- -- Block duplicate accidental second requests for the SAME physical shop
- -- while permitting two branches with the same name in different addresses.
+ -- The GLOBAL unique normalized (name,address) index also protects
+ -- against a second owner account or an edited profile claiming the same
+ -- exact named physical location. Conflict requires human ownership review.
+ -- This owner-specific check offers an understandable error, but the
+ -- unique DB index is the actual race-safe cross-owner authority.
+ -- Different physical branches can still use the same brand name.
+
  if exists(
   select 1 from private.business_memberships m
    join public.business_profiles p on p.business_id=m.business_id
