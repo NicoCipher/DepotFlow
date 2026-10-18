@@ -20,7 +20,8 @@ begin
   from pg_catalog.pg_constraint c
   where c.conrelid='public.product_cost_history'::regclass
     and c.contype='u'
-    and c.conname='product_cost_history_owner_user_id_catalogue_product_id_effective_on_cost_price_key';
+    and pg_catalog.pg_get_constraintdef(c.oid)=
+      'UNIQUE (owner_user_id, catalogue_product_id, effective_on, cost_price)';
   if v_name is null or v_key is distinct from
      'UNIQUE (owner_user_id, catalogue_product_id, effective_on, cost_price)' then
     raise exception 'Historical buying-cost uniqueness drift: %',v_key;
@@ -44,8 +45,25 @@ create unique index prebackfill_owner_cost_history_unique
   on public.product_cost_history(
     owner_user_id,catalogue_product_id,effective_on,cost_price
   ) where business_id is null;
-alter table public.product_cost_history
-  drop constraint product_cost_history_owner_user_id_catalogue_product_id_effective_on_cost_price_key;
+-- PostgreSQL truncates auto-generated constraint names at 63 bytes.
+-- Drop only the exact verified UNIQUE definition, not a guessed name.
+do $drop_historical_cost_unique$
+declare v_name name;
+begin
+  select c.conname into v_name
+  from pg_catalog.pg_constraint c
+  where c.conrelid='public.product_cost_history'::regclass
+    and c.contype='u'
+    and pg_catalog.pg_get_constraintdef(c.oid)=
+      'UNIQUE (owner_user_id, catalogue_product_id, effective_on, cost_price)';
+  if v_name is null then
+    raise exception 'Verified historical cost unique constraint disappeared';
+  end if;
+  execute pg_catalog.format(
+    'alter table public.product_cost_history drop constraint %I',v_name
+  );
+end;
+$drop_historical_cost_unique$;
 
 -- Cost visibility follows the owning depot. The original pilot still needs
 -- its owner_user_id predicate, including during its NULL-tagged backfill.
