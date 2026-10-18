@@ -85,9 +85,10 @@ export function CrateTypeForm({
         startTransition(async () => {
           try {
             const result = await saveCrateType(submissionId, editing, values);
-            if (result.saved) {
+            if (result.saved && result.id) {
               if (onSaved) {
-                onSaved({ id: submissionId, ...validateCrateType(values), is_legacy: false });
+                // submissionId is a retry token, NOT the actual crate PK.
+                onSaved({ id: result.id, ...validateCrateType(values), is_legacy: false });
               } else {
                 router.push("/crate-types?saved=1");
                 router.refresh();
