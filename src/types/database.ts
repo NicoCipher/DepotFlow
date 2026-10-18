@@ -1026,6 +1026,10 @@ export type Database = {
       }
     }
     Functions: {
+      preview_business_opening_count_progress: {
+        Args: { p_business_id: string }
+        Returns: Json
+      }
       record_business_physical_opening: {
         Args: {
           p_business_id: string
