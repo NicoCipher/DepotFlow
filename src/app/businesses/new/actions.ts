@@ -23,7 +23,7 @@ export async function registerDepot(
   const requestId = String(formData.get("request_id") ?? "");
   const invalid: RegisterDepotState = {
     name, address, phone,
-    message: "Enter a business name (2–120 characters), address (up to 400) and phone (up to 40).",
+    message: "Enter a business name (2–120 characters), location (required, up to 400) and phone (up to 40).",
   };
 
   if (
