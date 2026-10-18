@@ -153,6 +153,10 @@ alter table public.empty_bottle_stock enable trigger legacy_scope_business_write
 -- Seed only disposable FOREIGN movements and one foreign outstanding debt.
 -- Operational stock/debt functions remain forbidden to new business owners.
 -- This exercises the privileged manager/activity RPCs that bypass RLS.
+-- Disposable foreign-customer fixture only. Production no longer grants
+-- authenticated INSERT(business_id); temporarily elevate then revoke
+-- before invoking the tested privileged inventory reader RPCs.
+grant insert(business_id) on public.customers to authenticated;
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
  '89600000-0000-4000-8000-000000000003',true);
@@ -161,6 +165,7 @@ values ('89600000-0000-4000-9000-000000000061',
  'B-only customer','08000896061',
  '89600000-0000-4000-9000-000000000042');
 reset role;
+revoke insert(business_id) on public.customers from authenticated;
 
 alter table public.money_owed disable trigger legacy_scope_business_write;
 alter table public.sales disable trigger legacy_scope_business_write;
