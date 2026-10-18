@@ -84,6 +84,11 @@ end;
 $disabled$;
 reset role;
 update private.business_assortment_setup_gate set enabled=true where singleton;
+-- Guided setup discovery is separately protected; only this disposable
+-- test grants its read permission and enables owner business selection.
+grant execute on function public.preview_business_assortment_setup(uuid)
+ to authenticated;
+update private.business_selection_gate set enabled=true where singleton;
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
@@ -218,6 +223,54 @@ begin
  end;
 end;
 $owner_b$;
+reset role;
+
+-- Shared catalogue identities are allowed; no other business's
+-- assortment price, selected drink, or physical crate can be leaked.
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89600000-0000-4000-8000-000000000002',true);
+do $a_setup_preview$
+declare v jsonb;
+begin
+ v:=public.preview_business_assortment_setup(
+  '89600000-0000-4000-9000-000000000021');
+ if v->>'businessId'<>'89600000-0000-4000-9000-000000000021'
+  or pg_catalog.jsonb_array_length(v->'catalogue')<>3
+  or pg_catalog.jsonb_array_length(v->'crateTypes')<>2
+  or pg_catalog.jsonb_array_length(v->'configuredDrinks')<>3
+  or v->>'canActivate'<>'false'
+  or v->>'readOnly'<>'true'
+  or (v->'configuredDrinks')::text like '%13000%'
+  or (v->'crateTypes')::text like '%B Goldberg own crate%' then
+   raise exception 'A setup preview failed owner isolation: %',v;
+ end if;
+ begin
+  perform public.preview_business_assortment_setup(
+   '89600000-0000-4000-9000-000000000022');
+  raise exception 'Owner A obtained B setup' using errcode='PT001';
+ exception when insufficient_privilege then null;
+ end;
+end;
+$a_setup_preview$;
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89600000-0000-4000-8000-000000000003',true);
+do $b_setup_preview$
+declare v jsonb;
+begin
+ v:=public.preview_business_assortment_setup(
+  '89600000-0000-4000-9000-000000000022');
+ if pg_catalog.jsonb_array_length(v->'configuredDrinks')<>1
+  or pg_catalog.jsonb_array_length(v->'crateTypes')<>1
+  or (v->'configuredDrinks')::text like '%10500%'
+  or (v->'crateTypes')::text like '%NBL shared%' then
+  raise exception 'B preview mixed A assortment/pricing: %',v;
+ end if;
+end;
+$b_setup_preview$;
 reset role;
 
 do $verify$
