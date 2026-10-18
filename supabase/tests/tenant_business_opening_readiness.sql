@@ -206,6 +206,56 @@ reset role;
 rollback to savepoint corrupted_money;
 release savepoint corrupted_money;
 
+-- A later ordinary count can change stock without changing the
+-- historical opening marker. Readiness must detect that drift.
+savepoint changed_physical_after_opening;
+alter table public.stock disable trigger legacy_scope_business_write;
+update public.stock set total_bottles=25
+ where product_id='89b00000-0000-4000-9000-000000000041';
+alter table public.stock enable trigger legacy_scope_business_write;
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89b00000-0000-4000-8000-000000000002',true);
+do $detect_physical_drift$
+declare v jsonb;
+begin
+ v:=public.preview_business_opening_readiness(
+  '89b00000-0000-4000-9000-000000000021');
+ if v->>'technicalChecklistComplete'<>'false'
+    or v->'physicalOpening'->>'changedAfterOpening'<>'1' then
+  raise exception 'Changed physical count incorrectly marked complete: %',v;
+ end if;
+end;
+$detect_physical_drift$;
+reset role;
+rollback to savepoint changed_physical_after_opening;
+release savepoint changed_physical_after_opening;
+
+-- Even when overall money totals could appear plausible, a mismatch
+-- in an exact branded empty obligation must block readiness.
+savepoint wrong_owed_crates;
+alter table public.crate_obligations disable trigger legacy_scope_business_write;
+update public.crate_obligations set quantity=3
+ where customer_id='89b00000-0000-4000-9000-000000000051';
+alter table public.crate_obligations enable trigger legacy_scope_business_write;
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89b00000-0000-4000-8000-000000000002',true);
+do $detect_obligation_drift$
+declare v jsonb;
+begin
+ v:=public.preview_business_opening_readiness(
+  '89b00000-0000-4000-9000-000000000021');
+ if v->>'technicalChecklistComplete'<>'false'
+    or v->'customerOpening'->>'accountMismatches'<>'1' then
+  raise exception 'Changed crate obligation incorrectly marked complete: %',v;
+ end if;
+end;
+$detect_obligation_drift$;
+reset role;
+rollback to savepoint wrong_owed_crates;
+release savepoint wrong_owed_crates;
+
 -- No unauthenticated or unrelated user may inspect this financial snapshot.
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
