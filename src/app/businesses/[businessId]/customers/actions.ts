@@ -70,5 +70,5 @@ export async function addBusinessCustomer(
     );
   }
 
-  redirect(`/businesses/${businessId}/customers?added=1`);
+  redirect(`/businesses/${businessId}/customers?added=1&customer=${data.customerId}`);
 }
