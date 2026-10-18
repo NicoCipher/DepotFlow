@@ -13,8 +13,9 @@ import {
 } from "./sale-drafts.ts";
 // Exercise the existing server actions with Auth/Data API and navigation mocked;
 // no customer fixtures or business writes are sent to Supabase by these tests.
-function actions(fail = false, deny = false) {
+function actions(fail = false, deny = false, malformed?: "request" | "customer") {
   const creates: Record<string, unknown>[] = [];
+  const edits: Array<{ id: string; values: Record<string, unknown> }> = [];
   const redirects: string[] = [];
   let authorized = 0;
   const loadedModule = {
@@ -25,6 +26,11 @@ function actions(fail = false, deny = false) {
         data: FormData,
       ) => Promise<customers.CustomerFormState>;
       addCustomer: (
+        id: string,
+        previous: customers.CustomerFormState,
+        data: FormData,
+      ) => Promise<customers.CustomerFormState>;
+      editCustomer: (
         id: string,
         previous: customers.CustomerFormState,
         data: FormData,
@@ -57,6 +63,25 @@ function actions(fail = false, deny = false) {
           authorized++;
           if (deny) throw new Error("Owner only");
           return {
+            from: (table: string) => {
+              assert.equal(table, "customers");
+              return {
+                update: (values: Record<string, unknown>) => ({
+                  eq: (column: string, id: string) => {
+                    assert.equal(column, "id");
+                    edits.push({ id, values });
+                    return {
+                      select: (column: string) => {
+                        assert.equal(column, "id");
+                        return {
+                          maybeSingle: async () => ({ error: null, data: { id } }),
+                        };
+                      },
+                    };
+                  },
+                }),
+              };
+            },
             rpc: async (fn: string, args: Record<string, unknown>) => {
               assert.equal(fn, "create_legacy_customer");
               creates.push(args);
@@ -65,8 +90,8 @@ function actions(fail = false, deny = false) {
                 : {
                     error: null,
                     data: {
-                      customerId: issuedCustomerId,
-                      requestId: args.p_request_id,
+                      customerId: malformed === "customer" ? "not-a-uuid" : issuedCustomerId,
+                      requestId: malformed === "request" ? customerId : args.p_request_id,
                       savedReplay: false,
                     },
                   };
@@ -84,6 +109,7 @@ function actions(fail = false, deny = false) {
   return {
     api: loadedModule.exports,
     creates,
+    edits,
     redirects,
     authorized: () => authorized,
   };
@@ -198,6 +224,32 @@ test("normal Add Customer still saves through the same action and redirects to c
   assert.equal(server.creates.length, 1);
   assert.deepEqual(server.redirects, [`/customers/${issuedCustomerId}?saved=added`]);
 });
+test("editing an existing customer still uses an ID-scoped UPDATE, not the creation RPC", async () => {
+  const server = actions();
+  await assert.rejects(
+    server.api.editCustomer(issuedCustomerId, previous, form("Edited customer")),
+    /redirect/,
+  );
+  assert.equal(server.creates.length, 0);
+  assert.deepEqual(server.edits, [{
+    id: issuedCustomerId,
+    values: { name: "Edited customer", phone: "+2348012345678",
+      business_name: null, address: null },
+  }]);
+  assert.deepEqual(server.redirects, [`/customers/${issuedCustomerId}?saved=updated`]);
+});
+
+test("an invalid or mismatched customer RPC response cannot select the wrong sale customer", async () => {
+  for (const malformed of ["request", "customer"] as const) {
+    const server = actions(false, false, malformed);
+    const result = await server.api.addCustomerForSale(customerId, previous, form());
+    assert.equal(result.createdId, undefined);
+    assert.match(result.message ?? "", /Could not confirm/);
+    assert.deepEqual(server.redirects, []);
+    assert.equal(server.creates.length, 1);
+  }
+});
+
 test("owner guard still runs before a customer write and a changed active draft cannot be overwritten", async () => {
   const server = actions(false, true);
   await assert.rejects(
