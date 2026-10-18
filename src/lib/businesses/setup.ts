@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 
 type BusinessSetupLoad =
   | { state: "disabled" }
+  | { state: "incomplete" }
   | { state: "ready"; snapshot: AssortmentSetup; name: string };
 
 /** Never trust a route's business UUID. The owner MUST be on the
@@ -30,6 +31,15 @@ export async function loadOwnerAssortment(businessId: string): Promise<BusinessS
   });
   if (error || !data) return { state: "disabled" };
   const snapshot = parseBusinessAssortment(data, businessId);
-  if (!snapshot) throw new Error("Could not verify the selected depot's guided setup.");
+  if (!snapshot) {
+    // A deliberately capped catalogue is not a complete stock setup.
+    // Keep every write unavailable and tell the owner why, rather than
+    // silently presenting a partial list as the full business catalogue.
+    if (data && typeof data === "object" && !Array.isArray(data) &&
+      data.businessId === businessId && data.truncated === true) {
+      return { state: "incomplete" };
+    }
+    throw new Error("Could not verify the selected depot's guided setup.");
+  }
   return { state: "ready", snapshot, name: business.business_name };
 }
