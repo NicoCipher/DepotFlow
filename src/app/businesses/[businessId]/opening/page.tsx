@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { OnboardingOpeningReview } from "@/components/onboarding-opening-review";
-import type { OpeningReadinessSnapshot } from "@/domain/opening-readiness";
+import { OnboardingOwnerSignoffForm } from "@/components/onboarding-owner-signoff-form";
+import { canPresentOwnerSignoff, type OpeningReadinessSnapshot } from "@/domain/opening-readiness";
 import { isUuid } from "@/domain/ids";
 import { createClient } from "@/lib/supabase/server";
 
@@ -74,13 +75,54 @@ export default async function BusinessOpeningReviewPage({
   ) {
     throw new Error("Could not verify this business opening review.");
   }
-  const snapshot = rawSnapshot as unknown as OpeningReadinessSnapshot;
+  let snapshot = rawSnapshot as unknown as OpeningReadinessSnapshot;
+  let signoffToken: string | null = null;
+
+  // A separate and currently DISABLED gate controls whether an owner can
+  // sign anything. Only show the form if that gate returns a server token.
+  // Display the EXACT prepared snapshot paired with the token, never a
+  // separate potentially outdated preview from an earlier database read.
+  if (canPresentOwnerSignoff(snapshot)) {
+    const { data: prepared, error: prepareError } = await supabase.rpc(
+      "prepare_business_opening_review",
+      { p_business_id: matched.business_id },
+    );
+    if (
+      !prepareError &&
+      prepared && typeof prepared === "object" && !Array.isArray(prepared) &&
+      typeof prepared.reviewToken === "string" &&
+      /^[0-9a-f]{32}$/.test(prepared.reviewToken) &&
+      prepared.canActivate === false &&
+      prepared.snapshot && typeof prepared.snapshot === "object" &&
+      !Array.isArray(prepared.snapshot) &&
+      prepared.snapshot.businessId === matched.business_id &&
+      prepared.snapshot.canActivate === false
+    ) {
+      const current = prepared.snapshot as unknown as OpeningReadinessSnapshot;
+      snapshot = current;
+      if (canPresentOwnerSignoff(current)) signoffToken = prepared.reviewToken;
+    }
+  }
+
   return (
     <>
       <Link href="/businesses" className="quiet-link mb-4 inline-flex self-start">
         ← Your depots
       </Link>
       <OnboardingOpeningReview snapshot={snapshot} />
+      {signoffToken && snapshot.profile?.name ? (
+        <OnboardingOwnerSignoffForm
+          businessId={matched.business_id}
+          businessName={snapshot.profile.name}
+          reviewToken={signoffToken}
+          requestId={crypto.randomUUID()}
+        />
+      ) : (
+        <p className="mt-4 max-w-2xl rounded-xl border border-stone-200 p-3 text-sm text-stone-600">
+          Owner confirmation is not enabled for this depot yet. No business
+          activation or sales are permitted from this screen.
+        </p>
+      )}
     </>
   );
 }
