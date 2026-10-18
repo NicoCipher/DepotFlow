@@ -60,5 +60,5 @@ export async function registerDepot(
       message: "Could not confirm registration. Check your depot list before trying again.",
     };
   }
-  redirect(`/businesses/${data.businessId}/opening`);
+  redirect(`/businesses/${data.businessId}/drinks`);
 }
