@@ -38,3 +38,12 @@ Existing shop transactions still use singleton and global identifiers for stock,
 ## Incentive and failure analysis
 
 A rushed second signup may demo quickly, but can corrupt ownership of stock, historical debt, or returned empties and permanently undermine trust. Protect ledger provenance and reversible cutover over shipping a reassuring UI. Keep migration repair manual, separately audited and backed by evidence; do not hide mismatches from release checks.
+
+
+## 18 October — request-ID isolation in stages (still NO-GO)
+
+- `20261017140900_scope_historical_request_keys.sql` replaces global history request identities with `UNIQUE NULLS NOT DISTINCT (business_id,request_id)` for `customer_opening_balances` and `private.customer_empty_returns`. The return log retains its original request UUID and receives a stable surrogate primary key; no receipts are rewritten. Before audited legacy backfill, identical NULL-business UUIDs remain disallowed. Two distinct businesses may keep the same submitted UUID without exposing or overwriting each other's records.
+- The regression in `tenant_inventory_read_isolation.sql` exercises a real legacy opening-balance RPC with the *same request ID* as a foreign opening row, and a rollback-only two-business empty-return collision. These cases passed disposable PostgreSQL testing. Opening and customer-return lookups are already explicitly tenant-scoped.
+- `20261017141000_scope_legacy_sale_payment_wrappers.sql` additionally constrains the privileged original single-method sale wrapper and old-debt settlement wrapper. It checks customers, balances, sales, derived debt payments and receipt updates against verified original-business membership. This is preparatory security work and **does not change existing sale/payment request keys**.
+- **Unresolved financial request namespace:** `public.sales`, `public.customer_payments`, `private.stock_receipts` and `private.split_sale_request_fences` still have global request uniqueness. Releasing two-depot sales now could cause cross-shop request collisions or one shop's Check Sale fence affecting another. Do not widen checkout permissions until the legacy/mixed saver, recovery fence, stock path, receipt readers and exact financial idempotency contracts are separately migrated together and tested under concurrency.
+- Production migration ordering, clone validation, complete new-business writers, controlled onboarding, owner recovery, and end-to-end tests remain required. **Never deploy this draft's partial schema to production.**
