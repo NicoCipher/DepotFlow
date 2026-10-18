@@ -94,54 +94,64 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub',
  '89600000-0000-4000-8000-000000000002',true);
 do $owner_a$
-declare v uuid;
+declare v uuid; v_other uuid; v_goldberg uuid;
 begin
  v:=public.create_business_crate_type(
   '89600000-0000-4000-9000-000000000021',
   '89600000-0000-4000-9000-000000000031',
   'NBL shared','NBL',20,null);
- if v<>'89600000-0000-4000-9000-000000000031'::uuid then
-   raise exception 'A crate identity changed';
+ if v='89600000-0000-4000-9000-000000000031'::uuid
+   or not exists(select 1 from public.crate_types
+     where id=v and business_id='89600000-0000-4000-9000-000000000021') then
+   raise exception 'A crate PK was caller-controlled or not saved';
  end if;
+ perform set_config('fixture.a_crate_shared',v::text,true);
  -- Repeating the same exact crate setup is idempotent.
  if public.create_business_crate_type(
-   '89600000-0000-4000-9000-000000000021',v,
+   '89600000-0000-4000-9000-000000000021',
+   '89600000-0000-4000-9000-000000000031',
    'NBL shared','NBL',20,null)<>v then
    raise exception 'Crate setup replay failed';
  end if;
  -- Same-size Heineken is a DIFFERENT crate, not an implicit swap.
- perform public.create_business_crate_type(
+ v_other:=public.create_business_crate_type(
   '89600000-0000-4000-9000-000000000021',
   '89600000-0000-4000-9000-000000000032',
   'Heineken exact crate','NBL',20,null);
+ if v_other=v then raise exception 'Separate crate tokens shared a PK'; end if;
+ perform set_config('fixture.a_crate_other',v_other::text,true);
 
- perform public.add_business_catalogue_drink(
+ v_goldberg:=public.add_business_catalogue_drink(
   '89600000-0000-4000-9000-000000000021',
   '89600000-0000-4000-9000-000000000041',
   '89600000-0000-4000-9000-000000000090',
-  '89600000-0000-4000-9000-000000000031',20,10000,
+  v,20,10000,
   null,null,500,true,'Goldberg bottle',null);
+ if v_goldberg='89600000-0000-4000-9000-000000000041'::uuid then
+   raise exception 'Product PK remained caller-controlled';
+ end if;
+ perform set_config('fixture.a_product_goldberg',v_goldberg::text,true);
  -- Another master drink may EXPLICITLY reuse the exact A shared crate UUID.
  perform public.add_business_catalogue_drink(
   '89600000-0000-4000-9000-000000000021',
   '89600000-0000-4000-9000-000000000043',
   '89600000-0000-4000-9000-000000000091',
-  '89600000-0000-4000-9000-000000000031',20,10500,
+  v,20,10500,
   null,null,550,true,'33 bottle',null);
  perform public.add_business_catalogue_drink(
   '89600000-0000-4000-9000-000000000021',
   '89600000-0000-4000-9000-000000000044',
   '89600000-0000-4000-9000-000000000092',
-  '89600000-0000-4000-9000-000000000032',20,14000,
+  v_other,20,14000,
   null,null,700,true,'Heineken bottle',null);
  -- Replay cannot create duplicate rows or rewrite price.
  if public.add_business_catalogue_drink(
   '89600000-0000-4000-9000-000000000021',
   '89600000-0000-4000-9000-000000000041',
   '89600000-0000-4000-9000-000000000090',
-  '89600000-0000-4000-9000-000000000031',20,10000,
+  v,20,10000,
   null,null,500,true,'Goldberg bottle',null)
-  <>'89600000-0000-4000-9000-000000000041'::uuid then
+  <>v_goldberg then
     raise exception 'Product setup replay failed';
  end if;
  begin
@@ -149,7 +159,7 @@ begin
     '89600000-0000-4000-9000-000000000021',
     '89600000-0000-4000-9000-000000000045',
     '89600000-0000-4000-9000-000000000090',
-    '89600000-0000-4000-9000-000000000031',20,9000,
+    v,20,9000,
     null,null,450,true,'Goldberg bottle',null);
    raise exception 'Duplicate master drink added to A' using errcode='PT001';
  exception when invalid_parameter_value then null;
@@ -159,7 +169,7 @@ begin
     '89600000-0000-4000-9000-000000000021',
     '89600000-0000-4000-9000-000000000046',
     '89600000-0000-4000-9000-000000000090',
-    '89600000-0000-4000-9000-000000000032',12,10000,
+    v_other,12,10000,
     null,null,500,true,'Goldberg bottle',null);
    raise exception 'Pocket mismatch accepted' using errcode='PT001';
  exception when invalid_parameter_value then null;
@@ -195,16 +205,21 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub',
  '89600000-0000-4000-8000-000000000003',true);
 do $owner_b$
+declare v uuid;
 begin
- perform public.create_business_crate_type(
+ v:=public.create_business_crate_type(
   '89600000-0000-4000-9000-000000000022',
   '89600000-0000-4000-9000-000000000033',
   'B Goldberg own crate','NBL',20,null);
+ if v='89600000-0000-4000-9000-000000000033'::uuid then
+   raise exception 'B crate PK remained caller-controlled';
+ end if;
+ perform set_config('fixture.b_crate',v::text,true);
  perform public.add_business_catalogue_drink(
   '89600000-0000-4000-9000-000000000022',
   '89600000-0000-4000-9000-000000000042',
   '89600000-0000-4000-9000-000000000090',
-  '89600000-0000-4000-9000-000000000033',20,13000,
+  v,20,13000,
   null,null,650,true,'Goldberg bottle',null);
  if (select count(*) from public.products)<>1
     or (select full_crate_price from public.products limit 1)<>13000
@@ -216,7 +231,7 @@ begin
     '89600000-0000-4000-9000-000000000022',
     '89600000-0000-4000-9000-000000000047',
     '89600000-0000-4000-9000-000000000091',
-    '89600000-0000-4000-9000-000000000031',20,12000,
+    current_setting('fixture.a_crate_shared')::uuid,20,12000,
     null,null,600,true,'33 bottle',null);
    raise exception 'B enrolled drink with A crate' using errcode='PT001';
  exception when invalid_parameter_value then null;
@@ -224,6 +239,74 @@ begin
 end;
 $owner_b$;
 reset role;
+
+-- An authenticated caller must never select global PKs. A known UUID
+-- belonging to another business is safe as a new tenant-local request token.
+-- Savepoint makes this an adversarial rollback-only contract test.
+savepoint foreign_assortment_request_token;
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89600000-0000-4000-8000-000000000002',true);
+do $foreign_tokens_and_bounds$
+declare v uuid;
+begin
+ v:=public.create_business_crate_type(
+  '89600000-0000-4000-9000-000000000021',
+  current_setting('fixture.b_crate')::uuid,
+  'A crate using foreign token','NBL',20,null);
+ if v=current_setting('fixture.b_crate')::uuid
+    or v=current_setting('fixture.a_crate_shared')::uuid then
+   raise exception 'Foreign UUID token selected a global crate PK';
+ end if;
+ begin
+  perform public.create_business_crate_type(
+    '89600000-0000-4000-9000-000000000021',
+    '89600000-0000-4000-9000-000000000070',
+    'Huge crate','NBL',2147483647,null);
+  raise exception 'Direct RPC accepted oversized crate' using errcode='PT001';
+ exception when invalid_parameter_value then null;
+ end;
+ begin
+  perform public.add_business_catalogue_drink(
+    '89600000-0000-4000-9000-000000000021',
+    '89600000-0000-4000-9000-000000000071',
+    '89600000-0000-4000-9000-000000000091',
+    current_setting('fixture.a_crate_shared')::uuid,2147483647,
+    10500,null,null,null,true,'33 bottle',null);
+  raise exception 'Direct RPC accepted oversized pack' using errcode='PT001';
+ exception when invalid_parameter_value then null;
+ end;
+ begin
+  perform public.add_business_catalogue_drink(
+    '89600000-0000-4000-9000-000000000021',
+    '89600000-0000-4000-9000-000000000072',
+    '89600000-0000-4000-9000-000000000091',
+    current_setting('fixture.a_crate_shared')::uuid,20,
+    0,null,null,null,true,'33 bottle',null);
+  raise exception 'Direct RPC accepted zero full-crate price' using errcode='PT001';
+ exception when invalid_parameter_value then null;
+ end;
+ begin
+  perform public.add_business_catalogue_drink(
+    '89600000-0000-4000-9000-000000000021',
+    current_setting('fixture.a_product_goldberg')::uuid,
+    '89600000-0000-4000-9000-000000000091',
+    current_setting('fixture.a_crate_shared')::uuid,20,
+    10500,null,null,null,true,'33 bottle',null);
+  if (select count(*) from public.products
+      where business_id='89600000-0000-4000-9000-000000000021'
+        and id=current_setting('fixture.a_product_goldberg')::uuid)<>1 then
+    raise exception 'Product token rewrote an existing product';
+  end if;
+  raise exception 'Reused product PK request token permitted altered details'
+    using errcode='PT001';
+ exception when invalid_parameter_value then null;
+ end;
+end;
+$foreign_tokens_and_bounds$;
+reset role;
+rollback to savepoint foreign_assortment_request_token;
+release savepoint foreign_assortment_request_token;
 
 -- Shared catalogue identities are allowed; no other business's
 -- assortment price, selected drink, or physical crate can be leaked.
@@ -342,7 +425,7 @@ begin
         where catalogue_product_id='89600000-0000-4000-9000-000000000090')<>2
     or (select count(*) from public.products where
         business_id='89600000-0000-4000-9000-000000000021'
-        and crate_type_id='89600000-0000-4000-9000-000000000031')<>2
+        and crate_type_id=current_setting('fixture.a_crate_shared')::uuid)<>2
     or (select count(*) from public.stock)<>0
     or (select count(*) from public.sales)<>0 then
    raise exception 'Multi-business assortment isolation or no-stock invariant failed';
