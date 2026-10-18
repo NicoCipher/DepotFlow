@@ -144,7 +144,9 @@ finally:
       delete from public.products where id='{ids["product"]}';
       delete from public.crate_types where id='{ids["crate"]}';
       delete from private.business_memberships
-        where business_id='{ids["business"]}';
+        where business_id='{ids["business"]}'
+          or business_id in (select id from private.businesses
+                            where legacy_singleton is true);
       delete from private.legacy_write_scope_gate
         where business_id in(select id from private.businesses where legacy_singleton is true);
       delete from private.shop_owner where user_id='{ids["legacy"]}';
