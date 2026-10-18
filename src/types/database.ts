@@ -1026,6 +1026,38 @@ export type Database = {
       }
     }
     Functions: {
+      preview_business_assortment_setup: {
+        Args: { p_business_id: string }
+        Returns: Json
+      }
+      create_business_crate_type: {
+        Args: {
+          p_business_id: string
+          p_crate_type_id: string
+          p_name: string
+          p_empty_family: string
+          p_pocket_count: number
+          p_variant: string | null
+        }
+        Returns: string
+      }
+      add_business_catalogue_drink: {
+        Args: {
+          p_business_id: string
+          p_product_id: string
+          p_catalogue_product_id: string
+          p_crate_type_id: string
+          p_bottles_per_crate: number
+          p_full_crate_price: number
+          p_half_crate_price: number | null
+          p_quarter_crate_price: number | null
+          p_bottle_price: number | null
+          p_bottles_returnable: boolean
+          p_bottle_type: string | null
+          p_size: string | null
+        }
+        Returns: string
+      }
       can_register_business: { Args: Record<string, never>; Returns: boolean }
       register_my_business: {
         Args: {
