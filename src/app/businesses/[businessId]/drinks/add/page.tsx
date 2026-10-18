@@ -16,11 +16,15 @@ export default async function AddDepotDrinkPage({
   if (!isUuid(businessId) || typeof catalogue !== "string" ||
       !isUuid(catalogue)) notFound();
   const result = await loadOwnerAssortment(businessId);
-  if (result.state === "disabled") return (
+  if (result.state !== "ready") return (
     <section className="mx-auto max-w-xl space-y-3">
       <Link href="/businesses" className="quiet-link">← Your depots</Link>
       <h1>Drink setup is not available</h1>
-      <p className="text-sm text-stone-600">This rollout is disabled. No stock, prices or drinks were changed.</p>
+      <p className="text-sm text-stone-600">
+        {result.state === "incomplete"
+          ? "The drink catalogue is incomplete. No prices or products can be configured from a partial list."
+          : "This rollout is disabled. No stock, prices or drinks were changed."}
+      </p>
     </section>
   );
   const { snapshot } = result;
