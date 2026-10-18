@@ -64,7 +64,7 @@ export default async function NewDepotCustomersPage({
   }
   // The newly added customer must remain reachable even when the first
   // alphabetic page does not contain them.
-  const addedId = query.added === "1" && isUuid(query.customer)
+  const addedId = query.added === "1" && typeof query.customer === "string" && isUuid(query.customer)
     ? query.customer : null;
   const created = addedId
     ? await supabase.from("customers").select("id,name,business_id")
