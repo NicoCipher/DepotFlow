@@ -12,16 +12,16 @@ const initial: NewBusinessCustomerState = { message: "", saved: false };
  * those are separate audited steps after the identity is created.
  */
 export function SetupNewCustomerForm({
-  businessId, customerId,
+  businessId, requestId,
 }: {
   businessId: string;
-  customerId: string;
+  requestId: string;
 }) {
   const [state, action, pending] = useActionState(addBusinessCustomer, initial);
   return (
     <form action={action} className="space-y-4 rounded-2xl border border-stone-200 bg-white p-4">
       <input type="hidden" name="business_id" value={businessId} />
-      <input type="hidden" name="customer_id" value={customerId} />
+      <input type="hidden" name="request_id" value={requestId} />
       <h2 className="text-base font-bold text-stone-950">Add an existing customer</h2>
       <p className="text-sm leading-6 text-stone-600">
         Just record who the customer is. Add any old debt, held deposit or
