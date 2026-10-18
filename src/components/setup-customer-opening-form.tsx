@@ -66,11 +66,12 @@ function OwedTypes({
  * historical numbers and customer container obligations recorded once.
  */
 export function SetupCustomerOpeningForm({
-  businessId, customerId, requestId, crates, bottleTypes,
+  businessId, customerId, requestId, businessDate, crates, bottleTypes,
 }: {
   businessId: string;
   customerId: string;
   requestId: string;
+  businessDate: string;
   crates: Item[];
   bottleTypes: Item[];
 }) {
@@ -84,6 +85,7 @@ export function SetupCustomerOpeningForm({
       <input type="hidden" name="business_id" value={businessId} />
       <input type="hidden" name="customer_id" value={customerId} />
       <input type="hidden" name="request_id" value={requestId} />
+      <input type="hidden" name="business_date" value={businessDate} />
       <input type="hidden" name="crates"
         value={JSON.stringify(crateEntries.map((x) =>
           ({ type: x.type, quantity: Number(x.quantity) })))} />
