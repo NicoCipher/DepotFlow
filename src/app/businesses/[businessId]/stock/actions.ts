@@ -3,20 +3,13 @@
 import { redirect } from "next/navigation";
 import { isUuid } from "@/domain/ids";
 import { parseOpeningQuantity, isValidDrinkOpeningQuantity } from "@/domain/opening-physical-count";
+import { validCapturedOpeningDate } from "@/domain/opening-business-date";
 import { loadOwnerAssortment } from "@/lib/businesses/setup";
 import { createClient } from "@/lib/supabase/server";
 
 export type OpeningCountState = { message: string };
 
 type OpeningKind = "drink" | "crate" | "bottle";
-
-function businessDate() {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Africa/Lagos", day: "2-digit", month: "2-digit", year: "numeric",
-  }).formatToParts(new Date());
-  const n = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
-  return `${n("year")}-${n("month")}-${n("day")}`;
-}
 
 /** This action cannot create ordinary stock adjustments or activate a
  * business; it invokes only the explicitly gated first-opening RPC.
@@ -29,6 +22,10 @@ export async function recordBusinessOpeningCount(
   const requestId = String(form.get("request_id") ?? "");
   const kind = String(form.get("kind") ?? "") as OpeningKind;
   const resource = String(form.get("resource") ?? "").trim();
+  const capturedBusinessDate = form.get("business_date");
+  if (!validCapturedOpeningDate(capturedBusinessDate)) {
+    return { message: "The original count date is missing or invalid. Reopen starting stock." };
+  }
 
   if (!isUuid(businessId) || !isUuid(requestId) ||
     !["drink", "crate", "bottle"].includes(kind)) {
@@ -84,7 +81,7 @@ export async function recordBusinessOpeningCount(
     p_quantity: quantity,
     p_loose: loose,
     p_pack: pack,
-    p_business_date: businessDate(),
+    p_business_date: capturedBusinessDate,
   });
 
   if (error || !data || typeof data !== "object" || Array.isArray(data) ||
