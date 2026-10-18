@@ -100,6 +100,17 @@ jobs:
           # test revokes it within its own transaction to verify live policy.
           psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
             -c 'grant insert (id,name,phone,business_name,address) on public.customers to authenticated;'
+          # Historical fixtures predate generated-ID RPCs and insert rows by
+          # fixed IDs to test financial and stock behavior. Their deprecated
+          # creation privileges exist ONLY in this disposable PG cluster;
+          # production revokes them in the final migration. The dedicated
+          # legacy_assortment_identity_boundary.sql test revokes again inside
+          # its rollback-only transaction to prove real client access is blocked.
+          psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 <<'SQL'
+          grant insert on public.products to authenticated;
+          grant execute on function public.create_crate_type(uuid,text,text,numeric,text) to authenticated;
+          grant execute on function private.create_crate_type(uuid,text,text,numeric,text) to authenticated;
+          SQL
           for f in supabase/tests/*.sql; do
             case "$f" in
               */customer_archiving.sql|*/customer_payments.sql|*/empties_rules.sql|*/sale_partial_pricing.sql|*/record_sale_v2_empties.sql) continue ;;
@@ -110,10 +121,19 @@ jobs:
           psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
             -c 'revoke insert (id,name,phone,business_name,address) on public.customers from authenticated;'
           psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 <<'SQL'
+          revoke insert on public.products from authenticated;
+          revoke execute on function public.create_crate_type(uuid,text,text,numeric,text) from authenticated;
+          revoke execute on function private.create_crate_type(uuid,text,text,numeric,text) from authenticated;
+          SQL
+          psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 <<'SQL'
           do $post_sql_fixture$
           begin
            if has_any_column_privilege('authenticated','public.customers','INSERT')
            then raise exception 'Customer chosen-PK privilege leaked out of SQL fixture';end if;
+           if has_any_column_privilege('authenticated','public.products','INSERT')
+             or has_function_privilege('authenticated','public.create_crate_type(uuid,text,text,numeric,text)','EXECUTE')
+             or has_function_privilege('authenticated','private.create_crate_type(uuid,text,text,numeric,text)','EXECUTE')
+           then raise exception 'Legacy assortment caller-selected ID grant leaked out of fixture';end if;
           end;
           $post_sql_fixture$;
           SQL
