@@ -387,6 +387,45 @@ begin
 end;
 $compare_balances_and_events$;
 
+-- Simulate an HTTP response lost after receiving committed, then a
+-- subsequent product deactivation. Historical exact replay must be returned
+-- unchanged without touching crates, stock or movements.
+savepoint replay_after_receiving_product_change;
+alter table public.products disable trigger legacy_scope_business_write;
+update public.products set is_active=false
+ where id='89f00000-0000-4000-9000-000000000041';
+alter table public.products enable trigger legacy_scope_business_write;
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89f00000-0000-4000-8000-000000000002',true);
+do $retry_after_deactivation$
+declare v jsonb;
+begin
+ v:=public.receive_business_stock(
+   '89f00000-0000-4000-9000-000000000021',
+   '89f00000-0000-4000-9000-000000000101',
+   '89f00000-0000-4000-9000-000000000041',
+   2,24,5,12,'89f00000-0000-4000-9000-000000000031',
+   '2026-10-18');
+ if (v->>'stock_after')::int<>48 or (v->>'empties_after')::int<>3 then
+   raise exception 'Post-deactivation receiving retry lost original receipt: %',v;
+ end if;
+ begin
+  perform public.receive_business_stock(
+   '89f00000-0000-4000-9000-000000000021',
+   '89f00000-0000-4000-9000-000000000111',
+   '89f00000-0000-4000-9000-000000000041',
+   1,48,3,12,'89f00000-0000-4000-9000-000000000031',
+   '2026-10-18');
+  raise exception 'New receiving accepted deactivated product' using errcode='PT001';
+ exception when invalid_parameter_value then null;
+ end;
+end;
+$retry_after_deactivation$;
+reset role;
+rollback to savepoint replay_after_receiving_product_change;
+release savepoint replay_after_receiving_product_change;
+
 update private.business_memberships set status='disabled'
  where business_id='89f00000-0000-4000-9000-000000000022';
 set local role authenticated;
