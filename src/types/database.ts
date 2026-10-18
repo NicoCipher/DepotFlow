@@ -1033,6 +1033,20 @@ export type Database = {
         Args: { p_business_id: string }
         Returns: Json
       }
+      record_business_customer_opening: {
+        Args: {
+          p_business_id: string
+          p_request_id: string
+          p_customer_id: string
+          p_amount: number
+          p_deposit: number
+          p_business_date: string
+          p_note: string
+          p_crates: Json
+          p_bottles: Json
+        }
+        Returns: Json
+      }
       record_business_physical_opening: {
         Args: {
           p_business_id: string
