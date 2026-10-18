@@ -104,10 +104,8 @@ begin
    raise exception 'Legacy product retry used caller-selected PK';
  end if;
  perform set_config('fixture.legacy_product',v_product::text,true);
- if (select count(*) from public.products where id=v_product)<>1
-    or (select count(*) from private.legacy_assortment_creation_requests
-        where owner_id=auth.uid())<>3 then
-   raise exception 'Legacy retry duplicated a record or audit';
+ if (select count(*) from public.products where id=v_product)<>1 then
+   raise exception 'Legacy retry duplicated a product record';
  end if;
  -- Data API direct writes must be unavailable, with AND without an ID.
  begin
@@ -179,6 +177,14 @@ begin
 end;
 $create_and_replay$;
 reset role;
+do $audit_count$
+begin
+ if (select count(*) from private.legacy_assortment_creation_requests
+   where owner_id='89d00000-0000-4000-8000-000000000001')<>3 then
+   raise exception 'Legacy retry duplicated an audit entry';
+ end if;
+end;
+$audit_count$;
 do $no_ghosts$
 begin
  if exists(select 1 from public.crate_types where name='Bad audit')
