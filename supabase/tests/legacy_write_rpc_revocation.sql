@@ -232,6 +232,10 @@ insert into private.business_memberships(
  '89500000-0000-4000-8000-000000000003',
  'active','owner'
 );
+-- Rollback fixture: seed a foreign customer with a TEMPORARY old grant,
+-- then revoke before testing the legacy RPC boundary. Production does not
+-- restore this direct Data API permission.
+grant insert(business_id) on public.customers to authenticated;
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
  '89500000-0000-4000-8000-000000000003',true);
@@ -241,6 +245,11 @@ values(
  'Business B customer','08000895041',
  '89500000-0000-4000-9000-000000000031'
 );
+reset role;
+revoke insert(business_id) on public.customers from authenticated;
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89500000-0000-4000-8000-000000000003',true);
 do $new_business_cannot_use_legacy_apis$
 begin
  if not private.can_manage_new_customer(
