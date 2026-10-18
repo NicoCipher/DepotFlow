@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { isUuid } from "@/domain/ids";
-import { sameCustomerDetails, validateCustomer } from "@/domain/customers";
+import { validateCustomer } from "@/domain/customers";
 import { loadOwnerAssortment } from "@/lib/businesses/setup";
 import { createClient } from "@/lib/supabase/server";
 
@@ -16,22 +16,22 @@ const notSaved = (message: string): NewBusinessCustomerState => ({
   saved: false,
 });
 
-/** Creates only a customer identity, not an opening debt, deposit, sale,
- * or customer-owed empties. Existing opening balances have a SEPARATE
- * verified atomic RPC and must not be faked with direct table writes.
+/** Setup-only customer identity. DB generates the actual ID and atomically
+ * remembers the tenant-qualified request UUID for safe retries.
+ * No old debt, deposit, empties, receipt or sale is written here.
  */
 export async function addBusinessCustomer(
   _previous: NewBusinessCustomerState,
   form: FormData,
 ): Promise<NewBusinessCustomerState> {
   const businessId = String(form.get("business_id") ?? "");
-  const customerId = String(form.get("customer_id") ?? "");
-  if (!isUuid(businessId) || !isUuid(customerId)) {
+  const requestId = String(form.get("request_id") ?? "");
+  if (!isUuid(businessId) || !isUuid(requestId)) {
     return notSaved("The customer request is invalid. Reload this depot's page.");
   }
 
-  // Fresh owner check on every POST. A guessed business URL or a posted
-  // business ID is never accepted as evidence of permission.
+  // Verify the active owner's selected SETUP depot on every POST, rather
+  // than treating a submitted business ID as ownership evidence.
   const owner = await loadOwnerAssortment(businessId);
   if (owner.state !== "ready") {
     return notSaved("This depot's customer setup is not available yet.");
@@ -48,33 +48,26 @@ export async function addBusinessCustomer(
   }
 
   const supabase = await createClient();
-  const inserted = await supabase.from("customers").insert({
-    id: customerId,
-    business_id: businessId,
-    ...checked.data,
-  }).select("id").maybeSingle();
+  // The browser cannot choose customer_id. The independently gated DB
+  // function generates one, checks owner membership and serializes replay.
+  const { data, error } = await supabase.rpc("register_business_customer", {
+    p_business_id: businessId,
+    p_request_id: requestId,
+    p_name: checked.data.name,
+    p_phone: checked.data.phone,
+    p_customer_business_name: checked.data.business_name,
+    p_address: checked.data.address,
+  });
 
-  if (inserted.error || !inserted.data) {
-    // Lost-response retries should succeed ONLY if the SAME customer ID
-    // and SAME tenant-scoped details were already saved. Never upsert or
-    // silently replace a customer's later edits.
-    if (inserted.error?.code !== "23505") {
-      return notSaved(
-        "Could not confirm this customer. Check your customer list before trying again.",
-      );
-    }
-    const existing = await supabase.from("customers")
-      .select("business_id,name,phone,business_name,address")
-      .eq("id", customerId)
-      .eq("business_id", businessId)
-      .maybeSingle();
-    if (existing.error || !existing.data ||
-      existing.data.business_id !== businessId ||
-      !sameCustomerDetails(existing.data, checked.data)) {
-      return notSaved(
-        "The original request has different details. Check your depot's customer list.",
-      );
-    }
+  if (
+    error || !data || typeof data !== "object" || Array.isArray(data) ||
+    data.businessId !== businessId || data.requestId !== requestId ||
+    typeof data.customerId !== "string" || !isUuid(data.customerId) ||
+    data.canOperate !== false
+  ) {
+    return notSaved(
+      "Could not confirm this customer. Check your depot's customer list before trying again.",
+    );
   }
 
   redirect(`/businesses/${businessId}/customers?added=1`);
