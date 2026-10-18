@@ -367,7 +367,11 @@ begin
  end if;
 end;
 $no_cross_shop_fence$;
+-- Drain the deferred mixed-ledger trigger before ALTER TABLE; it must still
+-- validate the disposable foreign non-mixed sale we just inserted.
+set constraints all immediate;
 alter table public.sales enable trigger legacy_scope_business_write;
+set constraints all deferred;
 rollback to savepoint scoped_uncertain_sale_fence;
 release savepoint scoped_uncertain_sale_fence;
 
