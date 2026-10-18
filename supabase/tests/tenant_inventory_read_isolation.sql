@@ -290,6 +290,87 @@ insert into public.sale_empty_decisions(
 );
 alter table public.sale_empty_decisions enable trigger legacy_scope_business_write;
 
+-- Original-business Check Sale must not mistake a known foreign sale
+-- for an own saved sale, and its permanent absence fence must NEVER veto
+-- another business using the very same request UUID.
+savepoint scoped_uncertain_sale_fence;
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89600000-0000-4000-8000-000000000001',true);
+do $foreign_request_check_sale$
+declare v_result jsonb;v_id uuid;
+begin
+ foreach v_id in array array[
+   '89600000-0000-4000-9000-000000000091'::uuid,
+   '89600000-0000-4000-9000-000000000093'::uuid
+ ] loop
+   v_result:=public.check_split_sale_request(v_id);
+   if v_result->>'state'<>'absent' then
+     raise exception 'Check Sale disclosed foreign request or wrong state: %',v_result;
+   end if;
+ end loop;
+end;
+$foreign_request_check_sale$;
+reset role;
+
+do $scoped_permanent_fences$
+declare v_legacy uuid;
+begin
+ select id into v_legacy from private.businesses
+   where legacy_singleton is true;
+ if (select count(*) from private.split_sale_request_fences f
+     where f.business_id=v_legacy and f.request_id in (
+       '89600000-0000-4000-9000-000000000091',
+       '89600000-0000-4000-9000-000000000093'
+     ))<>2 then
+   raise exception 'Check Sale did not fence both original-shop requests';
+ end if;
+end;
+$scoped_permanent_fences$;
+
+-- Admin-only disposable fixture bypasses new-shop sales prohibition, NOT the
+-- actual permanent late-write reject trigger. An original-shop insertion
+-- into its own fenced ID is forbidden. A foreign-shop insertion into that
+-- SAME ID must still succeed; neither check creates a real sale in production.
+alter table public.sales disable trigger legacy_scope_business_write;
+do $no_cross_shop_fence$
+declare v_legacy uuid;
+begin
+ select id into v_legacy from private.businesses
+   where legacy_singleton is true;
+ begin
+   insert into public.sales(
+     customer_id,request_id,total_amount,paid_amount,business_date,
+     business_id,payment_method
+   ) values (
+     '89600000-0000-4000-9000-000000000062',
+     '89600000-0000-4000-9000-000000000091',0,0,
+     '2026-10-16',v_legacy,'not_recorded'
+   );
+   raise exception 'Late original-shop sale bypassed Check Sale fence'
+     using errcode='PT001';
+ exception when invalid_parameter_value then null;
+ end;
+
+ insert into public.sales(
+   customer_id,request_id,total_amount,paid_amount,business_date,
+   business_id,payment_method
+ ) values (
+   '89600000-0000-4000-9000-000000000061',
+   '89600000-0000-4000-9000-000000000093',0,0,
+   '2026-10-16',
+   '89600000-0000-4000-9000-000000000042','not_recorded'
+ );
+ if (select count(*) from public.sales
+     where request_id='89600000-0000-4000-9000-000000000093')<>1 then
+   raise exception 'Legacy absent-check fence blocked foreign saved sale';
+ end if;
+end;
+$no_cross_shop_fence$;
+alter table public.sales enable trigger legacy_scope_business_write;
+rollback to savepoint scoped_uncertain_sale_fence;
+release savepoint scoped_uncertain_sale_fence;
+
 -- The base sale saver itself must never hand a foreign idempotent replay
 -- back to the legacy owner, EVEN with an exact saved request payload.
 -- Both the foreign saved-sale request and an unknown request targeting a
