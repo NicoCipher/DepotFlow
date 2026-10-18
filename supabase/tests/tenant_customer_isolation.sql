@@ -93,7 +93,7 @@ $$;
 
 do $grant_guard$
 begin
- if not has_column_privilege('authenticated',
+ if has_column_privilege('authenticated',
    'public.customers','business_id','INSERT')
    or has_column_privilege('authenticated',
    'public.customers','business_id','UPDATE')
@@ -105,6 +105,13 @@ begin
  end if;
 end;
 $grant_guard$;
+
+-- LEGACY REGRESSION FIXTURE ONLY: temporarily re-grant the old tenant
+-- INSERT column permission inside this outer ROLLBACK transaction, to keep
+-- testing RLS/trigger checks under an artificially compromised Data API.
+-- Production migration above REVOKES this permission. New tenant customer
+-- registration must go through the separately gated server-generated-ID RPC.
+grant insert(business_id) on public.customers to authenticated;
 
 -- Owner A can insert and edit only A customers.
 set local role authenticated;
