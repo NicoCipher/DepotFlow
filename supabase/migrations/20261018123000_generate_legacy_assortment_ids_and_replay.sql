@@ -420,43 +420,61 @@ begin
 end;
 $swap$;
 
+-- The historical UUID-keyed deposit function was retired in September.
+-- Do NOT reintroduce it; scope its replacement, the pocket-count API.
 create or replace function private.set_crate_deposit_price(
- p_crate_type_id uuid,p_amount numeric
+ p_pocket_count numeric,p_complete_amount numeric,p_crate_only_amount numeric
 ) returns void language plpgsql volatile security definer set search_path=''
 as $deposit$
 declare
  v_business uuid;
- v_legacy boolean;
 begin
  v_business:=private.legacy_crate_management_business();
- if p_crate_type_id is null then
-   raise exception 'Choose a crate type.' using errcode='22023';
+ if p_pocket_count is null or p_pocket_count='NaN'::numeric
+    or p_pocket_count<1 or p_pocket_count>2147483647
+    or p_pocket_count<>pg_catalog.trunc(p_pocket_count)
+    or not exists(
+      select 1 from public.crate_types c
+      where c.is_legacy is false
+        and c.pocket_count=p_pocket_count::integer
+        and (
+          (v_business is not null and c.business_id=v_business)
+          or (c.business_id is null and not exists(
+            select 1 from private.legacy_write_scope_gate where enabled is true
+          ))
+        )
+    ) then
+    raise exception 'Choose a pocket count used by an exact crate type.'
+      using errcode='22023';
  end if;
- select c.is_legacy into v_legacy from public.crate_types c
- where c.id=p_crate_type_id and (
-    (v_business is not null and c.business_id=v_business)
-    or (c.business_id is null and not exists(
-      select 1 from private.legacy_write_scope_gate where enabled is true
-    ))
- ) for key share;
- if not found or v_legacy then
-   raise exception 'Choose an exact crate type.' using errcode='22023';
+ if p_complete_amount is null then
+    delete from public.crate_deposit_prices
+     where pocket_count=p_pocket_count::integer;
+    return;
  end if;
- if p_amount is null then
-   delete from public.crate_deposit_prices
-   where crate_type_id=p_crate_type_id;
-   return;
+ if p_complete_amount='NaN'::numeric or p_complete_amount<1
+    or p_complete_amount>2147483647
+    or p_complete_amount<>pg_catalog.trunc(p_complete_amount)
+    or pg_catalog.mod(p_complete_amount,50)<>0
+    or (p_crate_only_amount is not null and (
+       p_crate_only_amount='NaN'::numeric or p_crate_only_amount<1
+       or p_crate_only_amount>2147483647
+       or p_crate_only_amount<>pg_catalog.trunc(p_crate_only_amount)
+       or pg_catalog.mod(p_crate_only_amount,50)<>0
+    )) then
+    raise exception 'Enter deposit prices in whole naira, in ₦50 steps.'
+      using errcode='22023';
  end if;
- if p_amount='NaN'::numeric or p_amount<1 or p_amount>2147483647
-    or p_amount<>pg_catalog.trunc(p_amount)
-    or pg_catalog.mod(p_amount,50)<>0 then
-   raise exception 'Enter a deposit price in whole naira, in ₦50 steps.'
-     using errcode='22023';
- end if;
- insert into public.crate_deposit_prices(crate_type_id,amount,updated_at)
- values(p_crate_type_id,p_amount::integer,pg_catalog.now())
- on conflict(crate_type_id) do update
- set amount=excluded.amount,updated_at=excluded.updated_at;
+ insert into public.crate_deposit_prices(
+   pocket_count,complete_crate_amount,crate_only_amount,updated_at
+ ) values(
+   p_pocket_count::integer,p_complete_amount::integer,
+   p_crate_only_amount::integer,pg_catalog.now()
+ )
+ on conflict(pocket_count) do update
+ set complete_crate_amount=excluded.complete_crate_amount,
+     crate_only_amount=excluded.crate_only_amount,
+     updated_at=excluded.updated_at;
 end;
 $deposit$;
 
