@@ -1,6 +1,10 @@
 -- M2d-2: revoke READ access on an active legacy business suspension.
 -- Disposable Postgres 16 fixture; all records and gate changes roll back.
 begin;
+-- Rollback-only legacy ID fixture: customers are now created through a
+-- generated-ID legacy RPC, NOT direct authenticated INSERT(id). Preserve
+-- historical trigger/RLS constraints under a temporary test-only grant.
+grant insert(id) on public.customers to authenticated;
 insert into auth.users(id) values
  ('89000000-0000-4000-8000-000000000101'),
  ('89000000-0000-4000-8000-000000000102');
