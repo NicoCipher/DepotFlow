@@ -282,7 +282,7 @@ reset role;
 savepoint overflow_master_catalogue;
 insert into public.product_catalogue(id,name,manufacturer)
 select pg_catalog.gen_random_uuid(),
-  'Fixture overflow drink '||n::text,'QA'
+  'Fixture overflow drink '||n::text,'NB'
 from pg_catalog.generate_series(1,251) n;
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
