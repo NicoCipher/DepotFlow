@@ -142,6 +142,31 @@ begin
  where business_id=dep;
 
 
+ -- A registered branch must never release its globally reserved name/address
+ -- by blanking only the editable profile. The actual profile UPDATE path
+ -- must reject this, not just the registration form.
+ for v in
+  select value from (values (''::text),('   '::text)) as blanks(value)
+ loop
+  begin
+   update public.business_profiles set address=v
+    where business_id=dep;
+   raise exception 'Registered depot address was erased' using errcode='PT001';
+  exception when invalid_parameter_value then null;
+  end;
+ end loop;
+ begin
+  update public.business_profiles set name='   ' where business_id=dep;
+  raise exception 'Registered depot identity name was erased' using errcode='PT001';
+ exception when invalid_parameter_value then null;
+ end;
+ if (select address from public.business_profiles where business_id=dep)
+       is distinct from 'Ikeja, Lagos'
+  or (select name from public.business_profiles where business_id=dep)
+       is distinct from 'Official Depot A' then
+  raise exception 'Denied profile edit changed reserved depot identity';
+ end if;
+
  -- Two branches are valid if the same brand serves DIFFERENT addresses.
  perform public.register_my_business(
   '89f00000-0000-4000-9000-000000000043',
