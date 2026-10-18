@@ -1,5 +1,10 @@
 -- Disposable migrated database only. Fixtures and all mutations roll back.
 begin;
+-- Original-ID-constraint regression fixture ONLY: legacy application now
+-- uses a database-generated customer ID RPC, and direct INSERT(id) is
+-- REVOKED in the production migration. Temporarily regrant within rollback
+-- to keep these historical constraint assertions meaningful.
+grant insert(id) on public.customers to authenticated;
 insert into auth.users(id) values ('00000000-0000-4000-8000-000000000001'), ('00000000-0000-4000-8000-000000000002');
 insert into private.shop_owner(user_id) values ('00000000-0000-4000-8000-000000000001');
 set local role authenticated;
