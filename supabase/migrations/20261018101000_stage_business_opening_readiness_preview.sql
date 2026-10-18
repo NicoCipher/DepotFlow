@@ -40,6 +40,7 @@ declare
  v_unknown_returnables int;
  v_balance_mismatch int;
  v_operational_events int;
+ v_physical_drift int;
  v_missing_drink_ids jsonb;
  v_missing_crate_ids jsonb;
  v_missing_bottle_labels jsonb;
@@ -199,38 +200,88 @@ begin
  -- The preview reports mismatches rather than silently treating them as
  -- pre-system balances. The final cutover must independently verify all
  -- per-crate/per-bottle quantities before activation.
+ -- Compare the ACTUAL customer ledger to each immutable opening:
+ -- absence means zero, but a missing nonzero ledger row is still a mismatch.
+ -- Check precise branded crate/bottle identities, not just grand totals.
  select count(*) into v_balance_mismatch from public.customers c
  where c.business_id=p_business_id and (
-   exists(
-     select 1 from public.money_owed m
-     left join public.customer_opening_balances o
-       on o.customer_id=m.customer_id and o.business_id=p_business_id
-     where m.business_id=p_business_id and m.customer_id=c.id
-       and (o.id is null or m.amount<>o.amount)
-   )
-   or exists(
-     select 1 from public.deposits d
-     left join public.customer_opening_balances o
-       on o.customer_id=d.customer_id and o.business_id=p_business_id
-     where d.business_id=p_business_id and d.customer_id=c.id
-       and (o.id is null or d.amount<>o.deposit_amount)
-   )
-   or exists(
-     select 1 from public.crate_obligations co
-     left join public.customer_opening_balances o
-       on o.customer_id=co.customer_id and o.business_id=p_business_id
-     where co.business_id=p_business_id and co.customer_id=c.id
-       and o.id is null
-   )
-   or exists(
-     select 1 from public.bottle_obligations bo
-     left join public.customer_opening_balances o
-       on o.customer_id=bo.customer_id and o.business_id=p_business_id
-     where bo.business_id=p_business_id and bo.customer_id=c.id
-       and o.id is null
-   )
+   coalesce((select m.amount from public.money_owed m
+     where m.customer_id=c.id and m.business_id=p_business_id),0)
+   <>coalesce((select o.amount from public.customer_opening_balances o
+     where o.customer_id=c.id and o.business_id=p_business_id),0)
+  or
+   coalesce((select d.amount from public.deposits d
+     where d.customer_id=c.id and d.business_id=p_business_id),0)
+   <>coalesce((select o.deposit_amount from public.customer_opening_balances o
+     where o.customer_id=c.id and o.business_id=p_business_id),0)
+  or exists(
+   select 1 from public.crate_obligations co
+   where co.customer_id=c.id and co.business_id=p_business_id
+     and co.quantity<>coalesce((
+      select (x.value->>'quantity')::int
+      from public.customer_opening_balances o
+      cross join lateral pg_catalog.jsonb_array_elements(o.crates) x
+      where o.customer_id=c.id and o.business_id=p_business_id
+        and (x.value->>'type')::uuid=co.crate_type_id
+     ),0)
+  )
+  or exists(
+   select 1 from public.customer_opening_balances o
+   cross join lateral pg_catalog.jsonb_array_elements(o.crates) x
+   where o.customer_id=c.id and o.business_id=p_business_id
+     and (x.value->>'quantity')::int<>coalesce((
+      select co.quantity from public.crate_obligations co
+      where co.customer_id=c.id and co.business_id=p_business_id
+        and co.crate_type_id=(x.value->>'type')::uuid
+     ),0)
+  )
+  or exists(
+   select 1 from public.bottle_obligations bo
+   where bo.customer_id=c.id and bo.business_id=p_business_id
+     and bo.quantity<>coalesce((
+      select (x.value->>'quantity')::int
+      from public.customer_opening_balances o
+      cross join lateral pg_catalog.jsonb_array_elements(o.bottles) x
+      where o.customer_id=c.id and o.business_id=p_business_id
+        and x.value->>'type'=bo.bottle_type
+     ),0)
+  )
+  or exists(
+   select 1 from public.customer_opening_balances o
+   cross join lateral pg_catalog.jsonb_array_elements(o.bottles) x
+   where o.customer_id=c.id and o.business_id=p_business_id
+     and (x.value->>'quantity')::int<>coalesce((
+      select bo.quantity from public.bottle_obligations bo
+      where bo.customer_id=c.id and bo.business_id=p_business_id
+        and bo.bottle_type=x.value->>'type'
+     ),0)
+  )
  );
 
+ -- A tagged opening whose stock was later physically recounted is not
+ -- a faithful cutover snapshot. Block it instead of displaying "ready".
+ select count(*) into v_physical_drift
+ from private.business_physical_opening_lines o
+ where o.business_id=p_business_id
+ and (
+   (o.kind='drink' and coalesce((
+      select s.total_bottles from public.stock s
+      where s.business_id=p_business_id
+        and s.product_id=o.resource_key::uuid
+    ),-1)<>coalesce((o.result->>'total')::int,-1))
+   or
+   (o.kind='crate' and coalesce((
+      select s.quantity from public.empty_crate_stock s
+      where s.business_id=p_business_id
+        and s.crate_type_id=o.resource_key::uuid
+    ),-1)<>coalesce((o.result->>'quantity')::int,-1))
+   or
+   (o.kind='bottle' and coalesce((
+      select s.quantity from public.empty_bottle_stock s
+      where s.business_id=p_business_id
+        and s.bottle_type=o.resource_key
+    ),-1)<>coalesce((o.result->>'quantity')::int,-1))
+ );
  select (
   (select count(*) from public.sales
     where business_id=p_business_id)
@@ -243,7 +294,8 @@ begin
  v_reviewable:=v_profile is not null and v_drinks>0
   and v_missing_drinks=0 and v_missing_crates=0
   and v_missing_bottles=0 and v_unknown_returnables=0
-  and v_balance_mismatch=0 and v_operational_events=0;
+  and v_balance_mismatch=0 and v_physical_drift=0
+  and v_operational_events=0;
 
  return pg_catalog.jsonb_build_object(
   'businessId',p_business_id,'businessStatus',v_status,
@@ -259,6 +311,7 @@ begin
     'missingCrateTypeIds',v_missing_crate_ids,
     'missingBottleTypeLabels',v_missing_bottle_labels,
     'unconfiguredReturnables',v_unknown_returnables,
+    'changedAfterOpening',v_physical_drift,
     'shownLimitPerCategory',20),
   'customerOpening',pg_catalog.jsonb_build_object(
     'customersWithOpening',v_customer_openings,
