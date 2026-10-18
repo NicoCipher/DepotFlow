@@ -173,24 +173,33 @@ end;
 $verified_one$;
 reset role;
 
--- Second verified user may use the SAME UUID/name/address, yet all data
--- must belong to this second actor and remain invisible to the first.
+-- A second verified user may reuse A's REQUEST UUID, but must NEVER
+-- register the same normalized physical depot under another account.
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
  '89f00000-0000-4000-8000-000000000002',true);
 do $verified_other$
 declare v jsonb;
 begin
+ begin
+  perform public.register_my_business(
+   '89f00000-0000-4000-9000-000000000041',
+   ' Official    Depot A ','  Ikeja,    Lagos ','08005550041');
+  raise exception 'Cross-owner duplicate physical depot accepted'
+   using errcode='PT001';
+ exception when unique_violation then null;
+ end;
+ -- A separate, actually different physical shop is valid for B.
  v:=public.register_my_business(
   '89f00000-0000-4000-9000-000000000041',
-  'Official Depot A','Ikeja, Lagos','08005550041');
+  'Official Depot A','Ibadan, Oyo','08005550041');
  if v->>'savedReplay'<>'false'
  or (select count(*) from public.list_my_businesses_for_setup())<>1 then
   raise exception 'Second owner mixed registrations from A';
  end if;
  if (select business_name from public.list_my_businesses_for_setup())
    <>'Official Depot A' then
-  raise exception 'Other owner cannot see their business name';
+  raise exception 'Other owner cannot see their own registered business';
  end if;
 end;
 $verified_other$;
