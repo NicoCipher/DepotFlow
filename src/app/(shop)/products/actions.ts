@@ -6,7 +6,6 @@ import { revalidatePath } from "next/cache";
 import { requireOwner } from "@/lib/auth/owner";
 import {
   isProductId,
-  sameProductDetails,
   validateProduct,
   type ProductFormState,
   type ProductValues,
@@ -72,51 +71,46 @@ async function save(
   // Do not overwrite a managed photo when editing prices, crates, or names.
   const { image_url: _untrustedImageUrl, ...safeDetails } = checked.data;
   void _untrustedImageUrl;
+  let savedId = id;
   try {
-    const result = editing
-      ? await supabase
-          .from("products")
-          .update(safeDetails)
-          .eq("id", id)
-          .select("id")
-          .maybeSingle()
-      : await supabase
-          .from("products")
-          .insert({ id, ...safeDetails, image_url: catalogueImage, ...(catalogueId ? { catalogue_product_id: catalogueId } : {}) })
-          .select("id")
-          .single();
-    if (result.error || !result.data) {
-      // A retry with the same form ID is successful only if the stored data agrees.
-      // Never upsert: a stale create retry must not overwrite a subsequent edit.
-      if (!editing && result.error?.code === "23505") {
-        const existing = await supabase
-          .from("products")
-          .select("*")
-          .eq("id", id)
-          .maybeSingle();
-        if (
-          existing.error ||
-          !existing.data ||
-          !sameProductDetails(existing.data, { ...safeDetails, image_url: catalogueImage }) ||
-          existing.data.catalogue_product_id !== (catalogueId || null)
-        ) {
-          return {
-            values,
-            errors: {},
-            message:
-              "This drink may already be in your shop. Open Products to check before adding it again.",
-          };
-        }
-      } else {
+    if (editing) {
+      const result = await supabase.from("products")
+        .update(safeDetails).eq("id", id).select("id").maybeSingle();
+      if (result.error || result.data?.id !== id) {
         return {
-          values,
-          errors: {},
-          message:
-            result.error?.code === "23514"
-              ? "The physical crate must have the same number of bottle spaces as the drink has bottles per crate."
-              : "Could not save the product. Your details are still here. Please try again.",
+          values, errors: {},
+          message: result.error?.code === "23514"
+            ? "The physical crate must match the drink's bottle count."
+            : "Could not update this drink. Check its details and retry.",
         };
       }
+    } else {
+      // 'id' from the form is ONLY a request token. PostgreSQL generates the
+      // actual primary key and the audited RPC deduplicates exact retries.
+      const { data, error } = await supabase.rpc("create_legacy_product", {
+        p_request_id: id,
+        p_name: safeDetails.name,
+        p_size: safeDetails.size,
+        p_image_url: catalogueImage,
+        p_crate_type_id: safeDetails.crate_type_id,
+        p_bottles_per_crate: safeDetails.bottles_per_crate,
+        p_full_crate_price: safeDetails.full_crate_price,
+        p_half_crate_price: safeDetails.half_crate_price,
+        p_quarter_crate_price: safeDetails.quarter_crate_price,
+        p_bottle_price: safeDetails.bottle_price,
+        p_bottles_returnable: safeDetails.bottles_returnable,
+        p_bottle_type: safeDetails.bottle_type,
+        p_catalogue_product_id: catalogueId || null,
+      });
+      if (error || !isProductId(data)) {
+        return {
+          values, errors: {},
+          message: error?.code === "23514" || error?.code === "22023"
+            ? "Check the drink's crate, prices and saved details before trying again."
+            : "Could not confirm this drink was saved. Refresh the catalogue to check before retrying.",
+        };
+      }
+      savedId = data;
     }
   } catch {
     return {
@@ -130,8 +124,8 @@ async function save(
   revalidatePath("/products/catalogue");
   revalidatePath("/empty-crates");
   revalidatePath("/stock");
-  revalidatePath(`/products/${id}`);
-  redirect(`/products/${id}?saved=${editing ? "updated" : "added"}`);
+  revalidatePath(`/products/${savedId}`);
+  redirect(`/products/${savedId}?saved=${editing ? "updated" : "added"}`);
 }
 
 export async function addProduct(
