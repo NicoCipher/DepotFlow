@@ -61,7 +61,7 @@ declare
  v_actor uuid:=private.assert_legacy_assortment_owner();
  v_name text:=pg_catalog.btrim(p_name);
  v_family text:=pg_catalog.btrim(p_empty_family);
- v_variant text:=pg_catalog.nullif(pg_catalog.btrim(p_variant),'');
+ v_variant text:=nullif(pg_catalog.btrim(p_variant),'');
  v_details jsonb;
  v_saved private.legacy_assortment_creation_requests%rowtype;
  v_id uuid;
@@ -117,9 +117,9 @@ as $create_product$
 declare
  v_actor uuid:=private.assert_legacy_assortment_owner();
  v_name text:=pg_catalog.btrim(pg_catalog.regexp_replace(p_name,'[[:space:]]+',' ','g'));
- v_size text:=pg_catalog.nullif(pg_catalog.btrim(p_size),'');
- v_image text:=pg_catalog.nullif(pg_catalog.btrim(p_image_url),'');
- v_bottle text:=pg_catalog.nullif(pg_catalog.btrim(p_bottle_type),'');
+ v_size text:=nullif(pg_catalog.btrim(p_size),'');
+ v_image text:=nullif(pg_catalog.btrim(p_image_url),'');
+ v_bottle text:=nullif(pg_catalog.btrim(p_bottle_type),'');
  v_crate public.crate_types%rowtype;
  v_details jsonb;
  v_saved private.legacy_assortment_creation_requests%rowtype;
