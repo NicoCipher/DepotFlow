@@ -72,7 +72,11 @@ begin
   'EXECUTE')
  or has_function_privilege('anon',
   'public.record_business_physical_opening(uuid,uuid,text,text,integer,integer,integer,date)',
-  'EXECUTE') then
+  'EXECUTE')
+ or has_function_privilege('authenticated',
+  'public.preview_business_opening_count_progress(uuid)','EXECUTE')
+ or has_function_privilege('anon',
+  'public.preview_business_opening_count_progress(uuid)','EXECUTE') then
   raise exception 'Physical opening unexpectedly granted or active';
  end if;
 end;
@@ -80,6 +84,7 @@ $default_off$;
 grant execute on function public.record_business_physical_opening(
  uuid,uuid,text,text,integer,integer,integer,date
 ) to authenticated;
+grant execute on function public.preview_business_opening_count_progress(uuid) to authenticated;
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
@@ -300,6 +305,55 @@ begin
  end;
 end;
 $activated_physical_replay_only$;
+reset role;
+
+-- Each owner's progress must show only their exact immutable markers,
+-- with explicit zero-counts still recognized as completed work.
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89a00000-0000-4000-8000-000000000002',true);
+do $owner_a_progress$
+declare v jsonb;
+begin
+ v:=public.preview_business_opening_count_progress(
+   '89a00000-0000-4000-9000-000000000021');
+ if v->>'count'<>'3' or v->>'truncated'<>'false'
+  or v->>'canActivate'<>'false'
+  or jsonb_array_length(v->'lines')<>3
+  or not exists(
+    select 1 from jsonb_array_elements(v->'lines') e
+    where e->>'kind'='crate'
+      and e->>'resource'='89a00000-0000-4000-9000-000000000031'
+  ) then
+  raise exception 'A progress omitted opening item: %',v;
+ end if;
+ begin
+  perform public.preview_business_opening_count_progress(
+    '89a00000-0000-4000-9000-000000000022');
+  raise exception 'A saw B private opening progress' using errcode='PT001';
+ exception when insufficient_privilege then null;
+ end;
+end;
+$owner_a_progress$;
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89a00000-0000-4000-8000-000000000003',true);
+do $owner_b_zero_progress$
+declare v jsonb;
+begin
+ v:=public.preview_business_opening_count_progress(
+   '89a00000-0000-4000-9000-000000000022');
+ if v->>'count'<>'2' or jsonb_array_length(v->'lines')<>2
+  or not exists(
+    select 1 from jsonb_array_elements(v->'lines') e
+    where e->>'kind'='crate'
+      and e->>'resource'='89a00000-0000-4000-9000-000000000032'
+  ) then
+  raise exception 'B explicit zero opening not recognized: %',v;
+ end if;
+end;
+$owner_b_zero_progress$;
 reset role;
 
 do $verify$
