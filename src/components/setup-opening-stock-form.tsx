@@ -18,6 +18,10 @@ export function SetupOpeningStockForm({
   businessId: string; requestId: string; businessDate: string;
   setup: AssortmentSetup; recorded: Line[];
 }) {
+  // Pin request identity and opening date to this mounted form. A Server
+  // Action rerender after midnight must not silently replace either one.
+  const [originalRequestId] = useState(requestId);
+  const [originalBusinessDate] = useState(businessDate);
   const [kind, setKind] = useState<Kind>("drink");
   const [resource, setResource] = useState("");
   const [state, action, pending] = useActionState(recordBusinessOpeningCount, initial);
@@ -79,8 +83,8 @@ export function SetupOpeningStockForm({
 
       <form action={action} className="mt-4 space-y-4">
         <input type="hidden" name="business_id" value={businessId} />
-        <input type="hidden" name="request_id" value={requestId} />
-        <input type="hidden" name="business_date" value={businessDate} />
+        <input type="hidden" name="request_id" value={originalRequestId} />
+        <input type="hidden" name="business_date" value={originalBusinessDate} />
         <input type="hidden" name="kind" value={kind} />
         <div>
           <label htmlFor="opening-stock-resource" className="block text-sm font-bold">
