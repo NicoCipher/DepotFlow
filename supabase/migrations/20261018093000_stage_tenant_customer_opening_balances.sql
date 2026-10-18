@@ -169,7 +169,7 @@ begin
     or p_note is null or pg_catalog.length(p_note)>300
     or pg_catalog.jsonb_typeof(p_crates) is distinct from 'array'
     or pg_catalog.jsonb_typeof(p_bottles) is distinct from 'array' then
-  raise exception 'Check the customer's opening balances'
+  raise exception 'Check customer opening balances'
    using errcode='22023';
  end if;
  if pg_catalog.jsonb_array_length(p_crates)>100
