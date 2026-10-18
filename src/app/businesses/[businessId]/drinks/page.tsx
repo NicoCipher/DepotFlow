@@ -117,9 +117,14 @@ export default async function NewDepotDrinksPage({
           {query ? "No matching unconfigured drinks." : "All listed drinks have been selected."}
         </p>}
       </section>
-      <Link href={`/businesses/${businessId}/opening`} className="secondary inline-flex">
-        Review opening checklist →
-      </Link>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Link href={`/businesses/${businessId}/stock`} className="primary inline-flex min-h-12 items-center justify-center">
+          Next: Count starting stock →
+        </Link>
+        <Link href={`/businesses/${businessId}/opening`} className="secondary inline-flex min-h-12 items-center justify-center">
+          Review setup checklist
+        </Link>
+      </div>
     </section>
   );
 }
