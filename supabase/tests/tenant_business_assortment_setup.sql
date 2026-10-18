@@ -308,6 +308,34 @@ reset role;
 rollback to savepoint foreign_assortment_request_token;
 release savepoint foreign_assortment_request_token;
 
+-- B uses A's *actual generated product PK* as a token for a distinct
+-- catalogue selection. There must be no foreign PK collision oracle.
+savepoint foreign_product_request_token;
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89600000-0000-4000-8000-000000000003',true);
+do $foreign_product_token$
+declare v uuid;
+begin
+ v:=public.add_business_catalogue_drink(
+  '89600000-0000-4000-9000-000000000022',
+  current_setting('fixture.a_product_goldberg')::uuid,
+  '89600000-0000-4000-9000-000000000091',
+  current_setting('fixture.b_crate')::uuid,
+  20,10500,null,null,550,true,'33 bottle',null);
+ if v=current_setting('fixture.a_product_goldberg')::uuid then
+   raise exception 'Foreign token selected A product primary key';
+ end if;
+ if not exists(select 1 from public.products
+   where id=v and business_id='89600000-0000-4000-9000-000000000022') then
+   raise exception 'B generated product did not remain tenant-scoped';
+ end if;
+end;
+$foreign_product_token$;
+reset role;
+rollback to savepoint foreign_product_request_token;
+release savepoint foreign_product_request_token;
+
 -- Shared catalogue identities are allowed; no other business's
 -- assortment price, selected drink, or physical crate can be leaked.
 set local role authenticated;
