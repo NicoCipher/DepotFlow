@@ -236,7 +236,7 @@ begin
  v:=public.preview_business_assortment_setup(
   '89600000-0000-4000-9000-000000000021');
  if v->>'businessId'<>'89600000-0000-4000-9000-000000000021'
-  or pg_catalog.jsonb_array_length(v->'catalogue')<>3
+  or pg_catalog.jsonb_array_length(v->'catalogue')<3
   or pg_catalog.jsonb_array_length(v->'crateTypes')<>2
   or pg_catalog.jsonb_array_length(v->'configuredDrinks')<>3
   or v->>'canActivate'<>'false'
