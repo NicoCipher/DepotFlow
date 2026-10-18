@@ -51,8 +51,10 @@ reset role;
 
 -- The foreign financial rows are fixture-only superuser inserts. The new
 -- owner is NOT permitted to record sales, stock, payment or empty returns.
-alter table public.sales disable trigger legacy_scope_business_write;
-alter table public.customer_payments disable trigger legacy_scope_business_write;
+-- Disposable superuser fixtures only: bypass writes' triggers without
+-- ALTER TABLE, which is unsafe with queued deferred receipt/tender events.
+-- The new-business payment/sale RPC grants remain forbidden.
+set local session_replication_role=replica;
 insert into public.sales(
  customer_id,total_amount,paid_amount,business_date,
  request_id,request_payload,payment_method,business_id
@@ -71,11 +73,9 @@ insert into public.customer_payments(
  '89c00000-0000-4000-9000-000000000092',
  'transfer','89c00000-0000-4000-9000-000000000021'
 );
--- PostgreSQL requires deferred mixed-sale triggers to finish before ALTER TABLE.
-set constraints all immediate;
-alter table public.sales enable trigger legacy_scope_business_write;
-alter table public.customer_payments enable trigger legacy_scope_business_write;
-set constraints all deferred;
+-- Return immediately to normal trigger enforcement for all real
+-- signed-in original-shop save and payment tests below.
+set local session_replication_role=origin;
 
 -- The original owner is allowed to use the same payment request UUID on
 -- its OWN customer and must not rewrite the foreign method or balance.
