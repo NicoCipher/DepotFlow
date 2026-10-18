@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SetupOpeningStockForm } from "@/components/setup-opening-stock-form";
 import { isUuid } from "@/domain/ids";
+import { businessDateInLagos } from "@/domain/opening-business-date";
 import { loadOwnerAssortment } from "@/lib/businesses/setup";
 import { createClient } from "@/lib/supabase/server";
 
@@ -86,6 +87,7 @@ export default async function NewDepotStockPage({
       <SetupOpeningStockForm
         businessId={businessId}
         requestId={randomUUID()}
+        businessDate={businessDateInLagos()}
         setup={owner.snapshot}
         recorded={progress}
       />
