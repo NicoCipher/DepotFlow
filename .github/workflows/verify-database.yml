@@ -38,6 +38,9 @@ jobs:
           echo "Preflight correctly blocked unreconciled production-history upgrade"
 
 
+      - name: Assert live migration release gate fails safely on historical drift
+        run: python3 -m unittest discover -s supabase/tests -p 'test_live_migration_history.py'
+
       - name: Install PostgreSQL 16
         run: |
           set -euo pipefail
