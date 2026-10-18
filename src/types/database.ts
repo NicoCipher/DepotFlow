@@ -1026,6 +1026,37 @@ export type Database = {
       }
     }
     Functions: {
+      list_my_businesses_for_setup: {
+        Args: Record<string, never>
+        Returns: {
+          business_id: string
+          business_name: string
+          business_status: "setup" | "active"
+          member_kind: "owner"
+        }[]
+      }
+      preview_business_opening_readiness: {
+        Args: { p_business_id: string }
+        Returns: Json
+      }
+      prepare_business_opening_review: {
+        Args: { p_business_id: string }
+        Returns: Json
+      }
+      confirm_business_opening_review: {
+        Args: {
+          p_business_id: string
+          p_request_id: string
+          p_review_token: string
+          p_confirmed_business_name: string
+          p_stock_checked: boolean
+          p_customer_debts_checked: boolean
+          p_refundable_deposits_checked: boolean
+          p_customer_empties_checked: boolean
+          p_zero_history_checked: boolean
+        }
+        Returns: Json
+      }
       set_shop_drink_active: { Args: { p_id: string; p_active: boolean; p_expected_active: boolean }; Returns: boolean }
       customer_records: {
         Args: { p_from: string; p_to: string; p_kind: string; p_method: string; p_search: string; p_limit: number; p_cursor?: Json | null; p_before?: boolean }
