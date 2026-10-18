@@ -265,10 +265,8 @@ begin
   raise exception 'Failed physical journal committed bottle stock' using errcode='PT001';
  exception when invalid_parameter_value then null;
  end;
- if exists(select 1 from public.empty_bottle_stock)
-    or exists(select 1 from private.business_empty_bottle_counts
-       where business_id='89a00000-0000-4000-9000-000000000022') then
-  raise exception 'Injected journal failure left B partial bottle count';
+ if exists(select 1 from public.empty_bottle_stock) then
+  raise exception 'Injected journal failure left B partial bottle stock';
  end if;
 end;
 $owner_b$;
@@ -276,6 +274,14 @@ reset role;
 
 do $verify$
 begin
+ -- Private audit is inspected only as the disposable TEST ADMIN, not as
+ -- an ordinary owner. Owners must never have private audit SELECT grants.
+ if exists(select 1 from private.business_empty_bottle_counts
+           where business_id='89a00000-0000-4000-9000-000000000022')
+ or exists(select 1 from private.business_physical_opening_lines
+           where request_id='89a00000-0000-4000-9000-000000000069') then
+  raise exception 'Final physical journal failure left a private audit';
+ end if;
  if (select count(*) from private.business_physical_opening_lines)<>5
  or (select count(*) from private.business_product_stock_counts)<>2
  or (select count(*) from private.business_empty_crate_counts)<>2
