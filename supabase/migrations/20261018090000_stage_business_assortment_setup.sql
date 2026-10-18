@@ -108,7 +108,7 @@ begin
      or v_name is null or length(v_name) not between 1 and 120
      or v_family is null or length(v_family) not between 1 and 80
      or length(v_variant)>120
-     or p_pocket_count is null or p_pocket_count<=0 or p_pocket_count>24 then
+     or p_pocket_count is null or p_pocket_count<=0 then
     raise exception 'Choose a named physical crate with a valid pocket count'
       using errcode='22023';
   end if;
@@ -179,7 +179,7 @@ begin
   end if;
   if p_product_id is null or p_catalogue_product_id is null
      or p_crate_type_id is null or p_bottles_per_crate is null
-     or p_bottles_per_crate<=0 or p_bottles_per_crate>24
+     or p_bottles_per_crate<=0
      or p_full_crate_price is null or p_full_crate_price<0
      or p_full_crate_price%50<>0
      or (p_half_crate_price is not null
@@ -191,7 +191,8 @@ begin
      or p_bottles_returnable is null
      or length(v_size)>120
      or length(v_bottle_type)>120
-     or (p_bottles_returnable and v_bottle_type is null) then
+     or (p_bottles_returnable and v_bottle_type is null)
+     or (not p_bottles_returnable and v_bottle_type is not null) then
     raise exception 'Check drink, crate, returnable bottle and N50 prices'
       using errcode='22023';
   end if;
