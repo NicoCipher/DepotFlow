@@ -15,6 +15,22 @@ insert into private.shop_owner(user_id)
  values('89c00000-0000-4000-8000-000000000001');
 select private.link_legacy_shop_business();
 
+-- Simulate an AFTER INSERT failure on the last immutable legacy audit.
+-- The customer itself must roll back in the SAME transaction.
+create function pg_temp.reject_one_legacy_create()
+returns trigger language plpgsql as $audit_fail$
+begin
+ if new.request_id='89c00000-0000-4000-9000-000000000019'::uuid then
+  raise exception 'Injected legacy customer request audit failure'
+    using errcode='22023';
+ end if;
+ return new;
+end;
+$audit_fail$;
+create trigger disposable_legacy_customer_audit_failure
+ after insert on private.legacy_customer_creation_requests
+ for each row execute function pg_temp.reject_one_legacy_create();
+
 do $no_direct_business_insert$
 begin
  if has_column_privilege('authenticated','public.customers','business_id','INSERT')
@@ -39,6 +55,14 @@ select set_config('request.jwt.claim.sub',
 do $before_backfill_create$
 declare v jsonb;r jsonb;
 begin
+ -- A last-step audit insert failure must NOT leave a ghost customer.
+ begin
+  perform public.create_legacy_customer(
+   '89c00000-0000-4000-9000-000000000019',
+   'Failed audit ghost','08012340019',null,null);
+  raise exception 'Failed audit did not roll back customer' using errcode='PT001';
+ exception when invalid_parameter_value then null;
+ end;
  v:=public.create_legacy_customer(
   '89c00000-0000-4000-9000-000000000011',
   'Pilot before backfill','08012340011',null,null);
@@ -53,6 +77,16 @@ begin
 end;
 $before_backfill_create$;
 reset role;
+do $audit_error_atomic$
+begin
+ if exists(select 1 from public.customers
+           where phone='08012340019')
+ or exists(select 1 from private.legacy_customer_creation_requests
+           where request_id='89c00000-0000-4000-9000-000000000019') then
+  raise exception 'Legacy customer audit failure left a partial record';
+ end if;
+end;
+$audit_error_atomic$;
 
 select private.backfill_legacy_shop_rows(private.legacy_scope_snapshot());
 do $validate$
@@ -173,6 +207,14 @@ select set_config('request.jwt.claim.sub',
 do $direct_data_api_attacks$
 declare v_sqlstate text;
 begin
+ -- A nonlegacy owner must not call the original-shop-only generator.
+ begin
+  perform public.create_legacy_customer(
+   '89c00000-0000-4000-9000-000000000061',
+   'Forged legacy customer','08012340061',null,null);
+  raise exception 'A used original-shop customer generator' using errcode='PT001';
+ exception when insufficient_privilege then null;
+ end;
  -- The same 42501 result for a KNOWN foreign ID and a fresh UUID;
  -- the globally unique customers primary key is never reached.
  begin
@@ -237,4 +279,26 @@ begin
  end if;
 end;
 $audit_integrity$;
+
+-- The legacy creator cannot replay a previously known customer ID after
+-- membership revocation once the audited legacy write gate is active.
+update private.business_memberships set status='disabled'
+ where business_id in (
+  select id from private.businesses where legacy_singleton is true);
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89c00000-0000-4000-8000-000000000001',true);
+do $revoked_legacy_creator$
+begin
+ begin
+  perform public.create_legacy_customer(
+   '89c00000-0000-4000-9000-000000000011',
+   'Pilot before backfill','08012340011',null,null);
+  raise exception 'Revoked original owner replayed customer request'
+   using errcode='PT001';
+ exception when insufficient_privilege then null;
+ end;
+end;
+$revoked_legacy_creator$;
+reset role;
 rollback;
