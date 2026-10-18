@@ -13,9 +13,9 @@ type Item = { resource: string; label: string; pack?: number };
 const initial: OpeningCountState = { message: "" };
 
 export function SetupOpeningStockForm({
-  businessId, requestId, setup, recorded,
+  businessId, requestId, businessDate, setup, recorded,
 }: {
-  businessId: string; requestId: string;
+  businessId: string; requestId: string; businessDate: string;
   setup: AssortmentSetup; recorded: Line[];
 }) {
   const [kind, setKind] = useState<Kind>("drink");
@@ -80,6 +80,7 @@ export function SetupOpeningStockForm({
       <form action={action} className="mt-4 space-y-4">
         <input type="hidden" name="business_id" value={businessId} />
         <input type="hidden" name="request_id" value={requestId} />
+        <input type="hidden" name="business_date" value={businessDate} />
         <input type="hidden" name="kind" value={kind} />
         <div>
           <label htmlFor="opening-stock-resource" className="block text-sm font-bold">
