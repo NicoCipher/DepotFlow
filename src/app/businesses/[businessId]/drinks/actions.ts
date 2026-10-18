@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { validateDrinkSetup } from "@/domain/business-assortment";
+import { parseBusinessAssortment, validateDrinkSetup } from "@/domain/business-assortment";
 import { isUuid } from "@/domain/ids";
 import { createClient } from "@/lib/supabase/server";
 
@@ -20,8 +20,11 @@ async function verifiedSetup(businessId: string) {
   const setup = await supabase.rpc("preview_business_assortment_setup", {
     p_business_id: businessId,
   });
-  if (setup.error || !setup.data) return null;
-  return { supabase, setup: setup.data };
+  if (setup.error || !setup.data ||
+    !parseBusinessAssortment(setup.data, businessId)) return null;
+  // Reject missing counts/truncation on POST too. A caller must never be
+  // able to bypass a capped/partial GET by submitting an old form.
+  return { supabase };
 }
 
 export async function addSetupCrate(
