@@ -283,14 +283,15 @@ declare
  v_business uuid;
 begin
  v_actor:=private.assert_legacy_assortment_owner();
+ -- assert_legacy_assortment_owner() has already locked and verified the
+ -- singleton original owner; resolve only that actor's linked business.
  select b.id into v_business
- from private.shop_owner o
- join private.business_memberships m on m.user_id=o.user_id
+ from private.business_memberships m
  join private.businesses b on b.id=m.business_id
- where o.user_id=v_actor
+ where m.user_id=v_actor
    and m.member_kind='owner'
    and b.legacy_singleton is true
- for share of o,m,b;
+ for share of m,b;
  -- Before initial backfill, the original shop's records have business_id
  -- NULL. After membership exists, only that shop's own UUID is permitted.
  return v_business;
