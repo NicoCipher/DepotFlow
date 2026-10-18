@@ -8,14 +8,17 @@ function compile(relative: string, mocks: Record<string, unknown>) {
   const js = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
   }).outputText;
-  const mod = { exports: {} as Record<string, (...args: any[]) => Promise<any>> };
+  const mod = { exports: {} as Record<string, (...args: unknown[]) => Promise<unknown>> };
   new Function("require", "module", "exports", js)(
     (name: string) => {
       if (!(name in mocks)) throw new Error(`Unexpected dependency: ${name}`);
       return mocks[name];
     }, mod, mod.exports,
   );
-  return mod.exports;
+  return mod.exports as unknown as {
+    clearRejectedSignInCookies: () => Promise<boolean>;
+    signIn: (state: { email: string; message: string }, form: FormData) => Promise<{ email: string; message: string }>;
+  };
 }
 
 test("auth fallback deletes only this project's chunked and PKCE cookies", async () => {
