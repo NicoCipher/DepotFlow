@@ -67,7 +67,7 @@ export default async function NewDepotCustomerOpeningPage({
           {customerResponse.data.name}
         </h1>
         <p className="text-sm leading-6 text-stone-600">
-          Check this customer's balances as they stood before your first
+          Check this customer&apos;s balances as they stood before your first
           DepotFlow sale. These are not new transactions.
         </p>
       </header>
