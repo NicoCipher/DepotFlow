@@ -138,6 +138,18 @@ finally:
     # operational triggers; none of these fixtures reaches production.
     checked(f"""begin;
       set local session_replication_role=replica;
+      -- Clear all business-tagged operational fixtures, including prices
+      -- captured automatically by product catalogue triggers. FK enforcement
+      -- is disabled ONLY for this disposable administrative teardown.
+      do $delete_business_rows$
+      declare r record;
+      begin
+        for r in select * from private.legacy_scope_tables() loop
+          execute format('delete from %I.%I where business_id=$1',
+            r.schema_name,r.table_name) using '{ids["business"]}'::uuid;
+        end loop;
+      end;
+      $delete_business_rows$;
       delete from private.business_product_stock_counts
         where business_id='{ids["business"]}';
       delete from public.stock where product_id='{ids["product"]}';
