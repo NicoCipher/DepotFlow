@@ -25,11 +25,11 @@ jobs:
         run: |
           set -euo pipefail
           python3 supabase/tests/check_tenancy_release_order.py
-          # The Oct 16 read-only production snapshot and historical git SQL
+          # The Oct 18 read-only 55-entry production snapshot and historical git SQL
           # currently disagree. Verify the release preflight FAILS CLOSED,
           # rather than treating an empty-database SQL pass as permission to push.
           if python3 supabase/tests/check_tenancy_release_order.py \
-              --remote-history supabase/tests/fixtures/production_migration_history_20261016.json > /tmp/tenancy-release-preflight.log 2>&1; then
+              --remote-history supabase/tests/fixtures/production_migration_history_20261018.json > /tmp/tenancy-release-preflight.log 2>&1; then
             echo "Unexpectedly passed mismatched live migration history"
             exit 1
           fi
