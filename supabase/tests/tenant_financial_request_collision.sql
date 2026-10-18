@@ -57,21 +57,25 @@ reset role;
 set local session_replication_role=replica;
 insert into public.sales(
  customer_id,total_amount,paid_amount,business_date,
- request_id,request_payload,payment_method,business_id
+ request_id,request_payload,payment_method,business_id,
+ receipt_customer_name,receipt_customer_name_source
 ) values(
  '89c00000-0000-4000-9000-000000000022',
  5000,0,'2026-10-17',
  '89c00000-0000-4000-9000-000000000091',
  '{}'::jsonb,'not_recorded',
- '89c00000-0000-4000-9000-000000000021'
+ '89c00000-0000-4000-9000-000000000021',
+ 'Foreign debtor','captured'
 );
 insert into public.customer_payments(
- customer_id,amount,owed_after,business_date,request_id,method,business_id
+ customer_id,amount,owed_after,business_date,request_id,method,business_id,
+ receipt_customer_name,receipt_customer_name_source
 ) values(
  '89c00000-0000-4000-9000-000000000022',
  13,987,'2026-10-17',
  '89c00000-0000-4000-9000-000000000092',
- 'transfer','89c00000-0000-4000-9000-000000000021'
+ 'transfer','89c00000-0000-4000-9000-000000000021',
+ 'Foreign debtor','captured'
 );
 -- Return immediately to normal trigger enforcement for all real
 -- signed-in original-shop save and payment tests below.
