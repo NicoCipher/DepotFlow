@@ -21,6 +21,9 @@ jobs:
       - name: Verify unambiguous Supabase migration history
         run: python3 supabase/tests/check_migration_versions.py
 
+      - name: Assert live migration release gate fails safely on historical drift
+        run: python3 -m unittest discover -s supabase/tests -p 'test_live_migration_history.py'
+
       - name: Install PostgreSQL 16
         run: |
           set -euo pipefail
