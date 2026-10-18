@@ -26,8 +26,11 @@ declare
  v_actor uuid:=auth.uid();
  v_business uuid;
 begin
- if v_actor is null or not private.verified_legacy_owner_read() then
-   raise exception 'Verified original shop ownership required' using errcode='42501';
+  if not private.verified_legacy_owner_read() then
+    raise exception 'Verified original shop ownership required' using errcode='42501';
+  end if;
+ if v_actor is null then
+   raise exception 'Original owner sign-in required' using errcode='42501';
  end if;
  perform 1 from private.shop_owner where user_id=v_actor for share;
  if not found then
