@@ -1173,6 +1173,34 @@ export type Database = {
       save_business_details: { Args: { p_name: string; p_address: string; p_phone: string; p_logo_url: string }; Returns: undefined }
       release_held_empties: { Args: { p_id: string }; Returns: undefined }
       delete_unused_crate_type: { Args: { p_id: string }; Returns: undefined }
+      create_legacy_crate_type: {
+        Args: {
+          p_request_id: string
+          p_name: string
+          p_empty_family: string
+          p_pocket_count: number
+          p_variant: string | null
+        }
+        Returns: string
+      }
+      create_legacy_product: {
+        Args: {
+          p_request_id: string
+          p_name: string
+          p_size: string | null
+          p_image_url: string | null
+          p_crate_type_id: string
+          p_bottles_per_crate: number
+          p_full_crate_price: number
+          p_half_crate_price: number | null
+          p_quarter_crate_price: number | null
+          p_bottle_price: number | null
+          p_bottles_returnable: boolean
+          p_bottle_type: string | null
+          p_catalogue_product_id: string | null
+        }
+        Returns: string
+      }
       create_crate_type: {
         Args: {
           p_empty_family: string
