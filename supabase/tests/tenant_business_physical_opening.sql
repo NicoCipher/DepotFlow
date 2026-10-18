@@ -277,6 +277,26 @@ end;
 $owner_b$;
 reset role;
 
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89a00000-0000-4000-8000-000000000003',true);
+do $owner_b_zero_progress$
+declare v jsonb;
+begin
+ v:=public.preview_business_opening_count_progress(
+   '89a00000-0000-4000-9000-000000000022');
+ if v->>'count'<>'2' or jsonb_array_length(v->'lines')<>2
+  or not exists(
+    select 1 from jsonb_array_elements(v->'lines') e
+    where e->>'kind'='crate'
+      and e->>'resource'='89a00000-0000-4000-9000-000000000032'
+  ) then
+  raise exception 'B explicit zero opening not recognized: %',v;
+ end if;
+end;
+$owner_b_zero_progress$;
+reset role;
+
 -- After final activation, the original stock-count response remains
 -- recoverable, while new physical opening events are forbidden.
 update private.businesses set status='active'
@@ -336,25 +356,7 @@ begin
 end;
 $owner_a_progress$;
 reset role;
-set local role authenticated;
-select set_config('request.jwt.claim.sub',
- '89a00000-0000-4000-8000-000000000003',true);
-do $owner_b_zero_progress$
-declare v jsonb;
-begin
- v:=public.preview_business_opening_count_progress(
-   '89a00000-0000-4000-9000-000000000022');
- if v->>'count'<>'2' or jsonb_array_length(v->'lines')<>2
-  or not exists(
-    select 1 from jsonb_array_elements(v->'lines') e
-    where e->>'kind'='crate'
-      and e->>'resource'='89a00000-0000-4000-9000-000000000032'
-  ) then
-  raise exception 'B explicit zero opening not recognized: %',v;
- end if;
-end;
-$owner_b_zero_progress$;
-reset role;
+
 
 do $verify$
 begin
