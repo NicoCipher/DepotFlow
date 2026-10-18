@@ -48,7 +48,11 @@ def pk(result) -> str:
     uuid_lines = []
     for line in result.stdout.splitlines():
         try:
-            uuid_lines.append(str(uuid.UUID(line.strip())))
+            parsed = str(uuid.UUID(line.strip()))
+            # SET_CONFIG above returns the authenticated owner's UUID as
+            # a separate psql row; only the RPC's generated ID is the result.
+            if parsed != OWNER:
+                uuid_lines.append(parsed)
         except (ValueError, AttributeError):
             continue
     assert len(uuid_lines) == 1, result.stdout
