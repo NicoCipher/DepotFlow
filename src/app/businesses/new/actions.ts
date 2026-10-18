@@ -28,7 +28,7 @@ export async function registerDepot(
 
   if (
     !isUuid(requestId) || name.length < 2 || name.length > 120 ||
-    address.length > 400 || phone.length > 40
+    address.length < 1 || address.length > 400 || phone.length > 40
   ) return invalid;
 
   const supabase = await createClient();
