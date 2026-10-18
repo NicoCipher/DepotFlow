@@ -62,13 +62,12 @@ insert into public.customers(id,name,phone) values
 update public.customers set name='Pilot edited after backfill'
  where id='89c00000-0000-4000-9000-000000000012';
 do $original_shop_unbroken$
-declare v_legacy uuid;
 begin
- select id into v_legacy from private.businesses
-  where legacy_singleton is true;
+ -- Inspect only owner-visible public rows in the authenticated fixture.
+ -- Do not grant ordinary owners SELECT on private.businesses.
  if (select count(*) from public.customers)<>2
-   or (select count(*) from public.customers
-       where business_id=v_legacy)<>2
+   or (select count(distinct business_id) from public.customers)<>1
+   or exists(select 1 from public.customers where business_id is null)
    or (select name from public.customers
        where id='89c00000-0000-4000-9000-000000000012')
        <>'Pilot edited after backfill' then
