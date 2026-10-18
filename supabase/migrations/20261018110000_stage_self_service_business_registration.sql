@@ -162,8 +162,12 @@ begin
    join private.businesses b on b.id=m.business_id
   where m.user_id=v_actor and m.member_kind='owner'
     and b.legacy_singleton is null
-    and pg_catalog.lower(p.name)=pg_catalog.lower(v_name)
-    and pg_catalog.lower(p.address)=pg_catalog.lower(v_address)
+    and pg_catalog.lower(pg_catalog.btrim(
+      pg_catalog.regexp_replace(p.name,'[[:space:]]+',' ','g')
+    ))=pg_catalog.lower(v_name)
+    and pg_catalog.lower(pg_catalog.btrim(
+      pg_catalog.regexp_replace(p.address,'[[:space:]]+',' ','g')
+    ))=pg_catalog.lower(v_address)
  ) then
    raise exception 'You have already registered this depot'
     using errcode='22023';
