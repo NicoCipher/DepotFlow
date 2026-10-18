@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   catalogueImageUrl,
+  currentProductImage,
   validCatalogueImagePath,
   sniffProductImage,
   trustedProductImageUrl,
@@ -50,4 +51,26 @@ test("a first-party catalogue photo resolves locally and never hotlinks the sour
   assert.equal(validCatalogueImagePath("first-party/../secret.webp"), false);
   assert.equal(validCatalogueImagePath("first-party/goldberg-60cl.svg"), false);
   assert.equal(validCatalogueImagePath("https://retailer.com/goldberg.webp"), false);
+});
+
+test("shared master photo wins over another depot's stale cached image", () => {
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://my-project.supabase.co";
+  const cached = "/catalogue-photos/old-goldberg.webp";
+  const item = { image_url: cached, product_catalogue: { image_path: path } };
+  assert.equal(
+    currentProductImage(item),
+    `https://my-project.supabase.co/storage/v1/object/public/product-images/${path}`,
+  );
+  assert.equal(
+    currentProductImage({ image_url: cached, product_catalogue: { image_path: "first-party/new-goldberg.webp" } }),
+    "/catalogue-photos/new-goldberg.webp",
+  );
+  assert.equal(
+    currentProductImage({ image_url: cached, product_catalogue: null }),
+    cached,
+  );
+  assert.equal(
+    currentProductImage({ image_url: cached, product_catalogue: { image_path: "https://evil.example/track.png" } }),
+    null,
+  );
 });
