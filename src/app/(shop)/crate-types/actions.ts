@@ -50,16 +50,15 @@ export async function saveCrateType(
     return { message: "Enter a name, family and positive whole pocket count." };
   }
   try {
-    const { data: savedId, error } = await supabase.rpc(
-      editing ? "edit_crate_type" : "create_legacy_crate_type",
-      {
-        ...(editing ? { p_id: id } : { p_request_id: id }),
-        p_name: checked.name,
-        p_empty_family: checked.empty_family,
-        p_pocket_count: checked.pocket_count,
-        p_variant: checked.variant ?? "",
-      },
-    );
+    const args = {
+      p_name: checked.name,
+      p_empty_family: checked.empty_family,
+      p_pocket_count: checked.pocket_count,
+      p_variant: checked.variant ?? "",
+    };
+    const { data: savedId, error } = editing
+      ? await supabase.rpc("edit_crate_type", { ...args, p_id: id })
+      : await supabase.rpc("create_legacy_crate_type", { ...args, p_request_id: id });
     if (error)
       return {
         message:
