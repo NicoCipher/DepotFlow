@@ -241,6 +241,10 @@ begin
   or pg_catalog.jsonb_array_length(v->'configuredDrinks')<>3
   or v->>'canActivate'<>'false'
   or v->>'readOnly'<>'true'
+  or v->>'truncated'<>'false'
+  or (v->>'catalogueTotal')::int<>pg_catalog.jsonb_array_length(v->'catalogue')
+  or v->>'crateTypesTotal'<>'2'
+  or v->>'configuredDrinksTotal'<>'3'
   or (v->'configuredDrinks')::text like '%13000%'
   or (v->'crateTypes')::text like '%B Goldberg own crate%' then
    raise exception 'A setup preview failed owner isolation: %',v;
@@ -272,6 +276,63 @@ begin
 end;
 $b_setup_preview$;
 reset role;
+
+-- A catalogue above the 250-row page limit must be explicitly
+-- flagged, never silently presented to the owner as fully selectable.
+savepoint overflow_master_catalogue;
+insert into public.product_catalogue(id,name,manufacturer)
+select pg_catalog.gen_random_uuid(),
+  'Fixture overflow drink '||n::text,'QA'
+from pg_catalog.generate_series(1,251) n;
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89600000-0000-4000-8000-000000000002',true);
+do $catalogue_truncation$
+declare v jsonb;
+begin
+ v:=public.preview_business_assortment_setup(
+  '89600000-0000-4000-9000-000000000021');
+ if v->>'truncated'<>'true'
+  or (v->>'catalogueTotal')::int<=250
+  or pg_catalog.jsonb_array_length(v->'catalogue')<>250
+  or v->>'configuredDrinksTotal'<>'3' then
+  raise exception 'Shared catalogue overflow was silently hidden: %',v;
+ end if;
+end;
+$catalogue_truncation$;
+reset role;
+rollback to savepoint overflow_master_catalogue;
+release savepoint overflow_master_catalogue;
+
+-- Same completeness contract for the owner's exact physical crate types.
+savepoint overflow_owned_crates;
+alter table public.crate_types disable trigger legacy_scope_business_write;
+insert into public.crate_types(
+ id,business_id,name,empty_family,pocket_count
+)
+select pg_catalog.gen_random_uuid(),
+ '89600000-0000-4000-9000-000000000021'::uuid,
+ 'Fixture physical crate '||n::text,'NBL',20
+from pg_catalog.generate_series(1,251) n;
+alter table public.crate_types enable trigger legacy_scope_business_write;
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89600000-0000-4000-8000-000000000002',true);
+do $crate_truncation$
+declare v jsonb;
+begin
+ v:=public.preview_business_assortment_setup(
+  '89600000-0000-4000-9000-000000000021');
+ if v->>'truncated'<>'true'
+  or (v->>'crateTypesTotal')::int<=250
+  or pg_catalog.jsonb_array_length(v->'crateTypes')<>250 then
+  raise exception 'Owned physical crate overflow silently hidden: %',v;
+ end if;
+end;
+$crate_truncation$;
+reset role;
+rollback to savepoint overflow_owned_crates;
+release savepoint overflow_owned_crates;
 
 do $verify$
 begin
