@@ -6,26 +6,22 @@ begin;
 set local lock_timeout='5s';
 set local statement_timeout='60s';
 
--- The old global unique request_id prevents A and B using the same UUID.
--- Keep the single-row-per-customer constraint, but scope request identity
--- by business (NULLS NOT DISTINCT retains pre-backfill legacy uniqueness).
-do $replace_global_customer_opening_request$
-declare v_name name;
+-- M2f-14 already changed the global request key to an explicit
+-- business-qualified uniqueness rule. Verify it; never drop it twice.
+do $customer_opening_request_preflight$
+declare v_definition text;
 begin
- select conname into v_name from pg_catalog.pg_constraint
-  where conrelid='public.customer_opening_balances'::regclass
-   and contype='u'
-   and pg_catalog.pg_get_constraintdef(oid)='UNIQUE (request_id)';
- if v_name is null then
-   raise exception 'Expected global customer opening request uniqueness drift';
+ select pg_catalog.pg_get_constraintdef(oid) into v_definition
+ from pg_catalog.pg_constraint
+ where conrelid='public.customer_opening_balances'::regclass
+   and conname='customer_opening_balances_business_request_unique'
+   and contype='u';
+ if v_definition is distinct from
+     'UNIQUE NULLS NOT DISTINCT (business_id, request_id)' then
+  raise exception 'Existing business opening request uniqueness drift: %',v_definition;
  end if;
- execute pg_catalog.format(
-  'alter table public.customer_opening_balances drop constraint %I',v_name);
 end;
-$replace_global_customer_opening_request$;
-alter table public.customer_opening_balances
- add constraint customer_opening_business_request_unique
- unique nulls not distinct (business_id,request_id);
+$customer_opening_request_preflight$;
 
 alter table public.customer_opening_balances
  add column deposit_amount integer not null default 0 check(deposit_amount>=0);
