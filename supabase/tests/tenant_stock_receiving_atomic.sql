@@ -92,6 +92,64 @@ alter table public.stock enable trigger legacy_scope_business_write;
 alter table public.products enable trigger legacy_scope_business_write;
 alter table public.crate_types enable trigger legacy_scope_business_write;
 
+-- Original shop operations must treat every foreign product/crate UUID
+-- the SAME as an unknown UUID. SECURITY DEFINER cannot rely on RLS alone.
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89f00000-0000-4000-8000-000000000001',true);
+do $original_shop_metadata_isolation$
+declare
+  v_id uuid;
+  v_message text;
+begin
+  foreach v_id in array array[
+    '89f00000-0000-4000-9000-000000000042'::uuid,
+    '89f00000-0000-4000-9000-000000000099'::uuid
+  ] loop
+    begin
+      perform public.receive_stock(
+        gen_random_uuid(),v_id,1,50,4,12,
+        '89f00000-0000-4000-9000-000000000032','2026-10-18');
+      raise exception 'Legacy receiving inspected foreign product'
+        using errcode='PT001';
+    exception when invalid_parameter_value then
+      get stacked diagnostics v_message=message_text;
+      if v_message<>'Product not found.' then
+        raise exception 'Legacy receiving product oracle: %',v_message;
+      end if;
+    end;
+    begin
+      perform public.set_current_stock(
+        gen_random_uuid(),v_id,2,0,'2026-10-18',50,12);
+      raise exception 'Legacy count inspected foreign product'
+        using errcode='PT001';
+    exception when invalid_parameter_value then
+      get stacked diagnostics v_message=message_text;
+      if v_message<>'Product not found.' then
+        raise exception 'Legacy stock count product oracle: %',v_message;
+      end if;
+    end;
+  end loop;
+  foreach v_id in array array[
+    '89f00000-0000-4000-9000-000000000032'::uuid,
+    '89f00000-0000-4000-9000-000000000098'::uuid
+  ] loop
+    begin
+      perform public.set_empty_crate_count(
+        gen_random_uuid(),v_id,4,'2026-10-18',4);
+      raise exception 'Legacy count inspected foreign crate type'
+        using errcode='PT001';
+    exception when invalid_parameter_value then
+      get stacked diagnostics v_message=message_text;
+      if v_message<>'Choose an existing crate type.' then
+        raise exception 'Legacy crate identity oracle: %',v_message;
+      end if;
+    end;
+  end loop;
+end;
+$original_shop_metadata_isolation$;
+reset role;
+
 do $default_off$
 begin
  if (select enabled from private.business_receiving_gate)
