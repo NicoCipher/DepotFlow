@@ -84,6 +84,7 @@ test("bottles per crate must be a positive PostgreSQL whole number", () => {
     "1.5",
     "12.0",
     "1e2",
+    "121",
     "2147483648",
     "abc",
   ])
@@ -91,7 +92,7 @@ test("bottles per crate must be a positive PostgreSQL whole number", () => {
       validateProduct({ ...valid, bottles_per_crate: value }).errors
         .bottles_per_crate,
     );
-  for (const value of ["1", "12", "24", "2147483647"])
+  for (const value of ["1", "12", "24", "120"])
     assert.equal(
       validateProduct({ ...valid, bottles_per_crate: value }).errors
         .bottles_per_crate,
