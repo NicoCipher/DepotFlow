@@ -80,24 +80,23 @@ jobs:
       - name: Run SQL test suite (each file is self-contained and rolls back)
         run: |
           set -euo pipefail
-          # Assert production privilege first: neither old nor new depot
-          # browsers may submit a chosen global customer PK anymore.
+          # Assert production privilege first: neither original nor new depot
+          # browser may directly INSERT a customer, with or without a PK.
           psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 <<'SQL'
           do $guard$
           begin
-           if has_column_privilege('authenticated','public.customers','id','INSERT')
-              or has_column_privilege('authenticated','public.customers','business_id','INSERT')
+           if has_any_column_privilege('authenticated','public.customers','INSERT')
            then raise exception 'Unaudited customer-ID insert grant remains';end if;
           end;
           $guard$;
           SQL
           # Historical isolated SQL fixtures intentionally submit fixed IDs
-          # to exercise old trigger/RLS/reporting behavior. Grant ONLY in
-          # disposable SQL test suite; never production, and REVOKE before
-          # running new real-concurrency scripts. The dedicated Data API
+          # to exercise old trigger/RLS/reporting behavior. Restore ONLY
+          # the legacy columns in disposable SQL tests, never business_id,
+          # then REVOKE before running new real-concurrency scripts. The dedicated Data API
           # test revokes it within its own transaction to verify live policy.
           psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
-            -c 'grant insert(id) on public.customers to authenticated;'
+            -c 'grant insert (id,name,phone,business_name,address) on public.customers to authenticated;'
           for f in supabase/tests/*.sql; do
             case "$f" in
               */customer_archiving.sql|*/customer_payments.sql|*/empties_rules.sql|*/sale_partial_pricing.sql|*/record_sale_v2_empties.sql) continue ;;
@@ -106,11 +105,11 @@ jobs:
             psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 -f "$f"
           done
           psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
-            -c 'revoke insert(id) on public.customers from authenticated;'
+            -c 'revoke insert (id,name,phone,business_name,address) on public.customers from authenticated;'
           psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 <<'SQL'
           do $post_sql_fixture$
           begin
-           if has_column_privilege('authenticated','public.customers','id','INSERT')
+           if has_any_column_privilege('authenticated','public.customers','INSERT')
            then raise exception 'Customer chosen-PK privilege leaked out of SQL fixture';end if;
           end;
           $post_sql_fixture$;
