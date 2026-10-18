@@ -28,6 +28,10 @@ grant execute on function public.register_my_business(uuid,text,text,text)
  to authenticated;
 grant execute on function public.can_register_business()
  to authenticated;
+-- The picker remains ungranted in real deployment. The rollback fixture
+-- enables it only to inspect verified owner results.
+grant execute on function public.list_my_businesses_for_setup()
+ to authenticated;
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
  '89f00000-0000-4000-8000-000000000001',true);
