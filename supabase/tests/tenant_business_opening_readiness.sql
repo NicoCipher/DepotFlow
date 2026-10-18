@@ -301,6 +301,24 @@ begin
     using errcode='PT002';
  exception when sqlstate 'PT002' then null;
  end;
+ -- Profile contact edits MUST also invalidate the old signed review,
+ -- even when the exact depot name remains unchanged. Nested rollback
+ -- restores the fixture for the subsequent successful acknowledgment.
+ begin
+  update public.business_profiles set phone='08009999999'
+   where business_id='89b00000-0000-4000-9000-000000000021';
+  begin
+   perform public.confirm_business_opening_review(
+    '89b00000-0000-4000-9000-000000000021',
+    v_id,v_token,'Sample Depot A',
+    true,true,true,true,true);
+   raise exception 'Changed profile details accepted stale token'
+    using errcode='PT001';
+  exception when invalid_parameter_value then null;
+  end;
+  raise exception 'Revert disposable profile edit' using errcode='PT002';
+ exception when sqlstate 'PT002' then null;
+ end;
  if v_review->>'canActivate'<>'false'
   or v_review->>'reviewOnly'<>'true'
   or v_review->'snapshot'->>'technicalChecklistComplete'<>'true'
