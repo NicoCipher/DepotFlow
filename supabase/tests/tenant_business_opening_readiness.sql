@@ -224,6 +224,114 @@ end;
 $review_not_activation$;
 reset role;
 
+-- Active-customer counts and opening-customer counts must use the
+-- SAME population. Archived opening debt is still historical but must
+-- never make an unreviewed active customer appear reviewed.
+savepoint archived_opening_population;
+alter table public.customers disable trigger legacy_scope_business_write;
+update public.customers set archived_at=pg_catalog.now()
+ where id='89b00000-0000-4000-9000-000000000051';
+alter table public.customers enable trigger legacy_scope_business_write;
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89b00000-0000-4000-8000-000000000002',true);
+do $archived_population$
+declare v jsonb;
+begin
+ v:=public.preview_business_opening_readiness(
+  '89b00000-0000-4000-9000-000000000021');
+ if v->'configured'->>'activeCustomers'<>'1'
+   or v->'customerOpening'->>'customersWithOpening'<>'0'
+   or v->'customerOpening'->>'customersWithoutOpening'<>'1' then
+  raise exception 'Archived opening wrongly offsets active customer: %',v;
+ end if;
+end;
+$archived_population$;
+reset role;
+rollback to savepoint archived_opening_population;
+release savepoint archived_opening_population;
+
+-- The previous opening counts were: 24 full drink bottles,
+-- zero physical crates, zero empty bottles. An ordinary recount that
+-- leaves EXACTLY the same totals still invalidates the opening snapshot.
+grant execute on function public.count_business_product_stock(
+ uuid,uuid,uuid,numeric,numeric,integer,integer,date) to authenticated;
+grant execute on function public.count_business_empty_crates(
+ uuid,uuid,uuid,integer,integer,date) to authenticated;
+grant execute on function public.count_business_empty_bottles(
+ uuid,uuid,text,integer,integer,date) to authenticated;
+
+savepoint same_quantity_drink_recount;
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89b00000-0000-4000-8000-000000000002',true);
+select public.count_business_product_stock(
+ '89b00000-0000-4000-9000-000000000021',
+ '89b00000-0000-4000-9000-000000000071',
+ '89b00000-0000-4000-9000-000000000041',
+ 1,4,24,20,'2026-10-18');
+do $detect_equal_drink_recount$
+declare v jsonb;
+begin
+ v:=public.preview_business_opening_readiness(
+  '89b00000-0000-4000-9000-000000000021');
+ if v->>'technicalChecklistComplete'<>'false'
+ or v->'physicalOpening'->>'changedAfterOpening'<>'1' then
+  raise exception 'Same-quantity drink recount not detected: %',v;
+ end if;
+end;
+$detect_equal_drink_recount$;
+reset role;
+rollback to savepoint same_quantity_drink_recount;
+release savepoint same_quantity_drink_recount;
+
+savepoint same_quantity_crate_recount;
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89b00000-0000-4000-8000-000000000002',true);
+select public.count_business_empty_crates(
+ '89b00000-0000-4000-9000-000000000021',
+ '89b00000-0000-4000-9000-000000000072',
+ '89b00000-0000-4000-9000-000000000031',
+ 0,0,'2026-10-18');
+do $detect_equal_crate_recount$
+declare v jsonb;
+begin
+ v:=public.preview_business_opening_readiness(
+  '89b00000-0000-4000-9000-000000000021');
+ if v->>'technicalChecklistComplete'<>'false'
+ or v->'physicalOpening'->>'changedAfterOpening'<>'1' then
+  raise exception 'Zero-to-zero crate recount not detected: %',v;
+ end if;
+end;
+$detect_equal_crate_recount$;
+reset role;
+rollback to savepoint same_quantity_crate_recount;
+release savepoint same_quantity_crate_recount;
+
+savepoint same_quantity_bottle_recount;
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89b00000-0000-4000-8000-000000000002',true);
+select public.count_business_empty_bottles(
+ '89b00000-0000-4000-9000-000000000021',
+ '89b00000-0000-4000-9000-000000000073',
+ 'Goldberg bottle',0,0,'2026-10-18');
+do $detect_equal_bottle_recount$
+declare v jsonb;
+begin
+ v:=public.preview_business_opening_readiness(
+  '89b00000-0000-4000-9000-000000000021');
+ if v->>'technicalChecklistComplete'<>'false'
+ or v->'physicalOpening'->>'changedAfterOpening'<>'1' then
+  raise exception 'Zero-to-zero bottle recount not detected: %',v;
+ end if;
+end;
+$detect_equal_bottle_recount$;
+reset role;
+rollback to savepoint same_quantity_bottle_recount;
+release savepoint same_quantity_bottle_recount;
+
 -- Even an admin fixture can create a drifted balance to simulate
 -- data corruption; readiness must show that a financial reconciliation is
 -- required. This check is read-only and NEVER repairs accounts silently.
