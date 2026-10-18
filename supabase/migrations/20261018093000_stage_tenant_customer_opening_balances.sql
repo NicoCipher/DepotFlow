@@ -126,6 +126,7 @@ language plpgsql security definer set search_path=''
 as $opening$
 declare
  v_actor uuid:=auth.uid();
+ v_business_status text;
  v_customer public.customers%rowtype;
  v_existing public.customer_opening_balances%rowtype;
  v_crate public.crate_types%rowtype;
@@ -143,11 +144,11 @@ begin
  if v_actor is null or p_business_id is null then
   raise exception 'Verified business owner session required' using errcode='42501';
  end if;
- perform 1 from private.business_memberships m
+ select b.status into v_business_status from private.business_memberships m
  join private.businesses b on b.id=m.business_id
  where m.business_id=p_business_id and m.user_id=v_actor
    and m.member_kind='owner' and m.status='active'
-   and b.legacy_singleton is null and b.status='setup'
+   and b.legacy_singleton is null and b.status in ('setup','active')
  for share of m,b;
  if not found then
   raise exception 'Business setup is not available' using errcode='42501';
@@ -208,6 +209,13 @@ begin
    'crates',v_existing.crates,'bottles',v_existing.bottles,
    'businessDate',v_existing.business_date
   );
+ end if;
+
+ -- An ACTIVE business can RECOVER a saved opening after a lost HTTP reply,
+ -- but it may never create a new opening after final cutover.
+ if v_business_status<>'setup' then
+  raise exception 'New opening entries are closed after activation'
+   using errcode='42501';
  end if;
 
  -- Serialize ALL first balances for a single customer. Do not ADD them
