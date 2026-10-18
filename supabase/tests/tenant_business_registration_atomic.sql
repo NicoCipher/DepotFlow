@@ -168,6 +168,24 @@ begin
   raise exception 'Denied profile edit changed reserved depot identity';
  end if;
 
+ -- A legitimate address CHANGE must not surrender the ORIGINAL
+ -- immutable registration claim. The public profile index no longer
+ -- contains Ikeja here, so only the private audit reservation protects it.
+ update public.business_profiles set address='Mushin, Lagos'
+ where business_id=dep;
+ begin
+  perform public.register_my_business(
+   '89f00000-0000-4000-9000-000000000050',
+   'Official Depot A','Ikeja, Lagos','08005550050');
+  raise exception 'Owner stole their original reserved identity after moving'
+    using errcode='PT001';
+ exception when unique_violation then null;
+ end;
+ if (select business_address from private.business_registration_requests
+      where business_id=dep) is distinct from 'Ikeja, Lagos' then
+  raise exception 'Editing public profile modified immutable registered location';
+ end if;
+
  -- Two branches are valid if the same brand serves DIFFERENT addresses.
  perform public.register_my_business(
   '89f00000-0000-4000-9000-000000000043',
