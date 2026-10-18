@@ -65,12 +65,13 @@ begin
    'id',p.id,'catalogueId',p.catalogue_product_id,
    'name',p.name,'crateTypeId',p.crate_type_id,
    'packSize',p.bottles_per_crate,
+   'returnable',p.bottles_returnable,'bottleType',p.bottle_type,
    'sellingPrice',p.full_crate_price,'active',p.is_active
  ) order by p.name,p.id),'[]'::jsonb)
  into v_products
  from (
   select id,catalogue_product_id,name,crate_type_id,bottles_per_crate,
-   full_crate_price,is_active
+   bottles_returnable,bottle_type,full_crate_price,is_active
   from public.products
   where business_id=p_business_id
   order by name,id limit 250
