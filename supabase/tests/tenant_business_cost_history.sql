@@ -94,10 +94,15 @@ begin
   '89c00000-0000-4000-9000-000000000041',c,9000,'2026-10-18');
  b:=public.record_business_buying_cost(
   '89c00000-0000-4000-9000-000000000022',
-  '89c00000-0000-4000-9000-000000000042',c,9000,'2026-10-18');
+  '89c00000-0000-4000-9000-000000000041',c,9000,'2026-10-18');
  if a->>'costPrice'<>'9000' or b->>'costPrice'<>'9000'
-    or (a->>'businessId')=(b->>'businessId') then
-  raise exception 'A/B duplicate cost amount was incorrectly shared';
+    or (a->>'businessId')=(b->>'businessId')
+    or (a->>'requestId') is distinct from (b->>'requestId')
+    or (a->>'eventId')=(b->>'eventId') then
+  raise exception 'Same cost request UUID was not safely scoped to A/B';
+ end if;
+ if (select count(*) from private.business_cost_history_requests)<>2 then
+  raise exception 'A/B request records must remain independent';
  end if;
  retry:=public.record_business_buying_cost(
   '89c00000-0000-4000-9000-000000000021',
@@ -201,7 +206,7 @@ begin
  end;
  if (public.record_business_buying_cost(
   '89c00000-0000-4000-9000-000000000022',
-  '89c00000-0000-4000-9000-000000000042',c,9000,'2026-10-18')
+  '89c00000-0000-4000-9000-000000000041',c,9000,'2026-10-18')
   ->>'costPrice')<>'9000' then
   raise exception 'B replay failed after A revoke';
  end if;
