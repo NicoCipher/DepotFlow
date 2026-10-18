@@ -12,6 +12,12 @@ export default async function ChooseBusinessPage() {
   if (authError || !user) redirect("/sign-in?next=%2Fbusinesses");
 
   const { data, error } = await supabase.rpc("list_my_businesses_for_setup");
+  // Registration is independently gated. Absence of a grant is a normal
+  // pre-release state, never a reason to show a misleading enabled button.
+  const registration = error
+    ? null
+    : await supabase.rpc("can_register_business");
+  const canCreate = !registration?.error && registration?.data === true;
   if (error) {
     return (
       <section className="mx-auto max-w-xl space-y-4">
@@ -41,12 +47,22 @@ export default async function ChooseBusinessPage() {
         </p>
       </header>
 
+      {canCreate && (
+        <Link
+          href="/businesses/new"
+          className="primary inline-flex min-h-12 w-full items-center justify-center sm:w-auto"
+        >
+          Register a new depot
+        </Link>
+      )}
       {!data?.length ? (
         <div className="rounded-2xl border border-dashed border-stone-300 p-5">
           <h2 className="font-bold">No businesses linked yet</h2>
           <p className="mt-2 text-sm text-stone-600">
-            There is no approved self-service business registration on this
-            account yet. Your current shop has not been converted or copied.
+            {canCreate
+              ? "Create your first depot to begin a separate setup."
+              : "No depot is linked to this account yet. Registration may be disabled or your email may need verification."}
+            Your existing shop has not been converted or copied.
           </p>
         </div>
       ) : (
