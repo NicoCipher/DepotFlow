@@ -23,9 +23,9 @@ export function RegisterDepotForm({ requestId }: { requestId: string }) {
       </div>
       <div>
         <label htmlFor="new-depot-address" className="block font-semibold">
-          Shop location <span className="font-normal text-stone-500">(optional)</span>
+          Shop location
         </label>
-        <input id="new-depot-address" name="address" maxLength={400}
+        <input id="new-depot-address" name="address" required maxLength={400}
           autoComplete="street-address" defaultValue={state.address}
           placeholder="Street and area" />
         <p className="mt-1 text-xs text-stone-600">
