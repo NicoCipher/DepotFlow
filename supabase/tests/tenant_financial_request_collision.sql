@@ -71,8 +71,11 @@ insert into public.customer_payments(
  '89c00000-0000-4000-9000-000000000092',
  'transfer','89c00000-0000-4000-9000-000000000021'
 );
+-- PostgreSQL requires deferred mixed-sale triggers to finish before ALTER TABLE.
+set constraints all immediate;
 alter table public.sales enable trigger legacy_scope_business_write;
 alter table public.customer_payments enable trigger legacy_scope_business_write;
+set constraints all deferred;
 
 -- The original owner is allowed to use the same payment request UUID on
 -- its OWN customer and must not rewrite the foreign method or balance.
