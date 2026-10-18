@@ -472,6 +472,7 @@ declare
  v_foreign uuid:=current_setting('fixture.b_crate')::uuid;
  v_unknown uuid:='89600000-0000-4000-9000-000000000098';
  v_target uuid;
+ v_pocket integer;
 begin
  v_owned:=public.create_legacy_crate_type(
    '89600000-0000-4000-9000-000000000081',
@@ -524,9 +525,9 @@ begin
    end;
  end loop;
  -- B-only 24 pockets and unknown 25 pockets are indistinguishable.
- foreach v_target in array array[24,25] loop
+ foreach v_pocket in array array[24,25] loop
    begin
-     perform public.set_crate_deposit_price(v_target::numeric,550,500);
+     perform public.set_crate_deposit_price(v_pocket::numeric,550,500);
      raise exception 'Foreign-only deposit pocket probe worked' using errcode='PT001';
    exception when invalid_parameter_value then
      if sqlerrm<>'Choose a pocket count used by an exact crate type.' then
