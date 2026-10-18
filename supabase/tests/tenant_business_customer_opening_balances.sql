@@ -79,6 +79,22 @@ alter table public.crate_types enable trigger legacy_scope_business_write;
 alter table public.products enable trigger legacy_scope_business_write;
 alter table public.customers enable trigger legacy_scope_business_write;
 
+-- Inject a disposable write failure at the LAST opening step. A successful
+-- atomic implementation must roll back money, deposit and empty obligations
+-- that were inserted earlier in that same function invocation.
+create function pg_temp.reject_opening_commit()
+returns trigger language plpgsql as $failure$
+begin
+ if new.customer_id='89d00000-0000-4000-9000-000000000053'::uuid then
+  raise exception 'Injected final opening journal failure' using errcode='22023';
+ end if;
+ return new;
+end;
+$failure$;
+create trigger disposable_reject_opening
+ after insert on public.customer_opening_balances
+ for each row execute function pg_temp.reject_opening_commit();
+
 do $default_off$
 begin
  if (select enabled from private.business_customer_opening_gate)
@@ -188,11 +204,32 @@ begin
   raise exception 'A used B exact physical crate UUID' using errcode='PT001';
  exception when invalid_parameter_value then null;
  end;
+ -- Now use a VALID owned crate/bottle for this customer so the
+ -- temporary AFTER INSERT journal trigger rejects ONLY after all financial
+ -- and returnable-obligation writes have been attempted.
+ begin
+  perform public.record_business_customer_opening(
+   '89d00000-0000-4000-9000-000000000021',
+   '89d00000-0000-4000-9000-000000000064',
+   '89d00000-0000-4000-9000-000000000053',
+   3300,1000,'2026-10-18','Injected failure at journal',
+   '[{"type":"89d00000-0000-4000-9000-000000000031","quantity":1}]'::jsonb,
+   '[{"type":"Goldberg return bottle","quantity":2}]'::jsonb);
+  raise exception 'Simulated failed journal left a committed opening'
+   using errcode='PT001';
+ exception when invalid_parameter_value then null;
+ end;
  if exists(select 1 from public.money_owed
             where customer_id='89d00000-0000-4000-9000-000000000053')
   or exists(select 1 from public.deposits
+            where customer_id='89d00000-0000-4000-9000-000000000053')
+  or exists(select 1 from public.crate_obligations
+            where customer_id='89d00000-0000-4000-9000-000000000053')
+  or exists(select 1 from public.bottle_obligations
+            where customer_id='89d00000-0000-4000-9000-000000000053')
+  or exists(select 1 from public.customer_opening_balances
             where customer_id='89d00000-0000-4000-9000-000000000053') then
-  raise exception 'Failed opening left partial money/deposit';
+  raise exception 'Failed final journal left partial financial or empties opening';
  end if;
  -- Direct partial financial edits remain denied to an authenticated owner.
  begin
