@@ -4,6 +4,10 @@ export type AssortmentSetup = {
   businessStatus: "setup";
   readOnly: true;
   canActivate: false;
+  truncated: false;
+  catalogueTotal: number;
+  crateTypesTotal: number;
+  configuredDrinksTotal: number;
   catalogue: { id: string; name: string; manufacturer: string | null; imagePath: string | null }[];
   crateTypes: { id: string; name: string; family: string; pockets: number; variant: string | null }[];
   configuredDrinks: {
@@ -22,6 +26,16 @@ export function parseBusinessAssortment(value: unknown, businessId: string): Ass
       !Array.isArray(o.catalogue) || !Array.isArray(o.crateTypes) ||
       !Array.isArray(o.configuredDrinks)) return null;
   if (o.catalogue.length > 250 || o.crateTypes.length > 250 || o.configuredDrinks.length > 250) return null;
+  // A page-sized sample is NOT a complete shop catalogue. Every
+  // collection's exact total must match before the UI can configure stock
+  // or mark the depot ready. A missing count/flag also fails closed.
+  const countMatches = (total: unknown, values: unknown[]) =>
+    typeof total === "number" && Number.isSafeInteger(total) &&
+    total >= 0 && total === values.length;
+  if (o.truncated !== false ||
+      !countMatches(o.catalogueTotal, o.catalogue) ||
+      !countMatches(o.crateTypesTotal, o.crateTypes) ||
+      !countMatches(o.configuredDrinksTotal, o.configuredDrinks)) return null;
   const validId = (v: unknown) => typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v);
   if (!o.catalogue.every((v) => v && typeof v === "object" &&
     validId(v.id) && typeof v.name === "string") ||
