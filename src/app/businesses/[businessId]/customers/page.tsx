@@ -98,7 +98,7 @@ export default async function NewDepotCustomersPage({
           </p>
         )}
       </section>
-      <SetupNewCustomerForm businessId={businessId} customerId={randomUUID()} />
+      <SetupNewCustomerForm businessId={businessId} requestId={randomUUID()} />
       <div className="flex flex-col gap-2 sm:flex-row">
         <Link href={`/businesses/${businessId}/stock`}
           className="secondary inline-flex min-h-12 items-center justify-center">
