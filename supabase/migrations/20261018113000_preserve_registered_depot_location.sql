@@ -32,7 +32,7 @@ revoke all on function private.reject_blank_registered_depot_identity()
 -- A trigger, not a caller-owned validation: a direct owner UPDATE of
 -- public.business_profiles must pass this rule as well.
 create trigger preserve_registered_depot_location
-before insert or update of name,address on public.business_profiles
+before update of name,address on public.business_profiles
 for each row
 execute function private.reject_blank_registered_depot_identity();
 
