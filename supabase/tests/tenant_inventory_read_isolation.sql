@@ -1,6 +1,11 @@
 -- M2f-1: disposable PostgreSQL owner/business isolation for the EXISTING
 -- product, stock and exact branded empties tables. No new shop write path.
 begin;
+-- Rollback-only legacy ID fixture. The REAL migrated schema revokes
+-- authenticated INSERT(id), and every production customer gets a DB UUID
+-- through an owner-verified request-RPC. This historic adversarial fixture
+-- temporarily grants a chosen ID to test old RLS and legacy RPC isolation.
+grant insert(id) on public.customers to authenticated;
 insert into auth.users(id) values
  ('89600000-0000-4000-8000-000000000001'),
  ('89600000-0000-4000-8000-000000000002'),
