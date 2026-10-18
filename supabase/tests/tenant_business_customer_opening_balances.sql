@@ -301,6 +301,38 @@ end;
 $legacy$;
 reset role;
 
+-- Once setup is finalized, a lost-response retry must still recover its
+-- saved opening; creating a NEW opening is no longer permitted.
+update private.businesses set status='active'
+ where id='89d00000-0000-4000-9000-000000000022';
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89d00000-0000-4000-8000-000000000003',true);
+do $activated_replay_only$
+declare v jsonb;
+begin
+ v:=public.record_business_customer_opening(
+   '89d00000-0000-4000-9000-000000000022',
+   '89d00000-0000-4000-9000-000000000061',
+   '89d00000-0000-4000-9000-000000000052',
+   5000,0,'2026-10-18','Old debt B',
+   '[]'::jsonb,'[{"type":"Goldberg return bottle","quantity":3}]'::jsonb);
+ if v->>'moneyOwed'<>'5000' then
+  raise exception 'Previously saved B opening lost after activation';
+ end if;
+ begin
+  perform public.record_business_customer_opening(
+   '89d00000-0000-4000-9000-000000000022',
+   '89d00000-0000-4000-9000-000000000066',
+   '89d00000-0000-4000-9000-000000000052',
+   7000,0,'2026-10-18','Late added debt','[]'::jsonb,'[]'::jsonb);
+  raise exception 'ACTIVE business accepted NEW opening' using errcode='PT001';
+ exception when insufficient_privilege then null;
+ end;
+end;
+$activated_replay_only$;
+reset role;
+
 do $three_independent_ledgers$
 begin
  if (select count(*) from public.customer_opening_balances)<>3
