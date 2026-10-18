@@ -3,6 +3,11 @@
 -- Check Sale must resolve only the verified original business.
 -- Disposable tests only: never fabricates financial records in production.
 begin;
+-- Rollback-only legacy ID fixture. The REAL migrated schema revokes
+-- authenticated INSERT(id), and every production customer gets a DB UUID
+-- through an owner-verified request-RPC. This historic adversarial fixture
+-- temporarily grants a chosen ID to test old RLS and legacy RPC isolation.
+grant insert(id) on public.customers to authenticated;
 
 insert into auth.users(id) values
  ('89c00000-0000-4000-8000-000000000001'),
