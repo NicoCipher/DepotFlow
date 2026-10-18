@@ -10,12 +10,16 @@ insert into auth.users(id) values
 insert into private.shop_owner(user_id)
  values('89e00000-0000-4000-8000-000000000001');
 select private.link_legacy_shop_business();
+-- The master drink is global, but each shop's product/price/stock is owned
+-- independently. Link the same identity to THREE distinct shop products.
+insert into public.product_catalogue(id,name,manufacturer)
+values('89e00000-0000-4000-9000-000000000090','Shared Goldberg test identity','NB');
 insert into public.crate_types(id,name,empty_family,pocket_count)
  values('89e00000-0000-4000-9000-000000000010','Legacy crate','NB',12);
 insert into public.products(id,name,bottles_per_crate,full_crate_price,
-  bottles_returnable,crate_type_id)
+  bottles_returnable,crate_type_id,catalogue_product_id)
  values('89e00000-0000-4000-9000-000000000011','Legacy drink',12,10000,
-   false,'89e00000-0000-4000-9000-000000000010');
+   false,'89e00000-0000-4000-9000-000000000010','89e00000-0000-4000-9000-000000000090');
 insert into public.stock(product_id,total_bottles)
  values('89e00000-0000-4000-9000-000000000011',8);
 
@@ -63,14 +67,40 @@ insert into public.crate_types(id,name,empty_family,pocket_count,business_id)
  ('89e00000-0000-4000-9000-000000000032','B crate','NB',12,
   '89e00000-0000-4000-9000-000000000022');
 insert into public.products(
- id,name,bottles_per_crate,full_crate_price,bottles_returnable,crate_type_id,business_id
+ id,name,bottles_per_crate,full_crate_price,bottles_returnable,crate_type_id,business_id,catalogue_product_id
 ) values
  ('89e00000-0000-4000-9000-000000000041','Goldberg A',12,10000,false,
   '89e00000-0000-4000-9000-000000000031',
-  '89e00000-0000-4000-9000-000000000021'),
+  '89e00000-0000-4000-9000-000000000021','89e00000-0000-4000-9000-000000000090'),
  ('89e00000-0000-4000-9000-000000000042','Goldberg B',12,10000,false,
   '89e00000-0000-4000-9000-000000000032',
-  '89e00000-0000-4000-9000-000000000022');
+  '89e00000-0000-4000-9000-000000000022','89e00000-0000-4000-9000-000000000090');
+-- The same master ID must NOT stop different shops from stocking Goldberg,
+-- but it must reject a second configured copy within the SAME shop.
+do $assortment_identity$
+begin
+ if (select count(*) from public.products
+     where catalogue_product_id='89e00000-0000-4000-9000-000000000090')<>3
+    or (select count(distinct business_id) from public.products
+     where catalogue_product_id='89e00000-0000-4000-9000-000000000090')<>3 then
+   raise exception 'One master drink identity cannot serve three businesses';
+ end if;
+ begin
+   insert into public.products(
+     id,name,bottles_per_crate,full_crate_price,bottles_returnable,
+     crate_type_id,business_id,catalogue_product_id
+   ) values (
+     '89e00000-0000-4000-9000-000000000043',
+     'Duplicate A Goldberg',12,9000,false,
+     '89e00000-0000-4000-9000-000000000031',
+     '89e00000-0000-4000-9000-000000000021','89e00000-0000-4000-9000-000000000090'
+   );
+   raise exception 'A configured the same master drink twice'
+     using errcode='PT001';
+ exception when unique_violation then null;
+ end;
+end;
+$assortment_identity$;
 alter table public.products enable trigger legacy_scope_business_write;
 alter table public.crate_types enable trigger legacy_scope_business_write;
 
