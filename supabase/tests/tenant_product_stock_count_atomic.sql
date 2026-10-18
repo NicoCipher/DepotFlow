@@ -287,6 +287,10 @@ $verify_cross_business_counts$;
 -- Replaying the immutable old request must win over CURRENT pack metadata,
 -- while a fresh count using stale pack details must fail.
 savepoint replay_after_stock_metadata_change;
+alter table public.crate_types disable trigger legacy_scope_business_write;
+update public.crate_types set pocket_count=13
+ where id='89e00000-0000-4000-9000-000000000031';
+alter table public.crate_types enable trigger legacy_scope_business_write;
 alter table public.products disable trigger legacy_scope_business_write;
 update public.products set bottles_per_crate=13
  where id='89e00000-0000-4000-9000-000000000041';
