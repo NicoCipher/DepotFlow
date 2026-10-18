@@ -3,6 +3,10 @@
 -- Walnik legacy owner inserts, edits and views still function normally.
 -- Disposable Postgres fixture; transaction ALWAYS rolled back.
 begin;
+-- The historical fixture harness temporarily grants INSERT(id) to run
+-- old SQL constraints. Undo that ONLY here to simulate the actual
+-- production Data API, then outer ROLLBACK restores the fixture grant.
+revoke insert(id) on public.customers from authenticated;
 insert into auth.users(id) values
  ('89c00000-0000-4000-8000-000000000001'),
  ('89c00000-0000-4000-8000-000000000002'),
