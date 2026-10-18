@@ -181,10 +181,6 @@ begin
     using errcode='PT001';
  exception when unique_violation then null;
  end;
- if (select business_address from private.business_registration_requests
-      where business_id=dep) is distinct from 'Ikeja, Lagos' then
-  raise exception 'Editing public profile modified immutable registered location';
- end if;
 
  -- Two branches are valid if the same brand serves DIFFERENT addresses.
  perform public.register_my_business(
@@ -216,6 +212,21 @@ begin
 end;
 $verified_one$;
 reset role;
+
+-- Verify immutable private original-location reservation only as the
+-- disposable test administrator. Owner SELECT must remain DENIED.
+do $original_identity_held$
+begin
+ if (select count(*) from private.business_registration_requests
+       where owner_id='89f00000-0000-4000-8000-000000000001'
+         and business_name='Official Depot A'
+         and business_address='Ikeja, Lagos')<>1
+ or (select count(*) from public.business_profiles
+       where name='Official Depot A' and address='Mushin, Lagos')<>1 then
+  raise exception 'Original registration reservation was lost on relocation';
+ end if;
+end;
+$original_identity_held$;
 
 -- A second verified user may reuse A's REQUEST UUID, but must NEVER
 -- register the same normalized physical depot under another account.
