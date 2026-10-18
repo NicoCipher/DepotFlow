@@ -23,6 +23,10 @@ do $$ begin
   if not exists (select 1 from pg_roles where rolname = 'service_role') then
     create role service_role nologin bypassrls;
   end if;
+  -- Supabase Auth executes configured Postgres hook functions as this role.
+  if not exists (select 1 from pg_roles where rolname = 'supabase_auth_admin') then
+    create role supabase_auth_admin nologin;
+  end if;
 end $$;
 grant usage on schema auth to anon, authenticated;
 
