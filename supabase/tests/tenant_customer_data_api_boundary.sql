@@ -1,12 +1,15 @@
 -- M2f-44: AUTHENTICATED Data API equivalent requests cannot supply
--- a new-depot business_id or caller-chosen foreign customer ID. Existing
--- Walnik legacy owner inserts, edits and views still function normally.
+-- a new-depot business_id or caller-chosen foreign customer ID. Even
+-- default-generated IDs must pass the audited RPC. Original Walnik
+-- owner creation through RPC, edit, and SELECT remain available.
 -- Disposable Postgres fixture; transaction ALWAYS rolled back.
 begin;
--- The historical fixture harness temporarily grants INSERT(id) to run
--- old SQL constraints. Undo that ONLY here to simulate the actual
--- production Data API, then outer ROLLBACK restores the fixture grant.
-revoke insert(id) on public.customers from authenticated;
+-- The disposable SQL harness temporarily regrants the original customer
+-- INSERT columns for historical, fixed-ID fixtures. Revoke those grants
+-- within THIS transaction to test production's RPC-only privilege boundary.
+-- The outer ROLLBACK restores only the disposable fixture state.
+revoke insert (id,name,phone,business_name,address)
+ on public.customers from authenticated;
 insert into auth.users(id) values
  ('89c00000-0000-4000-8000-000000000001'),
  ('89c00000-0000-4000-8000-000000000002'),
@@ -33,9 +36,7 @@ create trigger disposable_legacy_customer_audit_failure
 
 do $no_direct_business_insert$
 begin
- if has_column_privilege('authenticated','public.customers','business_id','INSERT')
- or has_column_privilege('authenticated','public.customers','id','INSERT')
- or not has_column_privilege('authenticated','public.customers','phone','INSERT')
+ if has_any_column_privilege('authenticated','public.customers','INSERT')
  or has_table_privilege('anon','public.customers','INSERT')
  or has_function_privilege('authenticated',
    'public.register_business_customer(uuid,uuid,text,text,text,text)',
@@ -109,7 +110,7 @@ end;
 $validate$;
 select private.enable_legacy_write_scope(private.legacy_scope_snapshot());
 
--- Preserve post-backfill legacy inserts and edits without business_id.
+-- Preserve post-backfill original-shop RPC creation and direct editing.
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
  '89c00000-0000-4000-8000-000000000001',true);
@@ -127,6 +128,16 @@ begin
    or r->>'customerId'<>v_id::text or r->>'savedReplay'<>'true' then
    raise exception 'Post-backfill legacy create retry failed';
  end if;
+ -- A matching request UUID with changed customer details must NEVER
+ -- modify the row or silently create a second customer.
+ begin
+  perform public.create_legacy_customer(
+   '89c00000-0000-4000-9000-000000000012',
+   'Replaced customer name','08012340012',null,null);
+  raise exception 'Changed legacy request incorrectly succeeded'
+   using errcode='PT001';
+ exception when invalid_parameter_value then null;
+ end;
  update public.customers set name='Pilot edited after backfill' where id=v_id;
 end;
 $after_backfill_create$;
@@ -164,6 +175,19 @@ begin
  end;
 end;
 $legacy_direct_pk_denied$;
+-- A direct INSERT that omits the PK is also forbidden. The UUID column
+-- has its own DEFAULT, so revoking only INSERT(id) was insufficient.
+do $legacy_direct_default_id_denied$
+begin
+ begin
+  insert into public.customers(name,phone) values
+   ('Default UUID bypass','08012340098');
+  raise exception 'Unaudited direct customer creation succeeded'
+   using errcode='PT001';
+ exception when insufficient_privilege then null;
+ end;
+end;
+$legacy_direct_default_id_denied$;
 reset role;
 
 -- Other owners have separate business memberships, but direct INSERT
