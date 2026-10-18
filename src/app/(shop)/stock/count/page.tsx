@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireOwner } from "@/lib/auth/owner";
 import { StockProductChoice } from "@/components/stock-product-choice";
 import { productSearchFilter } from "@/domain/products";
+import { currentProductImage } from "@/domain/product-images";
 
 export default async function ChooseCountProductPage({
   searchParams,
@@ -18,7 +19,7 @@ export default async function ChooseCountProductPage({
   );
   let request = supabase
     .from("products")
-    .select("id,name,size,image_url,bottles_per_crate,is_active", { count: "exact" })
+    .select("id,name,size,image_url,bottles_per_crate,is_active,product_catalogue(image_path)", { count: "exact" })
     .order("name")
     .order("id")
     .range((page - 1) * 30, page * 30 - 1);
@@ -66,7 +67,7 @@ export default async function ChooseCountProductPage({
         <ul className="space-y-3">
           {data.map((product) => (
             <li key={product.id}>
-              <StockProductChoice product={product} action="count" />
+              <StockProductChoice product={{ ...product, image_url: currentProductImage(product) }} action="count" />
               {!product.is_active && <p className="text-sm text-amber-900">Removed from sales · counting is still allowed to correct physical stock</p>}
             </li>
           ))}
