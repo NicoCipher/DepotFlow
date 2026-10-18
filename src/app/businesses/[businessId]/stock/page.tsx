@@ -21,7 +21,7 @@ export default async function NewDepotStockPage({
   if (owner.state !== "ready") return (
     <section className="mx-auto max-w-2xl space-y-3">
       <Link href="/businesses" className="quiet-link">← Your depots</Link>
-      <h1 className="text-2xl font-bold">Opening stock isn't enabled</h1>
+      <h1 className="text-2xl font-bold">Opening stock is not enabled</h1>
       <p className="text-sm text-stone-600">
         This depot remains in setup. No stock was added or changed.
       </p>
