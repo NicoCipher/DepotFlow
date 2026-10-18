@@ -281,6 +281,7 @@ export type Database = {
       }
       customers: {
         Row: {
+          business_id: string | null
           address: string | null
           archived_at: string | null
           business_name: string | null
@@ -291,6 +292,7 @@ export type Database = {
           phone: string
         }
         Insert: {
+          business_id?: string | null
           address?: string | null
           archived_at?: string | null
           business_name?: string | null
@@ -301,6 +303,7 @@ export type Database = {
           phone: string
         }
         Update: {
+          business_id?: string | null
           address?: string | null
           archived_at?: string | null
           business_name?: string | null
