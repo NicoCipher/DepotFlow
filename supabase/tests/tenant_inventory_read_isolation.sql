@@ -247,6 +247,32 @@ insert into public.customer_opening_balances(
 );
 alter table public.customer_opening_balances enable trigger legacy_scope_business_write;
 
+-- Two businesses intentionally reuse the SAME opening request ID.
+-- The legacy owner must save its own customer opening without seeing or
+-- conflicting with the other shop's identical request ID. Savepoint prevents
+-- the successful test opening from changing later dashboard assertions.
+savepoint legacy_same_opening_request;
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89600000-0000-4000-8000-000000000001',true);
+do $own_opening_same_request$
+declare v_id uuid;
+begin
+ v_id:=public.record_opening_balances(
+   '89600000-0000-4000-9000-000000000094',
+   '89600000-0000-4000-9000-000000000062',
+   1000,'2026-10-16','Own archive','[]'::jsonb,'[]'::jsonb);
+ if v_id is null then raise exception 'Own opening missing result'; end if;
+ if (select count(*) from public.customer_opening_balances where
+    request_id='89600000-0000-4000-9000-000000000094')<>1 then
+   raise exception 'Scoped opening replay returned foreign business data';
+ end if;
+end;
+$own_opening_same_request$;
+reset role;
+rollback to savepoint legacy_same_opening_request;
+release savepoint legacy_same_opening_request;
+
 -- Fixture for an UNRELEASED foreign held empty. No foreign shop is granted
 -- a real return API: the one seed write is administrator-only and rolled back.
 alter table public.sale_empty_decisions disable trigger legacy_scope_business_write;
@@ -433,6 +459,34 @@ insert into private.customer_empty_returns(
   '89600000-0000-4000-9000-000000000042'
 );
 alter table private.customer_empty_returns enable trigger legacy_scope_business_write;
+
+-- The same return request UUID in a DIFFERENT business is a distinct,
+-- valid database event. Its own distinct immutable row identity prevents
+-- cross-business primary-key conflict while preserving historic request IDs.
+savepoint identical_return_ids_across_shops;
+alter table private.customer_empty_returns disable trigger legacy_scope_business_write;
+insert into private.customer_empty_returns(
+  customer_id,request_id,request_payload,business_id
+) values (
+  '89600000-0000-4000-9000-000000000062',
+  '89600000-0000-4000-9000-000000000096',
+  '{}'::jsonb,
+  (select b.id from private.businesses b where b.legacy_singleton is true)
+);
+alter table private.customer_empty_returns enable trigger legacy_scope_business_write;
+do $independent_return_ids$
+begin
+ if (select count(*) from private.customer_empty_returns where
+      request_id='89600000-0000-4000-9000-000000000096')<>2
+    or (select count(distinct return_event_id)
+      from private.customer_empty_returns where
+      request_id='89600000-0000-4000-9000-000000000096')<>2 then
+   raise exception 'Two depots cannot keep independent identical return requests';
+ end if;
+end;
+$independent_return_ids$;
+rollback to savepoint identical_return_ids_across_shops;
+release savepoint identical_return_ids_across_shops;
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
