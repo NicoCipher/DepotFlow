@@ -138,6 +138,12 @@ finally:
         for r in select * from private.legacy_scope_tables() loop
           execute format('delete from %I.%I where business_id=$1',
             r.schema_name,r.table_name) using '{ids["business"]}'::uuid;
+          -- The legacy admin backfill tagged any preexisting baseline rows
+          -- with this temporary owner. Restore those rows to their ORIGINAL
+          -- NULL business identity instead of deleting the baseline data.
+          execute format('update %I.%I set business_id=null where business_id=$1',
+            r.schema_name,r.table_name)
+            using (select id from private.businesses where legacy_singleton is true);
         end loop;
       end;
       $delete_business_rows$;
