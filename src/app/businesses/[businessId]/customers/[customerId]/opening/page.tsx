@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SetupCustomerOpeningForm } from "@/components/setup-customer-opening-form";
 import { isUuid } from "@/domain/ids";
+import { businessDateInLagos } from "@/domain/opening-business-date";
 import { loadOwnerAssortment } from "@/lib/businesses/setup";
 import { createClient } from "@/lib/supabase/server";
 
@@ -96,6 +97,7 @@ export default async function NewDepotCustomerOpeningPage({
           businessId={businessId}
           customerId={customerId}
           requestId={randomUUID()}
+          businessDate={businessDateInLagos()}
           crates={crates}
           bottleTypes={bottleTypes}
         />
