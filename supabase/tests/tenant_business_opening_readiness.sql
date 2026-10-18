@@ -123,6 +123,50 @@ end;
 $initial_preview$;
 reset role;
 
+-- B is a separate business with no profile or recorded opening. Its
+-- actual owner sees ONLY B's missing setup, never A's financial summary.
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89b00000-0000-4000-8000-000000000003',true);
+do $business_b_preview$
+declare v jsonb;
+begin
+ v:=public.preview_business_opening_readiness(
+  '89b00000-0000-4000-9000-000000000022');
+ if v->>'technicalChecklistComplete'<>'false'
+   or v->'profile' is distinct from 'null'::jsonb
+   or v->'configured'->>'activeDrinks'<>'1'
+   or v->'configured'->>'activeCustomers'<>'0'
+   or v->'customerOpening'->>'historicalDebtNaira'<>'0'
+   or v->'physicalOpening'->>'missingCrates'<>'1' then
+  raise exception 'B profile/counters revealed A setup or false readiness: %',v;
+ end if;
+end;
+$business_b_preview$;
+reset role;
+
+-- Readiness is a SETUP diagnostic, not a live shop dashboard.
+savepoint active_business_preview;
+update private.businesses set status='active'
+ where id='89b00000-0000-4000-9000-000000000022';
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89b00000-0000-4000-8000-000000000003',true);
+do $active_denied$
+begin
+ begin
+  perform public.preview_business_opening_readiness(
+   '89b00000-0000-4000-9000-000000000022');
+  raise exception 'Active B business unexpectedly received setup preview'
+    using errcode='PT001';
+ exception when insufficient_privilege then null;
+ end;
+end;
+$active_denied$;
+reset role;
+rollback to savepoint active_business_preview;
+release savepoint active_business_preview;
+
 update private.business_physical_opening_gate set enabled=true where singleton;
 update private.business_product_stock_count_gate set enabled=true where singleton;
 update private.business_crate_count_gate set enabled=true where singleton;
