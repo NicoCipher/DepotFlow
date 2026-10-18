@@ -19,7 +19,7 @@ revoke all on private.business_opening_readiness_gate
 create function public.preview_business_opening_readiness(
  p_business_id uuid
 ) returns jsonb
-language plpgsql stable security definer set search_path=''
+language plpgsql volatile security definer set search_path=''
 as $readiness$
 declare
  v_actor uuid:=auth.uid();
