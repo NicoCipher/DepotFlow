@@ -70,6 +70,42 @@ export function allReturnedConfirmationKey(draft: SaleDraft, result: EmptiesMatc
   });
 }
 
+/**
+ * One-tap actual return entry when no empty bottles came in. Never interpret
+ * this as "no empty crates": retain crates the operator already counted, or
+ * prefill their expected quantities using the existing guided-counting rule.
+ * Only the expected bottle types receive an explicit zero, and stale
+ * decisions for wrong returned bottles are discarded.
+ */
+export function noBottlesReturnedState(
+  state: EmptiesV2State,
+  expected: EmptiesMatchResult,
+): EmptiesV2State {
+  const returnedCrates = state.mode === "actual" ? { ...state.returnedCrates } : {};
+  if (state.mode !== "actual") {
+    for (const line of expected.lines) {
+      if (line.cratesOut > 0) {
+        returnedCrates[line.crateTypeId] = String(
+          Number(returnedCrates[line.crateTypeId] ?? "0") + line.cratesOut,
+        );
+      }
+    }
+  }
+
+  const returnedBottles: Record<string, string> = {};
+  for (const line of expected.lines) {
+    if (line.bottlesOut > 0 && line.bottleType) returnedBottles[line.bottleType] = "0";
+  }
+  return {
+    ...state,
+    mode: "actual",
+    confirmedAllReturned: null,
+    decisions: [],
+    returnedCrates,
+    returnedBottles,
+  };
+}
+
 export function hasNoExpectedSaleEmpties(result: EmptiesMatchResult): boolean {
   return result.lines.every((line) => line.cratesOut === 0 && line.bottlesOut === 0);
 }

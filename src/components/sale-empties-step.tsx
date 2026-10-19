@@ -17,6 +17,7 @@ import {
   hasUnmatchedSaleEmpties,
   leaveUnrelatedEmptiesOutOfSale,
   missingEmptiesMessage,
+  noBottlesReturnedState,
   simpleBottleReturnChoice,
   type EmptiesMatchResult,
 } from "@/domain/sale-empties";
@@ -206,6 +207,9 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
   }
   const totalExpectedCrates = [...expectedCrates.values()].reduce((sum, n) => sum + n, 0);
   const totalExpectedBottles = [...expectedBottles.values()].reduce((sum, n) => sum + n, 0);
+  const noBottlesSelected = state.mode === "actual" && totalExpectedBottles > 0 &&
+    [...expectedBottles.keys()].every(type => state.returnedBottles[type] === "0") &&
+    Object.values(state.returnedBottles).every(value => value === "0");
   const bulkGroups = expected ? bulkReturnGroups(expected, catalog) : [];
   const visibleBulkGroups = bulkGroups.filter((group) =>
     bulkReturnParts(
@@ -347,19 +351,44 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
           </button>
           <button
             type="button"
-            aria-pressed={state.mode === "actual"}
-            className={"flex min-h-24 items-start justify-between gap-3 rounded-xl border-2 p-4 text-left " + (state.mode === "actual" ? "border-emerald-800 bg-emerald-50 text-emerald-950" : "border-stone-200 bg-white text-stone-900 hover:border-emerald-300")}
+            aria-pressed={state.mode === "actual" && !noBottlesSelected}
+            className={"flex min-h-24 items-start justify-between gap-3 rounded-xl border-2 p-4 text-left " + (state.mode === "actual" && !noBottlesSelected ? "border-emerald-800 bg-emerald-50 text-emerald-950" : "border-stone-200 bg-white text-stone-900 hover:border-emerald-300")}
             onClick={useActualReturns}
           >
             <span>
               <strong className="block text-base">Something is different</strong>
               <span className="mt-1 block text-sm leading-5">Some empty crates or empty bottles are missing, extra or different</span>
             </span>
-            <span className={"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 " + (state.mode === "actual" ? "border-emerald-800 bg-emerald-800 text-white" : "border-stone-400")} aria-hidden="true">
-              {state.mode === "actual" && <SaleIcon name="check" className="h-4 w-4" />}
+            <span className={"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 " + (state.mode === "actual" && !noBottlesSelected ? "border-emerald-800 bg-emerald-800 text-white" : "border-stone-400")} aria-hidden="true">
+              {state.mode === "actual" && !noBottlesSelected && <SaleIcon name="check" className="h-4 w-4" />}
             </span>
           </button>
         </div>
+        {totalExpectedBottles > 0 && (
+          <button
+            type="button"
+            disabled={!expected || hasFieldErrors}
+            aria-pressed={noBottlesSelected}
+            className={"flex min-h-16 w-full items-center justify-between gap-3 rounded-xl border-2 px-4 py-3 text-left disabled:opacity-60 " +
+              (noBottlesSelected ? "border-emerald-800 bg-emerald-50 text-emerald-950" : "border-stone-200 bg-white text-stone-900 hover:border-emerald-300")}
+            onClick={() => {
+              if (!expected) return;
+              setExtraBottles([]);
+              setChoiceError("");
+              update({ emptiesV2: noBottlesReturnedState(state, expected) });
+            }}
+          >
+            <span className="min-w-0">
+              <strong className="block text-base">{noBottlesSelected ? "No empty bottles · Selected" : "No empty bottles came in"}</strong>
+              <span className="mt-1 block text-sm leading-5">
+                Set all returned empty bottles to 0. Check the empty crate counts below.
+              </span>
+            </span>
+            <span className={"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 " + (noBottlesSelected ? "border-emerald-800 bg-emerald-800 text-white" : "border-stone-400")} aria-hidden="true">
+              {noBottlesSelected && <SaleIcon name="check" className="h-4 w-4" />}
+            </span>
+          </button>
+        )}
         {state.mode === "exact" && (
           <p role="status" className={"flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium " + (exactConfirmed ? "bg-emerald-50 text-emerald-950" : "bg-amber-50 text-amber-950")}>
             <SaleIcon name={exactConfirmed ? "check" : "shield"} className="h-4 w-4 shrink-0" />
@@ -441,7 +470,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
           <div>
             <h3 id="returned-quantity-heading" className="text-lg font-bold text-stone-950">Enter what actually came back</h3>
             <p className="mt-1 text-sm leading-5 text-stone-600">
-              We filled in the expected amounts to save time. Change only what is missing, extra, or different. Set 0 when none came back.
+              We filled in the expected empty crate amounts to save time. Check the crates and change any that did not come back. For empty bottles, use 0 when none came back.
             </p>
           </div>
           {visibleBulkGroups.length > 0 && (
