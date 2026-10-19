@@ -66,15 +66,44 @@ declare
   r record;
   v_count int:=0;
   v_expr text;
+  -- Both original-shop installation histories are supported. One shipped
+  -- with 26 owner-read policies, while live's 55-migration history has 27.
+  -- Never accept an arbitrary extra owner_read policy merely to match a
+  -- count: validate the exact table/policy/role/owner predicate first.
+  v_expected_tables text[]:=array[
+    'bottle_deposit_price','bottle_obligations','crate_deposit_prices',
+    'crate_obligations','crate_swap_rules','crate_types',
+    'customer_opening_balances','customer_payments','customers','deposits',
+    'empty_bottle_stock','empty_crate_movements','empty_crate_stock',
+    'money_owed','product_catalogue','product_cost_history',
+    'product_selling_price_history','products',
+    'sale_empty_bottle_returns','sale_empty_crate_returns',
+    'sale_empty_decisions','sale_items','sale_tender_legs','sales',
+    'shop_profile','stock','stock_movements'
+  ];
 begin
   for r in
-    select pol.polname,cls.relname
+    select pol.polname,cls.relname,pol.polroles,
+      pg_catalog.pg_get_expr(pol.polqual,pol.polrelid) as policy_using
     from pg_catalog.pg_policy pol
     join pg_catalog.pg_class cls on cls.oid=pol.polrelid
     join pg_catalog.pg_namespace ns on ns.oid=cls.relnamespace
     where ns.nspname='public' and pol.polcmd='r'
       and pol.polname in ('owner_read','owner_profile','owner_empty_choices')
   loop
+    if r.relname <> all(v_expected_tables)
+      or r.polname is distinct from
+        case when r.relname='shop_profile' then 'owner_profile'
+             when r.relname='sale_empty_decisions' then 'owner_empty_choices'
+             else 'owner_read' end
+      or r.polroles is distinct from array['authenticated'::regrole::oid]
+      or coalesce(r.policy_using,'') !~ 'shop_owner'
+      or (r.relname in ('product_cost_history','product_selling_price_history')
+          and coalesce(r.policy_using,'') !~ 'owner_user_id')
+    then
+      raise exception 'Unexpected owner-read policy identity or grant on %.%',
+        r.relname,r.polname using errcode='42501';
+    end if;
     v_expr:='(select public.is_shop_owner())';
     if r.relname in ('product_cost_history','product_selling_price_history') then
       v_expr:=v_expr||' and owner_user_id=(select auth.uid())';
@@ -85,8 +114,8 @@ begin
     );
     v_count:=v_count+1;
   end loop;
-  if v_count<>26 then
-    raise exception 'Expected exactly 26 existing public owner-only SELECT policies, found %',
+  if v_count not in (26,27) then
+    raise exception 'Expected 26 or 27 known authenticated owner-only SELECT policies, found %',
       v_count;
   end if;
 end;
