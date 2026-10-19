@@ -1,11 +1,11 @@
 -- READ ONLY / no customer data. Exact application-client column DML grant
 -- inventory for Supabase hosted PG17 versus 55-stage reconstructed PG17.
--- Intentionally excludes REFERENCES: Supabase-managed references grants can
+-- Includes is_grantable (WITH GRANT OPTION) in every row digest.\n-- Grantor is intentionally excluded: this test verifies effective client\n-- DML permission and delegation, not the full privilege-origin graph.\n-- Intentionally excludes REFERENCES: Supabase-managed references grants can
 -- differ from the minimal runner. Do NOT automatically grant privileges to
 -- "fix" parity; investigate any SELECT/INSERT/UPDATE/DELETE difference.
 with grant_entries as (
  select table_schema||'.'||table_name as obj,
-        grantee||':'||privilege_type||':'||column_name as item
+        grantee||':'||privilege_type||':'||column_name||':grantable='||is_grantable as item
  from information_schema.column_privileges
  where table_schema in ('public','private')
    and grantee in ('anon','authenticated','service_role')
