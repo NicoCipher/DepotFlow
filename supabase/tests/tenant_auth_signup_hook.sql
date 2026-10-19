@@ -4,6 +4,19 @@
 begin;
 do $grants$
 begin
+ if not exists (
+   select 1 from pg_catalog.pg_trigger t
+   where t.tgrelid='auth.users'::regclass
+     and t.tgname='depotflow_auth_user_insert_guard'
+     and t.tgenabled='O' and not t.tgisinternal
+ )
+ or has_function_privilege('anon',
+   'private.depotflow_auth_user_insert_guard()','EXECUTE')
+ or has_function_privilege('authenticated',
+   'private.depotflow_auth_user_insert_guard()','EXECUTE')
+ then
+   raise exception 'Transaction-level auth.users creation fence missing or exposed';
+ end if;
  if (select enabled from private.business_auth_signup_gate)
    or has_function_privilege('anon',
      'private.depotflow_before_user_created(jsonb)','EXECUTE')
