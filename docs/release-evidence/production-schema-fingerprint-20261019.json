@@ -1,0 +1,49 @@
+{
+  "project": "DepotFlow",
+  "captured_on": "2026-10-19",
+  "postgres": "17.6",
+  "method": "read-only query supabase/tests/live_schema_fingerprint.sql",
+  "warning": "Application public/private schema only. Excludes Auth/Storage, extensions, functions outside listed schemas, data and hosted GoTrue settings. This is a BASELINE for comparing an isolated actual-schema PG17 clone, not an activation permit.",
+  "objects": [
+    {
+      "kind": "column_grants",
+      "object_count": 473,
+      "definition_hash": "533104141549e7e6d1659e61b93570b1"
+    },
+    {
+      "kind": "columns",
+      "object_count": 219,
+      "definition_hash": "335b68e5a198b9a2207c4b8fb851296d"
+    },
+    {
+      "kind": "constraints",
+      "object_count": 192,
+      "definition_hash": "d32c4e914fd0f808e28a3cdce7337841"
+    },
+    {
+      "kind": "functions",
+      "object_count": 59,
+      "definition_hash": "d3f5235fae93ff13b176b5dd31c3d6b7"
+    },
+    {
+      "kind": "indexes",
+      "object_count": 79,
+      "definition_hash": "12bdcd5193737a073c838fe6f119130c"
+    },
+    {
+      "kind": "policies",
+      "object_count": 33,
+      "definition_hash": "404e2276a7edff940b840cc7db2c74df"
+    },
+    {
+      "kind": "relations",
+      "object_count": 36,
+      "definition_hash": "6bc2954a26f61020fa8b22c1f3a6f873"
+    },
+    {
+      "kind": "triggers",
+      "object_count": 15,
+      "definition_hash": "8ac1ebaa4d97a8ae8258f169c36bbbb1"
+    }
+  ]
+}
