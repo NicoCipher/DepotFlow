@@ -51,14 +51,14 @@ insert into public.sales(
 insert into public.sale_items(
  id,sale_id,product_id,product_name,total_bottles,bottles_per_crate,
  line_total,bottles_returnable,bottle_type,crate_type,crate_type_id,
- whole_crates,crates_out,returnable_bottles_out,crates_returned,bottles_returned
+ whole_crates,crates_out,crates_returned,bottles_returned
 ) values(
  '9a770000-0000-4000-9000-000000000014',
  '9a770000-0000-4000-9000-000000000013',
  '9a770000-0000-4000-9000-000000000011',
  'Synthetic Legacy Drink',24,24,12000,true,'Synthetic Legacy Bottle',
  'Synthetic 24 Bottle Crate','9a770000-0000-4000-9000-000000000010',
- 1,1,24,0,0
+ 1,1,0,0
 );
 insert into public.stock_movements(
  id,product_id,movement_type,quantity_change,resulting_stock,
