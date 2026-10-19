@@ -320,7 +320,7 @@ jobs:
           # The earliest incompatible migration must be surfaced explicitly
           # as NO-GO; no automated timestamp repair, data edits or skipping.
           git fetch --depth=1 --no-tags origin main
-          mapfile -t staged < <(git diff --name-only --diff-filter=A FETCH_HEAD HEAD -- supabase/migrations/ | grep '[.]sql | sort)
+          mapfile -t staged < <(git diff --name-only --diff-filter=A FETCH_HEAD HEAD -- supabase/migrations/ | sort)
           if [[ "${#staged[@]}" -ne 66 ]]; then
             echo "::warning::NO-GO: expected 66 tenant-only migrations; found ${#staged[@]}. Update/review this stage manifest before release."
             echo "Tenant history-upgrade source list drift: ${#staged[@]} files, expected 66." >> "$GITHUB_STEP_SUMMARY"
