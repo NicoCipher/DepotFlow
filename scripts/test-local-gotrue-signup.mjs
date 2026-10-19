@@ -64,6 +64,46 @@ function userCount(email) {
   return Number(sql("select count(*) from auth.users where email='" + email + "'"));
 }
 
+async function waitUntilAuthInsertIsPaused(label) {
+  // PostgreSQL reports pg_sleep() as PgSleep. The test-only trigger is the
+  // only deliberate sleep in this disposable Auth stack.
+  for (let attempt = 0; attempt < 55; attempt++) {
+    const sleeping = Number(sql(
+      "select count(*) from pg_stat_activity " +
+      "where wait_event='PgSleep' and datname=current_database()"
+    ));
+    if (sleeping > 0) return;
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  throw Error(label + ": no in-flight Auth INSERT reached test-only trigger");
+}
+
+function makeTestPauseTrigger(kind, email) {
+  if (!/^depotflow-auth-ci-[a-f0-9]{16}@example\\.org$/.test(email)) {
+    throw Error("Unsafe test email for trigger");
+  }
+  const before = kind === "before";
+  const action = before ? "before" : "after";
+  const name = before
+    ? "aa_depotflow_ci_pause_before_auth_insert"
+    : "zz_depotflow_ci_pause_after_auth_insert";
+  const fn = "private." + name;
+  // These triggers exist ONLY in the disposable local integration database.
+  // A production schema must never contain a test-only sleep trigger.
+  sql("create function " + fn + "() returns trigger language plpgsql as $ " +
+    "begin if NEW.email='" + email + "' then perform pg_sleep(4); end if; " +
+    "return NEW; end; $");
+  sql("create trigger " + name + " " + action +
+    " insert on auth.users for each row execute function " + fn + "()");
+  return { name, fn };
+}
+
+function dropTestPauseTrigger(trigger) {
+  if (!trigger) return;
+  sql("drop trigger if exists " + trigger.name + " on auth.users");
+  sql("drop function if exists " + trigger.fn + "()");
+}
+
 export async function run() {
   const key = requireLocalEnvironment();
   assert.equal(sql("select current_setting('server_version_num')::int / 10000"), "17");
@@ -76,8 +116,10 @@ export async function run() {
   const email1 = prefix + randomBytes(8).toString("hex") + "@example.org";
   const email2 = prefix + randomBytes(8).toString("hex") + "@example.org";
   const email3 = prefix + randomBytes(8).toString("hex") + "@example.org";
+  const email4 = prefix + randomBytes(8).toString("hex") + "@example.org";
+  const email5 = prefix + randomBytes(8).toString("hex") + "@example.org";
   const password = "Df!" + randomBytes(24).toString("base64url");
-  for (const e of [email1,email2,email3]) assert.equal(userCount(e),0);
+  for (const e of [email1,email2,email3,email4,email5]) assert.equal(userCount(e),0);
 
   // 1. Not app's signup page: direct anonymous GoTrue API must invoke hook.
   assertDenied(await signup(key,email1,password),"Disabled signup (direct Auth bypass)");
@@ -110,13 +152,65 @@ export async function run() {
   assert.notEqual(login.status,200,"Unconfirmed test user could sign in");
   console.log("PASS local gate ON creates one unconfirmed user without session");
 
-  // 3. Disabling again must immediately reject another direct Auth request.
-  sql("update private.business_auth_signup_gate set enabled=false where singleton");
-  assertDenied(await signup(key,email3,password),"Re-disabled signup");
-  assert.equal(userCount(email3),0,"Re-disabled gate created an Auth user");
-  assert.equal(userCount(email2),1,"Closing gate removed existing allowed user");
-  console.log("PASS re-disabled local gate blocks new users and preserves prior user");
-  console.log("PASS local Auth hook E2E, direct signup bypass blocked; hosted configuration remains UNVERIFIED.");
+  // 3. Race A: an accepted Before User Created hook DOES NOT authorize a
+  // future INSERT after the policy closes. Pause a live GoTrue INSERT before
+  // the new DB guard runs; close gate while paused; the DB guard must reject.
+  let beforePause;
+  try {
+    beforePause = makeTestPauseTrigger("before",email3);
+    const pending = signup(key,email3,password);
+    await waitUntilAuthInsertIsPaused("Before-insert race");
+    sql("update private.business_auth_signup_gate set enabled=false where singleton");
+    const raced = await pending;
+    assert.ok(raced.status >= 400,
+      "A pre-authorized signup committed AFTER registration closed");
+    assert.equal(raced.data?.access_token ?? null,null,"Late insert issued token");
+    assert.equal(userCount(email3),0,"Late signup created an Auth user");
+    console.log("PASS concurrent close BEFORE insert denies previously accepted hook request");
+  } finally {
+    dropTestPauseTrigger(beforePause);
+  }
+
+  // 4. Race B: an INSERT already holding the gate lock must complete
+  // BEFORE the operator can report closure. The close UPDATE times out
+  // instead of falsely claiming registration is already disabled.
+  sql("update private.business_auth_signup_gate set enabled=true where singleton");
+  let afterPause;
+  try {
+    afterPause = makeTestPauseTrigger("after",email4);
+    const pending = signup(key,email4,password);
+    await waitUntilAuthInsertIsPaused("After-insert race");
+    let closeBlocked = false;
+    try {
+      sql("set lock_timeout='300ms'; " +
+        "update private.business_auth_signup_gate set enabled=false where singleton");
+    } catch (error) {
+      closeBlocked = /lock timeout/i.test(error?.stderr?.toString() ?? "");
+    }
+    assert.ok(closeBlocked,
+      "Gate shutdown completed even while an accepted auth.users INSERT was in-flight");
+    assert.equal(sql("select enabled from private.business_auth_signup_gate where singleton"),"t",
+      "Timed-out close unexpectedly disabled the gate");
+    const acceptedInFlight = await pending;
+    assert.ok(acceptedInFlight.status === 200 || acceptedInFlight.status === 201,
+      "In-flight allowed signup unexpectedly failed: HTTP " + acceptedInFlight.status);
+    assert.equal(userCount(email4),1,"In-flight user was not committed exactly once");
+    sql("update private.business_auth_signup_gate set enabled=false where singleton");
+    assert.equal(sql("select enabled from private.business_auth_signup_gate where singleton"),"f");
+    console.log("PASS concurrent close WAITS for accepted INSERT, then closes gate");
+  } finally {
+    dropTestPauseTrigger(afterPause);
+  }
+
+  // 5. A fresh request after shutdown must still receive the expected 403.
+  assertDenied(await signup(key,email5,password),"Re-disabled signup");
+  assert.equal(userCount(email5),0,"Re-disabled gate created an Auth user");
+  assert.equal(userCount(email2),1,"Closing gate removed original allowed user");
+  assert.equal(userCount(email4),1,"Closing gate removed accepted in-flight user");
+  console.log("PASS gate OFF again rejects fresh direct signup with zero new users");
+  console.log("PASS Auth hook and INSERT lock cover both signup/shutdown interleavings.");
+  console.log("HOSTED AUTH STILL UNVERIFIED: operator must disable Auth service signup and audit before release.");
+
 }
 
 if (process.argv[1]?.endsWith("/test-local-gotrue-signup.mjs")) {
