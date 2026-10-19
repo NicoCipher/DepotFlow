@@ -92,10 +92,10 @@ begin
       and pol.polname in ('owner_read','owner_profile','owner_empty_choices')
   loop
     if r.relname <> all(v_expected_tables)
-      or r.polname is distinct from
-        case when r.relname='shop_profile' then 'owner_profile'
-             when r.relname='sale_empty_decisions' then 'owner_empty_choices'
-             else 'owner_read' end
+      or (r.relname='shop_profile' and r.polname<>'owner_profile')
+      or (r.relname='sale_empty_decisions' and r.polname<>'owner_empty_choices')
+      or (r.relname not in ('shop_profile','sale_empty_decisions')
+          and r.polname<>'owner_read')
       or r.polroles is distinct from array['authenticated'::regrole::oid]
       or coalesce(r.policy_using,'') !~ 'shop_owner'
       or (r.relname in ('product_cost_history','product_selling_price_history')
