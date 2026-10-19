@@ -11,6 +11,19 @@ set local statement_timeout='60s';
 
 do $cutover_preflight$
 begin
+ -- A persisted operator approval is NOT enough. A failed attempt might
+ -- roll back before clearing that flag, and later app rollback could restore
+ -- the old client. Require fresh consent from THIS migration connection.
+ -- The operator must run BEGIN; SET LOCAL ...; then this SQL file inside
+ -- that same transaction. Generic migration runners never set this flag.
+ -- SET LOCAL expires on COMMIT or ROLLBACK, including lock-timeout failures.
+ if pg_catalog.current_setting(
+      'depotflow.legacy_creation_cutover_attempt',true
+    ) is distinct from 'confirmed' then
+   raise exception
+     'LEGACY CREATION CUTOVER ATTEMPT NOT CONFIRMED: use fresh transaction-scoped operator approval'
+     using errcode='42501';
+ end if;
  if not exists(
    select 1 from private.legacy_creation_cutover_gate
     where singleton is true and authorized is true
@@ -105,4 +118,12 @@ begin
  end if;
 end;
 $post_cutover_assert$;
+
+-- Consume the durable signoff on success in the SAME transaction as the
+-- privilege revocations. Failed attempts roll back all DDL; the persisted
+-- approval may then still be TRUE, but a new connection cannot reuse the
+-- expired transaction-scoped approval and must obtain fresh operator consent.
+update private.legacy_creation_cutover_gate
+set authorized=false,authorized_at=null
+where singleton is true and authorized is true;
 commit;
