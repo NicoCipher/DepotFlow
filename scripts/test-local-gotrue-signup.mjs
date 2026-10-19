@@ -79,7 +79,8 @@ async function waitUntilAuthInsertIsPaused(label) {
 }
 
 function makeTestPauseTrigger(kind, email) {
-  if (!/^depotflow-auth-ci-[a-f0-9]{16}@example\\.org$/.test(email)) {
+  if (!email.endsWith("@example.org") ||
+      !/^depotflow-auth-ci-[a-f0-9]{16}@/.test(email)) {
     throw Error("Unsafe test email for trigger");
   }
   const before = kind === "before";
@@ -90,9 +91,9 @@ function makeTestPauseTrigger(kind, email) {
   const fn = "private." + name;
   // These triggers exist ONLY in the disposable local integration database.
   // A production schema must never contain a test-only sleep trigger.
-  sql("create function " + fn + "() returns trigger language plpgsql as $ " +
+  sql("create function " + fn + "() returns trigger language plpgsql as $ci_pause$ " +
     "begin if NEW.email='" + email + "' then perform pg_sleep(4); end if; " +
-    "return NEW; end; $");
+    "return NEW; end; $ci_pause$");
   sql("create trigger " + name + " " + action +
     " insert on auth.users for each row execute function " + fn + "()");
   return { name, fn };
