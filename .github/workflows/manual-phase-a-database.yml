@@ -42,6 +42,11 @@ jobs:
           path: candidate
           persist-credentials: false
 
+      - name: Verify all pinned Phase A SQL stages offline
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s trusted/scripts -p test_resume_phase_a.py -v
+
       - name: Install PostgreSQL client if needed
         run: |
           set -euo pipefail
