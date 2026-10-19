@@ -33,7 +33,7 @@
     {
       "kind": "policies",
       "object_count": 33,
-      "definition_hash": "404e2276a7edff940b840cc7db2c74df"
+      "definition_hash": "ecd3e40e29e1978a393f59d1c6ab0d80"
     },
     {
       "kind": "relations",
@@ -45,5 +45,7 @@
       "object_count": 15,
       "definition_hash": "8ac1ebaa4d97a8ae8258f169c36bbbb1"
     }
-  ]
+  ],
+  "fingerprint_includes_rls_role_bindings": true,
+  "note": "Refreshed policy hash on October 19 to include normalized TO roles (polroles). No production SQL writes."
 }
