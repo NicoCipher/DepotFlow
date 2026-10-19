@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "src/**"
+      - "scripts/probe-hosted-auth-signup*.mjs"
       - "package.json"
       - "package-lock.json"
       - "next.config.ts"
@@ -35,6 +36,9 @@ jobs:
 
       - name: Domain tests
         run: npm test
+
+      - name: Hosted Auth signup probe safety regressions (no network)
+        run: node --test scripts/probe-hosted-auth-signup.test.mjs
 
       - name: Typecheck
         run: npm run typecheck
