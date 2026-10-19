@@ -47,6 +47,9 @@ jobs:
       - name: Verify all historical SQL evidence and preserved original checksums
         run: python3 -m unittest discover -s supabase/tests -p 'test_applied_sql_manifest.py'
 
+      - name: Verify sandbox-only replay materialization
+        run: python3 -m unittest discover -s supabase/tests -p 'test_materialize_prod_history.py'
+
       - name: Install PostgreSQL 17 (official signed PGDG APT)
         run: |
           set -euo pipefail
@@ -202,4 +205,73 @@ jobs:
             fi
           done
           psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 -f supabase/tests/fixtures/selling_prices_after.sql
+          dropdb -h /tmp -p 55439 "$db"
+
+      - name: Diagnose original production SQL history on a fresh zero-cost PG17 database
+        # This is a DIAGNOSTIC, not a release gate. GitHub Actions on a public
+        # repository uses free standard runners. No production credentials.
+        # Mismatches are reported as NO-GO; expected historical divergence
+        # does not invalidate the independent green synthetic migration tests.
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          python3 scripts/materialize-prod-history.py --out "$work/stages"
+          db=depotflow_history_replay
+          createdb -h /tmp -p 55439 "$db"
+          psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 -f supabase/tests/bootstrap.sql >/dev/null
+          stage=0
+          failed=""
+          for f in "$work"/stages/*.sql; do
+            if psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 -f "$f" > "$work/last.log" 2>&1; then
+              stage=$((stage + 1))
+            else
+              failed="$(basename "$f")"
+              break
+            fi
+          done
+          {
+            echo "## Free PG17 production-history replay diagnostic"
+            echo
+            echo "Replay stages passed: **$stage / 55**."
+            echo
+            if [[ -n "$failed" ]]; then
+              echo "**NO-GO:** first failing historical applied-SQL mapping: \`$failed\`."
+              echo
+              echo "This is an isolated synthetic runner, not a production-schema clone."
+            else
+              echo "Historical source replay completed. Checking read-only schema fingerprint:"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ -n "$failed" ]]; then
+            echo "::warning::NO-GO: historical replay stopped at $failed after $stage stages"
+            tail -n 24 "$work/last.log"
+          else
+            psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 -At -F '|' \
+              -f supabase/tests/live_schema_fingerprint.sql > "$work/actual.tsv"
+            python3 - "$work/actual.tsv" <<'PY'
+          import json
+          import pathlib
+          import sys
+          baseline = json.loads(pathlib.Path("docs/release-evidence/production-schema-fingerprint-20261019.json").read_text())["objects"]
+          expected = {x["kind"]: x for x in baseline}
+          actual = {}
+          for line in pathlib.Path(sys.argv[1]).read_text().splitlines():
+              if not line.strip():
+                  continue
+              kind, count, digest = line.split("|")
+              actual[kind] = {"object_count": int(count), "definition_hash": digest}
+          different = sorted(k for k in set(expected) | set(actual)
+                             if expected.get(k, {}).get("object_count") != actual.get(k, {}).get("object_count")
+                             or expected.get(k, {}).get("definition_hash") != actual.get(k, {}).get("definition_hash"))
+          with open(__import__("os").environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              if different:
+                  summary.write("\n**NO-GO:** schema fingerprint differs for: " + ", ".join(different) + ".\n")
+              else:
+                  summary.write("\n**MATCH:** all 8 public/private fingerprint groups equal the read-only production snapshot. Still not real hosted Auth, data or production-clone proof.\n")
+          if different:
+              print("::warning::NO-GO: historical replay's schema differs from current production in " + ", ".join(different))
+          else:
+              print("Historical-only PG17 replay matches 8 app-schema fingerprints; Auth/Storage/data still unverified")
+          PY
+          fi
           dropdb -h /tmp -p 55439 "$db"
