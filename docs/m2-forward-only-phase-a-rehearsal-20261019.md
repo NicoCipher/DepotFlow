@@ -13,10 +13,10 @@ The 55-stage replay is a **reconstruction**, not an identical live Supabase sche
 `docs/m2-forward-only-release-inventory-20261019.json` contains **exactly 66 Phase A source migrations**, in their established dependency order, plus **one separate Phase B file** that must never be part of the first database release:
 
 - Phase A: `20261016020000_private_business_membership_foundation.sql` through `20261018123000_generate_legacy_assortment_ids_and_replay.sql`, 66 SQL bodies.
-- Phase A rehearsal versions: `20261019000000_m2a_001_...` through `20261019010500_m2a_066_...`. All are higher than the last captured live version. No SQL text is modified; each file is copied byte-for-byte, with SHA-256 recorded in the generated audit.
+- Phase A rehearsal versions: `20261019120000_m2a_001_...` through `20261019120105_m2a_066_...`. All are higher than the last captured live version. No SQL text is modified; each file is copied byte-for-byte, with SHA-256 recorded in the generated audit.
 - Excluded Phase B: `20261018124000_finalize_legacy_creation_api_cutover.sql`. Its original source timestamp is **not** a valid forward-only version for a post-Phase-A production cutover. A separately reviewed later version must be allocated only after app cutover and explicit operator authorization.
 
-The generator **does not write into `supabase/migrations`**; it emits a sandbox-only directory. Existing PR migration files still conflict with live history; merely merging the branch or running the normal Supabase CLI could be unsafe.
+The Phase A-only generator shares its exact source ordering and proposed versions with the existing full-phase disposable-only tool (`scripts/build-forward-only-m2-release.py`); the existing tool generates a separate Phase B test artifact, whereas this generator never emits Phase B SQL. Both inventories must match or packaging fails.\n\nThe generator **does not write into `supabase/migrations`**; it emits a sandbox-only directory. Existing PR migration files still conflict with live history; merely merging the branch or running the normal Supabase CLI could be unsafe.
 
 ## Exact free rehearsal and refusal conditions
 
