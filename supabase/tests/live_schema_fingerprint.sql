@@ -2,6 +2,7 @@
 -- Run independently on production (SELECT only) and a disposable clone.
 -- Same Postgres major version required for meaningful pg_get_* hashes.
 -- No user/business data is fetched or modified.
+-- Function fingerprints INCLUDE direct/effective EXECUTE grants and schema USAGE.
 -- Does not cover Auth/Storage schemas, extension config, secrets, or data.
 with objs as (
   select 'relations' kind, n.nspname||'.'||c.relname obj,
@@ -28,7 +29,19 @@ with objs as (
     from pg_class c join pg_namespace n on n.oid=c.relnamespace
     where n.nspname in ('public','private') and c.relkind='i'
   union all
-  select 'functions',n.nspname||'.'||p.oid::regprocedure::text,pg_get_functiondef(p.oid)
+  -- Function source alone misses privilege escalation: grant EXECUTE to
+  -- PUBLIC/anon/authenticated on SECURITY DEFINER routines. Include direct
+  -- ACL, owner, effective role EXECUTE and schema USAGE in the fingerprint.
+  select 'functions',n.nspname||'.'||p.oid::regprocedure::text,
+    pg_get_functiondef(p.oid)||':owner='||pg_get_userbyid(p.proowner)||
+    ':security_definer='||p.prosecdef::text||
+    ':direct_acl='||coalesce(p.proacl::text,'DEFAULT_PUBLIC_EXECUTE')||
+    ':anon_execute='||has_function_privilege('anon',p.oid,'EXECUTE')::text||
+    ':authenticated_execute='||has_function_privilege('authenticated',p.oid,'EXECUTE')::text||
+    ':service_role_execute='||has_function_privilege('service_role',p.oid,'EXECUTE')::text||
+    ':auth_admin_execute='||has_function_privilege('supabase_auth_admin',p.oid,'EXECUTE')::text||
+    ':anon_schema_usage='||has_schema_privilege('anon',n.oid,'USAGE')::text||
+    ':authenticated_schema_usage='||has_schema_privilege('authenticated',n.oid,'USAGE')::text
     from pg_proc p join pg_namespace n on n.oid=p.pronamespace
     where n.nspname in ('public','private')
   union all
