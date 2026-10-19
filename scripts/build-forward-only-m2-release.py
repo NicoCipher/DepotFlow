@@ -15,7 +15,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_LOCK = ROOT / "supabase/tests/fixtures/m2_forward_only_sources_20261019.json"
-HISTORY_SNAPSHOT = ROOT / "supabase/tests/fixtures/production_migration_history_20261018.json"
+HISTORY_SNAPSHOT = ROOT / "supabase/tests/fixtures/production_migration_history_20261019_after_auth.json"
 APPLIED_EVIDENCE = ROOT / "docs/m2-applied-sql-reconciliation-manifest-20261019.json"
 MIGRATIONS = ROOT / "supabase/migrations"
 FILENAME = re.compile(r"(\d{14})_([a-z][a-z0-9_]*)\.sql")
@@ -39,9 +39,9 @@ def validate_remote(remote, snapshot, evidence):
             "BLOCKED: production migration ledger changed from the reviewed 55-entry snapshot; "
             "obtain a fresh read-only ledger and re-review the release plan"
         )
-    if set(x["version"] for x in evidence["entries"]) != set(expected) or len(evidence["entries"]) != len(expected):
+    if set(x["version"] for x in evidence["entries"]) != set(expected[:55]) or len(evidence["entries"]) != 55:
         raise ValueError("BLOCKED: applied SQL provenance does not match recorded ledger")
-    if remote.get("names") is not None and remote["names"] != snapshot["names"]:
+    if remote.get("names") is None or remote["names"] != snapshot["names"]:
         raise ValueError("BLOCKED: remote migration labels differ from recorded history")
     if max(expected) != snapshot["live_tip"]:
         raise ValueError("BLOCKED: recorded ledger tip does not match its versions")
@@ -57,13 +57,18 @@ def build(remote_path, out_dir=None):
     actual_remote = read_json(remote_path)
     history = validate_remote(actual_remote, snapshot, evidence)
 
+    if lock.get("already_applied_auth_source") != "20261018112000_stage_auth_side_signup_hook.sql" \
+       or snapshot["names"].get(snapshot["live_tip"]) != "depotflow_hosted_auth_signup_closed_guard_20261019":
+        raise ValueError("BLOCKED: actual installed Auth migration not recognized")
     sources = lock["source_migrations"]
-    if len(sources) != 67 or len(set(sources)) != 67 or sources != sorted(sources):
-        raise ValueError("BLOCKED: expected 67 unique ordered M2 migration sources")
+    if len(sources) != 66 or len(set(sources)) != 66 or sources != sorted(sources):
+        raise ValueError("BLOCKED: expected 66 unique ordered remaining M2 migration sources")
     final = "20261018124000_finalize_legacy_creation_api_cutover.sql"
+    if lock["already_applied_auth_source"] in sources:
+        raise ValueError("BLOCKED: Auth SQL already installed in hosted production")
     if sources[-1] != final or final in sources[:-1]:
         raise ValueError("BLOCKED: Phase B finalizer must be separate and last")
-    if lock["phase_a_count"] != 66 or lock["phase_b_count"] != 1:
+    if lock["phase_a_count"] != 65 or lock["phase_b_count"] != 1:
         raise ValueError("BLOCKED: migration phase inventory drift")
 
     # An added M2 source cannot be silently skipped by a previously locked
@@ -72,7 +77,7 @@ def build(remote_path, out_dir=None):
     historic_candidates = {x.get("localCandidate") for x in evidence["entries"]}
     candidate_files = {p.name for p in MIGRATIONS.glob("*.sql")}
     unreviewed = sorted(
-        name for name in candidate_files - source_set - historic_candidates
+        name for name in candidate_files - source_set - historic_candidates - {lock["already_applied_auth_source"]}
         if name >= "20261016020000"
     )
     if unreviewed or any(name not in candidate_files for name in sources):
@@ -93,7 +98,7 @@ def build(remote_path, out_dir=None):
         version = (start + timedelta(seconds=index)).strftime("%Y%m%d%H%M%S")
         if version <= max(history) or version in history or version in {x["version"] for x in stage}:
             raise ValueError("BLOCKED: proposed forward-only version collides with recorded history")
-        phase = "phase-b" if index == 66 else "phase-a"
+        phase = "phase-b" if index == 65 else "phase-a"
         target = version + "_" + FILENAME.fullmatch(source_name).group(2) + ".sql"
         stage.append({
             "phase": phase, "source": source_name, "source_sha256": hashlib.sha256(raw).hexdigest(),
@@ -123,7 +128,7 @@ def build(remote_path, out_dir=None):
                 "reconstructed_history_only": True,
                 "baseline": snapshot["live_tip"],
                 "baseline_count": len(history),
-                "phase_a_count": 66,
+                "phase_a_count": 65,
                 "phase_b_count": 1,
                 "source_lock_sha256": hashlib.sha256(SOURCE_LOCK.read_bytes()).hexdigest(),
                 "entries": stage
