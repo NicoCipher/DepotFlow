@@ -1,40 +1,35 @@
-# DepotFlow — forward-only M2 release packaging (19 October 2026)
+# DepotFlow — forward-only M2 release packaging after live Auth security (19 October 2026)
 
-**STATUS: DRY-RUN PACKAGE ONLY; NO PRODUCTION AUTHORIZATION.**
-This document concerns the draft [PR #107](https://github.com/NicoCipher/DepotFlow/pull/107), not a production rollout. Keep all public-signup/new-business gates **OFF** and PR **Draft**. No files under the existing `supabase/migrations/` are renamed, repaired, or executed against production.
+**STATUS: REVIEWED REHEARSAL ONLY. NO PHASE A/PHASE B PRODUCTION APPROVAL.**
 
-## The actual mismatch
+### Verified reality
 
-The **read-only** 18 October production-ledger snapshot contains **55 applied versions**, ending at `20261017132742`. The 19 October applied-SQL evidence lists **29 byte-exact matches, 22 lexical-only comparisons, and four archived originals**. These matches do **not** mean the historical local migration filenames/versions equal what the hosted Supabase migration ledger recorded. An ordinary `supabase db push` from this repository would encounter obsolete filenames and cannot be used safely as the release mechanism.
+The previously captured 55 applied migrations were followed by a **separate Auth-only production migration** (applied under the user's request to resolve hosted Auth security): `20261019132131_depotflow_hosted_auth_signup_closed_guard_20261019`. A read-only `list_migrations` now shows **56 entries** with exact names; the one existing Auth account remains in place. The new private gate is OFF and the `auth.users` insert guard is active. No new tenant features or Vercel application code have been deployed.
 
-Separately, PR #107 adds **67 distinct SQL files** (old filenames range from 16–18 October). They cannot be applied as unreviewed timestamp-older history.
+The old 55-version candidate is **invalid for further release**. Never replay the already-applied Auth SQL `20261018112000_stage_auth_side_signup_hook.sql`. No blind `supabase db push`, `--include-all`, `db reset --linked`, or migration repair.
 
-## What the generator now does — no external infrastructure
+### Updated canonical candidate
 
-`scripts/build-forward-only-m2-release.py` uses the recorded ledger and the explicit **67-source allowlist** `supabase/tests/fixtures/m2_forward_only_sources_20261019.json`. It rejects absent/duplicate/unknown migration versions, source list drift, and **any difference** from the 55-entry recorded ledger. Its only permitted output is a fresh directory **outside** the repository; it never calls Supabase, writes to a database, edits applied-history records, or deploys anything.
+`supabase/tests/fixtures/production_migration_history_20261019_after_auth.json` records exactly 56 live versions and names, ending in `20261019132131`. The old 55 original SQL source records remain separately preserved as evidence.
 
-The candidate forward-only versions begin at `20261019120000` and end at `20261019120106`. They correspond exactly, in order, to the 67 source bodies, with SHA-256 hashes and a machine-readable output manifest. The version choice is **not reserved in production**: a fresh read-only ledger must be compared again before any deployment decision. If the live ledger advances, this package is automatically invalid; a new plan/review is required.
+Both `supabase/tests/fixtures/m2_forward_only_sources_20261019.json` and `docs/m2-forward-only-release-inventory-20261019.json` now freeze identical ordering:
 
-It deliberately creates two **separate directories**:
-- `phase-a/`: **66 backwards-compatible staged database migrations**. Replacement customer/crate/product creation RPCs coexist with old production client permissions. Multi-business activation remains off. The staged Auth protection function does **not** by itself install the live GoTrue Before User Created hook.
-- `phase-b/`: **one final permission-revocation migration**, explicitly refused unless the verified new application is live, a privileged operator has approved the default-off gate, and the same transaction presents fresh operator confirmation. It must never be combined into an unattended Phase A push.
+- **Already installed:** Auth-only source; deliberately not included in the next package.
+- **Phase A:** 65 remaining unmodified M2 SQL sources, assigned `20261019140000`–`20261019140104`, each strictly after the live ledger tip.
+- **Phase B:** one separately gated legacy create-right revocation, `20261019140105`, only in its own optional test artifact; not an unattended database-first rollout.
 
-**Disposable rehearsal commands (not a production runbook):**
+`scripts/build-forward-only-bundle.py` produces only Phase A SQL; `scripts/build-forward-only-m2-release.py` separately packages Phase A and the denied-by-default Phase B test artifact. They compare the exact 56-version/name ledger and require both source inventories to agree, refuse any additional/unrecognized SQL, and place generated SQL only in disposable directories.
 
-```sh
-python3 -m unittest discover -s supabase/tests -p 'test_forward_only_m2_release.py'
-python3 scripts/build-forward-only-m2-release.py \
-  --remote-history supabase/tests/fixtures/production_migration_history_20261018.json \
-  --out-dir /tmp/depotflow-forward-only-rehearsal
-```
+### Zero-dollar CI
 
-The free PostgreSQL 17 workflow reconstructs the 55 applied SQL stages, seeds a synthetic original-shop sale/customer/debt/receipt/stock/empties ledger, **applies the generated Phase A files**, verifies old-client customer/crate/product creation still works, proves Phase B fails without consent, then simulates the separately approved Phase B **on the disposable database only**. Pre/post financial/physical ledger hashes must be identical. Existing adversarial tenant/owner and real local GoTrue tests still run.
+The PostgreSQL 17 Actions job reconstructs 55 historical migrations, adds the Auth-only SQL as already-applied stage 56 in disposable databases, replays 65 forward-versioned Phase A SQL bodies, verifies original customer/crate/product creation, and checks synthetic stock/debt/receipt/empty-obligation invariants before and after. It tests the locked Phase B against unattended execution and simulates an expressly approved cutover only in the sandbox.
 
-## Remaining release gates — do not skip
+Existing managed Supabase role/column-level ACL differences mean that a green synthetic PostgreSQL reconstruction **is not an identical hosted production-schema clone**. The latest read-only hosted fingerprint, incorporating `SECURITY DEFINER` function execution privileges and schema usage, is in `docs/release-evidence/production-schema-fingerprint-20261019.json`. A true actual-schema/managed grants parity test is still a release gate.
 
-1. Obtain a **fresh** read-only hosted migration-version list and production-schema fingerprint and compare with this snapshot, including policy/role/extension/grant differences. A recreated 55-stage PG17 database is **not** a copy of production's actual schema or customer data.
-2. Review and approve a **clean isolated release directory** and an operator-attended forward-only migration-ledger recording method. Never let `supabase db push` see the repository's old historical filenames or the Phase B finalizer. Do not `--include-all`, reset linked production, or silently call `migration repair`. A version-number change alone does not reconcile the historical Supabase CLI state.
-3. Verify the original Walnik Ventures owner account and private actual balances/stock/receipt/empty obligations with an operator-approved confidential backup and pre/post invariants. Never copy live customer data into public GitHub Actions.
-4. Obtain separate explicit authorization before **any** production SQL, managed hosted Auth hook configuration, Vercel deploy, original-shop app cutover, or Phase B. New business signup and activation require their own release, after the original business is safe.
+### Hosted Auth still requires management-side verification
 
-**Go/no-go today:** no live-history freshness proof, no actual-production-schema parity certificate, no hosted signup hook and no operator approval. PR #107 is still **NO-GO**, regardless of a successful local rehearsal.
+The gate table, Auth hook SQL routine and active `auth.users` insert trigger are installed, gate default OFF, Auth admin may call the hook, app roles cannot, synthetic hook input returns a 403 object, and the original Auth account count remains unchanged. This prevents ordinary new Auth-row insertion via GoTrue while the gate remains closed. It **does not prove** that hosted Authentication → Hooks → Before User Created is actually configured; the currently available Supabase connector has no action to inspect or set Auth management configuration. Nor does it certify a controlled direct hosted `/auth/v1/signup` request or existing-owner login. Those remain required before closing the hosted bypass review finding.
+
+### Go/no-go
+
+**NO-GO for PR #107 merge and Phase A deployment:** no actual production-schema clone with complete managed grants, no confirmed hosted Auth management settings or controlled direct API outcome, no validated confidential ledger backup/pre/post checks, no Phase A operator approval. Multi-business signup and activation remain OFF. The user-authorized isolated hosted Auth security installation is complete, but it is **not** authorization for tenant schema rollout or Vercel deployment. No new paid project, branch or infrastructure was used.
