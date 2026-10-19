@@ -9,6 +9,9 @@ on:
   pull_request:
     paths:
       - "supabase/**"
+      - "docs/m2-applied-sql-reconciliation-manifest-20261019.json"
+      - "docs/release-evidence/**"
+      - ".github/workflows/verify-database.yml"
 
 jobs:
   verify:
@@ -40,6 +43,9 @@ jobs:
 
       - name: Assert live migration release gate fails safely on historical drift
         run: python3 -m unittest discover -s supabase/tests -p 'test_live_migration_history.py'
+
+      - name: Verify all historical SQL evidence and preserved original checksums
+        run: python3 -m unittest discover -s supabase/tests -p 'test_applied_sql_manifest.py'
 
       - name: Install PostgreSQL 16
         run: |
