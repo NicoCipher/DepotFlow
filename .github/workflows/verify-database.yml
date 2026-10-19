@@ -534,7 +534,7 @@ jobs:
           import json, pathlib, sys
           reference=json.loads(pathlib.Path("docs/release-evidence/production-app-client-column-dml-acl-20261019.json").read_text())
           actual=json.loads(pathlib.Path(sys.argv[1]).read_text())
-          expected={k:reference[k] for k in ("counts_by_role_and_privilege","per_table")}
+          expected={k:reference[k] for k in ("counts_by_role_and_privilege","per_table","effective_delete_by_table")}
           if actual != expected:
               expected_tables=expected["per_table"]
               actual_tables=actual.get("per_table",{})
@@ -542,12 +542,64 @@ jobs:
                                 if expected_tables.get(t)!=actual_tables.get(t))
               print("::error::NO-GO: reconstructed app-client DML grants differ from hosted production")
               print("Per-table privilege differences:",", ".join(mismatches))
+              delete_expected=expected["effective_delete_by_table"]
+              delete_actual=actual.get("effective_delete_by_table",{})
+              delete_mismatches=sorted(t for t in set(delete_expected)|set(delete_actual)
+                                       if delete_expected.get(t)!=delete_actual.get(t))
+              print("Effective table DELETE differences:",", ".join(delete_mismatches))
               print("Reconstructed role/operation counts:",actual.get("counts_by_role_and_privilege"))
               print("Host role/operation counts:",expected["counts_by_role_and_privilege"])
               sys.exit(1)
-          print("PASS: all 29 per-table anon/authenticated/service_role column DML grant digests match hosted live baseline")
+          print("PASS: 29 exact column DML digests and 34 effective table DELETE/delegation privilege maps match live")
           PY
           echo "### Reconstructed 55-stage client DML grants (29 tables) match hosted app-facing privileges: PASS" >> "$GITHUB_STEP_SUMMARY"
+          # Two ROLLBACK-only adversarial privilege changes must be detected
+          # using the SAME full fingerprint as the hosted baseline. Neither
+          # grant survives the disposable transaction; production untouched.
+          psql -h /tmp -p 55439 -d "$db" -X -qAt -v ON_ERROR_STOP=1 > "$work/direct-delete-grant.json" <<'SQL'
+          BEGIN;
+          GRANT DELETE ON public.customers TO authenticated WITH GRANT OPTION;
+          \i supabase/tests/fixtures/app_client_column_dml_acl.sql
+          ROLLBACK;
+          SQL
+          psql -h /tmp -p 55439 -d "$db" -X -qAt -v ON_ERROR_STOP=1 > "$work/public-delete-grant.json" <<'SQL'
+          BEGIN;
+          GRANT DELETE ON public.customers TO PUBLIC;
+          \i supabase/tests/fixtures/app_client_column_dml_acl.sql
+          ROLLBACK;
+          SQL
+          python3 - "$work/direct-delete-grant.json" "$work/public-delete-grant.json" <<'PY'
+          import json,sys
+          base=json.load(open("docs/release-evidence/production-app-client-column-dml-acl-20261019.json"))
+          direct=json.load(open(sys.argv[1]))
+          pub=json.load(open(sys.argv[2]))
+          def allowed(o,role):
+              return o["effective_delete_by_table"]["public.customers"][role]
+          if direct["effective_delete_by_table"] == base["effective_delete_by_table"] or not (
+              allowed(direct,"authenticated")["delete"] and allowed(direct,"authenticated")["grant_option"]
+          ):
+              raise SystemExit("NO-GO: WITH GRANT OPTION DELETE escalation undetected")
+          if pub["effective_delete_by_table"] == base["effective_delete_by_table"] or not (
+              allowed(pub,"anon")["delete"] and allowed(pub,"authenticated")["delete"]
+          ):
+              raise SystemExit("NO-GO: PUBLIC inherited DELETE escalation undetected")
+          print("PASS: effective DELETE detects direct/delegable and inherited PUBLIC grants")
+          PY
+          psql -h /tmp -p 55439 -d "$db" -X -qAt -v ON_ERROR_STOP=1 \
+            -f supabase/tests/fixtures/app_client_column_dml_acl.sql \
+            > "$work/after-rollback-delete.json"
+          python3 - "$work/after-rollback-delete.json" <<'PY'
+          import json,sys
+          current=json.load(open(sys.argv[1]))
+          live=json.load(open("docs/release-evidence/production-app-client-column-dml-acl-20261019.json"))
+          for key in ("counts_by_role_and_privilege","per_table","effective_delete_by_table"):
+              if current[key]!=live[key]:
+                  raise SystemExit("NO-GO: adversarial DELETE grant leaked through rollback")
+          print("PASS: disposable DELETE grants fully rolled back")
+          PY
+          echo "### Table DELETE grants: all 34 live application objects match; direct/PUBLIC adversarial grants detected and rolled back" >> "$GITHUB_STEP_SUMMARY"
+
+
 
           # Copy the 55-stage reconstructed schema into a SECOND free
           # disposable database BEFORE Auth-only DDL. The second clone
