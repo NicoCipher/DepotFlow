@@ -40,7 +40,7 @@ def validate_history(fresh: dict, pinned: dict, evidence: dict, inventory: dict)
     if inventory["expected_applied_migrations"] != 56:
         raise ValueError("Unexpected expected production migration count")
     if fresh.get("versions") != expected or fresh.get("names") != names:
-        raise ValueError("PRODUCTION RELEASE BLOCKED: current ledger differs from frozen 55-version and name baseline")
+        raise ValueError("PRODUCTION RELEASE BLOCKED: current ledger differs from frozen 56-version and name baseline")
     if len(evidence.get("entries", [])) != 55 or [
         (r.get("version"), r.get("name")) for r in evidence["entries"]
     ] != [(v, names[v]) for v in expected[:55]]:
@@ -72,6 +72,7 @@ def validate_sources(root: Path, inventory: dict, live_tip: str, compare_ref=Non
     if locked.get("source_migrations") != [p.split("/")[-1] for p in all_sources] \
        or locked.get("base_version_utc") != inventory["phase_a_version_start"] \
        or locked.get("phase_a_count") != 65 or locked.get("phase_b_count") != 1 \
+       or locked.get("phase_b_target_filename", "MISSING") is not None \
        or locked.get("already_applied_auth_source") != inventory.get("already_applied_auth_source", "").split("/")[-1]:
         raise ValueError("Conflicting forward-only release inventories or version bases")
     preinstalled = inventory.get("already_applied_auth_source")
@@ -98,6 +99,13 @@ def validate_sources(root: Path, inventory: dict, live_tip: str, compare_ref=Non
     versions = [(start + timedelta(seconds=i * 1)).strftime(STAMP) for i in range(len(stages))]
     if versions[0] <= live_tip or versions != sorted(set(versions)):
         raise ValueError("Forward-only assigned versions are not unique or strictly after recorded live tip")
+    canonical = locked.get("canonical_phase_a_target_filenames")
+    if not isinstance(canonical, list) or len(canonical) != 65 or len(set(canonical)) != 65:
+        raise ValueError("Missing 65 unique canonical Phase A migration filenames")
+    for i, (source, version) in enumerate(zip(stages, versions)):
+        suffix = PATTERN.fullmatch(source).group(2)
+        if canonical[i] != f"{version}_{suffix}.sql":
+            raise ValueError("Canonical migration filename mismatch: reviewed Phase A target differs")
     existing = {p.name[:14] for p in (root / "supabase/migrations").glob("*.sql")}
     if existing.intersection(versions):
         raise ValueError("Generated migration version collides with an existing repository migration")
@@ -120,7 +128,7 @@ def build_bundle(root: Path, inventory: dict, actual: dict, pinned: dict,
         if not payload.strip() or b"\\x00" in payload:
             raise ValueError("Empty or binary migration source: " + source)
         suffix = PATTERN.fullmatch(source).group(2)
-        new_name = f"{version}_m2a_{i:03d}_{suffix}.sql"
+        new_name = f"{version}_{suffix}.sql"
         files.append((source, new_name, payload))
     out.mkdir(parents=True, exist_ok=False)
     audit = {
