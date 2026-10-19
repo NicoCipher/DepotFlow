@@ -221,27 +221,11 @@ begin
 end;
 $create_product$;
 
--- Remove the old caller-selected-ID API from ALL signed-in clients.
--- Original shop crate metadata edits stay callable, but creation uses the
--- new RPC which chooses the actual PK and returns it to the UI.
-revoke execute on function public.create_crate_type(uuid,text,text,numeric,text)
- from public,anon,authenticated,service_role;
-revoke execute on function private.create_crate_type(uuid,text,text,numeric,text)
- from public,anon,authenticated,service_role;
-
--- A direct INSERT without an id could silently default a UUID and evade
--- immutable audit, so revoke EVERY authenticated product INSERT column.
-revoke insert on public.products from authenticated;
-do $revoke_product_insert$
-declare v text;
-begin
- for v in select a.attname from pg_catalog.pg_attribute a
-    where a.attrelid='public.products'::regclass
-      and a.attnum>0 and not a.attisdropped loop
-   execute pg_catalog.format('revoke insert (%I) on public.products from authenticated',v);
- end loop;
-end;
-$revoke_product_insert$;
+-- PRE-CUTOVER: keep legacy create_crate_type RPC and direct product INSERT
+-- available while the old app serves requests. The new server-generated-ID
+-- RPCs are installed side by side. Removal of old create privileges is
+-- intentionally deferred to 20261018124000, guarded by explicit operator
+-- cutover authorization (FALSE by default). New business activation is OFF.
 
 revoke all on function public.create_legacy_crate_type(uuid,text,text,integer,text)
  from public,anon,authenticated,service_role;
@@ -254,27 +238,27 @@ grant execute on function public.create_legacy_product(
  uuid,text,text,text,uuid,integer,integer,integer,integer,integer,boolean,text,uuid)
  to authenticated;
 
-do $verify$
+do $verify_staging$
 begin
- if has_function_privilege('authenticated',
+ if not has_function_privilege('authenticated',
      'public.create_crate_type(uuid,text,text,numeric,text)','EXECUTE')
- or has_function_privilege('authenticated',
+ or not has_function_privilege('authenticated',
      'private.create_crate_type(uuid,text,text,numeric,text)','EXECUTE')
  or has_function_privilege('anon',
      'public.create_legacy_crate_type(uuid,text,text,integer,text)','EXECUTE')
  or has_function_privilege('anon',
      'public.create_legacy_product(uuid,text,text,text,uuid,integer,integer,integer,integer,integer,boolean,text,uuid)','EXECUTE')
- or has_any_column_privilege('authenticated','public.products','INSERT')
+ or not has_column_privilege('authenticated','public.products','id','INSERT')
  or not has_column_privilege('authenticated','public.products','name','UPDATE')
  or not has_function_privilege('authenticated',
      'public.create_legacy_crate_type(uuid,text,text,integer,text)','EXECUTE')
  or not has_function_privilege('authenticated',
      'public.create_legacy_product(uuid,text,text,text,uuid,integer,integer,integer,integer,integer,boolean,text,uuid)','EXECUTE')
  then
-   raise exception 'Legacy assortment identity grant boundary is unsafe';
+   raise exception 'Legacy assortment PRE-CUTOVER privileges drifted';
  end if;
 end;
-$verify$;
+$verify_staging$;
 
 -- M2f: the remaining original-shop crate metadata RPCs must not expose
 -- another business's UUID through success/failure or privilege-dependent
@@ -523,6 +507,6 @@ $deposit$;
 
 -- Keep metadata operations exposed only through their existing explicitly
 -- gated public wrappers (and original private grants), not a new broad API.
--- Creation still flows exclusively through server-generated-ID functions.
+-- Old create operations remain available until the explicit cutover gate.
 
 commit;
