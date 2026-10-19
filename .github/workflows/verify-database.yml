@@ -137,6 +137,62 @@ jobs:
                   -c "drop policy depotflow_ci_unknown_policy on public.product_cost_history;"
                 echo "PASS: unknown $mode RLS policy blocked safely"
               done
+
+              # A policy's existence means nothing when the table's RLS is
+              # disabled. This previously passed the identity/count checks.
+              psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+                -c 'alter table public.product_cost_history disable row level security;'
+              if psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+                   -f "$f" >/tmp/depotflow-rls-off.log 2>&1; then
+                echo "::error::Disabled RLS incorrectly accepted"
+                exit 1
+              fi
+              grep -Fq "row level security disabled" /tmp/depotflow-rls-off.log || {
+                tail -n 16 /tmp/depotflow-rls-off.log
+                exit 1
+              }
+              psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+                -c 'alter table public.product_cost_history enable row level security;'
+              echo "PASS: disabled RLS on protected table blocked"
+
+              # Exactly 26 owner policies means SALE TENDER LEGS does not
+              # exist yet. It must NOT accept an arbitrary missing policy.
+              psql -h /tmp -p 55439 -d postgres -X -At \
+                -c "select format('create policy owner_read on public.product_cost_history for select to authenticated using (%s);',pg_get_expr(polqual,polrelid)) from pg_policy where polrelid='public.product_cost_history'::regclass and polname='owner_read';" \
+                > /tmp/depotflow-restore-cost-policy.sql
+              test -s /tmp/depotflow-restore-cost-policy.sql
+              psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+                -c 'drop policy owner_read on public.product_cost_history;'
+              if psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+                   -f "$f" >/tmp/depotflow-missing-policy.log 2>&1; then
+                echo "::error::Arbitrary missing owner policy incorrectly accepted"
+                exit 1
+              fi
+              grep -Fq "Expected exact" /tmp/depotflow-missing-policy.log || {
+                tail -n 16 /tmp/depotflow-missing-policy.log
+                exit 1
+              }
+              psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+                -f /tmp/depotflow-restore-cost-policy.sql
+              echo "PASS: arbitrary 26-policy subset rejected"
+
+              for mode in select all; do
+                psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+                  -c "create policy depotflow_ci_unexpected_owner_read on private.shop_owner for $mode to authenticated using (true);"
+                if psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+                     -f "$f" >/tmp/depotflow-private-policy.log 2>&1; then
+                  echo "::error::Extra private.shop_owner $mode policy accepted"
+                  exit 1
+                fi
+                grep -Fq "Unexpected private shop owner read policy" \
+                  /tmp/depotflow-private-policy.log || {
+                    tail -n 16 /tmp/depotflow-private-policy.log
+                    exit 1
+                  }
+                psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+                  -c 'drop policy depotflow_ci_unexpected_owner_read on private.shop_owner;'
+                echo "PASS: rogue private.shop_owner $mode policy blocked"
+              done
             fi
             psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 -f "$f"
           done
