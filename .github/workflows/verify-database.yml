@@ -204,8 +204,18 @@ jobs:
                 echo "::error::Legacy creation grants revoked before approval"
                 exit 1
               fi
-              grep -Fq "LEGACY CREATION CUTOVER NOT AUTHORIZED" \
+              grep -Fq "CUTOVER ATTEMPT NOT CONFIRMED" \
                 /tmp/depotflow-cutover-guard.log
+              # Even a same-transaction confirmation must not skip durable
+              # operator signoff while it remains OFF.
+              if psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+                  -c "BEGIN; SET LOCAL depotflow.legacy_creation_cutover_attempt='confirmed';" \
+                  -f "$f" >/tmp/depotflow-cutover-no-signoff.log 2>&1; then
+                echo "::error::Cutover accepted without operator signoff"
+                exit 1
+              fi
+              grep -Fq "LEGACY CREATION CUTOVER NOT AUTHORIZED" \
+                /tmp/depotflow-cutover-no-signoff.log
               old_grants="$(psql -h /tmp -p 55439 -d postgres -X -At -v ON_ERROR_STOP=1 \
                 -c "select has_column_privilege('authenticated','public.customers','id','INSERT') and has_column_privilege('authenticated','public.products','id','INSERT') and has_function_privilege('authenticated','public.create_crate_type(uuid,text,text,numeric,text)','EXECUTE');")"
               if [[ "$old_grants" != "t" ]]; then
