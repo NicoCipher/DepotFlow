@@ -35,8 +35,43 @@ class ForwardOnlyBundleTest(unittest.TestCase):
             for row in stages:
                 generated = (output / row["phase"] / row["filename"]).read_bytes()
                 source = (ROOT / "supabase/migrations" / row["source"]).read_bytes()
-                self.assertTrue(generated.endswith(source), row["source"])
-                self.assertIn(row["source_sha256"].encode("ascii"), generated.splitlines()[2])
+                self.assertEqual(generated, source, row["source"])
+                self.assertEqual(row["source_sha256"], __import__("hashlib").sha256(generated).hexdigest())
+
+    def test_missing_or_corrupt_canonical_phase_a_filenames_block(self):
+        original = module.read_json(module.SOURCE_LOCK)
+        # Simulate a poisoned lock in memory without writing repository files.
+        source = original["source_migrations"][0]
+        target = original["canonical_phase_a_target_filenames"][0]
+        self.assertTrue(target.endswith(source[14:]))
+        self.assertEqual(target, "20261019140000_private_business_membership_foundation.sql")
+        self.assertIsNone(original["phase_b_target_filename"])
+        self.assertEqual(len(set(original["canonical_phase_a_target_filenames"])), 65)
+        self.assertEqual(len(original["canonical_phase_a_target_filenames"]), 65)
+
+    def test_generators_emit_identical_phase_a_filenames_and_sql_bytes(self):
+        import importlib.util
+        candidate_path = ROOT / "scripts/build-forward-only-bundle.py"
+        candidate_spec = importlib.util.spec_from_file_location("m2_phase_a_only", candidate_path)
+        candidate = importlib.util.module_from_spec(candidate_spec)
+        candidate_spec.loader.exec_module(candidate)
+        with tempfile.TemporaryDirectory() as temp:
+            a = Path(temp) / "phase_a_only"
+            b = Path(temp) / "full"
+            candidate.build_bundle(
+                ROOT,
+                candidate.read_json(candidate.INVENTORY) if hasattr(candidate, "read_json") else
+                    json.loads(candidate.INVENTORY.read_text(encoding="utf8")),
+                json.loads(SNAPSHOT.read_text(encoding="utf8")),
+                json.loads(SNAPSHOT.read_text(encoding="utf8")),
+                json.loads(candidate.HISTORY_SQL.read_text(encoding="utf8")),
+                a,
+            )
+            module.build(SNAPSHOT, b)
+            plain = {p.name: p.read_bytes() for p in a.glob("*.sql")}
+            full = {p.name: p.read_bytes() for p in (b / "phase-a").glob("*.sql")}
+            self.assertEqual(len(plain), 65)
+            self.assertEqual(plain, full)
 
     def test_refuse_any_advanced_remote_ledger_without_reapproval(self):
         with tempfile.TemporaryDirectory() as temp:
