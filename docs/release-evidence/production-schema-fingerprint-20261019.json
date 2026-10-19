@@ -23,7 +23,7 @@
     {
       "kind": "functions",
       "object_count": 61,
-      "definition_hash": "d0bbfbe4c735808feb8bc1fd714b0690"
+      "definition_hash": "c2c2099b40849aedbd99644672843be0"
     },
     {
       "kind": "indexes",
@@ -47,8 +47,14 @@
     }
   ],
   "fingerprint_includes_rls_role_bindings": true,
-  "note": "This current baseline differs from the 55-stage historical reconstruction because Auth DDL is now installed separately.",
+  "note": "19 October hosted 56-migration snapshot; function ACL, owner, effective EXECUTE and schema USAGE for all four actor roles recorded. This is not a full platform auth/storage or data clone certificate.",
   "functions_include_execute_acl_and_schema_usage": true,
   "recorded_migrations": 56,
-  "migration_ledger_tip": "20261019132131"
+  "migration_ledger_tip": "20261019132131",
+  "actor_schema_usage_roles": [
+    "anon",
+    "authenticated",
+    "service_role",
+    "supabase_auth_admin"
+  ]
 }
