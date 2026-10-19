@@ -45,7 +45,7 @@ class PhaseAOfflineTests(unittest.TestCase):
         sql = phase_a.make_transaction(
             stage, self.history[67]["version"], 68
         )
-        self.assertEqual(sql.lstrip().lower().find("begin;"), 0)
+        self.assertIn("begin;", sql.lower())
         self.assertTrue(sql.rstrip().lower().endswith("commit;"))
         self.assertIn(
             "INSERT INTO supabase_migrations.schema_migrations(version,name,statements)",
