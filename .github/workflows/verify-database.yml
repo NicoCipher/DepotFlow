@@ -64,6 +64,9 @@ jobs:
           python3 scripts/build-forward-only-m2-release.py \
             --remote-history supabase/tests/fixtures/production_migration_history_20261019_after_auth.json
 
+      - name: Test strict six-category schema drift classifier (offline)
+        run: python3 -m unittest discover -s scripts -p 'test_classify_m2_schema_drift.py'
+
       - name: Install PostgreSQL 17 (official signed PGDG APT)
         run: |
           set -euo pipefail
