@@ -65,6 +65,11 @@ jobs:
       - name: Configure disposable cluster (port 55439, /tmp socket, local trust)
         run: |
           set -euo pipefail
+          # PGDG package installation may not auto-create 17/main on runners
+          # already containing a different PostgreSQL cluster.
+          if [[ ! -f /etc/postgresql/17/main/postgresql.conf ]]; then
+            sudo pg_createcluster 17 main
+          fi
           PGCONF=/etc/postgresql/17/main
           sudo sed -i "s/^port = 5432.*/port = 55439/" "$PGCONF/postgresql.conf"
           sudo sed -i "s#^unix_socket_directories = .*#unix_socket_directories = '/tmp,/var/run/postgresql'#" "$PGCONF/postgresql.conf"
