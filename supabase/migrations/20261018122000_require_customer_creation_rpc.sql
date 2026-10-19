@@ -1,24 +1,21 @@
--- M2f-46: all browser customer creation must use a verified, audited RPC.
--- M2f-44/45 removed the two caller-chosen PK grants, but the original
--- authenticated INSERT(name,phone,...) columns could still bypass immutable
--- request replay by omitting id (customers.id defaults to gen_random_uuid()).
--- Both guided onboarding and legacy checkout now call server-generated-ID
--- security-definer RPCs. Keep the original shop's UPDATE/SELECT permissions.
--- No new business activation, service grants or changes to existing rows.
+-- M2f-46: verify the staged customer RPC and old-app compatibility.
+-- Until the new application is deployed, original-shop customer creation
+-- continues using direct INSERT(id,name,phone,...). Removing those grants
+-- here would cause a database-first rollout outage. A separate admin-gated
+-- POST-CUTOVER migration revokes EVERY direct authenticated INSERT column.
+-- New-business INSERT(business_id) stays revoked and its RPC stays disabled.
 begin;
 set local lock_timeout='5s';
 set local statement_timeout='60s';
 
-revoke insert (name,phone,business_name,address)
- on public.customers from authenticated;
-
-do $enforce_rpc_creation$
+do $verify_staged_creation$
 begin
- if has_any_column_privilege(
-   'authenticated','public.customers','INSERT')
+ if not has_column_privilege('authenticated','public.customers','id','INSERT')
+   or not has_column_privilege('authenticated','public.customers','name','INSERT')
+   or has_column_privilege('authenticated','public.customers','business_id','INSERT')
    or has_any_column_privilege('anon','public.customers','INSERT')
  then
-   raise exception 'Direct Data API customer INSERT still available';
+   raise exception 'Legacy direct customer INSERT missing or tenant bypass exposed before cutover';
  end if;
  if not has_column_privilege('authenticated','public.customers',
     'name','UPDATE')
@@ -36,7 +33,7 @@ begin
    or has_function_privilege('authenticated',
    'public.register_business_customer(uuid,uuid,text,text,text,text)','EXECUTE')
  then
-   raise exception 'Customer creation RPC permissions drifted';
+   raise exception 'Pre-cutover customer creation RPC permissions drifted';
  end if;
 end;
 $enforce_rpc_creation$;
