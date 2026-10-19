@@ -26,7 +26,19 @@ A database-first deployment that revoked the old creation paths in the same migr
 ## Phase B — independently gated final revocation
 
 - `20261018124000_finalize_legacy_creation_api_cutover.sql` is a separate migration which **fails before changing any grant** when `private.legacy_creation_cutover_gate.authorized` is false. Default/unattended migration application therefore **stops safely**, not auto-revokes legacy creation.
-- Only after approved cutover may a privileged DBA mark `authorized=true` with `authorized_at`, and then explicitly apply the reviewed post-cutover source/ledger entry. The schema gate prevents accidental SQL-first revocation; it is NOT evidence that Vercel actually cut over. Human signoff and verification remain necessary.
+- Only after an approved cutover may a privileged DBA mark `authorized=true` with `authorized_at`. That flag **alone never authorizes Phase B**: the exact migration connection must ALSO have a fresh transaction-local confirmation. This is necessary because a failed or timed-out migration can roll back before consuming a durable approval. An unattended retry after an old-app rollback must be rejected even while the persistent flag is still true.
+- Run the approved finalizer using a single operator-owned SQL connection and transaction, never generic unattended `db push`:
+
+  ```sql
+  BEGIN;
+  SET LOCAL depotflow.legacy_creation_cutover_attempt = 'confirmed';
+  -- In this SAME psql connection, invoke the reviewed finalizer file
+  -- using psql's backslash-i include command.
+  -- The finalizer itself COMMITs; if it errors, connection closure
+  -- rolls back the operation and the SET LOCAL consent disappears.
+  ```
+
+- On success, the finalizer atomically revokes the old creation permissions and **consumes** the durable gate (`authorized=false, authorized_at=NULL`). If it fails, revocations roll back and any retry requires a completely fresh operator-confirmed transaction; never assume an earlier approval is still valid. This is a guarded release design, **not** evidence of Vercel actually cutting over.
 - In one transaction Phase B revokes all authenticated customer/product INSERT columns plus the old crate-create function entrypoints; it verifies audited owner-only replacement RPCs remain callable and customer/product edits remain intact.
 - The hosted Auth Before User Created hook must be installed and verified separately, and the new-business gates must remain OFF. Neither green CI nor a SQL flag is permission to enable signup or sell from other depots.
 
@@ -36,10 +48,11 @@ A database-first deployment that revoked the old creation paths in the same migr
 
 1. The complete Phase A migration sequence, with default-OFF cutover gate.
 2. Old-client customer, crate and product writes still work in a rollback-only authenticated test.
-3. Attempting Phase B without authorization raises the specified error, leaving old permissions intact.
-4. A synthetic privileged operator authorizes the gate only in the disposable runner; Phase B then succeeds.
-5. Existing adversarial customer/assortment tests reject both chosen and default primary key bypasses after Phase B.
-6. The full reconstructed 55-stage original history + 67-stage tenant sequence preserves the pre/post synthetic Walnik-like ledger fingerprint. This is NOT an actual production-data clone or hosted Auth certification.
+3. Phase B without authorization fails before any change, preserving old permissions.
+4. Even when a prior `authorized=true` exists, a fresh unattended retry is denied without per-transaction consent.
+5. A synthetic privileged operator gives transaction-local approval in the disposable runner; Phase B succeeds and consumes the durable approval.
+6. Existing adversarial customer/assortment tests reject both chosen and default primary key bypasses after Phase B.
+7. The full reconstructed 55-stage original history + 67-stage tenant sequence preserves the pre/post synthetic Walnik-like ledger fingerprint. This is NOT an actual production-data clone or hosted Auth certification.
 
 ## Still NO-GO
 
