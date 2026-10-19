@@ -517,6 +517,32 @@ jobs:
             echo "::error::Auth-only release rehearsal blocked: live-history reconstruction incomplete at $failed"
             exit 1
           fi
+          # Independently compare hosted app-facing column permissions with
+          # the historical production SQL reconstruction. Never grant missing
+          # permissions in CI to force a green result. Managed REFERENCES
+          # privileges remain a separate, explicitly documented platform gap.
+          psql -h /tmp -p 55439 -d "$db" -X -At -v ON_ERROR_STOP=1 \
+            -f supabase/tests/fixtures/app_client_column_dml_acl.sql \
+            > "$work/reconstructed-client-dml-acl.json"
+          python3 - "$work/reconstructed-client-dml-acl.json" <<'PY'
+          import json, pathlib, sys
+          reference=json.loads(pathlib.Path("docs/release-evidence/production-app-client-column-dml-acl-20261019.json").read_text())
+          actual=json.loads(pathlib.Path(sys.argv[1]).read_text())
+          expected={k:reference[k] for k in ("counts_by_role_and_privilege","per_table")}
+          if actual != expected:
+              expected_tables=expected["per_table"]
+              actual_tables=actual.get("per_table",{})
+              mismatches=sorted(t for t in set(expected_tables)|set(actual_tables)
+                                if expected_tables.get(t)!=actual_tables.get(t))
+              print("::error::NO-GO: reconstructed app-client DML grants differ from hosted production")
+              print("Per-table privilege differences:",", ".join(mismatches))
+              print("Reconstructed role/operation counts:",actual.get("counts_by_role_and_privilege"))
+              print("Host role/operation counts:",expected["counts_by_role_and_privilege"])
+              sys.exit(1)
+          print("PASS: all 29 per-table anon/authenticated/service_role column DML grant digests match hosted live baseline")
+          PY
+          echo "### Reconstructed 55-stage client DML grants (29 tables) match hosted app-facing privileges: PASS" >> "$GITHUB_STEP_SUMMARY"
+
           # Copy the 55-stage reconstructed schema into a SECOND free
           # disposable database BEFORE Auth-only DDL. The second clone
           # exercises the full staged 66-migration multi-business sequence
