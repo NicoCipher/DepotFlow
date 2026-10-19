@@ -516,10 +516,22 @@ jobs:
             # Output only object identifiers and hashes (never SQL bodies,
             # customer data, tokens or credentials) for a read-only comparison
             # to production's same query. Not a valid release certificate.
-            echo "BEGIN_HISTORY_OBJECT_DIGESTS"
             psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 -At \
-              -f supabase/tests/fixtures/reconstructed_schema_object_hashes.sql
+              -f supabase/tests/fixtures/reconstructed_schema_object_hashes.sql \
+              > "$work/historical-schema-object-digests.json"
+            echo "BEGIN_HISTORY_OBJECT_DIGESTS"
+            cat "$work/historical-schema-object-digests.json"
             echo "END_HISTORY_OBJECT_DIGESTS"
+            # Classify SIX previous aggregate differences against individually
+            # captured live MD5 fingerprints, fail closed for ANY extra drift.
+            # This is not full managed Supabase clone parity or deployment consent.
+            python3 scripts/classify-m2-schema-drift.py \
+              --historical "$work/historical-schema-object-digests.json" \
+              > "$work/schema-diff-classification.json"
+            echo "BEGIN_SCHEMA_DRIFT_CLASSIFICATION"
+            cat "$work/schema-diff-classification.json"
+            echo "END_SCHEMA_DRIFT_CLASSIFICATION"
+            echo "### Existing 55-stage vs hosted app schema: all six diff categories classified (NOT full managed parity)" >> "$GITHUB_STEP_SUMMARY"
           fi
           # Rehearse the *Auth-only* pending release against the exact
           # reconstructed 55-stage PG17 history (not just a clean migration
