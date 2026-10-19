@@ -13,10 +13,10 @@
 | Different timestamps, same suffix, **different normalized SQL** | **2** |
 | No unique same-name local migration candidate | **13** |
 | **Total verified normalized-text matches** | **40 / 55** |
-| Byte-for-byte identical applied SQL (subset of 40) | 25 |
+| Byte-for-byte identical applied SQL (subset of 40) | 24 |
 | All 55 confirmed equivalent? | **NO** |
 
-For 11 same-timestamp migrations, 2 SQL texts are byte-identical and 9 match after rejoining individual recorded statements with semicolons and removing whitespace. For 31 one-to-one filename-suffix candidates with different timestamps, 23 are byte-identical, 4 match after semicolon/whitespace normalization and 2 additional matches were established after removing line comments. The remaining **2 name candidates are not equal** even with line comments removed. Altogether, **25 exact + 15 normalized-only = 40**.
+For 11 same-timestamp migrations, 2 SQL texts are byte-identical and 9 match after rejoining individual recorded statements with semicolons and removing whitespace. For 31 one-to-one filename-suffix candidates with different timestamps, 22 are byte-identical and 7 require lexical normalization (including comment handling). The remaining **2 name candidates are not equal** even with line comments removed. Altogether, **24 exact + 16 normalized-only = 40**.
 
 **Normalization caveat:** the lexical comparison removed whitespace globally, including inside quoted literals, and sometimes stripped line comments. It is useful high-confidence source-mapping evidence, but **not a rigorous SQL-parser-based semantic equivalence proof**, an actual-schema comparison, or proof that runtime Supabase/Auth configuration matches. Applied order and DDL dependencies still require an isolated real-schema clone. No timestamp was renamed or migration history repaired.
 
@@ -62,3 +62,28 @@ These 13 have no single **same-named** source file. They may be splits, renames,
 5. Require all hosted Auth direct-signup and Data API tests before turning any gate ON.
 
 **Forbidden shortcuts:** `db push --include-all`, blind migration timestamps, `migration repair`, `db reset --linked`, direct edits to live `supabase_migrations`.
+
+## 19 October — all 55 original applied SQL entries accounted for (still NO-GO)
+
+The above section reflects the **first** mapping audit. A second read-only comparison examined the 13 initially unnamed entries. Eleven of those have source candidates in historical repository migrations with different file names or timestamps:
+
+- Production `payment_receipts_and_activity` matches local `20260928120000_payment_receipts.sql` byte-for-byte.
+- `master_maltina_can_packshot` and `three_verified_catalogue_packshots_oct14` have lexically matching source in `20261014082000_master_maltina_photos.sql` and `20261014101000_three_verified_catalogue_packshots.sql`.
+- `upgrade_old_debt_sale_receipt_snapshot_oct14` and `verify_historical_account_receipts_oct14` have byte-identical source in `20261014110000_sale_with_old_debt_payment.sql` and `20261014111000_verify_account_receipt.sql`.
+- The six production split-tender stages map to the six local `20261016*` split-tender scripts: the first four have matching text after removing *local-only BEGIN/COMMIT wrappers* and whitespace; the request fence and activation stages match exactly.
+
+**Corrected total for all 55 live entries:** **29 byte-identical**, **22 lexically matched** (SQL canonicalization, NOT proven parser-level semantic equivalence), and **4 not text-matched**. The four original applied SQL records were copied read-only into non-executable `docs/release-evidence/applied-*.sql.txt` files with MD5 checksums. They are NOT migration files. Their exact statement text is preserved so an authorized reviewer can examine it:
+
+1. `20260925113009_product_images` — original storage bucket/policies, no unique equivalent source file.
+2. `20260927154550_customer_archiving` — live SQL lacks the trailing private legacy `save_sale` revocation found in the similar local file. The old function does not presently exist on live.
+3. `20261001022503_join_bottled_desperados_catalogue` — original catalogue identity merge absent locally.
+4. `20261014072834_sale_with_old_debt_payment` — production's atomic prior-debt-and-sale RPC source differs from similarly named local file. That local file is in fact byte-identical to *another* later live applied migration, `20261014115322`.
+
+Machine-readable 55-entry evidence inventory: `docs/m2-applied-sql-reconciliation-manifest-20261019.json`.
+
+**Critically:** this reconciles the *origin/evidence trail of applied SQL*, not the **migration version history**. Production still has 55 recorded versions and the repository has many older differently numbered scripts. Do NOT run DB push, `migration repair`, replay of archived scripts, or copy files into `supabase/migrations`. The safe release mechanism must be designed and trialed on an actual-schema isolated PG17 environment, with the observed constraints/ownership/function grants and reference ledger compared against production.
+
+## 19 October — Auth service block not yet deployed
+
+Live read-only catalog lookup confirms both `private.depotflow_before_user_created(jsonb)` and `private.business_auth_signup_gate` are **absent on production**. The former exists only in the draft migration and its rollback-only SQL tests. App environment flags do not stop direct GoTrue signup. Hosted Before User Created hook installation, explicit disabled-state probe against a nonproduction project, email confirmation and platform signup abuse controls remain mandatory release gates. Never use a live user account as a test probe.
+
