@@ -1,10 +1,10 @@
 {
   "purpose": "DISPOSABLE CI REHEARSAL ONLY - NEVER APPLY WITHOUT REVIEWED PRODUCTION APPROVAL",
   "captured_on": "2026-10-19",
-  "production_history_snapshot": "supabase/tests/fixtures/production_migration_history_20261018.json",
+  "production_history_snapshot": "supabase/tests/fixtures/production_migration_history_20261019_after_auth.json",
   "migration_evidence": "docs/m2-applied-sql-reconciliation-manifest-20261019.json",
-  "base_version_utc": "20261019120000",
-  "phase_a_count": 66,
+  "base_version_utc": "20261019140000",
+  "phase_a_count": 65,
   "phase_b_count": 1,
   "source_migrations": [
     "20261016020000_private_business_membership_foundation.sql",
@@ -61,7 +61,6 @@
     "20261018105000_stage_owner_business_selection.sql",
     "20261018110000_stage_self_service_business_registration.sql",
     "20261018111000_reserve_global_depot_identity.sql",
-    "20261018112000_stage_auth_side_signup_hook.sql",
     "20261018113000_stage_owner_guided_assortment_preview.sql",
     "20261018113500_preserve_registered_depot_location.sql",
     "20261018114000_stage_business_opening_count_progress.sql",
@@ -74,5 +73,6 @@
     "20261018122000_require_customer_creation_rpc.sql",
     "20261018123000_generate_legacy_assortment_ids_and_replay.sql",
     "20261018124000_finalize_legacy_creation_api_cutover.sql"
-  ]
+  ],
+  "already_applied_auth_source": "20261018112000_stage_auth_side_signup_hook.sql"
 }
