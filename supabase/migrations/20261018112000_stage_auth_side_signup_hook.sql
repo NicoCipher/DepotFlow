@@ -48,4 +48,44 @@ revoke all on function private.depotflow_before_user_created(jsonb)
 grant usage on schema private to supabase_auth_admin;
 grant execute on function private.depotflow_before_user_created(jsonb)
  to supabase_auth_admin;
+
+-- GoTrue's Before User Created hook runs BEFORE the auth.users INSERT, in a
+-- separate transaction. Merely flipping the hook's gate OFF can therefore
+-- permit an already-accepted signup to commit AFTER the operator closes it.
+-- Recheck the policy atomically inside the actual INSERT transaction.
+--
+-- SELECT FOR SHARE holds a row lock until user creation COMMIT/ROLLBACK.
+-- Closing the gate (UPDATE of the same row) must wait for accepted inserts
+-- to finish; a signup that arrives after the close sees enabled=false.
+-- Privileged postgres-owned migrations/fixture loads remain possible. Normal
+-- GoTrue inserts execute as the dedicated supabase_auth_admin DB login.
+create function private.depotflow_auth_user_insert_guard()
+returns trigger
+language plpgsql volatile security definer set search_path=''
+as $before_auth_insert$
+declare
+ v_enabled boolean;
+begin
+ if pg_catalog.session_user = 'postgres' then
+   return new;
+ end if;
+ select g.enabled into v_enabled
+ from private.business_auth_signup_gate g
+ where g.singleton is true
+ for share;
+ if v_enabled is distinct from true then
+   raise exception 'Account registration is not available.'
+     using errcode='42501';
+ end if;
+ return new;
+end;
+$before_auth_insert$;
+revoke all on function private.depotflow_auth_user_insert_guard()
+ from public,anon,authenticated,service_role;
+-- Trigger functions are not directly callable. Keep the internal function
+-- unreachable through ordinary app/API roles, while the trigger runs as
+-- its trusted definer.
+create trigger depotflow_auth_user_insert_guard
+ before insert on auth.users
+ for each row execute function private.depotflow_auth_user_insert_guard();
 commit;
