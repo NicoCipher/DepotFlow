@@ -36,11 +36,25 @@ def validate_remote(remote, snapshot, evidence):
         raise ValueError("BLOCKED: corrupt recorded production history")
     if actual != expected:
         raise ValueError(
-            "BLOCKED: production migration ledger changed from the reviewed 55-entry snapshot; "
+            "BLOCKED: production migration ledger changed from the reviewed 56-entry snapshot; "
             "obtain a fresh read-only ledger and re-review the release plan"
         )
-    if set(x["version"] for x in evidence["entries"]) != set(expected[:55]) or len(evidence["entries"]) != 55:
-        raise ValueError("BLOCKED: applied SQL provenance does not match recorded ledger")
+    # Exact SQL provenance is a release boundary, not merely a set of
+    # historical version numbers. Match the applied ledger's ORDERED names
+    # and the separately reviewed status/localCandidate/archive mapping.
+    # Otherwise an M2 source could be mislabeled as an applied historical
+    # candidate and silently excluded from the forward-only package.
+    locked = read_json(SOURCE_LOCK).get("applied_sql_provenance")
+    entries = evidence.get("entries")
+    if not isinstance(locked, list) or len(locked) != 55 or entries != locked:
+        raise ValueError("BLOCKED: historical SQL provenance mapping changed from reviewed lock")
+    if [(item.get("version"), item.get("name")) for item in entries] != [
+        (version, snapshot["names"][version]) for version in expected[:55]
+    ]:
+        raise ValueError("BLOCKED: historical SQL provenance names/order do not match production ledger")
+    candidates = [item["localCandidate"] for item in entries if item.get("localCandidate")]
+    if len(candidates) != len(set(candidates)):
+        raise ValueError("BLOCKED: duplicated historical SQL source provenance")
     if remote.get("names") is None or remote["names"] != snapshot["names"]:
         raise ValueError("BLOCKED: remote migration labels differ from recorded history")
     if max(expected) != snapshot["live_tip"]:
@@ -86,7 +100,9 @@ def build(remote_path, out_dir=None):
     # An added M2 source cannot be silently skipped by a previously locked
     # release list. Historical local candidates must not be replayed either.
     source_set = set(sources)
-    historic_candidates = {x.get("localCandidate") for x in evidence["entries"]}
+    historic_candidates = {x["localCandidate"] for x in lock["applied_sql_provenance"] if x.get("localCandidate")}
+    if historic_candidates.intersection(source_set):
+        raise ValueError("BLOCKED: historical SQL candidate overlaps tenant Phase A or cutover source")
     candidate_files = {p.name for p in MIGRATIONS.glob("*.sql")}
     unreviewed = sorted(
         name for name in candidate_files - source_set - historic_candidates - {lock["already_applied_auth_source"]}
