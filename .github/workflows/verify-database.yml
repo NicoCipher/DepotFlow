@@ -215,8 +215,28 @@ jobs:
               # Approved scenario is simulated in free DISPOSABLE CI only.
               psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
                 -c "update private.legacy_creation_cutover_gate set authorized=true,authorized_at=now() where singleton;"
+              # A previous failed attempt may leave durable authorization=true.
+              # A later unattended retry STILL must be refused without fresh
+              # same-transaction approval.
+              if psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+                  -f "$f" >/tmp/depotflow-cutover-stale-approval.log 2>&1; then
+                echo "::error::Stale approval enabled unattended cutover"
+                exit 1
+              fi
+              grep -Fq "CUTOVER ATTEMPT NOT CONFIRMED" \
+                /tmp/depotflow-cutover-stale-approval.log
+              old_grants="$(psql -h /tmp -p 55439 -d postgres -X -At -v ON_ERROR_STOP=1 \
+                -c "select has_column_privilege('authenticated','public.customers','id','INSERT') and has_column_privilege('authenticated','public.products','id','INSERT') and has_function_privilege('authenticated','public.create_crate_type(uuid,text,text,numeric,text)','EXECUTE');")"
+              test "$old_grants" = "t"
+              # SET LOCAL and migration run share exactly one connection and
+              # one transaction. On an error, the connection ends and the
+              # temporary approval is rolled back, never reusable.
+              psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+                -c "BEGIN; SET LOCAL depotflow.legacy_creation_cutover_attempt='confirmed';" \
+                -f "$f"
+            else
+              psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 -f "$f"
             fi
-            psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 -f "$f"
           done
 
       - name: Run SQL test suite (each file is self-contained and rolls back)
@@ -311,8 +331,11 @@ jobs:
             if [[ "$f" == *20261018124000_finalize_legacy_creation_api_cutover.sql ]]; then
               psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 \
                 -c "update private.legacy_creation_cutover_gate set authorized=true,authorized_at=now() where singleton;"
+              psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 \
+                -c "BEGIN; SET LOCAL depotflow.legacy_creation_cutover_attempt='confirmed';" -f "$f"
+            else
+              psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 -f "$f"
             fi
-            psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 -f "$f"
             if [[ "$f" == *business_product_cost_catalogue.sql ]]; then
               psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 -f supabase/tests/fixtures/product_catalogue_after.sql
             fi
@@ -452,8 +475,11 @@ jobs:
               if [[ "$staged_sql" == *20261018124000_finalize_legacy_creation_api_cutover.sql ]]; then
                 psql -h /tmp -p 55439 -d depotflow_tenant_stage_replay -X -v ON_ERROR_STOP=1 \
                   -c "update private.legacy_creation_cutover_gate set authorized=true,authorized_at=now() where singleton;"
+                replay_args=(-c "BEGIN; SET LOCAL depotflow.legacy_creation_cutover_attempt='confirmed';" -f "$staged_sql")
+              else
+                replay_args=(-f "$staged_sql")
               fi
-              if psql -h /tmp -p 55439 -d depotflow_tenant_stage_replay -X -v ON_ERROR_STOP=1 -f "$staged_sql" > "$work/tenant-last.log" 2>&1; then
+              if psql -h /tmp -p 55439 -d depotflow_tenant_stage_replay -X -v ON_ERROR_STOP=1 "${replay_args[@]}" > "$work/tenant-last.log" 2>&1; then
                 tenant_passed=$((tenant_passed + 1))
               else
                 tenant_failed="$staged_sql"
