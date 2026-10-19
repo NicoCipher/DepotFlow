@@ -83,15 +83,25 @@ declare
   ];
 begin
   for r in
-    select pol.polname,cls.relname,pol.polroles,
+    -- Every read-capable policy on a protected table must be examined.
+    -- Permissive RLS policies are ORed: an extra USING(true), under ANY
+    -- name, undoes the otherwise correct owner_read rewrite. FOR ALL ('*')
+    -- policies also grant SELECT and must not slip past the roster.
+    -- Continue detecting moved/duplicate owner-read policy names outside
+    -- protected tables so a matching count cannot hide table drift.
+    select pol.polname,cls.relname,pol.polroles,pol.polcmd,pol.polpermissive,
       pg_catalog.pg_get_expr(pol.polqual,pol.polrelid) as policy_using
     from pg_catalog.pg_policy pol
     join pg_catalog.pg_class cls on cls.oid=pol.polrelid
     join pg_catalog.pg_namespace ns on ns.oid=cls.relnamespace
-    where ns.nspname='public' and pol.polcmd='r'
-      and pol.polname in ('owner_read','owner_profile','owner_empty_choices')
+    where ns.nspname='public' and (
+      (cls.relname=any(v_expected_tables) and pol.polcmd in ('r','*'))
+      or (pol.polcmd='r'
+          and pol.polname in ('owner_read','owner_profile','owner_empty_choices'))
+    )
   loop
-    if r.relname <> all(v_expected_tables)
+    if r.polcmd<>'r' or r.polpermissive is distinct from true
+      or r.relname <> all(v_expected_tables)
       or (r.relname='shop_profile' and r.polname<>'owner_profile')
       or (r.relname='sale_empty_decisions' and r.polname<>'owner_empty_choices')
       or (r.relname not in ('shop_profile','sale_empty_decisions')
