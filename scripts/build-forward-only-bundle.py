@@ -17,7 +17,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 INVENTORY = ROOT / "docs/m2-forward-only-release-inventory-20261019.json"
-SNAPSHOT = ROOT / "supabase/tests/fixtures/production_migration_history_20261018.json"
+SNAPSHOT = ROOT / "supabase/tests/fixtures/production_migration_history_20261019_after_auth.json"
 HISTORY_SQL = ROOT / "docs/m2-applied-sql-reconciliation-manifest-20261019.json"
 PATTERN = re.compile(r"supabase/migrations/(\d{14})_([a-z][a-z0-9_]*)\.sql\Z")
 STAMP = "%Y%m%d%H%M%S"
@@ -31,19 +31,19 @@ def validate_history(fresh: dict, pinned: dict, evidence: dict, inventory: dict)
     """Fail closed on ANY ledger change, including names and order."""
     expected = pinned.get("versions")
     names = pinned.get("names")
-    if not isinstance(expected, list) or len(expected) != 55 or expected != sorted(set(expected)):
-        raise ValueError("Pinned production history is not 55 strictly ordered versions")
+    if not isinstance(expected, list) or len(expected) != 56 or expected != sorted(set(expected)):
+        raise ValueError("Pinned production history is not 56 strictly ordered versions")
     if not isinstance(names, dict) or set(names) != set(expected):
         raise ValueError("Pinned production migration names missing or altered")
     if pinned.get("live_tip") != expected[-1] or expected[-1] != inventory["expected_live_tip"]:
         raise ValueError("Pinned production tip mismatch")
-    if inventory["expected_applied_migrations"] != 55:
+    if inventory["expected_applied_migrations"] != 56:
         raise ValueError("Unexpected expected production migration count")
     if fresh.get("versions") != expected or fresh.get("names") != names:
         raise ValueError("PRODUCTION RELEASE BLOCKED: current ledger differs from frozen 55-version and name baseline")
     if len(evidence.get("entries", [])) != 55 or [
         (r.get("version"), r.get("name")) for r in evidence["entries"]
-    ] != [(v, names[v]) for v in expected]:
+    ] != [(v, names[v]) for v in expected[:55]]:
         raise ValueError("Applied SQL evidence does not match exact pinned ledger")
     if evidence.get("release_authorized") is not False or inventory.get("release_authorized") is not False:
         raise ValueError("Release inventory/evidence must not authorize production")
@@ -53,14 +53,14 @@ def validate_history(fresh: dict, pinned: dict, evidence: dict, inventory: dict)
 def validate_sources(root: Path, inventory: dict, live_tip: str, compare_ref=None):
     if inventory.get("format") != "depotflow-forward-only-precutover-rehearsal-v1":
         raise ValueError("Unknown release inventory format")
-    if inventory.get("phase_a_version_start") != "20261019120000" or inventory.get("version_interval_seconds") != 1:
+    if inventory.get("phase_a_version_start") != "20261019140000" or inventory.get("version_interval_seconds") != 1:
         raise ValueError("Version assignment changed; require separate review")
     stages = inventory.get("phase_a_source_migrations")
     post = inventory.get("phase_b_separately_authorized_source")
-    if not isinstance(stages, list) or len(stages) != 66 or not isinstance(post, str):
-        raise ValueError("Expected exactly 66 Phase A migrations and 1 independent Phase B migration")
+    if not isinstance(stages, list) or len(stages) != 65 or not isinstance(post, str):
+        raise ValueError("Expected exactly 65 Phase A migrations and 1 independent Phase B migration")
     all_sources = stages + [post]
-    if len(set(all_sources)) != 67 or all_sources != sorted(all_sources):
+    if len(set(all_sources)) != 66 or all_sources != sorted(all_sources):
         raise ValueError("Migration release inventory must be unique and in original dependency order")
     if post != "supabase/migrations/20261018124000_finalize_legacy_creation_api_cutover.sql":
         raise ValueError("Unsafe attempt to mix Phase B with database-first staging")
@@ -71,8 +71,13 @@ def validate_sources(root: Path, inventory: dict, live_tip: str, compare_ref=Non
     )
     if locked.get("source_migrations") != [p.split("/")[-1] for p in all_sources] \
        or locked.get("base_version_utc") != inventory["phase_a_version_start"] \
-       or locked.get("phase_a_count") != 66 or locked.get("phase_b_count") != 1:
+       or locked.get("phase_a_count") != 65 or locked.get("phase_b_count") != 1 \
+       or locked.get("already_applied_auth_source") != inventory.get("already_applied_auth_source", "").split("/")[-1]:
         raise ValueError("Conflicting forward-only release inventories or version bases")
+    preinstalled = inventory.get("already_applied_auth_source")
+    if preinstalled != "supabase/migrations/20261018112000_stage_auth_side_signup_hook.sql" \
+       or preinstalled in all_sources:
+        raise ValueError("Auth migration already installed in production must NOT replay in Phase A")
     if any(PATTERN.fullmatch(p) is None for p in all_sources):
         raise ValueError("Nonmigration or unsafe release source path")
     if any(not (root / p).is_file() for p in all_sources):
@@ -84,10 +89,10 @@ def validate_sources(root: Path, inventory: dict, live_tip: str, compare_ref=Non
             check=True, capture_output=True, text=True,
         )
         found = set(cp.stdout.splitlines())
-        if found != set(all_sources):
+        if found != set(all_sources + [inventory["already_applied_auth_source"]]):
             raise ValueError(
                 "RELEASE INVENTORY DRIFT: git-added SQL stages do not equal the 67 reviewed migrations; "
-                f"missing={sorted(set(all_sources)-found)} new={sorted(found-set(all_sources))}"
+                f"missing={sorted(set(all_sources + [inventory['already_applied_auth_source']])-found)} new={sorted(found-set(all_sources + [inventory['already_applied_auth_source']]))}"
             )
     start = datetime.strptime(inventory["phase_a_version_start"], STAMP)
     versions = [(start + timedelta(seconds=i * 1)).strftime(STAMP) for i in range(len(stages))]
@@ -120,9 +125,9 @@ def build_bundle(root: Path, inventory: dict, actual: dict, pinned: dict,
     out.mkdir(parents=True, exist_ok=False)
     audit = {
         "purpose": "DISPOSABLE DATABASE REHEARSAL ONLY - NOT PRODUCTION APPROVAL",
-        "live_history_snapshot_count": 55,
+        "live_history_snapshot_count": 56,
         "live_history_tip": live_tip,
-        "phase_a_count": 66,
+        "phase_a_count": 65,
         "phase_b_excluded": inventory["phase_b_separately_authorized_source"],
         "sql_changed": False,
         "files": [],
