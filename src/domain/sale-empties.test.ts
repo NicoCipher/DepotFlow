@@ -151,6 +151,25 @@ test("no bottles shortcut clears wrong bottle returns and decisions while retain
   assert.equal(result.lines.find(line => line.productId === "trophy")?.cratesOwed, 0);
 });
 
+test("no-bottle shortcut keeps existing crate accept/hold decisions", () => {
+  const existing = {
+    ...emptyEmptiesV2,
+    mode: "actual" as const,
+    returnedCrates: { "trophy-crate": "1" },
+    returnedBottles: { "Big bottle": "4" },
+    decisions: [
+      { productId: "goldberg", kind: "crate" as const, returnedType: "trophy-crate", quantity: "1", decision: "hold" as const },
+      { productId: "goldberg", kind: "bottle" as const, returnedType: "Big bottle", quantity: "4", decision: "hold" as const },
+    ],
+  };
+  const draft = sale("goldberg");
+  const expected = matchSaleEmpties({ ...draft, emptiesV2: { ...existing, mode: "exact", decisions: [] } }, catalog);
+  const next = noBottlesReturnedState(existing, expected);
+  assert.deepEqual(next.returnedCrates, { "trophy-crate": "1" });
+  assert.deepEqual(next.decisions, [existing.decisions[0]]);
+  assert.deepEqual(next.returnedBottles, { "Goldberg bottle": "0" });
+});
+
 test("exact complete return settles crate and bottles", () => {
   const draft = sale("goldberg");
   draft.emptiesV2.returnedCrates["goldberg-crate"] = "1";

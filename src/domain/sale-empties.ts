@@ -100,7 +100,9 @@ export function noBottlesReturnedState(
     ...state,
     mode: "actual",
     confirmedAllReturned: null,
-    decisions: [],
+    decisions: state.mode === "actual"
+      ? (state.decisions ?? []).filter(choice => choice.kind === "crate")
+      : [],
     returnedCrates,
     returnedBottles,
   };

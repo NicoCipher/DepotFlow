@@ -367,7 +367,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
         {totalExpectedBottles > 0 && (
           <button
             type="button"
-            disabled={!expected || hasFieldErrors}
+            disabled={!expected}
             aria-pressed={noBottlesSelected}
             className={"flex min-h-16 w-full items-center justify-between gap-3 rounded-xl border-2 px-4 py-3 text-left disabled:opacity-60 " +
               (noBottlesSelected ? "border-emerald-800 bg-emerald-50 text-emerald-950" : "border-stone-200 bg-white text-stone-900 hover:border-emerald-300")}
