@@ -545,6 +545,59 @@ begin
 end;
 $legacy_crate_management$;
 reset role;
+-- The same 20-pocket size must be independently configurable by B.
+-- Seed B under test-only trigger bypass; no second-business pricing RPC is
+-- exposed by this draft.
+alter table public.crate_deposit_prices disable trigger legacy_scope_business_write;
+insert into public.crate_deposit_prices(
+  business_id,pocket_count,complete_crate_amount,crate_only_amount
+) values(
+  '89600000-0000-4000-9000-000000000022',20,800,350
+);
+alter table public.crate_deposit_prices enable trigger legacy_scope_business_write;
+do $deposit_constraints$
+begin
+ if not exists(select 1 from pg_catalog.pg_constraint c
+    where c.conrelid='public.crate_deposit_prices'::regclass
+      and c.conname='crate_deposit_prices_business_pocket_unique'
+      and pg_catalog.pg_get_constraintdef(c.oid) like '%NULLS NOT DISTINCT%')
+ then raise exception 'Deposit business/pocket uniqueness missing'; end if;
+end;
+$deposit_constraints$;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89600000-0000-4000-8000-000000000001',true);
+do $separate_deposit_accounts$
+begin
+ if (select count(*) from public.crate_deposit_prices
+       where pocket_count=20)<>1 then
+   raise exception 'Legacy owner saw another depot deposit price';
+ end if;
+ perform public.set_crate_deposit_price(20,650,500);
+ if (select complete_crate_amount from public.crate_deposit_prices
+       where pocket_count=20)<>650 then
+   raise exception 'Legacy deposit update failed alongside B price';
+ end if;
+ perform public.set_crate_deposit_price(20,null,null);
+ if exists(select 1 from public.crate_deposit_prices
+       where pocket_count=20) then
+   raise exception 'Legacy deposit delete retained or exposed B price';
+ end if;
+end;
+$separate_deposit_accounts$;
+reset role;
+do $deposits_not_mixed$
+begin
+ if (select count(*) from public.crate_deposit_prices where pocket_count=20)<>1
+    or (select complete_crate_amount from public.crate_deposit_prices
+       where business_id='89600000-0000-4000-9000-000000000022'
+         and pocket_count=20)<>800 then
+   raise exception 'Original shop update/delete changed B deposit account';
+ end if;
+end;
+$deposits_not_mixed$;
+
 do $foreign_untouched$
 begin
  if not exists(select 1 from public.crate_types
