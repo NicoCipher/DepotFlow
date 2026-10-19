@@ -30,12 +30,13 @@ class ForwardOnlyRehearsalTests(unittest.TestCase):
 
     def test_exact_55_live_versions_and_names_and_all_source_files(self):
         files, versions = self.plan()
-        self.assertEqual(len(files), 66)
-        self.assertEqual(len(set(versions)), 66)
-        self.assertEqual(versions[0], "20261019120000")
-        self.assertEqual(versions[-1], "20261019120105")
+        self.assertEqual(len(files), 65)
+        self.assertEqual(len(set(versions)), 65)
+        self.assertEqual(versions[0], "20261019140000")
+        self.assertEqual(versions[-1], "20261019140104")
         self.assertTrue(all(version > self.history["live_tip"] for version in versions))
         self.assertNotIn(self.inventory["phase_b_separately_authorized_source"], files)
+        self.assertNotIn(self.inventory["already_applied_auth_source"], files)
 
     def test_generate_only_old_app_compatible_phase_a_sql_unchanged(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -44,8 +45,8 @@ class ForwardOnlyRehearsalTests(unittest.TestCase):
                 ROOT, self.inventory, self.history, self.history, self.evidence, out
             )
             actual = sorted(out.glob("*.sql"))
-            self.assertEqual(len(actual), 66)
-            self.assertEqual(len(audit["files"]), 66)
+            self.assertEqual(len(actual), 65)
+            self.assertEqual(len(audit["files"]), 65)
             self.assertFalse(any("finalize_legacy_creation_api_cutover" in f.name for f in actual))
             for row in audit["files"]:
                 original = (ROOT / row["source"]).read_bytes()
@@ -86,7 +87,7 @@ class ForwardOnlyRehearsalTests(unittest.TestCase):
     def test_stage_inventory_drift_or_duplicate_blocks(self):
         changed = copy.deepcopy(self.inventory)
         changed["phase_a_source_migrations"].pop()
-        with self.assertRaisesRegex(ValueError, "exactly 66"):
+        with self.assertRaisesRegex(ValueError, "exactly 65"):
             self.plan(inventory=changed)
         changed = copy.deepcopy(self.inventory)
         changed["phase_a_source_migrations"][1] = changed[
