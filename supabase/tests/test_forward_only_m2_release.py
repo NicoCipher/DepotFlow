@@ -11,22 +11,23 @@ SCRIPT = ROOT / "scripts/build-forward-only-m2-release.py"
 spec = importlib.util.spec_from_file_location("m2_forward_release", SCRIPT)
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
-SNAPSHOT = ROOT / "supabase/tests/fixtures/production_migration_history_20261018.json"
+SNAPSHOT = ROOT / "supabase/tests/fixtures/production_migration_history_20261019_after_auth.json"
 
 
 class ForwardOnlyBundleTest(unittest.TestCase):
-    def test_all_67_versions_are_new_and_phase_b_separate(self):
+    def test_all_66_remaining_versions_are_new_and_phase_b_separate(self):
         with tempfile.TemporaryDirectory() as temp:
             output = Path(temp) / "rehearsal"
             stages = module.build(SNAPSHOT, output)
             history = set(json.loads(SNAPSHOT.read_text())["versions"])
-            self.assertEqual(len(stages), 67)
-            self.assertEqual(len(list((output / "phase-a").glob("*.sql"))), 66)
+            self.assertEqual(len(stages), 66)
+            self.assertEqual(len(list((output / "phase-a").glob("*.sql"))), 65)
             self.assertEqual(len(list((output / "phase-b").glob("*.sql"))), 1)
             self.assertEqual([x["version"] for x in stages], sorted(x["version"] for x in stages))
             self.assertEqual(len(set(x["version"] for x in stages)), 67)
             self.assertTrue(all(x["version"] > max(history) for x in stages))
             self.assertFalse(set(x["version"] for x in stages) & history)
+            self.assertFalse(any("stage_auth_side_signup_hook" in x["source"] for x in stages))
             self.assertEqual(stages[-1]["source"], "20261018124000_finalize_legacy_creation_api_cutover.sql")
             release = json.loads((output / "release-manifest.json").read_text())
             self.assertFalse(release["production_release_authorized"])
