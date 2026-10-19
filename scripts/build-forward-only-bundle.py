@@ -41,10 +41,19 @@ def validate_history(fresh: dict, pinned: dict, evidence: dict, inventory: dict)
         raise ValueError("Unexpected expected production migration count")
     if fresh.get("versions") != expected or fresh.get("names") != names:
         raise ValueError("PRODUCTION RELEASE BLOCKED: current ledger differs from frozen 56-version and name baseline")
-    if len(evidence.get("entries", [])) != 55 or [
-        (r.get("version"), r.get("name")) for r in evidence["entries"]
-    ] != [(v, names[v]) for v in expected[:55]]:
-        raise ValueError("Applied SQL evidence does not match exact pinned ledger")
+    entries = evidence.get("entries")
+    locked = json.loads(
+        (ROOT / "supabase/tests/fixtures/m2_forward_only_sources_20261019.json").read_text(encoding="utf-8")
+    ).get("applied_sql_provenance")
+    if not isinstance(locked, list) or len(locked) != 55 or entries != locked:
+        raise ValueError("Applied SQL provenance candidate/name/status mapping differs from locked evidence")
+    if [(r.get("version"), r.get("name")) for r in entries] != [
+        (v, names[v]) for v in expected[:55]
+    ]:
+        raise ValueError("Applied SQL evidence names/order mismatch actual pinned production ledger")
+    candidates = [r["localCandidate"] for r in entries if r.get("localCandidate")]
+    if len(set(candidates)) != len(candidates):
+        raise ValueError("Duplicated applied SQL historical candidate")
     if evidence.get("release_authorized") is not False or inventory.get("release_authorized") is not False:
         raise ValueError("Release inventory/evidence must not authorize production")
     return expected[-1]
