@@ -168,7 +168,12 @@ begin
    raise exception 'Select the drink from the catalogue again' using errcode='22023';
  end if;
  v_details:=pg_catalog.jsonb_build_object(
-   'name',v_name,'size',v_size,'image',v_image,
+   -- Catalogue photos can change between a successful commit and an HTTP
+   -- response retry. Replay identity is the immutable catalogue UUID, not
+   -- the catalogue's current image path. For unlinked/manual products, keep
+   -- the image itself immutable because no catalogue identity anchors it.
+   'name',v_name,'size',v_size,
+   'image',case when p_catalogue_product_id is null then v_image else null end,
    'crate',p_crate_type_id,'pack',p_bottles_per_crate,
    'full',p_full_crate_price,'half',p_half_crate_price,
    'quarter',p_quarter_crate_price,'bottle',p_bottle_price,
@@ -311,7 +316,7 @@ begin
  if p_id is null or p_name is null or pg_catalog.length(p_name) not between 1 and 120
     or p_empty_family is null or pg_catalog.length(p_empty_family) not between 1 and 80
     or pg_catalog.length(p_variant)>120 or p_pocket_count is null
-    or p_pocket_count<1 or p_pocket_count>2147483647
+    or p_pocket_count<1 or p_pocket_count>120
     or p_pocket_count<>pg_catalog.trunc(p_pocket_count)
     or p_pocket_count='NaN'::numeric then
    raise exception 'Enter a name, family and positive whole pocket count.'
