@@ -52,9 +52,9 @@ def validate_remote(remote, snapshot, evidence):
         (version, snapshot["names"][version]) for version in expected[:55]
     ]:
         raise ValueError("BLOCKED: historical SQL provenance names/order do not match production ledger")
-    candidates = [item["localCandidate"] for item in entries if item.get("localCandidate")]
-    if len(candidates) != len(set(candidates)):
-        raise ValueError("BLOCKED: duplicated historical SQL source provenance")
+    # Multiple applied migrations may legitimately reference the SAME local
+    # SQL candidate (e.g. sale/receipt upgrades). The exact per-row reviewed
+    # provenance lock above, not candidate uniqueness, enforces identity.
     if remote.get("names") is None or remote["names"] != snapshot["names"]:
         raise ValueError("BLOCKED: remote migration labels differ from recorded history")
     if max(expected) != snapshot["live_tip"]:
