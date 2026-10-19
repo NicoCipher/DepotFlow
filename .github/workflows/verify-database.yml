@@ -298,6 +298,79 @@ jobs:
           # exercises the full staged 66-migration multi-business sequence
           # independently of the isolated Auth-only rehearsal.
           createdb -h /tmp -p 55439 -T "$db" depotflow_tenant_stage_replay
+          # Keep a real original-shop ledger/stock/empties/sale snapshot in
+          # the disposable branch. No actual production data or accounts.
+          psql -h /tmp -p 55439 -d depotflow_tenant_stage_replay -X -v ON_ERROR_STOP=1 \
+            -f supabase/tests/fixtures/legacy_shop_financial_snapshot_seed.sql
+          psql -h /tmp -p 55439 -d depotflow_tenant_stage_replay -X -At -v ON_ERROR_STOP=1 \
+            -f supabase/tests/fixtures/legacy_shop_financial_snapshot_hash.sql \
+            > "$work/synthetic-ledger-before.sha"
+          grep -Eq '^[a-f0-9]{32} owns auth.users as postgres; live Auth
+          # reports that supabase_auth_admin owns it. Emulate live ownership
+          # in this disposable history DB before trying an actual Auth insert.
+          psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 <<'SQL'
+          alter table auth.users owner to supabase_auth_admin;
+          grant usage on schema auth to supabase_auth_admin;
+          insert into auth.users(id,email_confirmed_at)
+            values('9a760000-0000-4000-8000-000000000001',now());
+          SQL
+          psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/20261018112000_stage_auth_side_signup_hook.sql
+          psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 \
+            -f supabase/tests/fixtures/auth_only_on_replayed_production_history.sql
+          echo "### Auth-only upgrade on reconstructed live PG17 history: PASS" >> "$GITHUB_STEP_SUMMARY"
+
+          # DIAGNOSTIC: apply every NEW migration from this PR, in version
+          # order, on the separately reconstructed historical database.
+          # This does not apply a single SQL statement to Supabase live.
+          # The earliest incompatible migration must be surfaced explicitly
+          # as NO-GO; no automated timestamp repair, data edits or skipping.
+          git fetch --depth=1 --no-tags origin main
+          mapfile -t staged < <(git diff --name-only --diff-filter=A FETCH_HEAD HEAD -- supabase/migrations/ | sort)
+          if [[ "${#staged[@]}" -ne 66 ]]; then
+            echo "::warning::NO-GO: expected 66 tenant-only migrations; found ${#staged[@]}. Update/review this stage manifest before release."
+            echo "Tenant history-upgrade source list drift: ${#staged[@]} files, expected 66." >> "$GITHUB_STEP_SUMMARY"
+          else
+            tenant_passed=0
+            tenant_failed=""
+            for staged_sql in "${staged[@]}"; do
+              if psql -h /tmp -p 55439 -d depotflow_tenant_stage_replay -X -v ON_ERROR_STOP=1 -f "$staged_sql" > "$work/tenant-last.log" 2>&1; then
+                tenant_passed=$((tenant_passed + 1))
+              else
+                tenant_failed="$staged_sql"
+                break
+              fi
+            done
+            if [[ -n "$tenant_failed" ]]; then
+              echo "::warning::NO-GO: 55-stage history + tenant migration replay stopped after $tenant_passed/66 stages at $tenant_failed"
+              {
+                echo "### Tenant upgrades on reconstructed PG17 production history: NO-GO"
+                echo "Successful tenant stages: **$tenant_passed / 66**"
+                echo "First incompatible stage: \`$tenant_failed\`"
+              } >> "$GITHUB_STEP_SUMMARY"
+              tail -n 35 "$work/tenant-last.log"
+              # Read-only names of owner SELECT policies (never customer or
+              # business data). Compare with previously inventoried production
+              # 27-policy roster to identify exact schema drift, not just
+              # silence the defensive preflight's count assertion.
+              psql -h /tmp -p 55439 -d depotflow_tenant_stage_replay -X -v ON_ERROR_STOP=1 -At -c \
+                "select cls.relname||':'||pol.polname from pg_catalog.pg_policy pol join pg_catalog.pg_class cls on cls.oid=pol.polrelid join pg_catalog.pg_namespace n on n.oid=cls.relnamespace where n.nspname='public' and pol.polcmd='r' and pol.polname in ('owner_read','owner_profile','owner_empty_choices') order by 1;"
+            else
+              psql -h /tmp -p 55439 -d depotflow_tenant_stage_replay -X -At -v ON_ERROR_STOP=1 \
+                -f supabase/tests/fixtures/legacy_shop_financial_snapshot_hash.sql \
+                > "$work/synthetic-ledger-after.sha"
+              if ! cmp -s "$work/synthetic-ledger-before.sha" "$work/synthetic-ledger-after.sha"; then
+                echo "::error::NO-GO: original-shop sale/debt/stock/empty/receipt ledger changed across draft tenant migrations"
+                exit 1
+              fi
+              echo "### All 66 draft tenant migrations on reconstructed 55-stage live PG17 history: PASS" >> "$GITHUB_STEP_SUMMARY"
+              echo "Synthetic original-shop sale/receipt/debt/stock/empties fields preserved: PASS" >> "$GITHUB_STEP_SUMMARY"
+              echo "All 66 staged SQL migrations preserved synthetic original-shop ledger fingerprint (not real production data)."
+            fi
+          fi
+          dropdb -h /tmp -p 55439 depotflow_tenant_stage_replay
+          dropdb -h /tmp -p 55439 "$db"
+ "$work/synthetic-ledger-before.sha"
 
           # The plain-PG bootstrap owns auth.users as postgres; live Auth
           # reports that supabase_auth_admin owns it. Emulate live ownership
