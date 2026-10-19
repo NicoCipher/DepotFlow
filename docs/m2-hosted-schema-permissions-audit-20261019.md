@@ -72,3 +72,24 @@ Remediation references:
 ## Release state
 
 Phase A proposal: **65** forward-only migrations after recorded `20261019132131`, not including already-deployed Auth source. Phase B: one independently gated old-create API revocation only *after* the new Vercel app uses replacements. PR #107 stays Draft/unmerged. No tenant SQL, Walnik business ledger writes, Vercel deploy or new-business activation occurred. No new paid Supabase branch/project was created.
+
+## Later 19 October — per-object Phase A release classification
+
+An additional SELECT-only live catalog inventory, stored as MD5 object identifiers/digests in `docs/release-evidence/hosted-schema-per-object-digests-20261019.json`, captured the precise **221 columns, 194 constraints, 80 indexes, 37 relations, 61 functions and 29 column-grant tables** with no business rows, account addresses or passwords. The historical 55-stage disposable runner now emits the **same query** and compares its per-object shape using `scripts/classify-m2-schema-drift.py`. Unexplained additions/deletions/changed hashes must stop the release; they cannot be auto-ignored as Supabase differences.
+
+The six aggregate mismatches have the following expected/provenance classification, **pending execution of the new strict per-object cross-check on the exact PR SHA**:
+
+| Category | Explicitly identified explanation | Remaining proof |
+| --- | --- | --- |
+| Relations | One separately deployed Auth-only `private.business_auth_signup_gate` | No other per-object relation changes |
+| Columns | Two Auth gate columns `singleton`, `enabled` | No other per-object column changes |
+| Constraints | Auth gate primary key and singleton-check constraint | No other per-object constraint changes |
+| Indexes | Auth gate primary-key index | No other per-object index changes |
+| Functions | Two new Auth-only hook/guard functions; historical `public.rls_auto_enable()` is a runner stub for managed Supabase; `private.record_payment(uuid,uuid,numeric,date)` differs only in comments/whitespace (its executable PL/pgSQL body was explicitly compared after stripping comments/normalizing whitespace) | Function identity/digest set must match exactly the four known exceptions; managed extension/runtime assumptions still separate |
+| Column grants | Hosted 473 column grants vs history runner 238; the delta is exactly 235 Supabase-managed `REFERENCES` grants. Independently checked client `SELECT/INSERT/UPDATE` including grant-option and effective per-table `DELETE` parity. | No new privilege or missing table; managed REFERENCES semantics cannot be validated solely by the plain-PG runner |
+
+The initial three CI workflows passed on `796b8bbc`; the **new object-level classifier CI is queued**, so do **not** declare full per-object parity yet, and do not infer full provider-managed Auth/Storage/role equivalence. The original application RLS policy and trigger hashes match the live baseline.
+
+The operator reports hosted managed Before User Created hook enabled and real existing-account login successful. The direct hosted GoTrue signup-denial test is **explicitly deferred** (not passed), with private Auth gate OFF and the existing one Auth account retained. The P2 thread therefore stays open.
+
+**Prepared database-first release sequence** (no authorization or SQL writes): `docs/m2-phase-a-database-first-deployment-preparation-20261019.md`. It requires a fresh 56-name/version ledger check, secure backup and Walnik invariants, independent managed-platform verification, and separate owner approval before 65 Phase A migrations; Phase B and Vercel merge remain later separately approved actions.
