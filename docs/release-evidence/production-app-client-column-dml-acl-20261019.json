@@ -4,122 +4,122 @@
   "recorded_migrations": 56,
   "postgres_major": 17,
   "source_query": "supabase/tests/fixtures/app_client_column_dml_acl.sql",
-  "warning": "This documents application-facing column DML grants only, not managed REFERENCES or all Supabase grants. It contains no row data, users, credentials, or SQL permissions modifications.",
+  "warning": "This source is a SELECT-only digest of exact app-client SELECT/INSERT/UPDATE/DELETE column privileges, INCLUDING is_grantable. Grantor provenance, REFERENCES, managed Auth/Storage and ownership are excluded and require separate parity verification.",
   "per_table": {
     "public.sales": {
-      "hash": "4a461451673846881867d0e1d91153da",
+      "hash": "98a14401e3f9f322fbf0afe24932341b",
       "count": 17
     },
     "public.stock": {
-      "hash": "2dd699687a8c50b95dabb855b056584a",
+      "hash": "77c69e746c15f28810d8d789c2a0050c",
       "count": 2
     },
     "public.deposits": {
-      "hash": "436262aa3a7eae4b8cff0230fe506a18",
+      "hash": "2a34556fabffb0eb0ca21ca1f9f9c816",
       "count": 2
     },
     "public.products": {
-      "hash": "4f078f45069ef2357a13ef1b4c58a453",
+      "hash": "7434ffe0c101fe7fe89ba10d58986cfb",
       "count": 42
     },
     "public.customers": {
-      "hash": "41f63c539d5228ef4e615e746eb860f2",
+      "hash": "0948ea8a99f21e987e249b592ca11c2c",
       "count": 19
     },
     "public.money_owed": {
-      "hash": "436262aa3a7eae4b8cff0230fe506a18",
+      "hash": "2a34556fabffb0eb0ca21ca1f9f9c816",
       "count": 2
     },
     "public.sale_items": {
-      "hash": "c4e7312df8ed8875e04309e5933d82e1",
+      "hash": "5144462066a40bed5d7ad874d8c69a91",
       "count": 16
     },
     "private.shop_owner": {
-      "hash": "70f5dfd54a7cf655cd59020b5bf73c90",
+      "hash": "eb199c59430fc283fbfa2ba3f1b7eb67",
       "count": 2
     },
     "public.crate_types": {
-      "hash": "5ca6873bb98c6cb991aad736432d0e8d",
+      "hash": "74c4f1362e91c6067183fe867f23ab7f",
       "count": 8
     },
     "public.shop_profile": {
-      "hash": "ea5d570e0b3b7c19aa221ee671e0d169",
+      "hash": "4a8be4801b90c2b3c9edfcdba51d82bc",
       "count": 5
     },
     "public.stock_movements": {
-      "hash": "7fa3bdb9ebcb23ce16f8b7209ba1714f",
+      "hash": "c8806b84095c3a4b747215aa55531aa0",
       "count": 14
     },
     "public.crate_swap_rules": {
-      "hash": "7a5c1e161e9f4c50e05a0ddc6bb6cf34",
+      "hash": "94487dd515c24ca994e04229fcb52084",
       "count": 3
     },
     "public.sale_tender_legs": {
-      "hash": "c4b201cb62a3d90f0a94c530f8c1cc93",
+      "hash": "1406995e8c5c1023bdf4ab6e60f6f463",
       "count": 6
     },
     "public.crate_obligations": {
-      "hash": "f7343537f32d8702f5c1ebbf0640d966",
+      "hash": "7e444b5d2dbf2d8ca761979ba0f16af0",
       "count": 4
     },
     "public.customer_payments": {
-      "hash": "78c86ac7a92baa5d1b74897d37724296",
+      "hash": "af1679e37ff3a42782ee061c68670938",
       "count": 14
     },
     "public.empty_crate_stock": {
-      "hash": "da35042e46dc23805bfdc72be97a58a2",
+      "hash": "fc5166cfa14dbf1de40d9d358a43203a",
       "count": 3
     },
     "public.product_catalogue": {
-      "hash": "d6e27449c9a573335646cc903166f211",
+      "hash": "072045c4652280f09bfce9fcbd5f3b20",
       "count": 6
     },
     "public.bottle_obligations": {
-      "hash": "ca0474af4348c34e887bff155ca287a2",
+      "hash": "05d34f63979aaffc5b8b9419101a0110",
       "count": 3
     },
     "public.empty_bottle_stock": {
-      "hash": "24ce231224a795eb797580fe13afbb21",
+      "hash": "818129f8cb3f3f1f60b5a8ed45c81234",
       "count": 2
     },
     "public.known_empty_crates": {
-      "hash": "765a0775b9c59f43f4c92cd41616428d",
+      "hash": "994b26a50dde23d49c9c1c6df5bcd009",
       "count": 7
     },
     "public.bottle_deposit_price": {
-      "hash": "9fee7ec87a649aaebf5285eab2329f84",
+      "hash": "d24a7b7f6f8ce2312542714501e370fe",
       "count": 3
     },
     "public.crate_deposit_prices": {
-      "hash": "09e84240978fe4ac7f58e76d21ac0e0f",
+      "hash": "b134e9db59f94c671b6d32077ea83084",
       "count": 4
     },
     "public.product_cost_history": {
-      "hash": "eb3fac3aa84f418e59fbd336a536e6d1",
+      "hash": "2844ef6a8c76f21b2d6100783a019016",
       "count": 6
     },
     "public.sale_empty_decisions": {
-      "hash": "bc774c6a3b92dbc252cd484825a8e99a",
+      "hash": "1d2400eb5c286e332ae48aad356c4915",
       "count": 13
     },
     "public.empty_crate_movements": {
-      "hash": "55883085738c5e09eadc4dced3af2a6b",
+      "hash": "eff28c33db1ea281da15dacf00066887",
       "count": 10
     },
     "public.sale_empty_crate_returns": {
-      "hash": "1458dcaa2bad6140cefc4c8b66263cfb",
+      "hash": "1bba09044e2f831af708771301a1d950",
       "count": 4
     },
     "public.customer_opening_balances": {
-      "hash": "5027fdf07d167d305f121209063cebb7",
+      "hash": "52a297b48b56111ee0bc07389ab0c698",
       "count": 10
     },
     "public.sale_empty_bottle_returns": {
-      "hash": "d8fbd943dc3d30809660424a92eeb5e1",
+      "hash": "78741a506feb02bf9241d3c0d92ecd61",
       "count": 3
     },
     "public.product_selling_price_history": {
-      "hash": "13bb378b64c73b73598dd4e2bd4aaa32",
+      "hash": "2df25ebad4235aec01457d99de7b7a94",
       "count": 8
     }
   },
@@ -127,5 +127,6 @@
     "authenticated:INSERT": 18,
     "authenticated:SELECT": 201,
     "authenticated:UPDATE": 19
-  }
+  },
+  "records_include_is_grantable": true
 }
