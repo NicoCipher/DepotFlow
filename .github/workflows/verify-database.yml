@@ -293,6 +293,12 @@ jobs:
             echo "::error::Auth-only release rehearsal blocked: live-history reconstruction incomplete at $failed"
             exit 1
           fi
+          # Copy the 55-stage reconstructed schema into a SECOND free
+          # disposable database BEFORE Auth-only DDL. The second clone
+          # exercises the full staged 66-migration multi-business sequence
+          # independently of the isolated Auth-only rehearsal.
+          createdb -h /tmp -p 55439 -T "$db" depotflow_tenant_stage_replay
+
           # The plain-PG bootstrap owns auth.users as postgres; live Auth
           # reports that supabase_auth_admin owns it. Emulate live ownership
           # in this disposable history DB before trying an actual Auth insert.
@@ -307,4 +313,40 @@ jobs:
           psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 \
             -f supabase/tests/fixtures/auth_only_on_replayed_production_history.sql
           echo "### Auth-only upgrade on reconstructed live PG17 history: PASS" >> "$GITHUB_STEP_SUMMARY"
+
+          # DIAGNOSTIC: apply every NEW migration from this PR, in version
+          # order, on the separately reconstructed historical database.
+          # This does not apply a single SQL statement to Supabase live.
+          # The earliest incompatible migration must be surfaced explicitly
+          # as NO-GO; no automated timestamp repair, data edits or skipping.
+          git fetch --depth=1 --no-tags origin main
+          mapfile -t staged < <(git diff --name-only --diff-filter=A FETCH_HEAD HEAD -- supabase/migrations/ | grep '[.]sql | sort)
+          if [[ "${#staged[@]}" -ne 66 ]]; then
+            echo "::warning::NO-GO: expected 66 tenant-only migrations; found ${#staged[@]}. Update/review this stage manifest before release."
+            echo "Tenant history-upgrade source list drift: ${#staged[@]} files, expected 66." >> "$GITHUB_STEP_SUMMARY"
+          else
+            tenant_passed=0
+            tenant_failed=""
+            for staged_sql in "${staged[@]}"; do
+              if psql -h /tmp -p 55439 -d depotflow_tenant_stage_replay -X -v ON_ERROR_STOP=1 -f "$staged_sql" > "$work/tenant-last.log" 2>&1; then
+                tenant_passed=$((tenant_passed + 1))
+              else
+                tenant_failed="$staged_sql"
+                break
+              fi
+            done
+            if [[ -n "$tenant_failed" ]]; then
+              echo "::warning::NO-GO: 55-stage history + tenant migration replay stopped after $tenant_passed/66 stages at $tenant_failed"
+              {
+                echo "### Tenant upgrades on reconstructed PG17 production history: NO-GO"
+                echo "Successful tenant stages: **$tenant_passed / 66**"
+                echo "First incompatible stage: \`$tenant_failed\`"
+              } >> "$GITHUB_STEP_SUMMARY"
+              tail -n 35 "$work/tenant-last.log"
+            else
+              echo "### All 66 draft tenant migrations on reconstructed 55-stage live PG17 history: PASS (data/managed Auth still unverified)" >> "$GITHUB_STEP_SUMMARY"
+              echo "All 66 new tenant SQL stages replayed against reconstructed production SQL history."
+            fi
+          fi
+          dropdb -h /tmp -p 55439 depotflow_tenant_stage_replay
           dropdb -h /tmp -p 55439 "$db"
