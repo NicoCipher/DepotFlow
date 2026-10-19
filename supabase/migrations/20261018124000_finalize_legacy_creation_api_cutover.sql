@@ -24,11 +24,16 @@ begin
      'LEGACY CREATION CUTOVER ATTEMPT NOT CONFIRMED: use fresh transaction-scoped operator approval'
      using errcode='42501';
  end if;
- if not exists(
-   select 1 from private.legacy_creation_cutover_gate
-    where singleton is true and authorized is true
-      and authorized_at is not null
- ) then
+ -- Serialize the approved cutover against an operator withdrawing
+ -- consent. FOR UPDATE holds the exact gate row lock through COMMIT/ROLLBACK.
+ -- If withdrawal wins first, this rechecks the NEW row state after waiting
+ -- and fails closed. If cutover locks first, withdrawal must wait for the
+ -- completed atomic privilege change instead of racing it.
+ perform 1 from private.legacy_creation_cutover_gate
+  where singleton is true and authorized is true
+    and authorized_at is not null
+  for update;
+ if not found then
    raise exception
     'LEGACY CREATION CUTOVER NOT AUTHORIZED: keep old-app customer, crate and product creation working'
     using errcode='42501';
@@ -123,7 +128,17 @@ $post_cutover_assert$;
 -- privilege revocations. Failed attempts roll back all DDL; the persisted
 -- approval may then still be TRUE, but a new connection cannot reuse the
 -- expired transaction-scoped approval and must obtain fresh operator consent.
-update private.legacy_creation_cutover_gate
-set authorized=false,authorized_at=null
-where singleton is true and authorized is true;
+do $consume_cutover_approval$
+declare v_affected integer;
+begin
+ update private.legacy_creation_cutover_gate
+   set authorized=false,authorized_at=null
+   where singleton is true and authorized is true and authorized_at is not null;
+ get diagnostics v_affected = row_count;
+ if v_affected <> 1 then
+   raise exception 'Approval was not exclusively held through cutover'
+     using errcode='42501';
+ end if;
+end;
+$consume_cutover_approval$;
 commit;
