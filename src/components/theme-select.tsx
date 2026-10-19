@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useId, useSyncExternalStore } from "react";
 import {
   parseThemePreference,
   resolveTheme,
@@ -34,6 +34,7 @@ function applyTheme(preference: ThemePreference) {
 }
 
 export function ThemeSelect() {
+  const selectId = useId();
   const preference = useSyncExternalStore(subscribePreference, readPreference, () => "system");
 
   useEffect(() => {
@@ -62,12 +63,12 @@ export function ThemeSelect() {
   }
 
   return (
-    <div className="ml-auto flex shrink-0 items-center gap-2">
-      <label htmlFor="appearance" className="!mb-0 hidden text-xs text-stone-600 sm:block">
-        Theme
+    <div className="flex w-full min-w-0 items-center justify-between gap-3">
+      <label htmlFor={selectId} className="!mb-0 text-sm font-semibold text-stone-800">
+        Appearance
       </label>
       <select
-        id="appearance"
+        id={selectId}
         className="theme-select"
         aria-label="Appearance theme"
         value={preference}
