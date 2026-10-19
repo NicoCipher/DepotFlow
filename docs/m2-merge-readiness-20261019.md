@@ -2,6 +2,27 @@
 
 **Status: NOT APPROVED TO MERGE OR DEPLOY.** This file records completed zero-cost release tests, not a substitute for the production release checklist. All new-depot activation and signup gates remain OFF.
 
+## 19 October follow-up — P1 original-shop cutover order (staged, NOT approved)
+
+A newer Codex review identified that the database-first order in the old text
+below would revoke customer INSERT(id), product INSERT, and the old crate-create
+RPC **before** Vercel could finish deploying the replacement app. This could
+stop ordinary Walnik product/customer/crate setup, even with all tenant gates OFF.
+
+The branch now stages the replacement server-generated-ID RPCs **without**
+revoking the original app's creation rights; the distinct
+`20261018124000_finalize_legacy_creation_api_cutover.sql` refuses to run
+until a privileged operator explicitly authorizes its default-OFF cutover gate.
+The intended safe order is **reviewed database staging → verified app cutover
+→ authorized final creation-right revocations**, not all 67 stages ahead of
+Vercel. The old 66-stage green runs listed below predate this split and cannot
+be cited as acceptance of the current branch.
+
+See [the phased cutover contract](m2-legacy-creation-phased-cutover-20261019.md).
+The new disposable PG17 workflow must prove old-client creation during the
+overlap, atomic default-denied cutover and restricted post-cutover privileges.
+**No production SQL, live Auth, data, or Vercel deployments are authorized.**
+
 ## Latest passing zero-dollar test evidence
 
 - [PG17 database workflow 39224047594](https://github.com/NicoCipher/DepotFlow/actions/runs/39224047594): **PASS** at `1baf54e38100fff73639b20880d08e1cce5e03eb`.
