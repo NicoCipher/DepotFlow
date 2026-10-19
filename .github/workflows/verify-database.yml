@@ -285,4 +285,26 @@ jobs:
               -f supabase/tests/fixtures/reconstructed_schema_object_hashes.sql
             echo "END_HISTORY_OBJECT_DIGESTS"
           fi
+          # Rehearse the *Auth-only* pending release against the exact
+          # reconstructed 55-stage PG17 history (not just a clean migration
+          # replay). This rehearsal is an independent, mandatory PASS after
+          # complete history reconstruction and before a real Auth DDL change.
+          if [[ -n "$failed" ]]; then
+            echo "::error::Auth-only release rehearsal blocked: live-history reconstruction incomplete at $failed"
+            exit 1
+          fi
+          # The plain-PG bootstrap owns auth.users as postgres; live Auth
+          # reports that supabase_auth_admin owns it. Emulate live ownership
+          # in this disposable history DB before trying an actual Auth insert.
+          psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 <<'SQL'
+          alter table auth.users owner to supabase_auth_admin;
+          grant usage on schema auth to supabase_auth_admin;
+          insert into auth.users(id,email_confirmed_at)
+            values('9a760000-0000-4000-8000-000000000001',now());
+          SQL
+          psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/20261018112000_stage_auth_side_signup_hook.sql
+          psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 \
+            -f supabase/tests/fixtures/auth_only_on_replayed_production_history.sql
+          echo "### Auth-only upgrade on reconstructed live PG17 history: PASS" >> "$GITHUB_STEP_SUMMARY"
           dropdb -h /tmp -p 55439 "$db"
