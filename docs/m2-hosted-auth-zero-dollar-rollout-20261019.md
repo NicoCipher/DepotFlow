@@ -1,5 +1,10 @@
 # DepotFlow — $0 hosted Auth cutover checklist (NOT YET AUTHORIZED)
 
+## 19 October live hosted Auth implementation update
+
+**Auth-only DATABASE component applied to the existing hosted project under the user's current direction; provider-managed hook configuration NOT VERIFIED.** Supabase migration `20261019132131_depotflow_hosted_auth_signup_closed_guard_20261019` recorded as the 56th migration. Preflight: 1 existing Auth account, no non-internal `auth.users` trigger, no gate, no hook. Postflight: same 1 account, exactly 1 `private.business_auth_signup_gate` row with `enabled=false`, `private.depotflow_before_user_created(jsonb)` executable by `supabase_auth_admin` only (not `anon`/`authenticated`), active `BEFORE INSERT` guard, and hook test payload returns a JSON `error.http_code=403`. SQL was the existing tested `20261018112000_stage_auth_side_signup_hook.sql`, not a full M2 rollout. There is no evidence that the managed hosted Before User Created hook or confirm-email settings have been changed. No real hosted direct-signup probe or existing-account login was performed, so leave signup-bypass P2 OPEN. **Do not reapply the installed Auth SQL; the tenant release now starts from 56-version current ledger** documented in `docs/m2-forward-only-phase-a-rehearsal-20261019.md`.
+
+
 **Prepared 19 October 2026** for Draft [PR #107](https://github.com/NicoCipher/DepotFlow/pull/107). Production project: `coyivbklakhilpcqqrzg`. First business: **Walnik Ventures**. No paid branch and no production modification is authorized by this document.
 
 ## 1. Real production preflight — completed, SELECT only
