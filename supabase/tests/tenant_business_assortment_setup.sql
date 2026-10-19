@@ -485,6 +485,21 @@ begin
    v_owned,'Original renamed','NB',20,'shape')<>v_owned then
    raise exception 'Own crate edit returned wrong identity';
  end if;
+ -- SECURITY: callers bypassing the 120-pocket UI limit must still fail.
+ -- The stored own-crate metadata must remain unchanged after each attempt.
+ foreach v_pocket in array array[121,2147483647] loop
+   begin
+     perform public.edit_crate_type(
+       v_owned,'Overlarge crate','NB',v_pocket::numeric,null);
+     raise exception 'Direct RPC accepted % pockets' ,v_pocket
+       using errcode='PT001';
+   exception when invalid_parameter_value then null;
+   end;
+ end loop;
+ if not exists(select 1 from public.crate_types
+   where id=v_owned and pocket_count=20 and name='Original renamed') then
+   raise exception 'Rejected oversized edit changed crate metadata';
+ end if;
  perform public.set_crate_swap_rules(v_owned,array[v_replacement]);
  if not exists(select 1 from public.crate_swap_rules
     where owed_crate_type_id=v_owned and returned_crate_type_id=v_replacement) then
