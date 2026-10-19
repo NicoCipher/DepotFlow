@@ -38,7 +38,7 @@ A database-first deployment that revoked the old creation paths in the same migr
   -- rolls back the operation and the SET LOCAL consent disappears.
   ```
 
-- On success, the finalizer atomically revokes the old creation permissions and **consumes** the durable gate (`authorized=false, authorized_at=NULL`). If it fails, revocations roll back and any retry requires a completely fresh operator-confirmed transaction; never assume an earlier approval is still valid. This is a guarded release design, **not** evidence of Vercel actually cutting over.
+- On success, the finalizer atomically revokes the old creation permissions and **consumes** the durable gate (`authorized=false, authorized_at=NULL`). It first holds a row-level `FOR UPDATE` lock on the approved signoff through the transaction; if the operator's approval withdrawal wins the lock, finalization rechecks the revoked state and fails before any privilege change. If finalization wins, withdrawal must wait until that transaction commits or rolls back. The finalizer also asserts exactly one approval row was consumed before commit. Failed revocations roll back, and retries require a fresh operator-confirmed transaction. A withdrawal requested *after* the finalizer already claimed the row does not retroactively cancel a completed cutover; operators must coordinate app rollback with the cutover transaction. This remains a guarded release design, **not** evidence of Vercel actually cutting over.
 - In one transaction Phase B revokes all authenticated customer/product INSERT columns plus the old crate-create function entrypoints; it verifies audited owner-only replacement RPCs remain callable and customer/product edits remain intact.
 - The hosted Auth Before User Created hook must be installed and verified separately, and the new-business gates must remain OFF. Neither green CI nor a SQL flag is permission to enable signup or sell from other depots.
 
@@ -49,7 +49,7 @@ A database-first deployment that revoked the old creation paths in the same migr
 1. The complete Phase A migration sequence, with default-OFF cutover gate.
 2. Old-client customer, crate and product writes still work in a rollback-only authenticated test.
 3. Phase B without authorization fails before any change, preserving old permissions.
-4. Even when a prior `authorized=true` exists, a fresh unattended retry is denied without per-transaction consent.
+4. A concurrent operator withdrawal that takes the approval row lock first is serialized; the finalizer must fail with old-client grants preserved. Even when a prior `authorized=true` exists, a fresh unattended retry is denied without per-transaction consent.
 5. A synthetic privileged operator gives transaction-local approval in the disposable runner; Phase B succeeds and consumes the durable approval.
 6. Existing adversarial customer/assortment tests reject both chosen and default primary key bypasses after Phase B.
 7. The full reconstructed 55-stage original history + 67-stage tenant sequence preserves the pre/post synthetic Walnik-like ledger fingerprint. This is NOT an actual production-data clone or hosted Auth certification.
