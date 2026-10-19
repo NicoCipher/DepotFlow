@@ -225,6 +225,44 @@ jobs:
               # Approved scenario is simulated in free DISPOSABLE CI only.
               psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
                 -c "update private.legacy_creation_cutover_gate set authorized=true,authorized_at=now() where singleton;"
+              # Approval withdrawal must serialize with the finalizer.
+              # A different connection updates/LOCKS the approval row first,
+              # and commits after the cutover begins. The migration must see
+              # the withdrawn consent, fail closed and preserve old grants.
+              (psql -h /tmp -p 55439 -d postgres -X -At -v ON_ERROR_STOP=1 \
+                -c 'BEGIN;' \
+                -c "update private.legacy_creation_cutover_gate set authorized=false,authorized_at=null where singleton;" \
+                -c "select 'WITHDRAWAL_ROW_LOCKED';" \
+                -c "select pg_sleep(1.5);" -c 'COMMIT;' \
+                > /tmp/depotflow-withdrawal-lock.log 2>&1) &
+              withdrawal_pid=$!
+              for i in {1..90}; do
+                if grep -Fq "WITHDRAWAL_ROW_LOCKED" /tmp/depotflow-withdrawal-lock.log 2>/dev/null; then
+                  break
+                fi
+                sleep 0.05
+              done
+              if ! grep -Fq "WITHDRAWAL_ROW_LOCKED" /tmp/depotflow-withdrawal-lock.log 2>/dev/null; then
+                echo "::error::Could not establish adversarial approval withdrawal lock"
+                kill "$withdrawal_pid" || true
+                wait "$withdrawal_pid" || true
+                exit 1
+              fi
+              if psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+                  -c "BEGIN; SET LOCAL depotflow.legacy_creation_cutover_attempt='confirmed';" \
+                  -f "$f" >/tmp/depotflow-withdrawn-cutover.log 2>&1; then
+                echo "::error::Cutover raced an already-running approval withdrawal"
+                exit 1
+              fi
+              wait "$withdrawal_pid"
+              grep -Fq "LEGACY CREATION CUTOVER NOT AUTHORIZED" \
+                /tmp/depotflow-withdrawn-cutover.log
+              old_grants="$(psql -h /tmp -p 55439 -d postgres -X -At -v ON_ERROR_STOP=1 \
+                -c "select has_column_privilege('authenticated','public.customers','id','INSERT') and has_column_privilege('authenticated','public.products','id','INSERT') and has_function_privilege('authenticated','public.create_crate_type(uuid,text,text,numeric,text)','EXECUTE');")"
+              test "$old_grants" = "t"
+              echo "PASS: prior withdrawal blocked cutover; legacy rights preserved"
+              psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+                -c "update private.legacy_creation_cutover_gate set authorized=true,authorized_at=now() where singleton;"
               # Adversarial AFTER-PREFLIGHT failure: refuse the final
               # authorization-consumption UPDATE after SQL has already issued
               # creation-grant REVOKEs. PostgreSQL must roll back everything.
