@@ -41,7 +41,9 @@ with objs as (
     ':service_role_execute='||has_function_privilege('service_role',p.oid,'EXECUTE')::text||
     ':auth_admin_execute='||has_function_privilege('supabase_auth_admin',p.oid,'EXECUTE')::text||
     ':anon_schema_usage='||has_schema_privilege('anon',n.oid,'USAGE')::text||
-    ':authenticated_schema_usage='||has_schema_privilege('authenticated',n.oid,'USAGE')::text
+    ':authenticated_schema_usage='||has_schema_privilege('authenticated',n.oid,'USAGE')::text||
+    ':service_role_schema_usage='||has_schema_privilege('service_role',n.oid,'USAGE')::text||
+    ':auth_admin_schema_usage='||has_schema_privilege('supabase_auth_admin',n.oid,'USAGE')::text
     from pg_proc p join pg_namespace n on n.oid=p.pronamespace
     where n.nspname in ('public','private')
   union all
