@@ -219,6 +219,10 @@ jobs:
           db=depotflow_history_replay
           createdb -h /tmp -p 55439 "$db"
           psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 -f supabase/tests/bootstrap.sql >/dev/null
+          # Production already has Supabase Storage. The free plain-PG runner
+          # requires minimal tables only to apply its original storage policy.
+          psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 \
+            -f supabase/tests/fixtures/bootstrap_storage_for_history.sql >/dev/null
           stage=0
           failed=""
           for f in "$work"/stages/*.sql; do
