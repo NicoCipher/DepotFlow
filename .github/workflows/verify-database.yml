@@ -496,6 +496,18 @@ jobs:
                   summary.write("\n**NO-GO:** schema fingerprint differs for: " + ", ".join(different) + ".\n")
               else:
                   summary.write("\n**MATCH:** all 8 public/private fingerprint groups equal the read-only production snapshot. Still not real hosted Auth, data or production-clone proof.\n")
+          # Security-critical original-app RLS policies and trigger definitions
+          # MUST already match the hosted 56-stage baseline. The six other
+          # differences are explicitly documented (managed REFERENCES grants,
+          # Auth-only objects, managed RLS stub, source-code formatting) and
+          # remain non-certifying NO-GO diagnostics. Never normalize away
+          # a real policy or trigger difference to make CI pass.
+          security_drift = sorted(set(different) & {"policies", "triggers"})
+          if security_drift:
+              print("::error::SECURITY NO-GO: hosted legacy RLS policy/trigger schema drift: "
+                    + ", ".join(security_drift))
+              sys.exit(1)
+          print("PASS: all historical application RLS policy and trigger definitions match live baseline")
           if different:
               print("::warning::NO-GO: historical replay's schema differs from current production in " + ", ".join(different))
           else:
