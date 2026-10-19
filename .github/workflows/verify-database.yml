@@ -194,6 +194,33 @@ jobs:
                 echo "PASS: rogue private.shop_owner $mode policy blocked"
               done
             fi
+            if [[ "$f" == *20261018124000_finalize_legacy_creation_api_cutover.sql ]]; then
+              psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+                -f supabase/tests/legacy_creation_pre_cutover_compat.sql
+              # Unapproved cutover must fail transactionally, preserving
+              # all legacy creation rights for the still-running old app.
+              if psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+                   -f "$f" >/tmp/depotflow-cutover-guard.log 2>&1; then
+                echo "::error::Legacy creation grants revoked before approval"
+                exit 1
+              fi
+              grep -Fq "LEGACY CREATION CUTOVER NOT AUTHORIZED" \
+                /tmp/depotflow-cutover-guard.log
+              psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 <<'SQL'
+              do $check$
+              begin
+               if not has_column_privilege('authenticated','public.customers','id','INSERT')
+                 or not has_column_privilege('authenticated','public.products','id','INSERT')
+                 or not has_function_privilege('authenticated',
+                   'public.create_crate_type(uuid,text,text,numeric,text)','EXECUTE')
+               then raise exception 'Unapproved cutover changed old-client grants';end if;
+              end;
+              $check$;
+              SQL
+              # Approved scenario is simulated in free DISPOSABLE CI only.
+              psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+                -c "update private.legacy_creation_cutover_gate set authorized=true,authorized_at=now() where singleton;"
+            fi
             psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 -f "$f"
           done
 
@@ -235,7 +262,7 @@ jobs:
           SQL
           for f in supabase/tests/*.sql; do
             case "$f" in
-              */customer_archiving.sql|*/customer_payments.sql|*/empties_rules.sql|*/sale_partial_pricing.sql|*/record_sale_v2_empties.sql) continue ;;
+              */customer_archiving.sql|*/customer_payments.sql|*/empties_rules.sql|*/sale_partial_pricing.sql|*/record_sale_v2_empties.sql|*/legacy_creation_pre_cutover_compat.sql) continue ;;
             esac
             echo "Running $f"
             psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 -f "$f"
@@ -285,6 +312,10 @@ jobs:
           for f in supabase/migrations/*.sql; do
             if [[ "$f" == *business_product_cost_catalogue.sql ]]; then
               psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 -f supabase/tests/fixtures/product_catalogue_before.sql
+            fi
+            if [[ "$f" == *20261018124000_finalize_legacy_creation_api_cutover.sql ]]; then
+              psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 \
+                -c "update private.legacy_creation_cutover_gate set authorized=true,authorized_at=now() where singleton;"
             fi
             psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 -f "$f"
             if [[ "$f" == *business_product_cost_catalogue.sql ]]; then
@@ -416,13 +447,17 @@ jobs:
           # as NO-GO; no automated timestamp repair, data edits or skipping.
           git fetch --depth=1 --no-tags origin main
           mapfile -t staged < <(git diff --name-only --diff-filter=A FETCH_HEAD HEAD -- supabase/migrations/ | sort)
-          if [[ "${#staged[@]}" -ne 66 ]]; then
-            echo "::warning::NO-GO: expected 66 tenant-only migrations; found ${#staged[@]}. Update/review this stage manifest before release."
-            echo "Tenant history-upgrade source list drift: ${#staged[@]} files, expected 66." >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${#staged[@]}" -ne 67 ]]; then
+            echo "::warning::NO-GO: expected 67 tenant-only migrations; found ${#staged[@]}. Update/review this stage manifest before release."
+            echo "Tenant history-upgrade source list drift: ${#staged[@]} files, expected 67." >> "$GITHUB_STEP_SUMMARY"
           else
             tenant_passed=0
             tenant_failed=""
             for staged_sql in "${staged[@]}"; do
+              if [[ "$staged_sql" == *20261018124000_finalize_legacy_creation_api_cutover.sql ]]; then
+                psql -h /tmp -p 55439 -d depotflow_tenant_stage_replay -X -v ON_ERROR_STOP=1 \
+                  -c "update private.legacy_creation_cutover_gate set authorized=true,authorized_at=now() where singleton;"
+              fi
               if psql -h /tmp -p 55439 -d depotflow_tenant_stage_replay -X -v ON_ERROR_STOP=1 -f "$staged_sql" > "$work/tenant-last.log" 2>&1; then
                 tenant_passed=$((tenant_passed + 1))
               else
@@ -431,10 +466,10 @@ jobs:
               fi
             done
             if [[ -n "$tenant_failed" ]]; then
-              echo "::warning::NO-GO: 55-stage history + tenant migration replay stopped after $tenant_passed/66 stages at $tenant_failed"
+              echo "::warning::NO-GO: 55-stage history + tenant migration replay stopped after $tenant_passed/67 stages at $tenant_failed"
               {
                 echo "### Tenant upgrades on reconstructed PG17 production history: NO-GO"
-                echo "Successful tenant stages: **$tenant_passed / 66**"
+                echo "Successful tenant stages: **$tenant_passed / 67**"
                 echo "First incompatible stage: \`$tenant_failed\`"
               } >> "$GITHUB_STEP_SUMMARY"
               tail -n 35 "$work/tenant-last.log"
@@ -452,9 +487,9 @@ jobs:
                 echo "::error::NO-GO: original-shop sale/debt/stock/empty/receipt ledger changed across draft tenant migrations"
                 exit 1
               fi
-              echo "### All 66 draft tenant migrations on reconstructed 55-stage live PG17 history: PASS" >> "$GITHUB_STEP_SUMMARY"
+              echo "### All 67 draft tenant migrations on reconstructed 55-stage live PG17 history: PASS" >> "$GITHUB_STEP_SUMMARY"
               echo "Synthetic original-shop sale/receipt/debt/stock/empties fields preserved: PASS" >> "$GITHUB_STEP_SUMMARY"
-              echo "All 66 staged SQL migrations preserved synthetic original-shop ledger fingerprint (not real production data)."
+              echo "All 67 staged SQL migrations preserved synthetic original-shop ledger fingerprint (not real production data)."
             fi
           fi
           dropdb -h /tmp -p 55439 depotflow_tenant_stage_replay
