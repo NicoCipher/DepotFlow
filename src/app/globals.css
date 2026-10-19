@@ -3,7 +3,30 @@
 :root {
   --background: #fafaf9;
   --foreground: #1c2923;
+  --surface: #ffffff;
+  --surface-soft: #f3f7f4;
+  --field-background: #ffffff;
+  --field-border: #a8afa9;
+  --rule: #e7e5e4;
+  --secondary-hover: #f0f7f2;
+  --review-muted: #57534e;
 }
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #101a16;
+  --foreground: #e8f2e9;
+  --surface: #192821;
+  --surface-soft: #20332a;
+  --field-background: #1d3027;
+  --field-border: #648274;
+  --rule: #365046;
+  --secondary-hover: #284537;
+  --review-muted: #b6c6b9;
+}
+
+/* Theme preference is resolved on <html> before the app hydrates. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme inline {
   --color-background: var(--background);
@@ -38,9 +61,10 @@ textarea,
 select {
   width: 100%;
   min-height: 3rem;
-  border: 1px solid #a8afa9;
+  border: 1px solid var(--field-border);
   border-radius: 0.625rem;
-  background: white;
+  background: var(--field-background);
+  color: var(--foreground);
   padding: 0.75rem;
   font-size: 1rem;
 }
@@ -99,9 +123,10 @@ select[aria-invalid="true"]:focus-visible {
 .primary:hover:not(:disabled) { background: #065f46; }
 .secondary {
   border: 1px solid #b8c4bb;
-  background: white;
+  background: var(--surface);
+  color: var(--foreground);
 }
-.secondary:hover:not(:disabled) { background: #f0f7f2; }
+.secondary:hover:not(:disabled) { background: var(--secondary-hover); }
 .secondary[aria-pressed="true"] {
   border-color: #065f46;
   box-shadow: inset 0 0 0 1px #065f46;
@@ -115,9 +140,9 @@ select[aria-invalid="true"]:focus-visible {
   text-underline-offset: 4px;
 }
 .review-list {
-  border: 1px solid #e7e5e4;
+  border: 1px solid var(--rule);
   border-radius: 0.75rem;
-  background: white;
+  background: var(--surface);
   padding: 0 1rem;
 }
 .review-list > div {
@@ -126,10 +151,10 @@ select[aria-invalid="true"]:focus-visible {
   justify-content: space-between;
   gap: 0.25rem 1rem;
   padding: 0.875rem 0;
-  border-bottom: 1px solid #e7e5e4;
+  border-bottom: 1px solid var(--rule);
 }
 .review-list > div:last-child { border-bottom: 0; }
-.review-list dt { color: #57534e; }
+.review-list dt { color: var(--review-muted); }
 .review-list dd { text-align: right; }
 button:disabled {
   cursor: not-allowed;
@@ -138,3 +163,173 @@ button:disabled {
 @media (prefers-reduced-motion: no-preference) {
   .primary, .secondary { transition: background-color 150ms ease, border-color 150ms ease; }
 }
+
+
+/* Shared appearance control — stays compact in the mobile app header. */
+.theme-select {
+  width: auto;
+  min-width: 6.25rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--field-border);
+  border-radius: 0.75rem;
+  background: var(--field-background);
+  color: var(--foreground);
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+input::placeholder,
+textarea::placeholder { color: #78716c; opacity: 1; }
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder { color: #a6b8ab; }
+html[data-theme="dark"] input:focus-visible,
+html[data-theme="dark"] textarea:focus-visible,
+html[data-theme="dark"] select:focus-visible { outline-color: #34d399; }
+html[data-theme="dark"] input[aria-invalid="true"]:focus-visible,
+html[data-theme="dark"] textarea[aria-invalid="true"]:focus-visible,
+html[data-theme="dark"] select[aria-invalid="true"]:focus-visible { outline-color: #fca5a5; }
+html[data-theme="dark"] :focus-visible { outline-color: #34d399; }
+html[data-theme="dark"] .primary { background: #047857; color: #ffffff; }
+html[data-theme="dark"] .primary:hover:not(:disabled) { background: #059669; }
+html[data-theme="dark"] .secondary[aria-pressed="true"] {
+  border-color: #34d399;
+  box-shadow: inset 0 0 0 1px #34d399;
+  color: #d1fae5;
+}
+html[data-theme="dark"] .quiet-link { color: #a7f3d0; }
+
+/*
+ * The existing screens use Tailwind colour utilities directly. Keeping their
+ * dark equivalents in one place lets checkout, balances, stock and navigation
+ * all switch together without rewriting unrelated sale/business logic.
+ * Avoid globally changing --color-white: text-white on dark brand banners
+ * must remain white.
+ */
+html[data-theme="dark"] .bg-white { background-color: #192821; }
+html[data-theme="dark"] .bg-stone-50,
+html[data-theme="dark"] [class~="bg-stone-50/70"],
+html[data-theme="dark"] [class~="bg-stone-50/80"] { background-color: #20332a; }
+html[data-theme="dark"] .bg-stone-100,
+html[data-theme="dark"] [class~="bg-stone-100/60"],
+html[data-theme="dark"] [class~="bg-stone-100/70"] { background-color: #293d33; }
+html[data-theme="dark"] .bg-stone-200,
+html[data-theme="dark"] [class~="bg-stone-200/70"] { background-color: #344a3e; }
+
+html[data-theme="dark"] .text-stone-950 { color: #f6faf7; }
+html[data-theme="dark"] .text-stone-900 { color: #e9f3eb; }
+html[data-theme="dark"] .text-stone-800 { color: #d6e7d9; }
+html[data-theme="dark"] .text-stone-700 { color: #c1d4c6; }
+html[data-theme="dark"] .text-stone-600 { color: #afc1b5; }
+html[data-theme="dark"] .text-stone-500,
+html[data-theme="dark"] .text-stone-400 { color: #a1b3a7; }
+html[data-theme="dark"] .text-black { color: #f6faf7; }
+html[data-theme="dark"] .border-stone-100,
+html[data-theme="dark"] .border-stone-200,
+html[data-theme="dark"] [class~="border-stone-200/90"] { border-color: #344b3e; }
+html[data-theme="dark"] .border-stone-300,
+html[data-theme="dark"] .border-stone-400 { border-color: #577364; }
+html[data-theme="dark"] .divide-stone-100 > :not(:last-child),
+html[data-theme="dark"] .divide-stone-200 > :not(:last-child) { border-color: #344b3e; }
+
+html[data-theme="dark"] .bg-emerald-50,
+html[data-theme="dark"] [class~="bg-emerald-50/60"],
+html[data-theme="dark"] [class~="bg-emerald-50/70"] { background-color: #1b3a2c; }
+html[data-theme="dark"] .bg-emerald-100 { background-color: #28553e; }
+html[data-theme="dark"] .bg-emerald-200 { background-color: #2c6049; }
+html[data-theme="dark"] .text-emerald-950 { color: #dcfce7; }
+html[data-theme="dark"] .text-emerald-900,
+html[data-theme="dark"] [class~="text-emerald-900/90"] { color: #b8ebcb; }
+html[data-theme="dark"] .text-emerald-800 { color: #9be8b8; }
+html[data-theme="dark"] .text-emerald-700,
+html[data-theme="dark"] .text-emerald-600 { color: #86efac; }
+html[data-theme="dark"] .border-emerald-100,
+html[data-theme="dark"] .border-emerald-200 { border-color: #31674e; }
+html[data-theme="dark"] .border-emerald-300,
+html[data-theme="dark"] .border-emerald-400 { border-color: #418765; }
+html[data-theme="dark"] .divide-emerald-100 > :not(:last-child),
+html[data-theme="dark"] .divide-emerald-200 > :not(:last-child) { border-color: #31674e; }
+
+html[data-theme="dark"] .bg-amber-50,
+html[data-theme="dark"] [class~="bg-amber-50/65"] { background-color: #3f301c; }
+html[data-theme="dark"] .bg-amber-100 { background-color: #594421; }
+html[data-theme="dark"] .bg-amber-200 { background-color: #6c4e21; }
+html[data-theme="dark"] .text-amber-950 { color: #fef3c7; }
+html[data-theme="dark"] .text-amber-900 { color: #fde68a; }
+html[data-theme="dark"] .text-amber-800 { color: #fcd34d; }
+html[data-theme="dark"] .border-amber-100,
+html[data-theme="dark"] .border-amber-200,
+html[data-theme="dark"] .divide-amber-200 > :not(:last-child) { border-color: #81622e; }
+html[data-theme="dark"] .border-amber-300,
+html[data-theme="dark"] .border-amber-700 { border-color: #aa8138; }
+
+html[data-theme="dark"] .bg-red-50 { background-color: #3d2528; }
+html[data-theme="dark"] .bg-red-100 { background-color: #572b30; }
+html[data-theme="dark"] .bg-red-200 { background-color: #76333a; }
+html[data-theme="dark"] .text-red-950,
+html[data-theme="dark"] .text-red-900,
+html[data-theme="dark"] .text-red-800,
+html[data-theme="dark"] .text-red-700 { color: #fecaca; }
+html[data-theme="dark"] .border-red-200,
+html[data-theme="dark"] .border-red-300 { border-color: #99515a; }
+
+html[data-theme="dark"] .bg-blue-50 { background-color: #21374d; }
+html[data-theme="dark"] .text-blue-800 { color: #bfdbfe; }
+html[data-theme="dark"] .bg-sky-50 { background-color: #1c3948; }
+html[data-theme="dark"] .text-sky-800 { color: #bae6fd; }
+html[data-theme="dark"] .bg-violet-50 { background-color: #322945; }
+html[data-theme="dark"] .text-violet-800 { color: #ddd6fe; }
+
+html[data-theme="dark"] [class~="hover:bg-stone-50"]:hover { background-color: #294338; }
+html[data-theme="dark"] [class~="hover:bg-emerald-50"]:hover,
+html[data-theme="dark"] [class~="hover:bg-emerald-100"]:hover,
+html[data-theme="dark"] [class~="hover:bg-emerald-50/40"]:hover,
+html[data-theme="dark"] [class~="focus-visible:bg-emerald-50"]:focus-visible { background-color: #2b533f; }
+html[data-theme="dark"] [class~="hover:bg-amber-50"]:hover { background-color: #584122; }
+html[data-theme="dark"] [class~="hover:bg-red-50"]:hover { background-color: #583038; }
+html[data-theme="dark"] [class~="hover:border-emerald-300"]:hover,
+html[data-theme="dark"] [class~="hover:border-emerald-700"]:hover { border-color: #65c994; }
+
+/* Deliberately keep the prominent sale hero's white CTA light in both themes. */
+html[data-theme="dark"] [class~="bg-[#084b39]"] .bg-white { background-color: #f8fcf8; }
+html[data-theme="dark"] [class~="bg-[#084b39]"] .text-emerald-950 { color: #064e3b; }
+html[data-theme="dark"] [class~="bg-[#084b39]"] [class~="group-hover:bg-emerald-50"]:hover { background-color: #ecfdf5; }
+
+/* Custom-colour money cards on Home, which are not regular Tailwind shades. */
+html[data-theme="dark"] [class~="bg-[#E7F3E9]"] { background-color: #1c402e; border-color: #357552; }
+html[data-theme="dark"] [class~="bg-[#F6F2E9]"] { background-color: #354332; }
+html[data-theme="dark"] [class~="text-[#0C4B37]"] { color: #d1fae5; }
+
+/* A receipt PNG is drawn on its own white canvas; page theme never recolours it. */
+@media print {
+  html[data-theme="dark"] { color-scheme: light; --background: #ffffff; --foreground: #1c1917; }
+  html[data-theme="dark"] .bg-white { background-color: #ffffff; }
+  html[data-theme="dark"] .text-stone-950,
+  html[data-theme="dark"] .text-stone-900 { color: #1c1917; }
+  html[data-theme="dark"] .text-stone-800,
+  html[data-theme="dark"] .text-stone-700,
+  html[data-theme="dark"] .text-stone-600,
+  html[data-theme="dark"] .text-stone-500 { color: #57534e; }
+  html[data-theme="dark"] .text-emerald-950,
+  html[data-theme="dark"] .text-emerald-900,
+  html[data-theme="dark"] .text-emerald-800 { color: #065f46; }
+  html[data-theme="dark"] .text-amber-950,
+  html[data-theme="dark"] .text-amber-900 { color: #78350f; }
+  html[data-theme="dark"] .text-red-950,
+  html[data-theme="dark"] .text-red-900 { color: #991b1b; }
+  html[data-theme="dark"] .bg-stone-50 { background-color: #fafaf9; }
+  html[data-theme="dark"] .bg-emerald-50 { background-color: #ecfdf5; }
+  html[data-theme="dark"] .bg-amber-50 { background-color: #fffbeb; }
+  html[data-theme="dark"] .bg-red-50 { background-color: #fef2f2; }
+}
+
+
+/* Less common translucent surfaces and selection states. */
+html[data-theme="dark"] [class~="bg-white/65"] { background-color: rgba(248, 252, 248, 0.12); }
+html[data-theme="dark"] [class~="bg-white/80"] { background-color: rgba(25, 40, 33, 0.88); }
+html[data-theme="dark"] [class~="border-stone-200/80"] { border-color: rgba(52, 75, 62, 0.8); }
+html[data-theme="dark"] .border-emerald-700,
+html[data-theme="dark"] .border-emerald-800,
+html[data-theme="dark"] .border-emerald-900 { border-color: #59b989; }
+html[data-theme="dark"] [class~="hover:bg-emerald-50/30"]:hover { background-color: #2b533f; }
+html[data-theme="dark"] [class~="hover:border-emerald-400"]:hover { border-color: #65c994; }
+html[data-theme="dark"] [class~="group-hover:text-emerald-800"]:hover { color: #9be8b8; }

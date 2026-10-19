@@ -1831,7 +1831,7 @@ export function SaleBuilder({
                 </div>
                 </>
                 )}
-                <dl className="mt-4 rounded-xl border border-emerald-100 bg-gradient-to-b from-emerald-50/80 to-white px-3 py-3 text-sm sm:px-4" aria-live="polite">
+                <dl className="mt-4 rounded-xl border border-emerald-100 bg-gradient-to-b from-emerald-50/80 to-white dark:from-emerald-950/60 dark:to-[#192821] px-3 py-3 text-sm sm:px-4" aria-live="polite">
                   <div className="grid grid-cols-1 gap-3 min-[440px]:grid-cols-2">
                     <div className="min-w-0">
                       <dt className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Received now</dt>
