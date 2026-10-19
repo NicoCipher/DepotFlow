@@ -75,9 +75,16 @@ jobs:
           sudo sed -i "s#^unix_socket_directories = .*#unix_socket_directories = '/tmp,/var/run/postgresql'#" "$PGCONF/postgresql.conf"
           sudo sed -i "s/^local   all             postgres.*peer/local   all             postgres                                trust/" "$PGCONF/pg_hba.conf"
           sudo sed -i "s/^local   all             all.*peer/local   all             all                                     trust/" "$PGCONF/pg_hba.conf"
-          sudo service postgresql restart
+          # PostgreSQL 17's cluster can be assigned 5433 and remain DOWN
+          # if 16 is preinstalled. Explicit late overrides and startup avoid
+          # connecting to the wrong major on a GitHub runner.
+          printf "\\nport = 55439\\nunix_socket_directories = '/tmp,/var/run/postgresql'\\n" \
+            | sudo tee -a "$PGCONF/postgresql.conf"
+          sudo pg_ctlcluster 17 main start
           sleep 2
-          psql -h /tmp -p 55439 -d postgres -X -At -c "select version();"
+          sudo pg_lsclusters
+          psql -h /tmp -p 55439 -d postgres -X -At -c "select current_setting('server_version_num');" \
+            | grep '^17'
 
       - name: Bootstrap the minimal Supabase-platform surface
         run: psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 -f supabase/tests/bootstrap.sql
