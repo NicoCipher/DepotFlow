@@ -38,6 +38,12 @@ Expected: 65 SQL files, all SHA256s equal to their reviewed originals, one manif
 6. Obtain **separate explicit owner authorization for the exact database-only Phase A action**, not an approval implied by this preparation file or by passing CI. A separate subsequent approval is required before application merge and Phase B cutover.
 7. If direct live GoTrue signup denial remains deferred, retain the hosted-Auth review as an unresolved known release gate. Do not silently accept the risk or close it.
 
+## $0 backup constraint — verified from current Supabase documentation
+
+Supabase's managed **daily** backups are provided on Pro/Team/Enterprise, **not promised on Free**. The [official backup guidance](https://supabase.com/docs/guides/platform/backups) tells Free users to export the database using the [Supabase CLI db dump](https://supabase.com/docs/reference/cli/supabase-db-dump) and keep a secure off-site copy. We cannot honestly claim a database restore point exists on this $0 project until an operator completes and tests the manual backup. Do not publish the database URL, roles, Auth/Storage secrets, user rows or backup archives in GitHub PRs, GitHub Actions artifacts, issue comments or chat.
+
+Before **any** tenant Phase A production SQL, an authorized operator must use a private machine/approved runtime to export and securely retain roles, application/auth/storage schema where supported by the selected dump route, and **actual data**. Check the current CLI `supabase db dump --help` and documented schema coverage (do not assume a default dump includes all managed provider state), then verify the resulting files are nonempty and that a controlled isolated restoration succeeds. Physical Storage object bytes and managed Auth configuration may need distinct backup/evidence. If no verified restore/recovery path can be established under the $0 constraint, **DO NOT deploy Phase A**.
+
 ## Future deployment sequence — NOT executed
 
 1. Under an operator-controlled change window, re-run the read-only preflight and ensure production backup/rollback recovery is accessible.
