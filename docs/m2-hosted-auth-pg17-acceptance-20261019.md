@@ -39,6 +39,47 @@ node scripts/probe-hosted-auth-signup.mjs
 
 The script refuses production ref `coyivbklakhilpcqqrzg` and mismatched origins, sends a direct Auth API signup request, never logs the key/password, and requires the exact deny result. Pure safety regressions are run without any network call: `node --test scripts/probe-hosted-auth-signup.test.mjs`.
 
+## Exact PG17 baseline parity preflight (offline, fail closed)
+
+The production application-schema fingerprint was captured read-only in
+`docs/release-evidence/production-schema-fingerprint-20261019.json`.
+
+Once the **separately approved isolated branch exists**, run
+`supabase/tests/live_schema_fingerprint.sql` against that distinct
+PostgreSQL 17 branch using **SELECT only**. Save the returned eight
+`{kind,object_count,definition_hash}` rows in an operator-controlled JSON file
+(**never copy the production baseline rows in place of a fresh result**):
+
+```json
+{
+  "project_ref": "<verified isolated 20-character Supabase branch ref>",
+  "postgres_version": "17.6",
+  "source_query": "supabase/tests/live_schema_fingerprint.sql",
+  "objects": ["<all eight real SQL result objects>"]
+}
+```
+
+This example is illustrative, not an executable JSON fixture. Set
+`postgres_version` to the **actual server-reported PostgreSQL 17 version**.
+Then run:
+
+```sh
+node scripts/compare-pg17-schema.mjs --clone /secure/path/clone-fingerprint.json
+```
+
+The checker refuses the production project ID, PG16/non-PG17 servers,
+wrong query identity, missing/duplicate categories and ANY object-count/hash
+mismatch. The checker is offline: it never creates a Supabase branch,
+connects to a database or applies migrations. CI verifies these safeguards
+with `node --test scripts/compare-pg17-schema.test.mjs`.
+
+**Interpretation:** eight matching application-schema groups are a useful
+pre-upgrade baseline parity check, NOT proof of a genuine clone, stored
+historical data, Auth/Storage settings or a correct migration upgrade.
+A maliciously copied baseline file would make the equality check meaningless;
+capture/verifiable branch identity and independently collected query evidence
+are required. Re-capture the production baseline if production changes.
+
 ## PG17 real-schema clone tests — required before merge/activation
 
 - Fresh PG17 version and fingerprint must match **actual** production objects, not merely a clean repository replay.
