@@ -283,15 +283,11 @@ declare
  v_business uuid;
 begin
  v_actor:=private.assert_legacy_assortment_owner();
- -- assert_legacy_assortment_owner() has already locked and verified the
- -- singleton original owner; resolve only that actor's linked business.
- select b.id into v_business
- from private.business_memberships m
- join private.businesses b on b.id=m.business_id
- where m.user_id=v_actor
-   and m.member_kind='owner'
-   and b.legacy_singleton is true
- for share of m,b;
+ -- Return NULL before audited legacy backfill, when original records
+ -- intentionally have NULL business_id. After the write gate activates,
+ -- assert_legacy_assortment_owner has already verified/locked membership.
+ select g.business_id into v_business from private.legacy_write_scope_gate g
+ where g.enabled is true for share;
  -- Before initial backfill, the original shop's records have business_id
  -- NULL. After membership exists, only that shop's own UUID is permitted.
  return v_business;
@@ -421,6 +417,37 @@ begin
 end;
 $swap$;
 
+-- The old pocket_count-only PRIMARY KEY is a cross-business collision.
+-- Keep every historical amount and original NULL-business row unchanged,
+-- but use a stable surrogate PK plus business-qualified uniqueness. Existing
+-- RLS SELECT policies are already tenant scoped by M2f-3.
+do $deposit_identity_preflight$
+declare v_pk text;
+begin
+ select pg_catalog.pg_get_constraintdef(c.oid) into v_pk
+ from pg_catalog.pg_constraint c
+ where c.conrelid='public.crate_deposit_prices'::regclass
+   and c.contype='p';
+ if v_pk is distinct from 'PRIMARY KEY (pocket_count)' then
+   raise exception 'Crate deposit identity drift; abort: %',v_pk;
+ end if;
+ if exists(select 1 from pg_catalog.pg_constraint fk
+   where fk.contype='f'
+     and fk.confrelid='public.crate_deposit_prices'::regclass) then
+   raise exception 'Referenced deposit PK needs manual FK migration';
+ end if;
+end;
+$deposit_identity_preflight$;
+alter table public.crate_deposit_prices
+ add column deposit_id uuid not null default pg_catalog.gen_random_uuid();
+alter table public.crate_deposit_prices
+ drop constraint crate_deposit_prices_pkey;
+alter table public.crate_deposit_prices
+ add constraint crate_deposit_prices_pkey primary key(deposit_id);
+alter table public.crate_deposit_prices
+ add constraint crate_deposit_prices_business_pocket_unique
+ unique nulls not distinct (business_id,pocket_count);
+
 -- The historical UUID-keyed deposit function was retired in September.
 -- Do NOT reintroduce it; scope its replacement, the pocket-count API.
 create or replace function private.set_crate_deposit_price(
@@ -450,7 +477,8 @@ begin
  end if;
  if p_complete_amount is null then
     delete from public.crate_deposit_prices
-     where pocket_count=p_pocket_count::integer;
+     where pocket_count=p_pocket_count::integer
+       and business_id is not distinct from v_business;
     return;
  end if;
  if p_complete_amount='NaN'::numeric or p_complete_amount<1
@@ -466,13 +494,22 @@ begin
     raise exception 'Enter deposit prices in whole naira, in ₦50 steps.'
       using errcode='22023';
  end if;
+ -- Refuse to shadow an unbackfilled original row with the same pocket
+ -- count after legacy activation. The historical backfill must complete first.
+ if v_business is not null and exists(
+    select 1 from public.crate_deposit_prices
+     where business_id is null and pocket_count=p_pocket_count::integer
+ ) then
+    raise exception 'Original crate deposit backfill incomplete'
+      using errcode='42501';
+ end if;
  insert into public.crate_deposit_prices(
-   pocket_count,complete_crate_amount,crate_only_amount,updated_at
+   business_id,pocket_count,complete_crate_amount,crate_only_amount,updated_at
  ) values(
-   p_pocket_count::integer,p_complete_amount::integer,
+   v_business,p_pocket_count::integer,p_complete_amount::integer,
    p_crate_only_amount::integer,pg_catalog.now()
  )
- on conflict(pocket_count) do update
+ on conflict(business_id,pocket_count) do update
  set complete_crate_amount=excluded.complete_crate_amount,
      crate_only_amount=excluded.crate_only_amount,
      updated_at=excluded.updated_at;
