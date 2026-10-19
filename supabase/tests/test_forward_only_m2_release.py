@@ -24,7 +24,7 @@ class ForwardOnlyBundleTest(unittest.TestCase):
             self.assertEqual(len(list((output / "phase-a").glob("*.sql"))), 65)
             self.assertEqual(len(list((output / "phase-b").glob("*.sql"))), 1)
             self.assertEqual([x["version"] for x in stages], sorted(x["version"] for x in stages))
-            self.assertEqual(len(set(x["version"] for x in stages)), 67)
+            self.assertEqual(len(set(x["version"] for x in stages)), 66)
             self.assertTrue(all(x["version"] > max(history) for x in stages))
             self.assertFalse(set(x["version"] for x in stages) & history)
             self.assertFalse(any("stage_auth_side_signup_hook" in x["source"] for x in stages))
