@@ -6,8 +6,8 @@
   "production_history_sql_manifest": "docs/m2-applied-sql-reconciliation-manifest-20261019.json",
   "expected_applied_migrations": 55,
   "expected_live_tip": "20261017132742",
-  "phase_a_version_start": "20261019000000",
-  "version_interval_seconds": 60,
+  "phase_a_version_start": "20261019120000",
+  "version_interval_seconds": 1,
   "phase_a_source_migrations": [
     "supabase/migrations/20261016020000_private_business_membership_foundation.sql",
     "supabase/migrations/20261016020100_link_legacy_test_shop_business.sql",
