@@ -5,6 +5,8 @@ No network access, database credentials or production writes.
 from datetime import datetime, timedelta
 from pathlib import Path
 import sys
+from unittest.mock import patch
+import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -15,6 +17,52 @@ class PhaseAOfflineTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.history, cls.stages = phase_a.inventory(Path("candidate"))
+
+    def test_pooler_uri_is_expanded_into_libpq_environment(self):
+        """Password must be environment-only; never a process argument."""
+        template = (
+            "postgresql://postgres.coyivbklakhilpcqqrzg:"
+            "p%40ss%3Aword%21@aws-1-eu-west-1.pooler.supabase.com:"
+            "5432/postgres?sslmode=require"
+        )
+        with patch.dict(phase_a.os.environ, {"PGDATABASE": template, "PGHOST": "bad-host"}):
+            with patch.object(phase_a.subprocess, "run") as run:
+                run.return_value.returncode = 0
+                run.return_value.stdout = "1\\n"
+                result = phase_a.psql("SELECT 1;")
+                self.assertEqual(result, "1")
+                args, kwargs = run.call_args
+                self.assertEqual(args[0][0], "psql")
+                self.assertFalse(any("p%40ss" in v or "password" in v.lower() for v in args[0]))
+                env = kwargs["env"]
+                self.assertEqual(env["PGHOST"], "aws-1-eu-west-1.pooler.supabase.com")
+                self.assertEqual(env["PGPORT"], "5432")
+                self.assertEqual(env["PGDATABASE"], "postgres")
+                self.assertEqual(env["PGUSER"], "postgres.coyivbklakhilpcqqrzg")
+                self.assertEqual(env["PGPASSWORD"], "p@ss:word!")
+                self.assertEqual(env["PGSSLMODE"], "require")
+                self.assertEqual(env["PGCONNECT_TIMEOUT"], "20")
+                self.assertEqual(kwargs["input"], "SELECT 1;")
+
+    def test_pooler_uri_validation_rejects_wrong_target_and_option(self):
+        base = (
+            "postgresql://postgres.coyivbklakhilpcqqrzg:good-password"
+            "@aws-1-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require"
+        )
+        invalid = [
+            base.replace("postgres.coyivbklakhilpcqqrzg", "postgres.another-project"),
+            base.replace(".pooler.supabase.com", ".wrong.example"),
+            base.replace(":5432/postgres", ":6543/postgres"),
+            base.replace("sslmode=require", "sslmode=disable"),
+            base.replace(":good-password@", ":@"),
+            base.replace("/postgres?", "/wrong?"),
+            base + "#fragment",
+        ]
+        for url in invalid:
+            with self.subTest(url_type="invalid pooler connection"):
+                with patch.dict(phase_a.os.environ, {"PGDATABASE": url}):
+                    with self.assertRaises(RuntimeError):
+                        phase_a.database_environment()
 
     def test_safe_classification_never_exposes_credentials_or_sql(self):
         """No raw stderr content, hostname, user or query may reach CI logs."""
