@@ -28,7 +28,7 @@ class PhaseAOfflineTests(unittest.TestCase):
         with patch.dict(phase_a.os.environ, {"PGDATABASE": template, "PGHOST": "bad-host"}):
             with patch.object(phase_a.subprocess, "run") as run:
                 run.return_value.returncode = 0
-                run.return_value.stdout = "1\\n"
+                run.return_value.stdout = "1\n"
                 result = phase_a.psql("SELECT 1;")
                 self.assertEqual(result, "1")
                 args, kwargs = run.call_args
