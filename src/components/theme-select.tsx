@@ -9,13 +9,13 @@ import {
 
 const storageKey = "depotflow-appearance";
 const themeEvent = "depotflow-appearance-change";
-let tabOnlyPreference: ThemePreference = "system";
+let tabOnlyPreference: ThemePreference | null = null;
 
 function readPreference(): ThemePreference {
   try {
-    return parseThemePreference(window.localStorage.getItem(storageKey));
+    return tabOnlyPreference ?? parseThemePreference(window.localStorage.getItem(storageKey));
   } catch {
-    return tabOnlyPreference;
+    return tabOnlyPreference ?? "system";
   }
 }
 
@@ -49,11 +49,13 @@ export function ThemeSelect() {
   }, []);
 
   function choose(preference: ThemePreference) {
-    tabOnlyPreference = preference;
     try {
       window.localStorage.setItem(storageKey, preference);
+      tabOnlyPreference = null;
     } catch {
-      // Private browsing can deny storage. This tab still changes immediately.
+      // Some browsers allow reading storage but deny writes. Keep this tab's
+      // preference until the page closes, including on system-theme changes.
+      tabOnlyPreference = preference;
     }
     applyTheme(preference);
     window.dispatchEvent(new Event(themeEvent));

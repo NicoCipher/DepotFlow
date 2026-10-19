@@ -209,7 +209,9 @@ html[data-theme="dark"] .bg-white { background-color: #192821; }
 html[data-theme="dark"] .bg-stone-50,
 html[data-theme="dark"] [class~="bg-stone-50/70"],
 html[data-theme="dark"] [class~="bg-stone-50/80"] { background-color: #20332a; }
-html[data-theme="dark"] .bg-stone-100 { background-color: #293d33; }
+html[data-theme="dark"] .bg-stone-100,
+html[data-theme="dark"] [class~="bg-stone-100/60"],
+html[data-theme="dark"] [class~="bg-stone-100/70"] { background-color: #293d33; }
 html[data-theme="dark"] .bg-stone-200,
 html[data-theme="dark"] [class~="bg-stone-200/70"] { background-color: #344a3e; }
 
@@ -299,10 +301,25 @@ html[data-theme="dark"] [class~="text-[#0C4B37]"] { color: #d1fae5; }
 
 /* A receipt PNG is drawn on its own white canvas; page theme never recolours it. */
 @media print {
-  html[data-theme="dark"] { color-scheme: light; }
+  html[data-theme="dark"] { color-scheme: light; --background: #ffffff; --foreground: #1c1917; }
   html[data-theme="dark"] .bg-white { background-color: #ffffff; }
   html[data-theme="dark"] .text-stone-950,
   html[data-theme="dark"] .text-stone-900 { color: #1c1917; }
+  html[data-theme="dark"] .text-stone-800,
+  html[data-theme="dark"] .text-stone-700,
+  html[data-theme="dark"] .text-stone-600,
+  html[data-theme="dark"] .text-stone-500 { color: #57534e; }
+  html[data-theme="dark"] .text-emerald-950,
+  html[data-theme="dark"] .text-emerald-900,
+  html[data-theme="dark"] .text-emerald-800 { color: #065f46; }
+  html[data-theme="dark"] .text-amber-950,
+  html[data-theme="dark"] .text-amber-900 { color: #78350f; }
+  html[data-theme="dark"] .text-red-950,
+  html[data-theme="dark"] .text-red-900 { color: #991b1b; }
+  html[data-theme="dark"] .bg-stone-50 { background-color: #fafaf9; }
+  html[data-theme="dark"] .bg-emerald-50 { background-color: #ecfdf5; }
+  html[data-theme="dark"] .bg-amber-50 { background-color: #fffbeb; }
+  html[data-theme="dark"] .bg-red-50 { background-color: #fef2f2; }
 }
 
 
