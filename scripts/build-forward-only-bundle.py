@@ -53,7 +53,7 @@ def validate_history(fresh: dict, pinned: dict, evidence: dict, inventory: dict)
 def validate_sources(root: Path, inventory: dict, live_tip: str, compare_ref=None):
     if inventory.get("format") != "depotflow-forward-only-precutover-rehearsal-v1":
         raise ValueError("Unknown release inventory format")
-    if inventory.get("phase_a_version_start") != "20261019000000" or inventory.get("version_interval_seconds") != 60:
+    if inventory.get("phase_a_version_start") != "20261019120000" or inventory.get("version_interval_seconds") != 1:
         raise ValueError("Version assignment changed; require separate review")
     stages = inventory.get("phase_a_source_migrations")
     post = inventory.get("phase_b_separately_authorized_source")
@@ -64,6 +64,15 @@ def validate_sources(root: Path, inventory: dict, live_tip: str, compare_ref=Non
         raise ValueError("Migration release inventory must be unique and in original dependency order")
     if post != "supabase/migrations/20261018124000_finalize_legacy_creation_api_cutover.sql":
         raise ValueError("Unsafe attempt to mix Phase B with database-first staging")
+    # Keep the previously reviewed 67-file full-phase source lock and this
+    # Phase A-only inventory on EXACTLY the same source/version mapping.
+    locked = json.loads(
+        (root / "supabase/tests/fixtures/m2_forward_only_sources_20261019.json").read_text(encoding="utf-8")
+    )
+    if locked.get("source_migrations") != [p.split("/")[-1] for p in all_sources] \
+       or locked.get("base_version_utc") != inventory["phase_a_version_start"] \
+       or locked.get("phase_a_count") != 66 or locked.get("phase_b_count") != 1:
+        raise ValueError("Conflicting forward-only release inventories or version bases")
     if any(PATTERN.fullmatch(p) is None for p in all_sources):
         raise ValueError("Nonmigration or unsafe release source path")
     if any(not (root / p).is_file() for p in all_sources):
@@ -81,7 +90,7 @@ def validate_sources(root: Path, inventory: dict, live_tip: str, compare_ref=Non
                 f"missing={sorted(set(all_sources)-found)} new={sorted(found-set(all_sources))}"
             )
     start = datetime.strptime(inventory["phase_a_version_start"], STAMP)
-    versions = [(start + timedelta(seconds=i * 60)).strftime(STAMP) for i in range(len(stages))]
+    versions = [(start + timedelta(seconds=i * 1)).strftime(STAMP) for i in range(len(stages))]
     if versions[0] <= live_tip or versions != sorted(set(versions)):
         raise ValueError("Forward-only assigned versions are not unique or strictly after recorded live tip")
     existing = {p.name[:14] for p in (root / "supabase/migrations").glob("*.sql")}
@@ -94,6 +103,9 @@ def build_bundle(root: Path, inventory: dict, actual: dict, pinned: dict,
                  evidence: dict, out: Path, compare_ref=None):
     live_tip = validate_history(actual, pinned, evidence, inventory)
     stages, versions = validate_sources(root, inventory, live_tip, compare_ref)
+    out = out.resolve()
+    if out == root.resolve() or root.resolve() in out.parents:
+        raise ValueError("Rehearsal output must be outside the repository")
     if out.exists():
         raise ValueError("Output directory already exists: refusing to overwrite a reviewed bundle")
     # Complete validation before writing any SQL to disk.
