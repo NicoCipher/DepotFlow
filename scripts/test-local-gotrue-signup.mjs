@@ -209,6 +209,26 @@ export async function run() {
   assert.equal(userCount(email2),1,"Closing gate removed original allowed user");
   assert.equal(userCount(email4),1,"Closing gate removed accepted in-flight user");
   console.log("PASS gate OFF again rejects fresh direct signup with zero new users");
+
+  // A signup shutdown must NOT turn off password authentication for an
+  // existing confirmed user. Simulate confirmation only in disposable
+  // PostgreSQL; hosted verification must use the real confirmation flow.
+  sql("update auth.users set email_confirmed_at=now() " +
+      "where email='" + email2 + "' and email_confirmed_at is null");
+  assert.equal(sql("select email_confirmed_at is not null from auth.users " +
+      "where email='" + email2 + "'"),"t");
+  const existingLogin = await fetch(LOOPBACK_API+"/auth/v1/token?grant_type=password",{
+    method:"POST",headers:{apikey:key,"Content-Type":"application/json"},
+    body:JSON.stringify({email:email2,password}),redirect:"error",
+    signal:AbortSignal.timeout(15000),
+  });
+  const existingLoginBody = await existingLogin.json().catch(() => ({}));
+  assert.equal(existingLogin.status,200,
+    "Signup shutdown prevented sign-in for a confirmed existing user");
+  assert.ok(typeof existingLoginBody.access_token==="string" &&
+            existingLoginBody.access_token.length>20,
+    "Existing confirmed user login returned no valid session");
+  console.log("PASS existing confirmed user can log in while new registration is OFF");
   console.log("PASS Auth hook and INSERT lock cover both signup/shutdown interleavings.");
   console.log("HOSTED AUTH STILL UNVERIFIED: operator must disable Auth service signup and audit before release.");
 
