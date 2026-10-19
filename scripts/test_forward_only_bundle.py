@@ -76,6 +76,18 @@ class ForwardOnlyRehearsalTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "evidence"):
             self.plan(evidence=changed)
 
+    def test_historical_provenance_reassociation_blocks_phase_a_only(self):
+        for key, value in (
+            ("name", "falsely_reassigned"),
+            ("localCandidate", "20261016020000_private_business_membership_foundation.sql"),
+            ("status", "byte_exact"),
+        ):
+            altered = copy.deepcopy(self.evidence)
+            altered["entries"][0][key] = value
+            with self.subTest(key=key):
+                with self.assertRaisesRegex(ValueError, "provenance"):
+                    self.plan(evidence=altered)
+
     def test_attempted_cutover_in_phase_a_blocks(self):
         changed = copy.deepcopy(self.inventory)
         changed["phase_a_source_migrations"][-1] = changed[
