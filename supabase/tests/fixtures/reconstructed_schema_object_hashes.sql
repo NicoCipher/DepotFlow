@@ -2,7 +2,7 @@
 -- historical SQL reconstruction DIAGNOSTIC. No business data, SQL bodies,
 -- credentials or private function definitions are returned.
 with functions as (
- select n.nspname||'.'||p.oid::regprocedure::text as obj,
+ select n.nspname||'.'||p.proname||'('||pg_get_function_identity_arguments(p.oid)||')' as obj,
    md5(pg_get_functiondef(p.oid)) as hash
  from pg_proc p join pg_namespace n on n.oid=p.pronamespace
  where n.nspname in ('public','private')
