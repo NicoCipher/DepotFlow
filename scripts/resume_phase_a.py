@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Manual-only DepotFlow Phase A resume; pinned source, fail-closed history."""
 import argparse
+from datetime import datetime, timedelta
 import hashlib
 import json
 import os
@@ -90,12 +91,13 @@ def inventory(candidate):
     if len(versions)!=HISTORICAL or versions[-1]!="20261019132131":
         stop("Historical ledger lock drift")
     expected=[{"version":v,"name":previous["names"][v]} for v in versions]
+    start_time=datetime.strptime(source["phase_a_version_start"], "%Y%m%d%H%M%S")
     stages=[]
     for idx,(path,filename) in enumerate(zip(paths,names)):
         original=re.fullmatch(r"supabase/migrations/\d{14}_([a-z][a-z0-9_]*)\.sql",path)
         canonical=re.fullmatch(r"(\d{14})_([a-z][a-z0-9_]*)\.sql",filename)
         if (not original or not canonical or canonical.group(2)!=original.group(1)
-                or canonical.group(1)!="2026101914"+f"{idx:04d}"):
+                or canonical.group(1)!=(start_time+timedelta(seconds=idx)).strftime("%Y%m%d%H%M%S")):
             stop("Canonical SQL stage identity/order drift")
         file=(candidate/path).resolve()
         if not file.is_relative_to(candidate) or not file.is_file():
@@ -134,9 +136,8 @@ DO $depotflow_gate$ BEGIN
 END; $depotflow_gate$;
 """
     post=f"""
-INSERT INTO supabase_migrations.schema_migrations(version,name,statements,created_by)
-VALUES ('{version}','{name}',ARRAY[{delimiter}{sql}{delimiter}]::text[],
-  'depotflow_manual_phase_a');
+INSERT INTO supabase_migrations.schema_migrations(version,name,statements)
+VALUES ('{version}','{name}',ARRAY[{delimiter}{sql}{delimiter}]::text[]);
 DO $depotflow_post$ BEGIN
  IF (SELECT count(*) FROM supabase_migrations.schema_migrations)<>{count+1}
  OR (SELECT max(version) FROM supabase_migrations.schema_migrations)<>'{version}'
