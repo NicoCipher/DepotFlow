@@ -107,6 +107,37 @@ jobs:
                 python3 "supabase/tests/concurrency/$old.py"
               done
             fi
+            if [[ "$f" == *20261016020600_gate_legacy_owner_reads.sql ]]; then
+              # P1 regression: an unexpected permissive read policy could OR
+              # USING(true) with owner_read and reveal a foreign owner's cost.
+              # This should abort atomically even when 26/27 known policies
+              # still match. All probes are ONLY in this disposable PG17 DB.
+              for mode in read all; do
+                if [[ "$mode" == read ]]; then
+                  kind="select"
+                else
+                  kind="all"
+                fi
+                psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+                  -c "create policy depotflow_ci_unknown_policy on public.product_cost_history for $kind to authenticated using (true);"
+                if psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 -f "$f" \
+                    > /tmp/depotflow-policy-roster-rejection.log 2>&1; then
+                  echo "::error::Unsafe extra $mode policy incorrectly accepted"
+                  exit 1
+                fi
+                grep -Fq "Unexpected owner-read policy identity or grant" \
+                  /tmp/depotflow-policy-roster-rejection.log || {
+                    echo "::error::Migration rejected for unexpected reason"
+                    tail -n 15 /tmp/depotflow-policy-roster-rejection.log
+                    exit 1
+                  }
+                # A rejected migration must be atomic, including the earlier
+                # function and policy rewrites within the same transaction.
+                psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+                  -c "drop policy depotflow_ci_unknown_policy on public.product_cost_history;"
+                echo "PASS: unknown $mode RLS policy blocked safely"
+              done
+            fi
             psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 -f "$f"
           done
 
