@@ -11,6 +11,7 @@ on:
       - "supabase/**"
       - "docs/m2-applied-sql-reconciliation-manifest-20261019.json"
       - "docs/release-evidence/**"
+      - "scripts/build-forward-only-m2-release.py"
       - ".github/workflows/verify-database.yml"
 
 jobs:
@@ -49,6 +50,13 @@ jobs:
 
       - name: Verify sandbox-only replay materialization
         run: python3 -m unittest discover -s supabase/tests -p 'test_materialize_prod_history.py'
+
+      - name: Verify forward-only release candidate and fail-closed ledger binding
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s supabase/tests -p 'test_forward_only_m2_release.py'
+          python3 scripts/build-forward-only-m2-release.py \
+            --remote-history supabase/tests/fixtures/production_migration_history_20261018.json
 
       - name: Install PostgreSQL 17 (official signed PGDG APT)
         run: |
@@ -532,60 +540,58 @@ jobs:
             -f supabase/tests/fixtures/auth_only_on_replayed_production_history.sql
           echo "### Auth-only upgrade on reconstructed live PG17 history: PASS" >> "$GITHUB_STEP_SUMMARY"
 
-          # DIAGNOSTIC: apply every NEW migration from this PR, in version
-          # order, on the separately reconstructed historical database.
-          # This does not apply a single SQL statement to Supabase live.
-          # The earliest incompatible migration must be surfaced explicitly
-          # as NO-GO; no automated timestamp repair, data edits or skipping.
-          git fetch --depth=1 --no-tags origin main
-          mapfile -t staged < <(git diff --name-only --diff-filter=A FETCH_HEAD HEAD -- supabase/migrations/ | sort)
-          if [[ "${#staged[@]}" -ne 67 ]]; then
-            echo "::warning::NO-GO: expected 67 tenant-only migrations; found ${#staged[@]}. Update/review this stage manifest before release."
-            echo "Tenant history-upgrade source list drift: ${#staged[@]} files, expected 67." >> "$GITHUB_STEP_SUMMARY"
-          else
-            tenant_passed=0
-            tenant_failed=""
-            for staged_sql in "${staged[@]}"; do
-              if [[ "$staged_sql" == *20261018124000_finalize_legacy_creation_api_cutover.sql ]]; then
-                psql -h /tmp -p 55439 -d depotflow_tenant_stage_replay -X -v ON_ERROR_STOP=1 \
-                  -c "update private.legacy_creation_cutover_gate set authorized=true,authorized_at=now() where singleton;"
-                replay_args=(-c "BEGIN; SET LOCAL depotflow.legacy_creation_cutover_attempt='confirmed';" -f "$staged_sql")
-              else
-                replay_args=(-f "$staged_sql")
-              fi
-              if psql -h /tmp -p 55439 -d depotflow_tenant_stage_replay -X -v ON_ERROR_STOP=1 "${replay_args[@]}" > "$work/tenant-last.log" 2>&1; then
-                tenant_passed=$((tenant_passed + 1))
-              else
-                tenant_failed="$staged_sql"
-                break
-              fi
-            done
-            if [[ -n "$tenant_failed" ]]; then
-              echo "::warning::NO-GO: 55-stage history + tenant migration replay stopped after $tenant_passed/67 stages at $tenant_failed"
-              {
-                echo "### Tenant upgrades on reconstructed PG17 production history: NO-GO"
-                echo "Successful tenant stages: **$tenant_passed / 67**"
-                echo "First incompatible stage: \`$tenant_failed\`"
-              } >> "$GITHUB_STEP_SUMMARY"
-              tail -n 35 "$work/tenant-last.log"
-              # Read-only names of owner SELECT policies (never customer or
-              # business data). Compare with previously inventoried production
-              # 27-policy roster to identify exact schema drift, not just
-              # silence the defensive preflight's count assertion.
-              psql -h /tmp -p 55439 -d depotflow_tenant_stage_replay -X -v ON_ERROR_STOP=1 -At -c \
-                "select cls.relname||':'||pol.polname from pg_catalog.pg_policy pol join pg_catalog.pg_class cls on cls.oid=pol.polrelid join pg_catalog.pg_namespace n on n.oid=cls.relnamespace where n.nspname='public' and pol.polcmd='r' and pol.polname in ('owner_read','owner_profile','owner_empty_choices') order by 1;"
-            else
-              psql -h /tmp -p 55439 -d depotflow_tenant_stage_replay -X -At -v ON_ERROR_STOP=1 \
-                -f supabase/tests/fixtures/legacy_shop_financial_snapshot_hash.sql \
-                > "$work/synthetic-ledger-after.sha"
-              if ! cmp -s "$work/synthetic-ledger-before.sha" "$work/synthetic-ledger-after.sha"; then
-                echo "::error::NO-GO: original-shop sale/debt/stock/empty/receipt ledger changed across draft tenant migrations"
-                exit 1
-              fi
-              echo "### All 67 draft tenant migrations on reconstructed 55-stage live PG17 history: PASS" >> "$GITHUB_STEP_SUMMARY"
-              echo "Synthetic original-shop sale/receipt/debt/stock/empties fields preserved: PASS" >> "$GITHUB_STEP_SUMMARY"
-              echo "All 67 staged SQL migrations preserved synthetic original-shop ledger fingerprint (not real production data)."
+          # Rehearse the EXACT forward-only output package: generated
+          # filenames are all newer than the 55 applied production versions.
+          # Phase B is deliberately stored in a separate folder and must not
+          # run until the new app has replaced the legacy create clients.
+          python3 scripts/build-forward-only-m2-release.py \
+            --remote-history supabase/tests/fixtures/production_migration_history_20261018.json \
+            --out-dir "$work/forward-only"
+          mapfile -t staged < <(find "$work/forward-only/phase-a" -maxdepth 1 -name '*.sql' | sort)
+          mapfile -t gated < <(find "$work/forward-only/phase-b" -maxdepth 1 -name '*.sql' | sort)
+          test "${#staged[@]}" -eq 66
+          test "${#gated[@]}" -eq 1
+          tenant_passed=0
+          for staged_sql in "${staged[@]}"; do
+            if ! psql -h /tmp -p 55439 -d depotflow_tenant_stage_replay \
+                -X -v ON_ERROR_STOP=1 -f "$staged_sql" > "$work/tenant-last.log" 2>&1; then
+              echo "::error::Forward-only Phase A stopped at $staged_sql after $tenant_passed/66"
+              tail -n 40 "$work/tenant-last.log"
+              exit 1
             fi
+            tenant_passed=$((tenant_passed + 1))
+          done
+          psql -h /tmp -p 55439 -d depotflow_tenant_stage_replay \
+            -X -v ON_ERROR_STOP=1 -f supabase/tests/legacy_creation_pre_cutover_compat.sql
+          if psql -h /tmp -p 55439 -d depotflow_tenant_stage_replay \
+              -X -v ON_ERROR_STOP=1 -f "${gated[0]}" > "$work/default-denied-cutover.log" 2>&1; then
+            echo "::error::Unattended Phase B migration succeeded without consent"
+            exit 1
           fi
+          grep -Fq "CUTOVER ATTEMPT NOT CONFIRMED" "$work/default-denied-cutover.log"
+          old_grants="$(psql -h /tmp -p 55439 -d depotflow_tenant_stage_replay -X -At -v ON_ERROR_STOP=1 \
+            -c "select has_column_privilege('authenticated','public.customers','id','INSERT') and has_column_privilege('authenticated','public.products','id','INSERT') and has_function_privilege('authenticated','public.create_crate_type(uuid,text,text,numeric,text)','EXECUTE');")"
+          test "$old_grants" = "t"
+          psql -h /tmp -p 55439 -d depotflow_tenant_stage_replay -X -At -v ON_ERROR_STOP=1 \
+            -f supabase/tests/fixtures/legacy_shop_financial_snapshot_hash.sql \
+            > "$work/synthetic-ledger-after-phase-a.sha"
+          cmp "$work/synthetic-ledger-before.sha" "$work/synthetic-ledger-after-phase-a.sha"
+          # CI-only simulation. The hosted approval gate is OFF and this
+          # command operates ONLY on a disposable, synthetic PG17 database.
+          psql -h /tmp -p 55439 -d depotflow_tenant_stage_replay -X -v ON_ERROR_STOP=1 \
+            -c "update private.legacy_creation_cutover_gate set authorized=true,authorized_at=now() where singleton;"
+          psql -h /tmp -p 55439 -d depotflow_tenant_stage_replay -X -v ON_ERROR_STOP=1 \
+            -c "BEGIN; SET LOCAL depotflow.legacy_creation_cutover_attempt='confirmed';" \
+            -f "${gated[0]}" > "$work/tenant-finalizer.log" 2>&1 || {
+              tail -n 40 "$work/tenant-finalizer.log"
+              exit 1
+            }
+          psql -h /tmp -p 55439 -d depotflow_tenant_stage_replay -X -At -v ON_ERROR_STOP=1 \
+            -f supabase/tests/fixtures/legacy_shop_financial_snapshot_hash.sql \
+            > "$work/synthetic-ledger-after-phase-b.sha"
+          cmp "$work/synthetic-ledger-before.sha" "$work/synthetic-ledger-after-phase-b.sha"
+          echo "### Forward-only rehearsal on reconstructed 55-stage PG17 history: PASS" >> "$GITHUB_STEP_SUMMARY"
+          echo "66 compatible Phase A migrations; 1 default-denied Phase B finalizer, tested separately." >> "$GITHUB_STEP_SUMMARY"
+          echo "Original synthetic shop ledger unchanged (not a live data/schema certificate)." >> "$GITHUB_STEP_SUMMARY"
           dropdb -h /tmp -p 55439 depotflow_tenant_stage_replay
           dropdb -h /tmp -p 55439 "$db"
