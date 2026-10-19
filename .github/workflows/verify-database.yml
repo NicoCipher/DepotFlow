@@ -62,7 +62,7 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s supabase/tests -p 'test_forward_only_m2_release.py'
           python3 scripts/build-forward-only-m2-release.py \
-            --remote-history supabase/tests/fixtures/production_migration_history_20261018.json
+            --remote-history supabase/tests/fixtures/production_migration_history_20261019_after_auth.json
 
       - name: Install PostgreSQL 17 (official signed PGDG APT)
         run: |
