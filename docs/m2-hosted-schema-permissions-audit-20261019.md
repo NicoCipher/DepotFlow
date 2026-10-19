@@ -29,6 +29,23 @@ The isolated GitHub Actions PG17 reconstruction starts with **55 historical SQL 
 - **Two shared function definition hashes differ:** `public.rls_auto_enable()` (managed Supabase automatic RLS, represented as a minimalist CI stub), and `private.record_payment(uuid,uuid,numeric,date)` (historical formatting/comment normalization accounts for the known source-text discrepancy, but this alone is *not* semantic equivalence).
 - **Column-grant differences:** both environments report 29 grant-bearing application tables; **28 of those tables** have differing column-grant digests. Live has **473** grant entries versus **238** in the historical minimal-clone report. The staged 56+65 rehearsal passes its own invariants, but it has not independently established actual hosted role/column ACL parity.
 
+### Distinguishing application DML grants from Supabase-managed references
+
+A fresh hosted read-only SQL audit splits the **473** `information_schema.column_privileges` entries as:
+
+| Grantee | Operation | Entries |
+| --- | --- | ---: |
+| authenticated | SELECT | 201 |
+| authenticated | INSERT | 18 |
+| authenticated | UPDATE | 19 |
+| anon | REFERENCES | 18 |
+| authenticated | REFERENCES | 18 |
+| service_role | REFERENCES | 199 |
+
+Therefore **238 hosted client DML entries + 235 managed-style REFERENCES entries = 473**. The minimal historical PG17 reconstruction reported **238** entries total. This numerical alignment alone is **not proof of per-column ACL parity**, so `supabase/tests/fixtures/app_client_column_dml_acl.sql` now hashes the exact **29** grant-bearing table/column/client DML privilege inventories, and `docs/release-evidence/production-app-client-column-dml-acl-20261019.json` records the independently collected hosted hashes. The free PG17 workflow checks every reconstructed table hash and the counts before passing. No grant is added or revoked to make this match.
+
+Even after the client DML match is verified, managed `REFERENCES`, `auth`/`storage` schemas, function ownership and GoTrue hook configuration remain separate parity questions; the source reconstruction is not a certified full Supabase schema clone.
+
 **Decision:** current exact-hosted-schema-and-permissions parity is **NOT proven**. Do not treat green PG17 CI as license to push Phase A. Obtain a securely handled actual production schema/role/ACL snapshot or a confidential real-schema isolated PG17 reconstruction, verify runtime role inheritance/managed grants, then apply the exact forward-versioned 65-stage Phase A candidate and compare pre/post business invariants. Do not grant client roles broadly just to make a synthetic clone match.
 
 ## Hosted Auth database status
