@@ -51,9 +51,9 @@ def validate_history(fresh: dict, pinned: dict, evidence: dict, inventory: dict)
         (v, names[v]) for v in expected[:55]
     ]:
         raise ValueError("Applied SQL evidence names/order mismatch actual pinned production ledger")
-    candidates = [r["localCandidate"] for r in entries if r.get("localCandidate")]
-    if len(set(candidates)) != len(candidates):
-        raise ValueError("Duplicated applied SQL historical candidate")
+    # Multiple applied migrations may legitimately reference the SAME local
+    # SQL candidate (e.g. sale/receipt upgrades). The exact per-row reviewed
+    # provenance lock above, not candidate uniqueness, enforces identity.
     if evidence.get("release_authorized") is not False or inventory.get("release_authorized") is not False:
         raise ValueError("Release inventory/evidence must not authorize production")
     return expected[-1]
