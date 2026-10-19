@@ -36,5 +36,5 @@ begin
    raise exception 'Pre-cutover customer creation RPC permissions drifted';
  end if;
 end;
-$enforce_rpc_creation$;
+$verify_staged_creation$;
 commit;
