@@ -41,11 +41,11 @@ select public.create_crate_type(
 -- Existing app also POSTs a direct product row using its own request ID.
 insert into public.products(
  id,name,bottles_per_crate,full_crate_price,bottles_returnable,
- crate_type_id,empty_family
+ crate_type_id
 ) values (
  '89e00000-0000-4000-9000-000000000013',
  'Existing client drink',12,6000,false,
- '89e00000-0000-4000-9000-000000000012','NB'
+ '89e00000-0000-4000-9000-000000000012'
 );
 do $old_client_works$
 begin
