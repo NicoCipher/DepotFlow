@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/app/sign-in/actions";
+import { ThemeSelect } from "@/components/theme-select";
 
 const sections = [
   { href: "/", label: "Home" },
@@ -134,6 +135,9 @@ export function ShopNavigation() {
             More
           </summary>
           <div className="grid gap-5 border-t border-stone-200 pb-3 pt-4 md:grid-cols-3">
+            <section aria-label="Appearance" className="border-b border-stone-200 pb-4 md:col-span-3">
+              <ThemeSelect />
+            </section>
             {moreGroups.map((group) => (
               <section key={group.label}>
                 <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-stone-500">
@@ -202,6 +206,9 @@ export function ShopNavigation() {
               <span>More</span>
             </summary>
             <div className="absolute bottom-full right-0 mb-2 max-h-[72dvh] w-[min(21rem,94vw)] overflow-y-auto overscroll-contain rounded-xl border border-stone-200 bg-white p-3 shadow-xl">
+              <section aria-label="Appearance" className="border-b border-stone-200 px-2 pb-3 pt-1">
+                <ThemeSelect />
+              </section>
               {moreGroups.map((group) => (
                 <section key={group.label} className="mb-3 last:mb-0">
                   <p className="px-2 pb-1 pt-1 text-xs font-semibold uppercase tracking-wide text-stone-500">
