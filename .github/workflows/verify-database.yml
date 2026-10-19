@@ -206,17 +206,12 @@ jobs:
               fi
               grep -Fq "LEGACY CREATION CUTOVER NOT AUTHORIZED" \
                 /tmp/depotflow-cutover-guard.log
-              psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 <<'SQL'
-              do $check$
-              begin
-               if not has_column_privilege('authenticated','public.customers','id','INSERT')
-                 or not has_column_privilege('authenticated','public.products','id','INSERT')
-                 or not has_function_privilege('authenticated',
-                   'public.create_crate_type(uuid,text,text,numeric,text)','EXECUTE')
-               then raise exception 'Unapproved cutover changed old-client grants';end if;
-              end;
-              $check$;
-              SQL
+              old_grants="$(psql -h /tmp -p 55439 -d postgres -X -At -v ON_ERROR_STOP=1 \
+                -c "select has_column_privilege('authenticated','public.customers','id','INSERT') and has_column_privilege('authenticated','public.products','id','INSERT') and has_function_privilege('authenticated','public.create_crate_type(uuid,text,text,numeric,text)','EXECUTE');")"
+              if [[ "$old_grants" != "t" ]]; then
+                echo "::error::Unapproved cutover changed old-client grants"
+                exit 1
+              fi
               # Approved scenario is simulated in free DISPOSABLE CI only.
               psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
                 -c "update private.legacy_creation_cutover_gate set authorized=true,authorized_at=now() where singleton;"
