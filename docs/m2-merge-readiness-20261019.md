@@ -1,5 +1,12 @@
 # DepotFlow PR #107 — merge readiness evidence (19 October 2026)
 
+## 19 October hosted Auth and forward-only migration update (latest)
+
+The original 55 applied historical migrations are **now followed by one separate, default-OFF hosted Auth protection migration** `20261019132131_depotflow_hosted_auth_signup_closed_guard_20261019`; current live ledger is 56 versions. The existing Auth account remains preserved. Live private gate OFF, function returns 403 in direct SQL evaluation, guard on `auth.users` active, Auth admin has hook EXECUTE, application roles do not. Managed GoTrue Before User Created provider configuration and real hosted `/signup` denial are **not verified**; keep P2 open. The new forward-only SQL candidate is now **65 Phase A files + 1 separately gated Phase B** with fresh sequential versions starting `20261019140000`; already-applied Auth source is excluded. Rehearsal-only output; do not redeploy Auth SQL or blindly db push.
+
+The latest read-only hosted public/private schema fingerprint was refreshed *after* Auth installation, now capturing 8 groups and function ACL/effective EXECUTE grants. The 55-stage historical PG17 source reconstruction is not an actual hosted-schema clone: managed column grants differ (historical CI had 238 vs hosted 473) and some Supabase platform definitions differ. **Merge and tenant rollout remain NO-GO** until full actual-schema/managed-grant parity, fresh live migration history, controlled hosted Auth verification and separate owner-approved release cutover. No Vercel deployment or paid branch was used.
+
+
 **Status: NOT APPROVED TO MERGE OR DEPLOY.** This file records completed zero-cost release tests, not a substitute for the production release checklist. All new-depot activation and signup gates remain OFF.
 
 ## 19 October follow-up — P1 original-shop cutover order (staged, NOT approved)
