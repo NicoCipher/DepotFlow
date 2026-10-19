@@ -73,6 +73,33 @@ class ForwardOnlyBundleTest(unittest.TestCase):
             self.assertEqual(len(plain), 65)
             self.assertEqual(plain, full)
 
+    def test_refuse_reassociated_historical_sql_provenance(self):
+        import copy
+        frozen = json.loads(module.APPLIED_EVIDENCE.read_text())
+        remote = json.loads(SNAPSHOT.read_text())
+        cases = []
+        altered = copy.deepcopy(frozen)
+        altered["entries"][0]["name"] = "falsely_applied_name"
+        cases.append(altered)
+        altered = copy.deepcopy(frozen)
+        altered["entries"][-1]["localCandidate"] = (
+            "20261016020000_private_business_membership_foundation.sql"
+        )
+        cases.append(altered)
+        altered = copy.deepcopy(frozen)
+        altered["entries"][1]["localCandidate"] = altered["entries"][0]["localCandidate"]
+        cases.append(altered)
+        altered = copy.deepcopy(frozen)
+        altered["entries"][0], altered["entries"][1] = altered["entries"][1], altered["entries"][0]
+        cases.append(altered)
+        altered = copy.deepcopy(frozen)
+        altered["entries"][0]["status"] = "byte_exact"
+        cases.append(altered)
+        for altered in cases:
+            with self.subTest(first=altered["entries"][0]):
+                with self.assertRaisesRegex(ValueError, "provenance"):
+                    module.validate_remote(remote, remote, altered)
+
     def test_refuse_any_advanced_remote_ledger_without_reapproval(self):
         with tempfile.TemporaryDirectory() as temp:
             altered = json.loads(SNAPSHOT.read_text())
