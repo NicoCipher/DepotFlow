@@ -66,7 +66,7 @@ as $before_auth_insert$
 declare
  v_enabled boolean;
 begin
- if pg_catalog.session_user = 'postgres' then
+ if session_user = 'postgres' then
    return new;
  end if;
  select g.enabled into v_enabled
