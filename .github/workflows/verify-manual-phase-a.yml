@@ -1,0 +1,36 @@
+name: Verify manual Phase A release runner
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/resume_phase_a.py'
+      - 'scripts/test_resume_phase_a.py'
+      - '.github/workflows/manual-phase-a-database.yml'
+      - '.github/workflows/verify-manual-phase-a.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  offline-release-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout workflow implementation
+        uses: actions/checkout@v4
+        with:
+          path: trusted
+          persist-credentials: false
+
+      - name: Checkout pinned reviewed migration source
+        uses: actions/checkout@v4
+        with:
+          ref: 7181bae6585f98473f878bd798fae81f73b4f5db
+          path: candidate
+          persist-credentials: false
+
+      - name: Validate all 65 canonical migrations without database access
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s trusted/scripts -p test_resume_phase_a.py -v

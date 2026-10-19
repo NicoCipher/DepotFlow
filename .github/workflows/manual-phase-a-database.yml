@@ -1,0 +1,87 @@
+name: 'DepotFlow — manual Phase A database'
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'First run preflight; deploy resumes 53 remaining migrations'
+        required: true
+        type: choice
+        default: preflight
+        options:
+          - preflight
+          - deploy
+      confirmation:
+        description: 'Deploy only: type DEPLOY_53_PHASE_A_MIGRATIONS'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: depotflow-production-database-phase-a
+  cancel-in-progress: false
+
+jobs:
+  phase-a:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: depotflow-production-database
+    timeout-minutes: 45
+    steps:
+      - name: Checkout trusted manual release script on main
+        uses: actions/checkout@v4
+        with:
+          path: trusted
+          persist-credentials: false
+
+      - name: Checkout reviewed PR 107 commit (SQL-only source)
+        uses: actions/checkout@v4
+        with:
+          ref: 7181bae6585f98473f878bd798fae81f73b4f5db
+          path: candidate
+          persist-credentials: false
+
+      - name: Verify all pinned Phase A SQL stages offline
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s trusted/scripts -p test_resume_phase_a.py -v
+
+      - name: Install PostgreSQL client if needed
+        run: |
+          set -euo pipefail
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get -qq update
+            sudo apt-get -qq install -y postgresql-client
+          fi
+          psql --version
+
+      - name: Validate manual deployment approval
+        shell: bash
+        env:
+          DEPOTFLOW_MODE: ${{ inputs.mode }}
+          DEPOTFLOW_CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          if [[ "$DEPOTFLOW_MODE" == "deploy" && "$DEPOTFLOW_CONFIRMATION" != "DEPLOY_53_PHASE_A_MIGRATIONS" ]]; then
+            echo 'Missing exact deploy confirmation; no changes made.' >&2
+            exit 1
+          fi
+          [[ "$DEPOTFLOW_MODE" == "preflight" || "$DEPOTFLOW_MODE" == "deploy" ]]
+
+      - name: Check and optionally resume the canonical Phase A SQL
+        shell: bash
+        env:
+          PGDATABASE: ${{ secrets.DEPOTFLOW_PRODUCTION_DATABASE_URL }}
+          DEPOTFLOW_MODE: ${{ inputs.mode }}
+          DEPOTFLOW_CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$PGDATABASE" ]]; then
+            echo 'Missing GitHub environment secret DEPOTFLOW_PRODUCTION_DATABASE_URL.' >&2
+            exit 1
+          fi
+          python3 trusted/scripts/resume_phase_a.py \
+            --candidate candidate \
+            --mode "$DEPOTFLOW_MODE" \
+            --approval "$DEPOTFLOW_CONFIRMATION"
