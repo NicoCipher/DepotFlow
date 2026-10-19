@@ -92,7 +92,12 @@ export async function run() {
   assert.ok(accepted.status === 200 || accepted.status === 201,
     "Gate ON failed to create test user, HTTP " + accepted.status +
     " / " + JSON.stringify(accepted.data).slice(0,200));
-  assert.ok(accepted.data?.user?.id,"Allowed signup lacks user identity");
+  // Raw GoTrue REST /signup returns a user object at the TOP LEVEL when
+  // email confirmations are enabled; supabase-js wraps it under data.user.
+  const createdUser = accepted.data?.user ??
+    (accepted.data?.id && accepted.data?.email ? accepted.data : null);
+  assert.ok(createdUser?.id,"Allowed raw GoTrue signup lacks user identity");
+  assert.equal(createdUser?.email,email2,"Unexpected signup user email");
   assert.equal(accepted.data?.session ?? null,null,"Unconfirmed signup got a session");
   assert.equal(accepted.data?.access_token ?? null,null,"Unconfirmed signup got access token");
   assert.equal(userCount(email2),1,"Allowed signup not persisted once");
