@@ -20,6 +20,38 @@ TOTAL = 65
 def stop(reason):
     raise RuntimeError(reason)
 
+def sanitized_psql_failure(stderr, returncode):
+    """Only static, allowlisted diagnostics; never echo libpq's raw stderr."""
+    message = stderr.lower()
+    if any(s in message for s in (
+        "password authentication failed", "invalid password",
+        "no password supplied", "scram authentication failed"
+    )):
+        return "Database authentication rejected. Check the pooler password in the GitHub environment secret."
+    if any(s in message for s in (
+        "tenant or user not found", "tenant not found", "invalid pooler user"
+    )):
+        return "Session pooler rejected its tenant/user. Check the Supabase project and pooler username."
+    if any(s in message for s in ("could not translate host name", "name or service not known")):
+        return "Database host DNS lookup failed."
+    if any(s in message for s in ("connection timed out", "timeout expired", "network is unreachable")):
+        return "Database connection timed out or network route unavailable."
+    if "connection refused" in message:
+        return "Database endpoint refused the network connection."
+    if any(s in message for s in ("ssl error", "ssl connection", "certificate verify failed")):
+        return "Database TLS negotiation failed."
+    if any(s in message for s in ("invalid uri", "invalid connection option", "missing \"=\"", "invalid port number")):
+        return "Database URI is malformed. Check the GitHub environment secret format."
+    if any(s in message for s in ("permission denied", "must be owner", "insufficient privilege")):
+        return "Database account lacks required SQL permissions. Stop for authorization review."
+    if ("does not exist" in message and any(
+        s in message for s in ("relation", "schema", "column", "function")
+    )):
+        return "Database schema differs from expected release. Stop for schema review."
+    if returncode == 2:
+        return "Database connection failed (unclassified). Stop and inspect credentials/network out of band."
+    return "Database SQL command failed (unclassified). Stop and inspect the remote ledger."
+
 def psql(sql):
     env = os.environ.copy()
     uri = env.get("PGDATABASE", "")
@@ -33,8 +65,8 @@ def psql(sql):
         input=sql, text=True, capture_output=True, timeout=180, env=env
     )
     if run.returncode:
-        # Do not expose SQL bodies or production connection strings in CI logs.
-        stop("Database command failed; stopped without retry. Inspect the remote ledger independently.")
+        # Raw stderr may contain URI/user/SQL: log only a constant error category.
+        stop(sanitized_psql_failure(run.stderr, run.returncode))
     return run.stdout.strip()
 
 def ledger():
