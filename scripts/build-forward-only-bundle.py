@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 INVENTORY = ROOT / "docs/m2-forward-only-release-inventory-20261019.json"
 SNAPSHOT = ROOT / "supabase/tests/fixtures/production_migration_history_20261018.json"
 HISTORY_SQL = ROOT / "docs/m2-applied-sql-reconciliation-manifest-20261019.json"
-PATTERN = re.compile(r"supabase/migrations/(\\d{14})_([a-z][a-z0-9_]*)\\.sql\\Z")
+PATTERN = re.compile(r"supabase/migrations/(\d{14})_([a-z][a-z0-9_]*)\.sql\Z")
 STAMP = "%Y%m%d%H%M%S"
 
 
