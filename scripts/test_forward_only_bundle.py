@@ -32,8 +32,8 @@ class ForwardOnlyRehearsalTests(unittest.TestCase):
         files, versions = self.plan()
         self.assertEqual(len(files), 66)
         self.assertEqual(len(set(versions)), 66)
-        self.assertEqual(versions[0], "20261019000000")
-        self.assertEqual(versions[-1], "20261019010500")
+        self.assertEqual(versions[0], "20261019120000")
+        self.assertEqual(versions[-1], "20261019120105")
         self.assertTrue(all(version > self.history["live_tip"] for version in versions))
         self.assertNotIn(self.inventory["phase_b_separately_authorized_source"], files)
 
