@@ -71,6 +71,18 @@ def build(remote_path, out_dir=None):
     if lock["phase_a_count"] != 65 or lock["phase_b_count"] != 1:
         raise ValueError("BLOCKED: migration phase inventory drift")
 
+    targets = lock.get("canonical_phase_a_target_filenames")
+    if not isinstance(targets, list) or len(targets) != 65 or len(set(targets)) != 65 \
+       or lock.get("phase_b_target_filename", "MISSING") is not None:
+        raise ValueError("BLOCKED: 65 canonical Phase A target names required; no Phase B release name is authorized")
+    phase_a_source_names = sources[:65]
+    for index, (source, target) in enumerate(zip(phase_a_source_names, targets)):
+        ver = (datetime.strptime(lock["base_version_utc"], "%Y%m%d%H%M%S")
+               + timedelta(seconds=index)).strftime("%Y%m%d%H%M%S")
+        expected_target = ver + "_" + FILENAME.fullmatch(source).group(2) + ".sql"
+        if target != expected_target:
+            raise ValueError("BLOCKED: canonical Phase A filename/source/version drift")
+
     # An added M2 source cannot be silently skipped by a previously locked
     # release list. Historical local candidates must not be replayed either.
     source_set = set(sources)
@@ -99,7 +111,11 @@ def build(remote_path, out_dir=None):
         if version <= max(history) or version in history or version in {x["version"] for x in stage}:
             raise ValueError("BLOCKED: proposed forward-only version collides with recorded history")
         phase = "phase-b" if index == 65 else "phase-a"
-        target = version + "_" + FILENAME.fullmatch(source_name).group(2) + ".sql"
+        # Phase A names are single-sourced from the reviewed lock. Phase B
+        # receives only a disposable TEST name; no production cutover filename
+        # has been approved or reserved.
+        target = targets[index] if phase == "phase-a" else \
+            version + "_test_only_" + FILENAME.fullmatch(source_name).group(2) + ".sql"
         stage.append({
             "phase": phase, "source": source_name, "source_sha256": hashlib.sha256(raw).hexdigest(),
             "version": version, "filename": target
@@ -116,12 +132,9 @@ def build(remote_path, out_dir=None):
             dest = output / item["phase"]
             dest.mkdir(exist_ok=True)
             original = (MIGRATIONS / item["source"]).read_bytes()
-            header = (
-                "-- FORWARD-ONLY REHEARSAL ARTIFACT. NOT APPROVED FOR PRODUCTION.\n"
-                + "-- Source: " + item["source"] + "\n"
-                + "-- Source SHA256: " + item["source_sha256"] + "\n"
-            ).encode("ascii")
-            (dest / item["filename"]).write_bytes(header + original)
+            # Match the Phase A-only bundle BYTE-FOR-BYTE, not merely by
+            # version number. Safety/audit metadata lives in JSON beside SQL.
+            (dest / item["filename"]).write_bytes(original)
         (output / "release-manifest.json").write_text(
             json.dumps({
                 "production_release_authorized": False,
