@@ -517,6 +517,12 @@ jobs:
             echo "::error::Auth-only release rehearsal blocked: live-history reconstruction incomplete at $failed"
             exit 1
           fi
+          # An adversarial, ROLLBACK-only grant WITH GRANT OPTION must change
+          # the ACL fingerprint. The base database remains unchanged.
+          psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 \
+            -f supabase/tests/fixtures/client_dml_grant_option_probe.sql
+          echo "### Client DML ACL grant-option escalation regression: PASS" >> "$GITHUB_STEP_SUMMARY"
+
           # Independently compare hosted app-facing column permissions with
           # the historical production SQL reconstruction. Never grant missing
           # permissions in CI to force a green result. Managed REFERENCES
