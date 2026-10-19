@@ -141,9 +141,27 @@ begin
 end;
 $legacy_create$;
 
--- Only the original shop owner can pass the function's verified owner
--- guard, while the old global client-selected PK INSERT right disappears.
-revoke insert(id) on public.customers from authenticated;
+-- An admin-only release acknowledgment is required before any old-client
+-- creation grants can be removed. It is FALSE on installation, unavailable
+-- to anon/authenticated/service_role, and never set by application code.
+create table private.legacy_creation_cutover_gate (
+  singleton boolean primary key default true check(singleton is true),
+  authorized boolean not null default false,
+  authorized_at timestamptz,
+  check ((not authorized and authorized_at is null)
+      or (authorized and authorized_at is not null))
+);
+insert into private.legacy_creation_cutover_gate(singleton,authorized)
+values(true,false);
+alter table private.legacy_creation_cutover_gate enable row level security;
+revoke all on private.legacy_creation_cutover_gate
+ from public,anon,authenticated,service_role;
+
+-- PRE-CUTOVER COMPATIBILITY: the still-live original-shop application
+-- INSERTs customer IDs directly. Do NOT revoke INSERT(id) here; doing so
+-- would break Walnik customer creation before Vercel serves the new app.
+-- The authenticated legacy INSERT permissions are revoked only in the
+-- explicitly gated POST-CUTOVER migration, never in this staging phase.
 revoke all on function public.create_legacy_customer(uuid,text,text,text,text)
  from public,anon,authenticated,service_role;
 grant execute on function public.create_legacy_customer(uuid,text,text,text,text)
@@ -151,7 +169,7 @@ grant execute on function public.create_legacy_customer(uuid,text,text,text,text
 
 do $verify_legacy_create_grants$
 begin
- if has_column_privilege('authenticated','public.customers','id','INSERT')
+ if not has_column_privilege('authenticated','public.customers','id','INSERT')
     or has_column_privilege('authenticated','public.customers',
       'business_id','INSERT')
     or not has_column_privilege('authenticated','public.customers',
@@ -161,7 +179,7 @@ begin
     or has_function_privilege('anon',
       'public.create_legacy_customer(uuid,text,text,text,text)','EXECUTE')
  then
-  raise exception 'Unsafe legacy customer creation privileges';
+  raise exception 'Unsafe PRE-CUTOVER legacy customer privileges';
  end if;
 end;
 $verify_legacy_create_grants$;
