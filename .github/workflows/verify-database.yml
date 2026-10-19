@@ -225,7 +225,33 @@ jobs:
               # Approved scenario is simulated in free DISPOSABLE CI only.
               psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
                 -c "update private.legacy_creation_cutover_gate set authorized=true,authorized_at=now() where singleton;"
-              # A previous failed attempt may leave durable authorization=true.
+              # Adversarial AFTER-PREFLIGHT failure: refuse the final
+              # authorization-consumption UPDATE after SQL has already issued
+              # creation-grant REVOKEs. PostgreSQL must roll back everything.
+              # The intentionally injected trigger exists only in this
+              # disposable runner and is dropped before real acceptance.
+              psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+                -c "create function private.ci_abort_cutover_on_consume() returns trigger language plpgsql as \$\$ begin raise exception 'Injected cutover consumption failure'; end; \$\$;"
+              psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+                -c "create trigger ci_abort_cutover_consumption before update on private.legacy_creation_cutover_gate for each row execute function private.ci_abort_cutover_on_consume();"
+              if psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+                  -c "BEGIN; SET LOCAL depotflow.legacy_creation_cutover_attempt='confirmed';" \
+                  -f "$f" >/tmp/depotflow-cutover-failed-after-preflight.log 2>&1; then
+                echo "::error::Injected late cutover failure was incorrectly committed"
+                exit 1
+              fi
+              grep -Fq "Injected cutover consumption failure" \
+                /tmp/depotflow-cutover-failed-after-preflight.log
+              psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+                -c "drop trigger ci_abort_cutover_consumption on private.legacy_creation_cutover_gate; drop function private.ci_abort_cutover_on_consume();"
+              old_grants="$(psql -h /tmp -p 55439 -d postgres -X -At -v ON_ERROR_STOP=1 \
+                -c "select has_column_privilege('authenticated','public.customers','id','INSERT') and has_column_privilege('authenticated','public.products','id','INSERT') and has_function_privilege('authenticated','public.create_crate_type(uuid,text,text,numeric,text)','EXECUTE');")"
+              if [[ "$old_grants" != "t" ]]; then
+                echo "::error::Late cutover failure left permissions revoked"
+                exit 1
+              fi
+              echo "PASS: failed authorized cutover rolled back ALL revoked grants"
+              # A previous failed attempt leaves durable authorization=true.
               # A later unattended retry STILL must be refused without fresh
               # same-transaction approval.
               if psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
