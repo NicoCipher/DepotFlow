@@ -47,9 +47,18 @@ jobs:
       - name: Verify all historical SQL evidence and preserved original checksums
         run: python3 -m unittest discover -s supabase/tests -p 'test_applied_sql_manifest.py'
 
-      - name: Install PostgreSQL 17
+      - name: Install PostgreSQL 17 (official signed PGDG APT)
         run: |
           set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y curl ca-certificates
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl --fail --silent --show-error \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/depotflow-pgdg.list
           sudo apt-get update
           sudo apt-get install -y postgresql-17
 
