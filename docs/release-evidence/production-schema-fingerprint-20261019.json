@@ -1,9 +1,9 @@
 {
   "project": "DepotFlow",
-  "captured_on": "2026-10-19",
+  "captured_on": "2026-10-19 after hosted Auth gate",
   "postgres": "17.6",
   "method": "read-only query supabase/tests/live_schema_fingerprint.sql",
-  "warning": "Application public/private schema only. Excludes Auth/Storage, extensions, functions outside listed schemas, data and hosted GoTrue settings. This is a BASELINE for comparing an isolated actual-schema PG17 clone, not an activation permit.",
+  "warning": "Live public/private schema after Auth-only migration. Routine hashes include owner, definer, direct ACL, effective EXECUTE grants and schema usage. Does not prove managed Auth settings, Auth/Storage platform grants, live data parity or actual complete schema clone.",
   "objects": [
     {
       "kind": "column_grants",
@@ -12,23 +12,23 @@
     },
     {
       "kind": "columns",
-      "object_count": 219,
-      "definition_hash": "335b68e5a198b9a2207c4b8fb851296d"
+      "object_count": 221,
+      "definition_hash": "a59034acd6cc9517a6c6e70d20eb96b8"
     },
     {
       "kind": "constraints",
-      "object_count": 192,
-      "definition_hash": "d32c4e914fd0f808e28a3cdce7337841"
+      "object_count": 194,
+      "definition_hash": "6ad992f49f65e19f836404052b0b27e2"
     },
     {
       "kind": "functions",
-      "object_count": 59,
-      "definition_hash": "d3f5235fae93ff13b176b5dd31c3d6b7"
+      "object_count": 61,
+      "definition_hash": "d0bbfbe4c735808feb8bc1fd714b0690"
     },
     {
       "kind": "indexes",
-      "object_count": 79,
-      "definition_hash": "12bdcd5193737a073c838fe6f119130c"
+      "object_count": 80,
+      "definition_hash": "77c256ff5a24287fde9889ba543d27b2"
     },
     {
       "kind": "policies",
@@ -37,8 +37,8 @@
     },
     {
       "kind": "relations",
-      "object_count": 36,
-      "definition_hash": "6bc2954a26f61020fa8b22c1f3a6f873"
+      "object_count": 37,
+      "definition_hash": "a9e820bb824904c31edeeefba3360298"
     },
     {
       "kind": "triggers",
@@ -47,5 +47,8 @@
     }
   ],
   "fingerprint_includes_rls_role_bindings": true,
-  "note": "Refreshed policy hash on October 19 to include normalized TO roles (polroles). No production SQL writes."
+  "note": "This current baseline differs from the 55-stage historical reconstruction because Auth DDL is now installed separately.",
+  "functions_include_execute_acl_and_schema_usage": true,
+  "recorded_migrations": 56,
+  "migration_ledger_tip": "20261019132131"
 }
