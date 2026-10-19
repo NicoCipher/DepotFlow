@@ -52,6 +52,10 @@ class PhaseAOfflineTests(unittest.TestCase):
         invalid = [
             base.replace("postgres.coyivbklakhilpcqqrzg", "postgres.another-project"),
             base.replace(".pooler.supabase.com", ".wrong.example"),
+            base.replace(
+                "aws-1-eu-west-1.pooler.supabase.com",
+                "attacker.example,aws-1-eu-west-1.pooler.supabase.com",
+            ),
             base.replace(":5432/postgres", ":6543/postgres"),
             base.replace("sslmode=require", "sslmode=disable"),
             base.replace(":good-password@", ":@"),
