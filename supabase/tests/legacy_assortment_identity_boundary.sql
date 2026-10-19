@@ -47,6 +47,11 @@ insert into public.products(
  '89d00000-0000-4000-9000-000000000011','Other'
 );
 
+-- Catalogue images are derived from a mutable master row, unlike this
+-- immutable customer-submitted request identity.
+insert into public.product_catalogue(id,name,manufacturer)
+values('89d00000-0000-4000-9000-000000000090','Replay catalogue photo test','NB');
+
 -- If the final audit write fails, rollback must remove the crate/product too.
 create function pg_temp.reject_assortment_request()
  returns trigger language plpgsql as $fail$
@@ -65,7 +70,7 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub',
  '89d00000-0000-4000-8000-000000000001',true);
 do $create_and_replay$
-declare v_crate uuid; v_crate_retry uuid; v_product uuid; v_replay uuid;
+declare v_crate uuid; v_crate_retry uuid; v_product uuid; v_replay uuid; v_catalogue uuid;
 begin
  v_crate:=public.create_legacy_crate_type(
    '89d00000-0000-4000-9000-000000000021',
@@ -103,6 +108,48 @@ begin
     or v_product='89d00000-0000-4000-9000-000000000013'::uuid then
    raise exception 'Legacy product retry used caller-selected PK';
  end if;
+ -- Photo changed between a committed catalogue-linked creation and
+ -- an uncertain HTTP retry. SAME stable catalogue ID & request token MUST
+ -- replay the actual PK and never overwrite the photo saved on first create.
+ v_catalogue:=public.create_legacy_product(
+    '89d00000-0000-4000-9000-000000000030',
+    'Catalogue replay product',null,'https://assets.example.org/v1.png',
+    v_crate,20,10000,null,null,500,true,'Walnik bottle',
+    '89d00000-0000-4000-9000-000000000090');
+ if public.create_legacy_product(
+    '89d00000-0000-4000-9000-000000000030',
+    'Catalogue replay product',null,'https://assets.example.org/v2.png',
+    v_crate,20,10000,null,null,500,true,'Walnik bottle',
+    '89d00000-0000-4000-9000-000000000090')<>v_catalogue then
+    raise exception 'Changed catalogue photo blocked exact request replay';
+ end if;
+ if not exists(
+   select 1 from public.products where id=v_catalogue
+     and image_url='https://assets.example.org/v1.png'
+ ) then
+   raise exception 'Catalogue photo retry changed original product';
+ end if;
+ begin
+   perform public.create_legacy_product(
+    '89d00000-0000-4000-9000-000000000030',
+    'Catalogue replay product',null,'https://assets.example.org/v3.png',
+    v_crate,20,11000,null,null,500,true,'Walnik bottle',
+    '89d00000-0000-4000-9000-000000000090');
+   raise exception 'Changed price accepted on catalogue replay'
+     using errcode='PT001';
+ exception when invalid_parameter_value then null;
+ end;
+ -- A product without a stable linked catalogue identity must retain its
+ -- original submitted photo as part of the immutable request fingerprint.
+ begin
+   perform public.create_legacy_product(
+    '89d00000-0000-4000-9000-000000000013',
+    'Original shop drink',null,'https://assets.example.org/changed.png',
+    v_crate,20,10000,null,null,500,true,'Walnik bottle',null);
+   raise exception 'Unlinked product image mutated under exact token'
+     using errcode='PT001';
+ exception when invalid_parameter_value then null;
+ end;
  perform set_config('fixture.legacy_product',v_product::text,true);
  if (select count(*) from public.products where id=v_product)<>1 then
    raise exception 'Legacy retry duplicated a product record';
@@ -180,8 +227,17 @@ reset role;
 do $audit_count$
 begin
  if (select count(*) from private.legacy_assortment_creation_requests
-   where owner_id='89d00000-0000-4000-8000-000000000001')<>3 then
+   where owner_id='89d00000-0000-4000-8000-000000000001')<>4 then
    raise exception 'Legacy retry duplicated an audit entry';
+ end if;
+ if exists(
+   select 1 from private.legacy_assortment_creation_requests
+   where owner_id='89d00000-0000-4000-8000-000000000001'
+     and resource_kind='product'
+     and request_id='89d00000-0000-4000-9000-000000000030'
+     and details->>'image' is not null
+ ) then
+   raise exception 'Mutable catalogue image was included in replay details';
  end if;
 end;
 $audit_count$;
