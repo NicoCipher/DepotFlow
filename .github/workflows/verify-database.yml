@@ -277,5 +277,12 @@ jobs:
           else:
               print("Historical-only PG17 replay matches 8 app-schema fingerprints; Auth/Storage/data still unverified")
           PY
+            # Output only object identifiers and hashes (never SQL bodies,
+            # customer data, tokens or credentials) for a read-only comparison
+            # to production's same query. Not a valid release certificate.
+            echo "BEGIN_HISTORY_OBJECT_DIGESTS"
+            psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 -At \
+              -f supabase/tests/fixtures/reconstructed_schema_object_hashes.sql
+            echo "END_HISTORY_OBJECT_DIGESTS"
           fi
           dropdb -h /tmp -p 55439 "$db"
