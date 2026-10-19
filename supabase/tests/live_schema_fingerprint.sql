@@ -34,6 +34,14 @@ with objs as (
   union all
   select 'policies',n.nspname||'.'||c.relname||'.'||p.polname,
     p.polcmd::text||':'||p.polpermissive::text||':'||
+    -- Policy TO-role membership is a security boundary; omit it and a
+    -- policy changed from authenticated to PUBLIC hashes identically.
+    coalesce(array_to_string(array(
+      select case when r.role_oid=0::oid
+        then 'PUBLIC' else pg_get_userbyid(r.role_oid) end
+      from unnest(p.polroles) as r(role_oid)
+      order by 1
+    ),','),'')||':'||
     coalesce(pg_get_expr(p.polqual,p.polrelid),'')||':'||
     coalesce(pg_get_expr(p.polwithcheck,p.polrelid),'')
     from pg_policy p join pg_class c on c.oid=p.polrelid
