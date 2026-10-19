@@ -70,8 +70,10 @@ def database_environment():
     if (
         parsed.scheme not in ("postgres", "postgresql")
         or username != "postgres." + PROJECT
-        or not host
-        or not host.endswith(".pooler.supabase.com")
+        # This production runner is pinned to the known project pooler endpoint.
+        # Do not accept libpq multi-host syntax (comma-separated failover hosts):
+        # it could send the production password to an attacker-controlled first host.
+        or host != "aws-1-eu-west-1.pooler.supabase.com"
         or port != 5432
         or parsed.path != "/postgres"
         or parsed.fragment
