@@ -561,8 +561,9 @@ jobs:
             fi
             tenant_passed=$((tenant_passed + 1))
           done
-          psql -h /tmp -p 55439 -d depotflow_tenant_stage_replay \
-            -X -v ON_ERROR_STOP=1 -f supabase/tests/legacy_creation_pre_cutover_compat.sql
+          # The historical replay already seeds the singleton original owner.
+          # The dedicated old-client creation regression runs above on its own
+          # clean disposable database; do not insert a second shop owner here.
           if psql -h /tmp -p 55439 -d depotflow_tenant_stage_replay \
               -X -v ON_ERROR_STOP=1 -f "${gated[0]}" > "$work/default-denied-cutover.log" 2>&1; then
             echo "::error::Unattended Phase B migration succeeded without consent"
