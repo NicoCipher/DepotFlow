@@ -5,6 +5,8 @@ on:
     paths:
       - "src/**"
       - "scripts/probe-hosted-auth-signup*.mjs"
+      - "scripts/compare-pg17-schema*.mjs"
+      - "docs/release-evidence/production-schema-fingerprint-20261019.json"
       - "package.json"
       - "package-lock.json"
       - "next.config.ts"
@@ -39,6 +41,9 @@ jobs:
 
       - name: Hosted Auth signup probe safety regressions (no network)
         run: node --test scripts/probe-hosted-auth-signup.test.mjs
+
+      - name: PG17 clone fingerprint comparison safety regressions (offline)
+        run: node --test scripts/compare-pg17-schema.test.mjs
 
       - name: Typecheck
         run: npm run typecheck
