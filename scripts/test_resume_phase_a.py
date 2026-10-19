@@ -16,6 +16,32 @@ class PhaseAOfflineTests(unittest.TestCase):
     def setUpClass(cls):
         cls.history, cls.stages = phase_a.inventory(Path("candidate"))
 
+    def test_safe_classification_never_exposes_credentials_or_sql(self):
+        """No raw stderr content, hostname, user or query may reach CI logs."""
+        cases = [
+            ("psql: FATAL: password authentication failed for user postgres.coyivbklakhilpcqqrzg",
+             2, "authentication rejected"),
+            ("psql: FATAL: Tenant or user not found", 2, "pooler rejected"),
+            ("psql: could not translate host name \"private.example\" to address", 2, "DNS lookup"),
+            ("psql: connection to server failed: connection timed out", 2, "timed out"),
+            ("psql: connection to server failed: Connection refused", 2, "refused"),
+            ("psql: SSL error: wrong version number", 2, "TLS"),
+            ("psql: invalid URI query parameter: bogus", 2, "URI is malformed"),
+            ("psql: ERROR: permission denied for schema private", 3, "lacks required SQL permissions"),
+            ("psql: ERROR: relation \"secret_table\" does not exist", 3, "schema differs"),
+            ("psql: ERROR: secret-query in literal: password=hunter2", 3, "SQL command failed"),
+            ("psql: unknown network condition host-abc", 2, "connection failed"),
+        ]
+        for stderr, code, expected in cases:
+            with self.subTest(expected=expected):
+                message = phase_a.sanitized_psql_failure(stderr, code)
+                self.assertIn(expected.lower(), message.lower())
+                self.assertNotIn("hunter2", message)
+                self.assertNotIn("postgres.coyivbklakhilpcqqrzg", message)
+                self.assertNotIn("private.example", message)
+                self.assertNotIn("secret_table", message)
+                self.assertNotIn("secret-query", message)
+
     def test_all_65_canonical_versions_cross_minute_boundary(self):
         self.assertEqual(len(self.stages), 65)
         self.assertEqual(len(self.history), 121)
