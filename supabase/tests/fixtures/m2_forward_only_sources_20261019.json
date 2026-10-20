@@ -1,0 +1,488 @@
+{
+  "purpose": "DISPOSABLE CI REHEARSAL ONLY - NEVER APPLY WITHOUT REVIEWED PRODUCTION APPROVAL",
+  "captured_on": "2026-10-19",
+  "production_history_snapshot": "supabase/tests/fixtures/production_migration_history_20261019_after_auth.json",
+  "migration_evidence": "docs/m2-applied-sql-reconciliation-manifest-20261019.json",
+  "base_version_utc": "20261019140000",
+  "phase_a_count": 65,
+  "phase_b_count": 1,
+  "source_migrations": [
+    "20261016020000_private_business_membership_foundation.sql",
+    "20261016020100_link_legacy_test_shop_business.sql",
+    "20261016020200_add_business_identity_to_tenant_tables.sql",
+    "20261016020300_guarded_legacy_scope_backfill.sql",
+    "20261016020400_tenant_aware_relationships.sql",
+    "20261016020500_legacy_operational_write_scope.sql",
+    "20261016020600_gate_legacy_owner_reads.sql",
+    "20261016020700_guard_legacy_reporting_rpcs.sql",
+    "20261016020800_dependency_ordered_legacy_backfill.sql",
+    "20261016020900_nonlegacy_business_profiles.sql",
+    "20261016021000_tenant_customer_access.sql",
+    "20261016021100_legacy_account_customer_scope.sql",
+    "20261016021200_legacy_customer_reader_scope.sql",
+    "20261016021300_guard_legacy_drink_lifecycle.sql",
+    "20261016021400_guard_legacy_write_rpc_entrypoints.sql",
+    "20261016021500_tenant_inventory_read_barriers.sql",
+    "20261016021600_scope_legacy_inventory_reports.sql",
+    "20261016021700_scope_legacy_financial_read_policies.sql",
+    "20261016021800_scope_legacy_drink_lifecycle_lookup.sql",
+    "20261016021900_guard_legacy_payment_and_held_id_lookup.sql",
+    "20261017140000_scope_legacy_multi_tender_ledger_reads.sql",
+    "20261017140100_scope_legacy_mixed_write_rpcs.sql",
+    "20261017140200_tenant_physical_empty_stock_key.sql",
+    "20261017140300_scope_legacy_base_sale_replay.sql",
+    "20261017140400_stage_tenant_empty_bottle_count.sql",
+    "20261017140500_stage_tenant_empty_crate_count.sql",
+    "20261017140600_scope_legacy_base_sale_inventory_reads.sql",
+    "20261017140700_scope_legacy_opening_balance_reads.sql",
+    "20261017140800_scope_legacy_customer_empty_returns.sql",
+    "20261017140900_scope_historical_request_keys.sql",
+    "20261017141000_scope_legacy_sale_payment_wrappers.sql",
+    "20261017141100_scope_legacy_sale_payment_request_keys.sql",
+    "20261017141200_scope_split_recovery_fences.sql",
+    "20261017141300_scope_mixed_debt_replay_payment_lookup.sql",
+    "20261017141400_stage_tenant_product_stock_count.sql",
+    "20261017141500_scope_stock_receipt_request_keys.sql",
+    "20261017141600_stage_tenant_stock_receiving.sql",
+    "20261017141700_scope_legacy_stock_crate_queries.sql",
+    "20261017141800_reject_receive_count_request_reuse.sql",
+    "20261017141900_tenant_unique_assortment_catalogue.sql",
+    "20261018090000_stage_business_assortment_setup.sql",
+    "20261018091000_replay_stock_operations_before_metadata.sql",
+    "20261018092000_stage_tenant_cost_price_history.sql",
+    "20261018093000_stage_tenant_customer_opening_balances.sql",
+    "20261018094000_stage_tenant_physical_opening_inventory.sql",
+    "20261018095000_validate_tenant_bottle_count_identity.sql",
+    "20261018100000_serialize_physical_opening_vs_count.sql",
+    "20261018101000_stage_business_opening_readiness_preview.sql",
+    "20261018102000_readiness_audit_and_customer_population.sql",
+    "20261018103000_stage_owner_opening_review_attestation.sql",
+    "20261018104000_serialize_business_profile_signoff.sql",
+    "20261018105000_stage_owner_business_selection.sql",
+    "20261018110000_stage_self_service_business_registration.sql",
+    "20261018111000_reserve_global_depot_identity.sql",
+    "20261018113000_stage_owner_guided_assortment_preview.sql",
+    "20261018113500_preserve_registered_depot_location.sql",
+    "20261018114000_stage_business_opening_count_progress.sql",
+    "20261018114500_reserve_immutable_registered_depot_identity.sql",
+    "20261018115000_fail_closed_on_truncated_assortment_preview.sql",
+    "20261018115100_block_profile_claim_of_reserved_identity.sql",
+    "20261018115500_stage_tenant_generated_customer_identity.sql",
+    "20261018120000_restrict_direct_tenant_customer_insert.sql",
+    "20261018121000_generate_legacy_customer_ids_and_replay.sql",
+    "20261018122000_require_customer_creation_rpc.sql",
+    "20261018123000_generate_legacy_assortment_ids_and_replay.sql",
+    "20261018124000_finalize_legacy_creation_api_cutover.sql"
+  ],
+  "already_applied_auth_source": "20261018112000_stage_auth_side_signup_hook.sql",
+  "canonical_phase_a_target_filenames": [
+    "20261019140000_private_business_membership_foundation.sql",
+    "20261019140001_link_legacy_test_shop_business.sql",
+    "20261019140002_add_business_identity_to_tenant_tables.sql",
+    "20261019140003_guarded_legacy_scope_backfill.sql",
+    "20261019140004_tenant_aware_relationships.sql",
+    "20261019140005_legacy_operational_write_scope.sql",
+    "20261019140006_gate_legacy_owner_reads.sql",
+    "20261019140007_guard_legacy_reporting_rpcs.sql",
+    "20261019140008_dependency_ordered_legacy_backfill.sql",
+    "20261019140009_nonlegacy_business_profiles.sql",
+    "20261019140010_tenant_customer_access.sql",
+    "20261019140011_legacy_account_customer_scope.sql",
+    "20261019140012_legacy_customer_reader_scope.sql",
+    "20261019140013_guard_legacy_drink_lifecycle.sql",
+    "20261019140014_guard_legacy_write_rpc_entrypoints.sql",
+    "20261019140015_tenant_inventory_read_barriers.sql",
+    "20261019140016_scope_legacy_inventory_reports.sql",
+    "20261019140017_scope_legacy_financial_read_policies.sql",
+    "20261019140018_scope_legacy_drink_lifecycle_lookup.sql",
+    "20261019140019_guard_legacy_payment_and_held_id_lookup.sql",
+    "20261019140020_scope_legacy_multi_tender_ledger_reads.sql",
+    "20261019140021_scope_legacy_mixed_write_rpcs.sql",
+    "20261019140022_tenant_physical_empty_stock_key.sql",
+    "20261019140023_scope_legacy_base_sale_replay.sql",
+    "20261019140024_stage_tenant_empty_bottle_count.sql",
+    "20261019140025_stage_tenant_empty_crate_count.sql",
+    "20261019140026_scope_legacy_base_sale_inventory_reads.sql",
+    "20261019140027_scope_legacy_opening_balance_reads.sql",
+    "20261019140028_scope_legacy_customer_empty_returns.sql",
+    "20261019140029_scope_historical_request_keys.sql",
+    "20261019140030_scope_legacy_sale_payment_wrappers.sql",
+    "20261019140031_scope_legacy_sale_payment_request_keys.sql",
+    "20261019140032_scope_split_recovery_fences.sql",
+    "20261019140033_scope_mixed_debt_replay_payment_lookup.sql",
+    "20261019140034_stage_tenant_product_stock_count.sql",
+    "20261019140035_scope_stock_receipt_request_keys.sql",
+    "20261019140036_stage_tenant_stock_receiving.sql",
+    "20261019140037_scope_legacy_stock_crate_queries.sql",
+    "20261019140038_reject_receive_count_request_reuse.sql",
+    "20261019140039_tenant_unique_assortment_catalogue.sql",
+    "20261019140040_stage_business_assortment_setup.sql",
+    "20261019140041_replay_stock_operations_before_metadata.sql",
+    "20261019140042_stage_tenant_cost_price_history.sql",
+    "20261019140043_stage_tenant_customer_opening_balances.sql",
+    "20261019140044_stage_tenant_physical_opening_inventory.sql",
+    "20261019140045_validate_tenant_bottle_count_identity.sql",
+    "20261019140046_serialize_physical_opening_vs_count.sql",
+    "20261019140047_stage_business_opening_readiness_preview.sql",
+    "20261019140048_readiness_audit_and_customer_population.sql",
+    "20261019140049_stage_owner_opening_review_attestation.sql",
+    "20261019140050_serialize_business_profile_signoff.sql",
+    "20261019140051_stage_owner_business_selection.sql",
+    "20261019140052_stage_self_service_business_registration.sql",
+    "20261019140053_reserve_global_depot_identity.sql",
+    "20261019140054_stage_owner_guided_assortment_preview.sql",
+    "20261019140055_preserve_registered_depot_location.sql",
+    "20261019140056_stage_business_opening_count_progress.sql",
+    "20261019140057_reserve_immutable_registered_depot_identity.sql",
+    "20261019140058_fail_closed_on_truncated_assortment_preview.sql",
+    "20261019140059_block_profile_claim_of_reserved_identity.sql",
+    "20261019140100_stage_tenant_generated_customer_identity.sql",
+    "20261019140101_restrict_direct_tenant_customer_insert.sql",
+    "20261019140102_generate_legacy_customer_ids_and_replay.sql",
+    "20261019140103_require_customer_creation_rpc.sql",
+    "20261019140104_generate_legacy_assortment_ids_and_replay.sql"
+  ],
+  "phase_b_target_filename": null,
+  "target_name_policy": "The 65 canonical Phase A filename identities are locked exactly here; Phase B has NO approved production target filename, and any generated Phase B filename is sandbox-test-only pending an independently authorized cutover.",
+  "applied_sql_provenance": [
+    {
+      "version": "20260912230917",
+      "name": "initial_foundation",
+      "status": "lexical_only",
+      "localCandidate": "20260912230917_initial_foundation.sql"
+    },
+    {
+      "version": "20260912235108",
+      "name": "harden_rls_auto_enable",
+      "status": "lexical_only",
+      "localCandidate": "20260912235108_harden_rls_auto_enable.sql"
+    },
+    {
+      "version": "20260913000019",
+      "name": "owner_customers",
+      "status": "lexical_only",
+      "localCandidate": "20260913000019_owner_customers.sql"
+    },
+    {
+      "version": "20260913033135",
+      "name": "owner_products",
+      "status": "lexical_only",
+      "localCandidate": "20260913033135_owner_products.sql"
+    },
+    {
+      "version": "20260913041500",
+      "name": "receive_stock",
+      "status": "lexical_only",
+      "localCandidate": "20260913041500_receive_stock.sql"
+    },
+    {
+      "version": "20260913043114",
+      "name": "dated_stock_movements",
+      "status": "lexical_only",
+      "localCandidate": "20260913043114_dated_stock_movements.sql"
+    },
+    {
+      "version": "20260913103338",
+      "name": "empty_crate_counts",
+      "status": "lexical_only",
+      "localCandidate": "20260913103338_empty_crate_counts.sql"
+    },
+    {
+      "version": "20260913113337",
+      "name": "crate_type_identity",
+      "status": "lexical_only",
+      "localCandidate": "20260913113337_crate_type_identity.sql"
+    },
+    {
+      "version": "20260914051020",
+      "name": "crate_metadata_management",
+      "status": "lexical_only",
+      "localCandidate": "20260914051020_crate_metadata_management.sql"
+    },
+    {
+      "version": "20260922142856",
+      "name": "complete_sale_flow",
+      "status": "byte_exact",
+      "localCandidate": "20260922100519_complete_sale_flow.sql"
+    },
+    {
+      "version": "20260923095431",
+      "name": "partial_crate_price_fallback",
+      "status": "byte_exact",
+      "localCandidate": "20260923100000_partial_crate_price_fallback.sql"
+    },
+    {
+      "version": "20260925095320",
+      "name": "customer_payments",
+      "status": "lexical_only",
+      "localCandidate": "20260924000000_customer_payments.sql"
+    },
+    {
+      "version": "20260925113009",
+      "name": "product_images",
+      "status": "original_applied_sql_archived",
+      "md5": "90ea13d53f3745d4904657563eefd001",
+      "archive": "docs/release-evidence/applied-20260925113009_product_images.sql.txt",
+      "localCandidate": null
+    },
+    {
+      "version": "20260927154550",
+      "name": "customer_archiving",
+      "status": "original_applied_sql_archived",
+      "md5": "7ddc4191a5bb948e79ba6ecc041b6104",
+      "archive": "docs/release-evidence/applied-20260927154550_customer_archiving.sql.txt",
+      "localCandidate": "20260926224656_customer_archiving.sql"
+    },
+    {
+      "version": "20260927173816",
+      "name": "empties_rules_foundation",
+      "status": "byte_exact",
+      "localCandidate": "20260927170000_empties_rules_foundation.sql"
+    },
+    {
+      "version": "20260927180933",
+      "name": "correct_deposit_and_packaging_model",
+      "status": "byte_exact",
+      "localCandidate": "20260927190000_correct_deposit_and_packaging_model.sql"
+    },
+    {
+      "version": "20260927181104",
+      "name": "optional_crate_only_deposit",
+      "status": "byte_exact",
+      "localCandidate": "20260927192000_optional_crate_only_deposit.sql"
+    },
+    {
+      "version": "20260927192502",
+      "name": "record_sale_v2_empties",
+      "status": "byte_exact",
+      "localCandidate": "20260927201500_record_sale_v2_empties.sql"
+    },
+    {
+      "version": "20260928045709",
+      "name": "delete_unused_crate_type",
+      "status": "byte_exact",
+      "localCandidate": "20260928050000_delete_unused_crate_type.sql"
+    },
+    {
+      "version": "20260928180317",
+      "name": "payment_receipts_and_activity",
+      "status": "byte_exact",
+      "localCandidate": "20260928120000_payment_receipts.sql"
+    },
+    {
+      "version": "20260929051433",
+      "name": "customer_opening_balances",
+      "status": "byte_exact",
+      "localCandidate": "20260929050315_customer_opening_balances.sql"
+    },
+    {
+      "version": "20260929114106",
+      "name": "business_product_cost_catalogue",
+      "status": "byte_exact",
+      "localCandidate": "20260929110631_business_product_cost_catalogue.sql"
+    },
+    {
+      "version": "20260930115230",
+      "name": "retire_legacy_public_rpcs",
+      "status": "byte_exact",
+      "localCandidate": "20260929181750_retire_legacy_public_rpcs.sql"
+    },
+    {
+      "version": "20260930164224",
+      "name": "current_selling_prices",
+      "status": "byte_exact",
+      "localCandidate": "20260929143751_current_selling_prices.sql"
+    },
+    {
+      "version": "20260930164225",
+      "name": "catalogue_product_setup",
+      "status": "byte_exact",
+      "localCandidate": "20260930161420_catalogue_product_setup.sql"
+    },
+    {
+      "version": "20261001022503",
+      "name": "join_bottled_desperados_catalogue",
+      "status": "original_applied_sql_archived",
+      "md5": "ed0546e85bb295d6615e25b77461a759",
+      "archive": "docs/release-evidence/applied-20261001022503_join_bottled_desperados_catalogue.sql.txt",
+      "localCandidate": null
+    },
+    {
+      "version": "20261001185600",
+      "name": "real_customer_sale_flow",
+      "status": "byte_exact",
+      "localCandidate": "20261001125404_real_customer_sale_flow.sql"
+    },
+    {
+      "version": "20261002174235",
+      "name": "round_partial_prices",
+      "status": "byte_exact",
+      "localCandidate": "20261001190735_round_partial_prices.sql"
+    },
+    {
+      "version": "20261004133956",
+      "name": "public_receipt_details",
+      "status": "lexical_only",
+      "localCandidate": "20261004143000_public_receipt_details.sql"
+    },
+    {
+      "version": "20261004135428",
+      "name": "snapshot_receipt_identity",
+      "status": "lexical_only",
+      "localCandidate": "20261004145500_snapshot_receipt_identity.sql"
+    },
+    {
+      "version": "20261013054129",
+      "name": "catalogue_product_photos",
+      "status": "byte_exact",
+      "localCandidate": "20261012210000_catalogue_product_photos.sql"
+    },
+    {
+      "version": "20261013071315",
+      "name": "goldberg_first_party_packshot",
+      "status": "byte_exact",
+      "localCandidate": "20261013080000_goldberg_first_party_packshot.sql"
+    },
+    {
+      "version": "20261013073310",
+      "name": "hold_goldberg_photo_until_rights",
+      "status": "byte_exact",
+      "localCandidate": "20261013090000_hold_goldberg_photo_until_rights.sql"
+    },
+    {
+      "version": "20261013203900",
+      "name": "restore_goldberg_pilot_packshot",
+      "status": "lexical_only",
+      "localCandidate": "20261013100000_restore_goldberg_pilot_packshot.sql"
+    },
+    {
+      "version": "20261013233708",
+      "name": "bulk_shop_real_packshots",
+      "status": "lexical_only",
+      "localCandidate": "20261014002000_bulk_shop_real_packshots.sql"
+    },
+    {
+      "version": "20261014041613",
+      "name": "remaining_five_shop_packshots",
+      "status": "lexical_only",
+      "localCandidate": "20261014010000_remaining_five_shop_packshots.sql"
+    },
+    {
+      "version": "20261014050916",
+      "name": "smirnoff_ice_big_packshot",
+      "status": "lexical_only",
+      "localCandidate": "20261014070000_smirnoff_ice_big_packshot.sql"
+    },
+    {
+      "version": "20261014054222",
+      "name": "master_maltina_can_packshot",
+      "status": "lexical_only",
+      "localCandidate": "20261014082000_master_maltina_photos.sql"
+    },
+    {
+      "version": "20261014070652",
+      "name": "three_verified_catalogue_packshots_oct14",
+      "status": "lexical_only",
+      "localCandidate": "20261014101000_three_verified_catalogue_packshots.sql"
+    },
+    {
+      "version": "20261014072834",
+      "name": "sale_with_old_debt_payment",
+      "status": "original_applied_sql_archived",
+      "md5": "6ccd363e6b69a8831931b9515e8499db",
+      "archive": "docs/release-evidence/applied-20261014072834_sale_with_old_debt_payment.sql.txt",
+      "localCandidate": "20261014110000_sale_with_old_debt_payment.sql"
+    },
+    {
+      "version": "20261014115322",
+      "name": "upgrade_old_debt_sale_receipt_snapshot_oct14",
+      "status": "byte_exact",
+      "localCandidate": "20261014110000_sale_with_old_debt_payment.sql"
+    },
+    {
+      "version": "20261014115332",
+      "name": "verify_historical_account_receipts_oct14",
+      "status": "byte_exact",
+      "localCandidate": "20261014111000_verify_account_receipt.sql"
+    },
+    {
+      "version": "20261014144130",
+      "name": "customer_account_activity",
+      "status": "byte_exact",
+      "localCandidate": "20261014130000_customer_account_activity.sql"
+    },
+    {
+      "version": "20261014145140",
+      "name": "customer_records_hub",
+      "status": "byte_exact",
+      "localCandidate": "20261014150000_customer_records_hub.sql"
+    },
+    {
+      "version": "20261014164830",
+      "name": "group_checkout_records",
+      "status": "byte_exact",
+      "localCandidate": "20261014170000_group_checkout_records.sql"
+    },
+    {
+      "version": "20261015181335",
+      "name": "customer_branded_crate_returns",
+      "status": "byte_exact",
+      "localCandidate": "20261015170000_customer_branded_crate_returns.sql"
+    },
+    {
+      "version": "20261015233039",
+      "name": "shop_drink_lifecycle",
+      "status": "byte_exact",
+      "localCandidate": "20261015210000_shop_drink_lifecycle.sql"
+    },
+    {
+      "version": "20261016152420",
+      "name": "split_tender_ledger_staged_20261016",
+      "status": "lexical_only",
+      "localCandidate": "20261016150000_split_tender_ledger.sql"
+    },
+    {
+      "version": "20261016152535",
+      "name": "split_tender_atomic_saver_staged_20261016",
+      "status": "lexical_only",
+      "localCandidate": "20261016160000_split_tender_atomic_saver.sql"
+    },
+    {
+      "version": "20261016153051",
+      "name": "verify_split_tender_receipts_staged_20261016",
+      "status": "lexical_only",
+      "localCandidate": "20261016170000_verify_split_tender_receipts.sql"
+    },
+    {
+      "version": "20261016153418",
+      "name": "split_sale_read_only_recovery_20261016",
+      "status": "lexical_only",
+      "localCandidate": "20261016180000_split_sale_recovery.sql"
+    },
+    {
+      "version": "20261016162615",
+      "name": "split_sale_request_fence_staged_20261016",
+      "status": "byte_exact",
+      "localCandidate": "20261016190000_split_request_fence.sql"
+    },
+    {
+      "version": "20261016165128",
+      "name": "activate_cash_transfer_owner_only_20261016",
+      "status": "byte_exact",
+      "localCandidate": "20261016210000_activate_split_tender.sql"
+    },
+    {
+      "version": "20261017132205",
+      "name": "generalize_multi_tender_guarded_20261017",
+      "status": "byte_exact",
+      "localCandidate": "20261017132205_generalize_multi_tender_guarded_20261017.sql"
+    },
+    {
+      "version": "20261017132742",
+      "name": "activate_multi_tender_owner_only_20261017",
+      "status": "byte_exact",
+      "localCandidate": "20261017132742_activate_multi_tender_owner_only_20261017.sql"
+    }
+  ],
+  "applied_sql_provenance_policy": "Exact 55 historical applied SQL records, in actual live ledger order. Including (version,name,status,localCandidate,md5/archive) under the same reviewed source lock prevents reassociation of historical migration candidates into M2 exclusions."
+}

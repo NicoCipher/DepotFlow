@@ -40,7 +40,7 @@ export async function saveCrateType(
   id: string,
   editing: boolean,
   values: Parameters<typeof validateCrateType>[0],
-): Promise<{ saved?: boolean; message?: string }> {
+): Promise<{ saved?: boolean; id?: string; message?: string }> {
   const supabase = await requireOwner();
   if (!isProductId(id)) return { message: "Reopen the crate form." };
   let checked;
@@ -50,18 +50,15 @@ export async function saveCrateType(
     return { message: "Enter a name, family and positive whole pocket count." };
   }
   try {
-    const { error } = await supabase.rpc(
-      editing ? "edit_crate_type" : "create_crate_type",
-      {
-        p_id: id,
-        p_name: checked.name,
-        p_empty_family: checked.empty_family,
-        p_pocket_count: checked.pocket_count,
-        // The SQL function does nullif(btrim(p_variant), ''), so an empty
-        // string here becomes NULL in the database, same as passing null.
-        p_variant: checked.variant ?? "",
-      },
-    );
+    const args = {
+      p_name: checked.name,
+      p_empty_family: checked.empty_family,
+      p_pocket_count: checked.pocket_count,
+      p_variant: checked.variant ?? "",
+    };
+    const { data: savedId, error } = editing
+      ? await supabase.rpc("edit_crate_type", { ...args, p_id: id })
+      : await supabase.rpc("create_legacy_crate_type", { ...args, p_request_id: id });
     if (error)
       return {
         message:
@@ -71,8 +68,10 @@ export async function saveCrateType(
               ? "The bottle spaces must match the bottles per crate of every drink using this crate."
               : "Could not save these details. Check them and try again.",
       };
+    if (typeof savedId !== "string" || !isProductId(savedId))
+      return { message: "Could not verify the saved crate. Refresh before retrying." };
     revalidatePath("/", "layout");
-    return { saved: true };
+    return { saved: true, id: savedId };
   } catch {
     return {
       message:

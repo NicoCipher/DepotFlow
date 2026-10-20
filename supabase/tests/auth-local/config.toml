@@ -1,0 +1,31 @@
+# Test-only Supabase CLI project. NOT linked to any hosted Supabase project.
+# Used by .github/workflows/verify-local-auth.yml in a disposable runner.
+project_id = "depotflow-auth-hook-ci"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 100
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:3000"
+additional_redirect_urls = []
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+double_confirm_changes = true
+
+[auth.hook.before_user_created]
+enabled = true
+uri = "pg-functions://postgres/private/depotflow_before_user_created"

@@ -4,6 +4,7 @@ import { validSaleReviewCustomerId } from "@/domain/sale-review-customer";
 import { allocateSplitTender } from "@/domain/sale-tenders";
 import { allocateMultiTender } from "@/domain/multi-tenders";
 import { readAccountReceipt } from "@/domain/account-receipt";
+import { currentProductImage } from "@/domain/product-images";
 
 import { ownerSession, requireOwner } from "@/lib/auth/owner";
 import {
@@ -33,7 +34,7 @@ async function loadCatalog(supabase: OwnerClient): Promise<SaleCatalog> {
       const { data, error } = await supabase
         .from("products")
         .select(
-          "id,name,size,image_url,bottles_per_crate,full_crate_price,half_crate_price,quarter_crate_price,bottle_price,bottles_returnable,bottle_type,crate_type_id,crate_type:crate_types(name,is_legacy,pocket_count,empty_family),stock(total_bottles)",
+          "id,name,size,image_url,bottles_per_crate,full_crate_price,half_crate_price,quarter_crate_price,bottle_price,bottles_returnable,bottle_type,crate_type_id,crate_type:crate_types(name,is_legacy,pocket_count,empty_family),stock(total_bottles),product_catalogue(image_path)",
         )
         .eq("is_active", true)
         .order("name")
@@ -41,8 +42,9 @@ async function loadCatalog(supabase: OwnerClient): Promise<SaleCatalog> {
         .range(offset, offset + 999);
       if (error) throw new Error("Could not load drinks and stock.");
       rows.push(
-        ...data.map(({ stock, ...product }) => ({
+        ...data.map(({ stock, product_catalogue, ...product }) => ({
           ...product,
+          image_url: currentProductImage({ image_url: product.image_url, product_catalogue }),
           available: stock?.total_bottles ?? null,
         })),
       );

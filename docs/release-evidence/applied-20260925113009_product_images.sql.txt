@@ -1,0 +1,22 @@
+HISTORICAL SQL EVIDENCE — NOT A RUNNABLE MIGRATION
+DepotFlow project coyivbklakhilpcqqrzg
+Captured read-only from supabase_migrations.schema_migrations, 2026-10-19.
+Applied version: 20260925113009
+Applied name: product_images
+MD5 of SQL below (UTF-8, not this header): 90ea13d53f3745d4904657563eefd001
+Original SQL is preserved as data only. DO NOT EXECUTE OR USE FOR MIGRATION REPAIR.
+
+---------------- ORIGINAL APPLIED SQL (BEGIN) ----------------
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('product-images', 'product-images', true, 1048576,
+        array['image/webp', 'image/png', 'image/jpeg'])
+on conflict (id) do nothing;
+
+create policy "shop owner uploads product images"
+on storage.objects for insert to authenticated
+with check (bucket_id = 'product-images' and (select public.is_shop_owner()));
+
+create policy "shop owner removes product images"
+on storage.objects for delete to authenticated
+using (bucket_id = 'product-images' and (select public.is_shop_owner()));
+---------------- ORIGINAL APPLIED SQL (END) ----------------

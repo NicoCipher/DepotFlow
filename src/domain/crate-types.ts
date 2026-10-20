@@ -85,8 +85,8 @@ export function validateCrateType(values: {
     !/^\d+$/.test(values.pocket_count.trim()) ||
     !Number.isSafeInteger(pocket_count) ||
     pocket_count < 1 ||
-    pocket_count > 2147483647
+    pocket_count > 120
   )
-    throw new Error("Enter a name, family and positive whole pocket count.");
+    throw new Error("Enter a name, family and 1 to 120 bottle spaces.");
   return { name, empty_family, pocket_count, variant };
 }

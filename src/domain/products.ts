@@ -86,12 +86,12 @@ export function validateProduct(values: ProductValues) {
       !/^\d+$/.test(raw) ||
       !Number.isSafeInteger(value) ||
       value < minimum ||
-      value > 2147483647 ||
+      value > (field === "bottles_per_crate" ? 120 : 2147483647) ||
       value % step !== 0
     ) {
       errors[field] =
         field === "bottles_per_crate"
-          ? "Enter a positive whole number up to 2,147,483,647."
+          ? "Enter 1 to 120 bottles per crate."
           : "Enter whole naira in ₦50 steps, up to ₦2,147,483,600.";
     }
     return value;

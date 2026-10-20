@@ -1,0 +1,339 @@
+{
+  "captured_on": "2026-10-18",
+  "status": "READ_ONLY_CANDIDATES_NOT_SQL_EQUIVALENCE",
+  "repo_total": 117,
+  "production_total": 55,
+  "note": "Filename/name mapping is NOT proof of equivalent applied SQL; these entries must not be used to repair production migration history.",
+  "entries": [
+    {
+      "live": "20260912230917_initial_foundation",
+      "repoCandidate": "20260912230917_initial_foundation.sql",
+      "basis": "same-version",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20260912235108_harden_rls_auto_enable",
+      "repoCandidate": "20260912235108_harden_rls_auto_enable.sql",
+      "basis": "same-version",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20260913000019_owner_customers",
+      "repoCandidate": "20260913000019_owner_customers.sql",
+      "basis": "same-version",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20260913033135_owner_products",
+      "repoCandidate": "20260913033135_owner_products.sql",
+      "basis": "same-version",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20260913041500_receive_stock",
+      "repoCandidate": "20260913041500_receive_stock.sql",
+      "basis": "same-version",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20260913043114_dated_stock_movements",
+      "repoCandidate": "20260913043114_dated_stock_movements.sql",
+      "basis": "same-version",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20260913103338_empty_crate_counts",
+      "repoCandidate": "20260913103338_empty_crate_counts.sql",
+      "basis": "same-version",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20260913113337_crate_type_identity",
+      "repoCandidate": "20260913113337_crate_type_identity.sql",
+      "basis": "same-version",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20260914051020_crate_metadata_management",
+      "repoCandidate": "20260914051020_crate_metadata_management.sql",
+      "basis": "same-version",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20260922142856_complete_sale_flow",
+      "repoCandidate": "20260922100519_complete_sale_flow.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20260923095431_partial_crate_price_fallback",
+      "repoCandidate": "20260923100000_partial_crate_price_fallback.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20260925095320_customer_payments",
+      "repoCandidate": "20260924000000_customer_payments.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20260925113009_product_images",
+      "repoCandidate": null,
+      "basis": "unmapped",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20260927154550_customer_archiving",
+      "repoCandidate": "20260926224656_customer_archiving.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20260927173816_empties_rules_foundation",
+      "repoCandidate": "20260927170000_empties_rules_foundation.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20260927180933_correct_deposit_and_packaging_model",
+      "repoCandidate": "20260927190000_correct_deposit_and_packaging_model.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20260927181104_optional_crate_only_deposit",
+      "repoCandidate": "20260927192000_optional_crate_only_deposit.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20260927192502_record_sale_v2_empties",
+      "repoCandidate": "20260927201500_record_sale_v2_empties.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20260928045709_delete_unused_crate_type",
+      "repoCandidate": "20260928050000_delete_unused_crate_type.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20260928180317_payment_receipts_and_activity",
+      "repoCandidate": null,
+      "basis": "unmapped",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20260929051433_customer_opening_balances",
+      "repoCandidate": "20260929050315_customer_opening_balances.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20260929114106_business_product_cost_catalogue",
+      "repoCandidate": "20260929110631_business_product_cost_catalogue.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20260930115230_retire_legacy_public_rpcs",
+      "repoCandidate": "20260929181750_retire_legacy_public_rpcs.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20260930164224_current_selling_prices",
+      "repoCandidate": "20260929143751_current_selling_prices.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20260930164225_catalogue_product_setup",
+      "repoCandidate": "20260930161420_catalogue_product_setup.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261001022503_join_bottled_desperados_catalogue",
+      "repoCandidate": null,
+      "basis": "unmapped",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261001185600_real_customer_sale_flow",
+      "repoCandidate": "20261001125404_real_customer_sale_flow.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261002174235_round_partial_prices",
+      "repoCandidate": "20261001190735_round_partial_prices.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261004133956_public_receipt_details",
+      "repoCandidate": "20261004143000_public_receipt_details.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261004135428_snapshot_receipt_identity",
+      "repoCandidate": "20261004145500_snapshot_receipt_identity.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261013054129_catalogue_product_photos",
+      "repoCandidate": "20261012210000_catalogue_product_photos.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261013071315_goldberg_first_party_packshot",
+      "repoCandidate": "20261013080000_goldberg_first_party_packshot.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261013073310_hold_goldberg_photo_until_rights",
+      "repoCandidate": "20261013090000_hold_goldberg_photo_until_rights.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261013203900_restore_goldberg_pilot_packshot",
+      "repoCandidate": "20261013100000_restore_goldberg_pilot_packshot.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261013233708_bulk_shop_real_packshots",
+      "repoCandidate": "20261014002000_bulk_shop_real_packshots.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261014041613_remaining_five_shop_packshots",
+      "repoCandidate": "20261014010000_remaining_five_shop_packshots.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261014050916_smirnoff_ice_big_packshot",
+      "repoCandidate": "20261014070000_smirnoff_ice_big_packshot.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261014054222_master_maltina_can_packshot",
+      "repoCandidate": null,
+      "basis": "unmapped",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261014070652_three_verified_catalogue_packshots_oct14",
+      "repoCandidate": null,
+      "basis": "unmapped",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261014072834_sale_with_old_debt_payment",
+      "repoCandidate": "20261014110000_sale_with_old_debt_payment.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261014115322_upgrade_old_debt_sale_receipt_snapshot_oct14",
+      "repoCandidate": null,
+      "basis": "unmapped",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261014115332_verify_historical_account_receipts_oct14",
+      "repoCandidate": null,
+      "basis": "unmapped",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261014144130_customer_account_activity",
+      "repoCandidate": "20261014130000_customer_account_activity.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261014145140_customer_records_hub",
+      "repoCandidate": "20261014150000_customer_records_hub.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261014164830_group_checkout_records",
+      "repoCandidate": "20261014170000_group_checkout_records.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261015181335_customer_branded_crate_returns",
+      "repoCandidate": "20261015170000_customer_branded_crate_returns.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261015233039_shop_drink_lifecycle",
+      "repoCandidate": "20261015210000_shop_drink_lifecycle.sql",
+      "basis": "name-only",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261016152420_split_tender_ledger_staged_20261016",
+      "repoCandidate": null,
+      "basis": "unmapped",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261016152535_split_tender_atomic_saver_staged_20261016",
+      "repoCandidate": null,
+      "basis": "unmapped",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261016153051_verify_split_tender_receipts_staged_20261016",
+      "repoCandidate": null,
+      "basis": "unmapped",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261016153418_split_sale_read_only_recovery_20261016",
+      "repoCandidate": null,
+      "basis": "unmapped",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261016162615_split_sale_request_fence_staged_20261016",
+      "repoCandidate": null,
+      "basis": "unmapped",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261016165128_activate_cash_transfer_owner_only_20261016",
+      "repoCandidate": null,
+      "basis": "unmapped",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261017132205_generalize_multi_tender_guarded_20261017",
+      "repoCandidate": "20261017132205_generalize_multi_tender_guarded_20261017.sql",
+      "basis": "same-version",
+      "equivalence": "UNVERIFIED"
+    },
+    {
+      "live": "20261017132742_activate_multi_tender_owner_only_20261017",
+      "repoCandidate": "20261017132742_activate_multi_tender_owner_only_20261017.sql",
+      "basis": "same-version",
+      "equivalence": "UNVERIFIED"
+    }
+  ]
+}

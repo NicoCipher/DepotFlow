@@ -20,7 +20,7 @@ export default async function OpeningBalancesPage({
   const { customer, supabase } = await getCustomer(id);
   const { data: opening, error } = await supabase
     .from("customer_opening_balances")
-    .select("id,amount,business_date,note,crates,bottles,created_at")
+    .select("id,amount,deposit_amount,business_date,note,crates,bottles,created_at")
     .eq("customer_id", id)
     .maybeSingle();
   if (error) throw new Error("Could not load opening balances.");
@@ -59,6 +59,12 @@ export default async function OpeningBalancesPage({
             <dt>Old money owed added</dt>
             <dd className="font-semibold">{formatNaira(opening.amount)}</dd>
           </div>
+          {opening.deposit_amount > 0 && (
+            <div>
+              <dt>Refundable deposit held for customer</dt>
+              <dd className="font-semibold">{formatNaira(opening.deposit_amount)}</dd>
+            </div>
+          )}
         </dl>
         {(
           [

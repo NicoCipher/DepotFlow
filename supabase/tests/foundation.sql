@@ -70,7 +70,12 @@ begin
   loop
     if not t.relrowsecurity then raise exception 'RLS missing: %', t.relname; end if;
     if has_table_privilege('anon', format('public.%I', t.relname), 'SELECT') then raise exception 'Anonymous read: %', t.relname; end if;
-    if has_table_privilege('authenticated', format('public.%I', t.relname), 'INSERT,UPDATE,DELETE') then raise exception 'API writes: %', t.relname; end if;
+    -- business_profiles is deliberately writable by verified new owners,
+    -- guarded by its own RLS policies and two-owner isolation tests.
+    if t.relname <> 'business_profiles' and
+       has_table_privilege('authenticated', format('public.%I', t.relname), 'INSERT,UPDATE,DELETE') then
+      raise exception 'API writes: %', t.relname;
+    end if;
   end loop;
 end $$;
 rollback;

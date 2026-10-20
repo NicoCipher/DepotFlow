@@ -62,3 +62,21 @@ export function sniffProductImage(bytes: Uint8Array, declaredMime: string): "web
     String.fromCharCode(...bytes.slice(8, 12)) === "WEBP") return "webp";
   return null;
 }
+
+/**
+ * The shared master catalogue owns the current photo. Configured shops own
+ * their prices and stock, not separate cached copies of master photos.
+ * Keep custom (unlinked) drink photos unchanged. An invalid master path
+ * fails closed instead of exposing a stale or untrusted cached URL.
+ */
+export function currentProductImage(product: {
+  image_url: string | null;
+  product_catalogue?: { image_path: string | null } | null;
+}): string | null {
+  // A linked master row is authoritative even when its photo is withdrawn.
+  // Falling back to image_url here would resurrect an old or revoked image.
+  if (product.product_catalogue != null) {
+    return catalogueImageUrl(product.product_catalogue.image_path);
+  }
+  return product.image_url;
+}

@@ -4,8 +4,34 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ownerAuthorized } from "@/domain/authorization";
 import { safeSignInReturnPath } from "@/domain/auth-navigation";
+import { clearRejectedSignInCookies } from "@/lib/auth/rejected-signin-cleanup";
 
 export type SignInState = { email: string; message: string };
+
+type AuthClient = Awaited<ReturnType<typeof createClient>>;
+
+/** Never ignore a {error} signOut result on an already authenticated user. */
+async function rejectAuthenticatedLogin(
+  supabase: AuthClient, email: string, deniedMessage: string,
+): Promise<SignInState> {
+  try {
+    const { error } = await supabase.auth.signOut({ scope: "local" });
+    if (!error) return { email, message: deniedMessage };
+  } catch {
+    // Cookie cleanup below still runs if the Auth service is unreachable.
+  }
+  try {
+    if (await clearRejectedSignInCookies()) {
+      return { email, message: deniedMessage };
+    }
+  } catch {
+    // Cannot claim a safely cleared session.
+  }
+  return {
+    email,
+    message: "Sign-in was rejected but session cleanup could not be confirmed. Close this browser before sharing this device and try again.",
+  };
+}
 export async function signIn(
   _previous: SignInState,
   formData: FormData,
@@ -33,13 +59,32 @@ export async function signIn(
         email,
         message: "Could not sign in. Check your details and try again.",
       };
-    const owner = await supabase.rpc("is_shop_owner");
-    if (!ownerAuthorized(data.user.id, owner.data, owner.error)) {
-      await supabase.auth.signOut({ scope: "local" });
-      return {
-        email,
-        message: "This app is only available to the shop owner.",
-      };
+    // New-depot owners enter through a separate verified membership path.
+    // NEVER relax the legacy is_shop_owner() check for existing shop URLs.
+    if (returnTo === "/businesses") {
+      const depots = await supabase.rpc("list_my_businesses_for_setup");
+      // A confirmed owner with ZERO depots must still be able to sign in
+      // to REGISTER their first one. Registration has its OWN disabled gate.
+      // If listing is unavailable, never bypass that prerequisite.
+      const registration = !depots.error && !depots.data?.length
+        ? await supabase.rpc("can_register_business")
+        : null;
+      if (
+        depots.error ||
+        (!depots.data?.length &&
+          (registration?.error || registration?.data !== true))
+      ) {
+        return rejectAuthenticatedLogin(
+          supabase, email, "Multi-business setup is not available for this account yet.",
+        );
+      }
+    } else {
+      const owner = await supabase.rpc("is_shop_owner");
+      if (!ownerAuthorized(data.user.id, owner.data, owner.error)) {
+        return rejectAuthenticatedLogin(
+          supabase, email, "This app is only available to the shop owner.",
+        );
+      }
     }
   } catch {
     return { email, message: "Could not connect. Please try again." };

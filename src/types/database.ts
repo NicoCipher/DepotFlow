@@ -215,9 +215,9 @@ export type Database = {
         Relationships: []
       }
       customer_opening_balances: {
-        Row: { id: string; customer_id: string; request_id: string; amount: number; business_date: string; note: string; crates: Json; bottles: Json; request_payload: Json; created_at: string }
-        Insert: { id?: string; customer_id: string; request_id: string; amount: number; business_date: string; note?: string; crates: Json; bottles: Json; request_payload: Json; created_at?: string }
-        Update: { id?: string; customer_id?: string; request_id?: string; amount?: number; business_date?: string; note?: string; crates?: Json; bottles?: Json; request_payload?: Json; created_at?: string }
+        Row: { id: string; business_id: string | null; customer_id: string; request_id: string; amount: number; deposit_amount: number; business_date: string; note: string; crates: Json; bottles: Json; request_payload: Json; created_at: string }
+        Insert: { id?: string; business_id?: string | null; customer_id: string; request_id: string; amount: number; deposit_amount?: number; business_date: string; note?: string; crates: Json; bottles: Json; request_payload: Json; created_at?: string }
+        Update: { id?: string; business_id?: string | null; customer_id?: string; request_id?: string; amount?: number; deposit_amount?: number; business_date?: string; note?: string; crates?: Json; bottles?: Json; request_payload?: Json; created_at?: string }
         Relationships: [{ foreignKeyName: "customer_opening_balances_customer_id_fkey"; columns: ["customer_id"]; isOneToOne: true; referencedRelation: "customers"; referencedColumns: ["id"] }]
       }
       customer_payments: {
@@ -281,6 +281,7 @@ export type Database = {
       }
       customers: {
         Row: {
+          business_id: string | null
           address: string | null
           archived_at: string | null
           business_name: string | null
@@ -291,6 +292,7 @@ export type Database = {
           phone: string
         }
         Insert: {
+          business_id?: string | null
           address?: string | null
           archived_at?: string | null
           business_name?: string | null
@@ -301,6 +303,7 @@ export type Database = {
           phone: string
         }
         Update: {
+          business_id?: string | null
           address?: string | null
           archived_at?: string | null
           business_name?: string | null
@@ -1026,6 +1029,131 @@ export type Database = {
       }
     }
     Functions: {
+      preview_business_opening_count_progress: {
+        Args: { p_business_id: string }
+        Returns: Json
+      }
+      create_legacy_customer: {
+        Args: {
+          p_request_id: string
+          p_name: string
+          p_phone: string
+          p_business_name: string | null
+          p_address: string | null
+        }
+        Returns: Json
+      }
+      register_business_customer: {
+        Args: {
+          p_business_id: string
+          p_request_id: string
+          p_name: string
+          p_phone: string
+          p_customer_business_name: string | null
+          p_address: string | null
+        }
+        Returns: Json
+      }
+      record_business_customer_opening: {
+        Args: {
+          p_business_id: string
+          p_request_id: string
+          p_customer_id: string
+          p_amount: number
+          p_deposit: number
+          p_business_date: string
+          p_note: string
+          p_crates: Json
+          p_bottles: Json
+        }
+        Returns: Json
+      }
+      record_business_physical_opening: {
+        Args: {
+          p_business_id: string
+          p_request_id: string
+          p_kind: "drink" | "crate" | "bottle"
+          p_resource: string
+          p_quantity: number
+          p_loose: number
+          p_pack: number
+          p_business_date: string
+        }
+        Returns: Json
+      }
+      preview_business_assortment_setup: {
+        Args: { p_business_id: string }
+        Returns: Json
+      }
+      create_business_crate_type: {
+        Args: {
+          p_business_id: string
+          p_crate_type_id: string
+          p_name: string
+          p_empty_family: string
+          p_pocket_count: number
+          p_variant: string | null
+        }
+        Returns: string
+      }
+      add_business_catalogue_drink: {
+        Args: {
+          p_business_id: string
+          p_product_id: string
+          p_catalogue_product_id: string
+          p_crate_type_id: string
+          p_bottles_per_crate: number
+          p_full_crate_price: number
+          p_half_crate_price: number | null
+          p_quarter_crate_price: number | null
+          p_bottle_price: number | null
+          p_bottles_returnable: boolean
+          p_bottle_type: string | null
+          p_size: string | null
+        }
+        Returns: string
+      }
+      can_register_business: { Args: Record<string, never>; Returns: boolean }
+      register_my_business: {
+        Args: {
+          p_request_id: string
+          p_name: string
+          p_address: string
+          p_phone: string
+        }
+        Returns: Json
+      }
+      list_my_businesses_for_setup: {
+        Args: Record<string, never>
+        Returns: {
+          business_id: string
+          business_name: string
+          business_status: "setup" | "active"
+          member_kind: "owner"
+        }[]
+      }
+      preview_business_opening_readiness: {
+        Args: { p_business_id: string }
+        Returns: Json
+      }
+      prepare_business_opening_review: {
+        Args: { p_business_id: string }
+        Returns: Json
+      }
+      confirm_business_opening_review: {
+        Args: {
+          p_business_id: string
+          p_request_id: string
+          p_review_token: string
+          p_confirmed_business_name: string
+          p_stock_checked: boolean
+          p_customer_debts_checked: boolean
+          p_refundable_deposits_checked: boolean
+          p_customer_empties_checked: boolean
+          p_zero_history_checked: boolean
+        }
+        Returns: Json
+      }
       set_shop_drink_active: { Args: { p_id: string; p_active: boolean; p_expected_active: boolean }; Returns: boolean }
       customer_records: {
         Args: { p_from: string; p_to: string; p_kind: string; p_method: string; p_search: string; p_limit: number; p_cursor?: Json | null; p_before?: boolean }
@@ -1045,6 +1173,34 @@ export type Database = {
       save_business_details: { Args: { p_name: string; p_address: string; p_phone: string; p_logo_url: string }; Returns: undefined }
       release_held_empties: { Args: { p_id: string }; Returns: undefined }
       delete_unused_crate_type: { Args: { p_id: string }; Returns: undefined }
+      create_legacy_crate_type: {
+        Args: {
+          p_request_id: string
+          p_name: string
+          p_empty_family: string
+          p_pocket_count: number
+          p_variant: string | null
+        }
+        Returns: string
+      }
+      create_legacy_product: {
+        Args: {
+          p_request_id: string
+          p_name: string
+          p_size: string | null
+          p_image_url: string | null
+          p_crate_type_id: string
+          p_bottles_per_crate: number
+          p_full_crate_price: number
+          p_half_crate_price: number | null
+          p_quarter_crate_price: number | null
+          p_bottle_price: number | null
+          p_bottles_returnable: boolean
+          p_bottle_type: string | null
+          p_catalogue_product_id: string | null
+        }
+        Returns: string
+      }
       create_crate_type: {
         Args: {
           p_empty_family: string

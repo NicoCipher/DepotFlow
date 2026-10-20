@@ -37,6 +37,11 @@ def race(first, second):
 
 assert checked("select count(*) from private.shop_owner") == "0", "Use an empty disposable database"
 try:
+    # Only this disposable legacy lock-order fixture temporarily restores
+    # historical product INSERT rights; production uses generated-ID RPCs.
+    checked("""grant insert (
+        name,bottles_per_crate,full_crate_price,bottles_returnable,crate_type_id
+      ) on public.products to authenticated;""")
     checked(f"insert into auth.users(id) values('{owner}'); insert into private.shop_owner(user_id) values('{owner}'); insert into public.crate_types(id,name,empty_family,pocket_count) values('{crate}','Test crate','Test',12)")
     insert = f"insert into public.products(name,bottles_per_crate,full_crate_price,bottles_returnable,crate_type_id) values('Test drink',12,0,false,'{crate}')"
     edit = f"select public.edit_crate_type('{crate}','Changed crate','Test',20,'Short')"
@@ -48,4 +53,7 @@ try:
     assert checked(f"select pocket_count from public.crate_types where id='{crate}'") == "20"
     print("Concurrent assignment/metadata checks passed in both lock orders")
 finally:
+    checked("""revoke insert (
+        name,bottles_per_crate,full_crate_price,bottles_returnable,crate_type_id
+      ) on public.products from authenticated;""")
     checked(f"delete from public.products where crate_type_id='{crate}'; delete from public.crate_types where id='{crate}'; delete from private.shop_owner where user_id='{owner}'; do $$ begin if to_regclass('public.product_selling_price_history') is not null then execute 'delete from public.product_selling_price_history where owner_user_id=' || quote_literal('{owner}'); end if; end $$; delete from auth.users where id='{owner}' ")

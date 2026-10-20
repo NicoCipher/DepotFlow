@@ -4,6 +4,7 @@ import { productSearchFilter } from "@/domain/products";
 import { crateFitsProduct, crateNeedsSetup } from "@/domain/crate-types";
 
 import { ProductCard } from "@/components/product-card";
+import { currentProductImage } from "@/domain/product-images";
 
 export default async function ProductsPage({
   searchParams,
@@ -22,7 +23,7 @@ export default async function ProductsPage({
   let request = supabase
     .from("products")
     .select(
-      "id,name,size,image_url,bottles_per_crate,full_crate_price,bottle_price,is_active,crate_types(is_legacy,pocket_count,empty_family)",
+      "id,name,size,image_url,bottles_per_crate,full_crate_price,bottle_price,is_active,crate_types(is_legacy,pocket_count,empty_family),product_catalogue(image_path)",
       { count: "exact" },
     )
     .eq("is_active", !removed)
@@ -98,7 +99,7 @@ export default async function ProductsPage({
               !crateFitsProduct(crate.pocket_count, product.bottles_per_crate);
             return (
               <li key={product.id}>
-                <ProductCard product={product} />
+                <ProductCard product={{ ...product, image_url: currentProductImage(product) }} />
                 {removed && <p className="mt-1 text-sm text-stone-600">Removed from new sales · <Link href={`/products/${product.id}`} className="underline font-semibold">View or restore</Link></p>}
                 {needsSetup && (
                   <p className="mt-2 border-l-4 border-amber-700 pl-3 text-sm text-amber-900">

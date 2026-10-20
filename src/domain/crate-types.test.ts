@@ -55,7 +55,7 @@ test("matching physical attributes never select or merge an exact product crate 
 
 });
 test("pockets allow Other positive integers without being limited to presets", () => {
-  for (const pocket_count of ["12", "20", "24", "18", "1", "2147483647"])
+  for (const pocket_count of ["12", "20", "24", "18", "1", "120"])
     assert.equal(
       validateCrateType({
         name: "Separate identity",
@@ -73,6 +73,7 @@ test("pockets allow Other positive integers without being limited to presets", (
     "NaN",
     "Infinity",
     "1e2",
+    "121",
     "2147483648",
   ])
     assert.throws(() =>

@@ -13,8 +13,9 @@ import {
 } from "./sale-drafts.ts";
 // Exercise the existing server actions with Auth/Data API and navigation mocked;
 // no customer fixtures or business writes are sent to Supabase by these tests.
-function actions(fail = false, deny = false) {
-  const inserts: unknown[] = [];
+function actions(fail = false, deny = false, malformed?: "request" | "customer") {
+  const creates: Record<string, unknown>[] = [];
+  const edits: Array<{ id: string; values: Record<string, unknown> }> = [];
   const redirects: string[] = [];
   let authorized = 0;
   const loadedModule = {
@@ -25,6 +26,11 @@ function actions(fail = false, deny = false) {
         data: FormData,
       ) => Promise<customers.CustomerFormState>;
       addCustomer: (
+        id: string,
+        previous: customers.CustomerFormState,
+        data: FormData,
+      ) => Promise<customers.CustomerFormState>;
+      editCustomer: (
         id: string,
         previous: customers.CustomerFormState,
         data: FormData,
@@ -60,18 +66,35 @@ function actions(fail = false, deny = false) {
             from: (table: string) => {
               assert.equal(table, "customers");
               return {
-                insert: (values: unknown) => {
-                  inserts.push(values);
-                  return {
-                    select: () => ({
-                      single: async () =>
-                        fail
-                          ? { error: { code: "network" }, data: null }
-                          : { error: null, data: { id: "created" } },
-                    }),
-                  };
-                },
+                update: (values: Record<string, unknown>) => ({
+                  eq: (column: string, id: string) => {
+                    assert.equal(column, "id");
+                    edits.push({ id, values });
+                    return {
+                      select: (column: string) => {
+                        assert.equal(column, "id");
+                        return {
+                          maybeSingle: async () => ({ error: null, data: { id } }),
+                        };
+                      },
+                    };
+                  },
+                }),
               };
+            },
+            rpc: async (fn: string, args: Record<string, unknown>) => {
+              assert.equal(fn, "create_legacy_customer");
+              creates.push(args);
+              return fail
+                ? { error: { code: "network" }, data: null }
+                : {
+                    error: null,
+                    data: {
+                      customerId: malformed === "customer" ? "not-a-uuid" : issuedCustomerId,
+                      requestId: malformed === "request" ? issuedCustomerId : args.p_request_id,
+                      savedReplay: false,
+                    },
+                  };
             },
           };
         },
@@ -85,12 +108,14 @@ function actions(fail = false, deny = false) {
   );
   return {
     api: loadedModule.exports,
-    inserts,
+    creates,
+    edits,
     redirects,
     authorized: () => authorized,
   };
 }
 const customerId = "90000000-0000-4000-8000-000000000001";
+const issuedCustomerId = "90000000-0000-4000-8000-000000000002";
 const previous = { values: customers.emptyCustomer, errors: {} };
 function form(name = "New customer", phone = "08012345678") {
   const data = new FormData();
@@ -135,8 +160,11 @@ test("shared customer creation returns the created ID for Record Sale and select
     previous,
     form(),
   );
-  assert.equal(result.createdId, customerId);
-  assert.equal(server.inserts.length, 1);
+  assert.equal(result.createdId, issuedCustomerId);
+  assert.equal(server.creates.length, 1);
+  assert.equal(server.creates[0].p_request_id, customerId);
+  assert.equal(server.creates[0].p_name, "New customer");
+  assert.ok(!("id" in server.creates[0]));
   assert.equal(server.authorized(), 1);
   assert.deepEqual(server.redirects, []);
   const selected = selectSaleCustomer(
@@ -146,7 +174,7 @@ test("shared customer creation returns the created ID for Record Sale and select
     "unused",
   );
   assert.equal(selected.active?.id, "active");
-  assert.equal(selected.active?.draft.customerId, customerId);
+  assert.equal(selected.active?.draft.customerId, issuedCustomerId);
   assert.equal(selected.active?.draft.step, "drinks");
   assert.deepEqual(selected.active?.draft.lines, state.active?.draft.lines);
   assert.equal(selected.active?.draft.bottles, "3");
@@ -156,7 +184,7 @@ test("cancelled creation needs no write; reopening retains active and paused dra
   const state = sale();
   const server = actions();
   assert.deepEqual(readSaleDrafts(JSON.stringify(state)), state);
-  assert.equal(server.inserts.length, 0);
+  assert.equal(server.creates.length, 0);
 });
 test("validation errors use existing customer validation, insert nothing, and leave the sale intact", async () => {
   const server = actions();
@@ -171,7 +199,7 @@ test("validation errors use existing customer validation, insert nothing, and le
   assert.ok(result.errors.phone);
   assert.equal(result.values.phone, "bad phone");
   assert.equal(result.createdId, undefined);
-  assert.equal(server.inserts.length, 0);
+  assert.equal(server.creates.length, 0);
   assert.deepEqual(server.redirects, []);
   assert.equal(JSON.stringify(state), before);
 });
@@ -184,7 +212,7 @@ test("failed customer creation does not select a customer or change the draft", 
     form(),
   );
   assert.equal(result.createdId, undefined);
-  assert.match(result.message!, /Could not save/);
+  assert.match(result.message!, /Could not confirm/);
   assert.equal(state.active?.draft.customerId, "old-customer");
 });
 test("normal Add Customer still saves through the same action and redirects to customer detail", async () => {
@@ -193,16 +221,42 @@ test("normal Add Customer still saves through the same action and redirects to c
     server.api.addCustomer(customerId, previous, form()),
     /redirect/,
   );
-  assert.equal(server.inserts.length, 1);
-  assert.deepEqual(server.redirects, [`/customers/${customerId}?saved=added`]);
+  assert.equal(server.creates.length, 1);
+  assert.deepEqual(server.redirects, [`/customers/${issuedCustomerId}?saved=added`]);
 });
+test("editing an existing customer still uses an ID-scoped UPDATE, not the creation RPC", async () => {
+  const server = actions();
+  await assert.rejects(
+    server.api.editCustomer(issuedCustomerId, previous, form("Edited customer")),
+    /redirect/,
+  );
+  assert.equal(server.creates.length, 0);
+  assert.deepEqual(server.edits, [{
+    id: issuedCustomerId,
+    values: { name: "Edited customer", phone: "+2348012345678",
+      business_name: null, address: null },
+  }]);
+  assert.deepEqual(server.redirects, [`/customers/${issuedCustomerId}?saved=updated`]);
+});
+
+test("an invalid or mismatched customer RPC response cannot select the wrong sale customer", async () => {
+  for (const malformed of ["request", "customer"] as const) {
+    const server = actions(false, false, malformed);
+    const result = await server.api.addCustomerForSale(customerId, previous, form());
+    assert.equal(result.createdId, undefined);
+    assert.match(result.message ?? "", /Could not confirm/);
+    assert.deepEqual(server.redirects, []);
+    assert.equal(server.creates.length, 1);
+  }
+});
+
 test("owner guard still runs before a customer write and a changed active draft cannot be overwritten", async () => {
   const server = actions(false, true);
   await assert.rejects(
     server.api.addCustomerForSale(customerId, previous, form()),
     /Owner only/,
   );
-  assert.equal(server.inserts.length, 0);
+  assert.equal(server.creates.length, 0);
   assert.throws(
     () => selectSaleCustomer(sale(), "different", customerId, "unused"),
     /active sale changed/,

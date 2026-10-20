@@ -1,0 +1,612 @@
+{
+  "project": "DepotFlow",
+  "source": "production metadata SELECT-only 2026-10-19",
+  "recorded_migrations": 56,
+  "postgres_major": 17,
+  "source_query": "supabase/tests/fixtures/app_client_column_dml_acl.sql",
+  "warning": "SELECT-only security metadata. Includes direct/effective DELETE and WITH GRANT OPTION for anon/authenticated/service_role on all pre-Auth application tables/views, including PUBLIC/inherited privileges. Column DML tracks is_grantable. Excludes Supabase-managed REFERENCES, Auth/storage platform grants and grantor provenance.",
+  "per_table": {
+    "public.sales": {
+      "hash": "98a14401e3f9f322fbf0afe24932341b",
+      "count": 17
+    },
+    "public.stock": {
+      "hash": "77c69e746c15f28810d8d789c2a0050c",
+      "count": 2
+    },
+    "public.deposits": {
+      "hash": "2a34556fabffb0eb0ca21ca1f9f9c816",
+      "count": 2
+    },
+    "public.products": {
+      "hash": "7434ffe0c101fe7fe89ba10d58986cfb",
+      "count": 42
+    },
+    "public.customers": {
+      "hash": "0948ea8a99f21e987e249b592ca11c2c",
+      "count": 19
+    },
+    "public.money_owed": {
+      "hash": "2a34556fabffb0eb0ca21ca1f9f9c816",
+      "count": 2
+    },
+    "public.sale_items": {
+      "hash": "5144462066a40bed5d7ad874d8c69a91",
+      "count": 16
+    },
+    "private.shop_owner": {
+      "hash": "eb199c59430fc283fbfa2ba3f1b7eb67",
+      "count": 2
+    },
+    "public.crate_types": {
+      "hash": "74c4f1362e91c6067183fe867f23ab7f",
+      "count": 8
+    },
+    "public.shop_profile": {
+      "hash": "4a8be4801b90c2b3c9edfcdba51d82bc",
+      "count": 5
+    },
+    "public.stock_movements": {
+      "hash": "c8806b84095c3a4b747215aa55531aa0",
+      "count": 14
+    },
+    "public.crate_swap_rules": {
+      "hash": "94487dd515c24ca994e04229fcb52084",
+      "count": 3
+    },
+    "public.sale_tender_legs": {
+      "hash": "1406995e8c5c1023bdf4ab6e60f6f463",
+      "count": 6
+    },
+    "public.crate_obligations": {
+      "hash": "7e444b5d2dbf2d8ca761979ba0f16af0",
+      "count": 4
+    },
+    "public.customer_payments": {
+      "hash": "af1679e37ff3a42782ee061c68670938",
+      "count": 14
+    },
+    "public.empty_crate_stock": {
+      "hash": "fc5166cfa14dbf1de40d9d358a43203a",
+      "count": 3
+    },
+    "public.product_catalogue": {
+      "hash": "072045c4652280f09bfce9fcbd5f3b20",
+      "count": 6
+    },
+    "public.bottle_obligations": {
+      "hash": "05d34f63979aaffc5b8b9419101a0110",
+      "count": 3
+    },
+    "public.empty_bottle_stock": {
+      "hash": "818129f8cb3f3f1f60b5a8ed45c81234",
+      "count": 2
+    },
+    "public.known_empty_crates": {
+      "hash": "994b26a50dde23d49c9c1c6df5bcd009",
+      "count": 7
+    },
+    "public.bottle_deposit_price": {
+      "hash": "d24a7b7f6f8ce2312542714501e370fe",
+      "count": 3
+    },
+    "public.crate_deposit_prices": {
+      "hash": "b134e9db59f94c671b6d32077ea83084",
+      "count": 4
+    },
+    "public.product_cost_history": {
+      "hash": "2844ef6a8c76f21b2d6100783a019016",
+      "count": 6
+    },
+    "public.sale_empty_decisions": {
+      "hash": "1d2400eb5c286e332ae48aad356c4915",
+      "count": 13
+    },
+    "public.empty_crate_movements": {
+      "hash": "eff28c33db1ea281da15dacf00066887",
+      "count": 10
+    },
+    "public.sale_empty_crate_returns": {
+      "hash": "1bba09044e2f831af708771301a1d950",
+      "count": 4
+    },
+    "public.customer_opening_balances": {
+      "hash": "52a297b48b56111ee0bc07389ab0c698",
+      "count": 10
+    },
+    "public.sale_empty_bottle_returns": {
+      "hash": "78741a506feb02bf9241d3c0d92ecd61",
+      "count": 3
+    },
+    "public.product_selling_price_history": {
+      "hash": "2df25ebad4235aec01457d99de7b7a94",
+      "count": 8
+    }
+  },
+  "counts_by_role_and_privilege": {
+    "authenticated:INSERT": 18,
+    "authenticated:SELECT": 201,
+    "authenticated:UPDATE": 19
+  },
+  "records_include_is_grantable": true,
+  "effective_delete_by_table": {
+    "public.sales": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.stock": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.deposits": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.products": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.customers": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.money_owed": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.sale_items": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.shop_owner": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.crate_types": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.shop_profile": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.stock_receipts": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.stock_movements": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.crate_swap_rules": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.sale_tender_legs": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.crate_obligations": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.customer_payments": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.empty_crate_stock": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.product_catalogue": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.bottle_obligations": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.empty_bottle_stock": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.known_empty_crates": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.bottle_deposit_price": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.crate_deposit_prices": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.product_cost_history": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.sale_empty_decisions": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.empty_crate_movements": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.customer_empty_returns": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.held_empty_collections": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.sale_empty_crate_returns": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.confirmed_selling_prices": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.customer_opening_balances": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.sale_empty_bottle_returns": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.split_sale_request_fences": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.product_selling_price_history": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    }
+  },
+  "scope": "Application public/private tables and views, minus separate already-installed Auth-only gate (56th applied migration). Compare read-only 55-stage reconstructed history.",
+  "table_delete_verification": true
+}

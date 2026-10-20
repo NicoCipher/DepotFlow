@@ -1,0 +1,328 @@
+-- M2f-44: AUTHENTICATED Data API equivalent requests cannot supply
+-- a new-depot business_id or caller-chosen foreign customer ID. Even
+-- default-generated IDs must pass the audited RPC. Original Walnik
+-- owner creation through RPC, edit, and SELECT remain available.
+-- Disposable Postgres fixture; transaction ALWAYS rolled back.
+begin;
+-- The disposable SQL harness temporarily regrants the original customer
+-- INSERT columns for historical, fixed-ID fixtures. Revoke those grants
+-- within THIS transaction to test production's RPC-only privilege boundary.
+-- The outer ROLLBACK restores only the disposable fixture state.
+revoke insert (id,name,phone,business_name,address)
+ on public.customers from authenticated;
+insert into auth.users(id) values
+ ('89c00000-0000-4000-8000-000000000001'),
+ ('89c00000-0000-4000-8000-000000000002'),
+ ('89c00000-0000-4000-8000-000000000003');
+insert into private.shop_owner(user_id)
+ values('89c00000-0000-4000-8000-000000000001');
+select private.link_legacy_shop_business();
+
+-- Simulate an AFTER INSERT failure on the last immutable legacy audit.
+-- The customer itself must roll back in the SAME transaction.
+create function pg_temp.reject_one_legacy_create()
+returns trigger language plpgsql as $audit_fail$
+begin
+ if new.request_id='89c00000-0000-4000-9000-000000000019'::uuid then
+  raise exception 'Injected legacy customer request audit failure'
+    using errcode='22023';
+ end if;
+ return new;
+end;
+$audit_fail$;
+create trigger disposable_legacy_customer_audit_failure
+ after insert on private.legacy_customer_creation_requests
+ for each row execute function pg_temp.reject_one_legacy_create();
+
+do $no_direct_business_insert$
+begin
+ if has_any_column_privilege('authenticated','public.customers','INSERT')
+ or has_table_privilege('anon','public.customers','INSERT')
+ or has_function_privilege('authenticated',
+   'public.register_business_customer(uuid,uuid,text,text,text,text)',
+   'EXECUTE')
+ or not has_function_privilege('authenticated',
+   'public.create_legacy_customer(uuid,text,text,text,text)','EXECUTE')
+ or has_function_privilege('anon',
+   'public.create_legacy_customer(uuid,text,text,text,text)','EXECUTE')
+ then raise exception 'Data API customer grant boundary is unsafe';end if;
+end;
+$no_direct_business_insert$;
+
+-- Pilot creation before its business backfill (existing production pathway).
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89c00000-0000-4000-8000-000000000001',true);
+do $before_backfill_create$
+declare v jsonb;r jsonb;
+begin
+ -- A last-step audit insert failure must NOT leave a ghost customer.
+ begin
+  perform public.create_legacy_customer(
+   '89c00000-0000-4000-9000-000000000019',
+   'Failed audit ghost','08012340019',null,null);
+  raise exception 'Failed audit did not roll back customer' using errcode='PT001';
+ exception when invalid_parameter_value then null;
+ end;
+ v:=public.create_legacy_customer(
+  '89c00000-0000-4000-9000-000000000011',
+  'Pilot before backfill','08012340011',null,null);
+ r:=public.create_legacy_customer(
+  '89c00000-0000-4000-9000-000000000011',
+  'Pilot before backfill','08012340011',null,null);
+ if v->>'customerId'='89c00000-0000-4000-9000-000000000011'
+  or v->>'customerId'<>r->>'customerId'
+  or r->>'savedReplay'<>'true' then
+  raise exception 'Legacy RPC reused caller-owned PK or lost retry';
+ end if;
+end;
+$before_backfill_create$;
+reset role;
+do $audit_error_atomic$
+begin
+ if exists(select 1 from public.customers
+           where phone='08012340019')
+ or exists(select 1 from private.legacy_customer_creation_requests
+           where request_id='89c00000-0000-4000-9000-000000000019') then
+  raise exception 'Legacy customer audit failure left a partial record';
+ end if;
+end;
+$audit_error_atomic$;
+
+select private.backfill_legacy_shop_rows(private.legacy_scope_snapshot());
+do $validate$
+declare r record;n int:=0;
+begin
+ for r in
+ select ns.nspname s,c.relname t,k.conname
+ from pg_constraint k join pg_class c on c.oid=k.conrelid
+ join pg_namespace ns on ns.oid=c.relnamespace
+ join private.legacy_scope_tables() tab
+  on tab.schema_name=ns.nspname and tab.table_name=c.relname
+ where k.contype='f' and left(k.conname,7)='tenant_'
+ loop
+  execute pg_catalog.format('alter table %I.%I validate constraint %I',
+    r.s,r.t,r.conname);
+  n:=n+1;
+ end loop;
+ if n<>31 then raise exception 'Tenant constraint prerequisite drift: %',n;end if;
+end;
+$validate$;
+select private.enable_legacy_write_scope(private.legacy_scope_snapshot());
+
+-- Preserve post-backfill original-shop RPC creation and direct editing.
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89c00000-0000-4000-8000-000000000001',true);
+do $after_backfill_create$
+declare v jsonb;r jsonb;v_id uuid;
+begin
+ v:=public.create_legacy_customer(
+  '89c00000-0000-4000-9000-000000000012',
+  'Pilot after backfill','08012340012',null,null);
+ v_id:=(v->>'customerId')::uuid;
+ r:=public.create_legacy_customer(
+  '89c00000-0000-4000-9000-000000000012',
+  'Pilot after backfill','08012340012',null,null);
+ if v_id='89c00000-0000-4000-9000-000000000012'::uuid
+   or r->>'customerId'<>v_id::text or r->>'savedReplay'<>'true' then
+   raise exception 'Post-backfill legacy create retry failed';
+ end if;
+ -- A matching request UUID with changed customer details must NEVER
+ -- modify the row or silently create a second customer.
+ begin
+  perform public.create_legacy_customer(
+   '89c00000-0000-4000-9000-000000000012',
+   'Replaced customer name','08012340012',null,null);
+  raise exception 'Changed legacy request incorrectly succeeded'
+   using errcode='PT001';
+ exception when invalid_parameter_value then null;
+ end;
+ update public.customers set name='Pilot edited after backfill' where id=v_id;
+end;
+$after_backfill_create$;
+do $original_shop_unbroken$
+begin
+ -- Inspect only owner-visible public rows in the authenticated fixture.
+ -- Do not grant ordinary owners SELECT on private.businesses.
+ if (select count(*) from public.customers)<>2
+   or (select count(distinct business_id) from public.customers)<>1
+   or exists(select 1 from public.customers where business_id is null)
+   or (select name from public.customers
+       where phone='08012340012')
+       <>'Pilot edited after backfill' then
+   raise exception 'Original shop customer create/edit broke';
+ end if;
+end;
+$original_shop_unbroken$;
+reset role;
+
+-- Even the original verified owner cannot use a guessed customer
+-- primary key in a direct Data API insert: both known and unused IDs must
+-- be blocked BEFORE the global PK uniqueness check.
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89c00000-0000-4000-8000-000000000001',true);
+do $legacy_direct_pk_denied$
+begin
+ begin
+  insert into public.customers(id,name,phone) values(
+   '89c00000-0000-4000-9000-000000000099',
+   'Guessed PK','08012340099');
+  raise exception 'Legacy caller selected customer primary key'
+   using errcode='PT001';
+ exception when insufficient_privilege then null;
+ end;
+end;
+$legacy_direct_pk_denied$;
+-- A direct INSERT that omits the PK is also forbidden. The UUID column
+-- has its own DEFAULT, so revoking only INSERT(id) was insufficient.
+do $legacy_direct_default_id_denied$
+begin
+ begin
+  insert into public.customers(name,phone) values
+   ('Default UUID bypass','08012340098');
+  raise exception 'Unaudited direct customer creation succeeded'
+   using errcode='PT001';
+ exception when insufficient_privilege then null;
+ end;
+end;
+$legacy_direct_default_id_denied$;
+reset role;
+
+-- Other owners have separate business memberships, but direct INSERT
+-- business_id is unavailable even while an approved setup RPC is used.
+insert into private.businesses(id,status) values
+ ('89c00000-0000-4000-9000-000000000021','setup'),
+ ('89c00000-0000-4000-9000-000000000022','setup');
+insert into private.business_memberships(
+ business_id,user_id,status,member_kind) values
+ ('89c00000-0000-4000-9000-000000000021',
+ '89c00000-0000-4000-8000-000000000002','active','owner'),
+ ('89c00000-0000-4000-9000-000000000022',
+ '89c00000-0000-4000-8000-000000000003','active','owner');
+
+update private.business_selection_gate set enabled=true where singleton;
+update private.business_customer_registration_gate set enabled=true where singleton;
+grant execute on function public.register_business_customer(
+ uuid,uuid,text,text,text,text) to authenticated;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89c00000-0000-4000-8000-000000000003',true);
+do $second_depot_customer$
+declare v jsonb;
+begin
+ v:=public.register_business_customer(
+ '89c00000-0000-4000-9000-000000000022',
+ '89c00000-0000-4000-9000-000000000031',
+ 'Second owner customer','08012340031',null,null);
+ if v->>'businessId'<>'89c00000-0000-4000-9000-000000000022'
+   or v->>'canOperate'<>'false' then
+   raise exception 'Second depot RPC not available after test-only gate';
+ end if;
+end;
+$second_depot_customer$;
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89c00000-0000-4000-8000-000000000002',true);
+do $direct_data_api_attacks$
+declare v_sqlstate text;
+begin
+ -- A nonlegacy owner must not call the original-shop-only generator.
+ begin
+  perform public.create_legacy_customer(
+   '89c00000-0000-4000-9000-000000000061',
+   'Forged legacy customer','08012340061',null,null);
+  raise exception 'A used original-shop customer generator' using errcode='PT001';
+ exception when insufficient_privilege then null;
+ end;
+ -- The same 42501 result for a KNOWN foreign ID and a fresh UUID;
+ -- the globally unique customers primary key is never reached.
+ begin
+   insert into public.customers(
+     id,name,phone,business_id) values(
+     '89c00000-0000-4000-9000-000000000011',
+     'Cross-shop probe','08012340041',
+     '89c00000-0000-4000-9000-000000000021');
+   raise exception 'Known cross-tenant customer ID was accepted'
+     using errcode='PT001';
+ exception when insufficient_privilege then null;
+ end;
+ begin
+   insert into public.customers(
+     id,name,phone,business_id) values(
+     '89c00000-0000-4000-9000-000000000044',
+     'Fresh-ID probe','08012340044',
+     '89c00000-0000-4000-9000-000000000021');
+   raise exception 'Fresh customer ID passed direct Data API'
+     using errcode='PT001';
+ exception when insufficient_privilege then null;
+ end;
+ -- Without business_id, a nonlegacy owner cannot use the old legacy
+ -- trigger to write unassigned or original-shop customer records.
+ begin
+   insert into public.customers(id,name,phone) values
+     ('89c00000-0000-4000-9000-000000000045',
+      'Unscoped new-depot customer','08012340045');
+   raise exception 'New depot wrote customer without business identity'
+     using errcode='PT001';
+ exception when insufficient_privilege then null;
+ end;
+ if exists(select 1 from public.customers) then
+  raise exception 'A owner can read B or pilot customer';
+ end if;
+end;
+$direct_data_api_attacks$;
+
+-- An approved gated tenant RPC can still create new customers without
+-- accepting caller-owned global IDs.
+do $safe_registration$
+declare v jsonb;
+begin
+ v:=public.register_business_customer(
+ '89c00000-0000-4000-9000-000000000021',
+ '89c00000-0000-4000-9000-000000000032',
+ 'First owner customer','08012340032',null,null);
+ if v->>'businessId'<>'89c00000-0000-4000-9000-000000000021'
+   or (select count(*) from public.customers)<>1 then
+  raise exception 'Secure new-depot customer registration broke';
+ end if;
+end;
+$safe_registration$;
+reset role;
+
+do $audit_integrity$
+begin
+ if (select count(*) from public.customers)<>4
+ or (select count(*) from private.business_customer_registration_requests)<>2
+ then
+  raise exception 'Customer Data API denial or guarded RPC altered other shop rows';
+ end if;
+end;
+$audit_integrity$;
+
+-- The legacy creator cannot replay a previously known customer ID after
+-- membership revocation once the audited legacy write gate is active.
+update private.business_memberships set status='disabled'
+ where business_id in (
+  select id from private.businesses where legacy_singleton is true);
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89c00000-0000-4000-8000-000000000001',true);
+do $revoked_legacy_creator$
+begin
+ begin
+  perform public.create_legacy_customer(
+   '89c00000-0000-4000-9000-000000000011',
+   'Pilot before backfill','08012340011',null,null);
+  raise exception 'Revoked original owner replayed customer request'
+   using errcode='PT001';
+ exception when insufficient_privilege then null;
+ end;
+end;
+$revoked_legacy_creator$;
+reset role;
+rollback;

@@ -1,0 +1,80 @@
+# Direct endpoint integration testing against a disposable LOCAL Supabase CLI stack.
+# No hosted Supabase credentials, project ref, database or paid branch used.
+name: Verify local Auth signup (free)
+
+on:
+  workflow_dispatch: {}
+  pull_request:
+    paths:
+      - ".github/workflows/verify-local-auth.yml"
+      - "supabase/tests/auth-local/**"
+      - "supabase/migrations/20261018112000_stage_auth_side_signup_hook.sql"
+      - "scripts/test-local-gotrue-signup.mjs"
+
+permissions:
+  contents: read
+
+jobs:
+  local-auth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Prepare isolated project using exact staged hook migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e "$RUNNER_TEMP/depotflow-auth-hook-e2e/supabase/config.toml"
+          mkdir -p "$RUNNER_TEMP/depotflow-auth-hook-e2e/supabase/migrations"
+          cp supabase/tests/auth-local/config.toml \
+            "$RUNNER_TEMP/depotflow-auth-hook-e2e/supabase/config.toml"
+          cat > "$RUNNER_TEMP/depotflow-auth-hook-e2e/supabase/migrations/20261018111900_auth_hook_schema.sql" <<'SQL'
+          create schema if not exists private;
+          revoke all on schema private from public,anon,authenticated,service_role;
+          SQL
+          cp supabase/migrations/20261018112000_stage_auth_side_signup_hook.sql \
+             "$RUNNER_TEMP/depotflow-auth-hook-e2e/supabase/migrations/"
+          # Do NOT copy any other production migrations, secrets or live data.
+          test "$(find "$RUNNER_TEMP/depotflow-auth-hook-e2e/supabase/migrations" -name '*.sql' | wc -l)" -eq 2
+
+      - name: Install pinned Supabase CLI and inspect command flags
+        working-directory: ${{ runner.temp }}/depotflow-auth-hook-e2e
+        run: |
+          set -euo pipefail
+          npx --yes supabase@2.119.0 --version
+          npx --yes supabase@2.119.0 start --help >/dev/null
+          npx --yes supabase@2.119.0 status --help >/dev/null
+
+      - name: Start only local DB, Kong, GoTrue and email capture
+        working-directory: ${{ runner.temp }}/depotflow-auth-hook-e2e
+        timeout-minutes: 18
+        run: |
+          set -euo pipefail
+          docker info >/dev/null
+          npx --yes supabase@2.119.0 start \
+            -x storage,realtime,imgproxy,edge-runtime,analytics,vector,studio,postgres-meta
+          npx --yes supabase@2.119.0 status -o env > "$RUNNER_TEMP/local-supabase-status.env"
+          # Do NOT print status.env: it includes local signing keys.
+          test -s "$RUNNER_TEMP/local-supabase-status.env"
+
+      - name: Probe real GoTrue signup with gate OFF, ON, then OFF
+        shell: bash
+        working-directory: ${{ runner.temp }}/depotflow-auth-hook-e2e
+        run: |
+          set -euo pipefail
+          set -a
+          source "$RUNNER_TEMP/local-supabase-status.env"
+          set +a
+          export DEPOTFLOW_AUTH_LOCAL_ONLY=I_VERIFY_DISPOSABLE_LOOPBACK_ONLY
+          export DEPOTFLOW_LOCAL_SUPABASE_API_URL="${API_URL:-}"
+          export DEPOTFLOW_LOCAL_SUPABASE_ANON_KEY="${ANON_KEY:-}"
+          node "$GITHUB_WORKSPACE/scripts/test-local-gotrue-signup.mjs"
+
+      - name: Stop and delete disposable local services
+        if: always()
+        working-directory: ${{ runner.temp }}/depotflow-auth-hook-e2e
+        run: npx --yes supabase@2.119.0 stop --no-backup || true

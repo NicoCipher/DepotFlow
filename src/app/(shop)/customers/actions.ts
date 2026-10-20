@@ -5,7 +5,6 @@ import { revalidatePath } from "next/cache";
 import { requireOwner } from "@/lib/auth/owner";
 import {
   isCustomerId,
-  sameCustomerDetails,
   validateCustomer,
   type CustomerFormState,
   type CustomerValues,
@@ -37,49 +36,48 @@ async function save(
       errors: {},
       message: "Please reopen this form and try again.",
     };
+  let savedId = id;
   try {
-    const result = editing
-      ? await supabase
-          .from("customers")
-          .update(checked.data)
-          .eq("id", id)
-          .select("id")
-          .maybeSingle()
-      : await supabase
-          .from("customers")
-          .insert({ id, ...checked.data })
-          .select("id")
-          .single();
-    if (result.error || !result.data) {
-      // A retry with the same form ID is successful only if the stored data agrees.
-      // Never upsert: a stale create retry must not overwrite a subsequent edit.
-      if (!editing && result.error?.code === "23505") {
-        const existing = await supabase
-          .from("customers")
-          .select("name,phone,business_name,address")
-          .eq("id", id)
-          .maybeSingle();
-        if (
-          existing.error ||
-          !existing.data ||
-          !sameCustomerDetails(existing.data, checked.data)
-        ) {
-          return {
-            values,
-            errors: {},
-            message:
-              "This form was already saved with different details. Open the customer list to check.",
-          };
-        }
-      } else {
+    if (editing) {
+      const result = await supabase
+        .from("customers")
+        .update(checked.data)
+        .eq("id", id)
+        .select("id")
+        .maybeSingle();
+      if (result.error || !result.data) {
         return {
           values,
           errors: {},
-          message:
-            "Could not save the customer. Your details are still here. Please try again.",
+          message: "Could not save the customer. Your details are still here. Please try again.",
         };
       }
+    } else {
+      // The form ID is an immutable REQUEST token, not the customer PK.
+      // This removes the original shop's ability to probe a foreign PK.
+      // The verified legacy-only RPC generates the actual customer ID in
+      // PostgreSQL, returning the same record after a lost-response retry.
+      const result = await supabase.rpc("create_legacy_customer", {
+        p_request_id: id,
+        p_name: checked.data.name,
+        p_phone: checked.data.phone,
+        p_business_name: checked.data.business_name,
+        p_address: checked.data.address,
+      });
+      if (result.error || !result.data ||
+        typeof result.data !== "object" || Array.isArray(result.data) ||
+        typeof result.data.customerId !== "string" ||
+        !isCustomerId(result.data.customerId) ||
+        result.data.requestId !== id) {
+        return {
+          values,
+          errors: {},
+          message: "Could not confirm this customer. Check the customer list before retrying.",
+        };
+      }
+      savedId = result.data.customerId;
     }
+
   } catch {
     return {
       values,
@@ -89,9 +87,11 @@ async function save(
     };
   }
   revalidatePath("/customers");
-  revalidatePath(`/customers/${id}`);
-  if (returnToSale && !editing) return { values, errors: {}, createdId: id };
-  redirect(`/customers/${id}?saved=${editing ? "updated" : "added"}`);
+  revalidatePath(`/customers/${savedId}`);
+  if (returnToSale && !editing)
+    return { values, errors: {}, createdId: savedId };
+  // Redirect OUTSIDE try/catch; Next.js uses a thrown sentinel.
+  redirect(`/customers/${savedId}?saved=${editing ? "updated" : "added"}`);
 }
 
 export async function addCustomer(

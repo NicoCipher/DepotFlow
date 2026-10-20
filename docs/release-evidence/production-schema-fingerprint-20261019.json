@@ -1,0 +1,60 @@
+{
+  "project": "DepotFlow",
+  "captured_on": "2026-10-19 after hosted Auth gate",
+  "postgres": "17.6",
+  "method": "read-only query supabase/tests/live_schema_fingerprint.sql",
+  "warning": "Live public/private schema after Auth-only migration. Routine hashes include owner, definer, direct ACL, effective EXECUTE grants and schema usage. Does not prove managed Auth settings, Auth/Storage platform grants, live data parity or actual complete schema clone.",
+  "objects": [
+    {
+      "kind": "column_grants",
+      "object_count": 473,
+      "definition_hash": "533104141549e7e6d1659e61b93570b1"
+    },
+    {
+      "kind": "columns",
+      "object_count": 221,
+      "definition_hash": "a59034acd6cc9517a6c6e70d20eb96b8"
+    },
+    {
+      "kind": "constraints",
+      "object_count": 194,
+      "definition_hash": "6ad992f49f65e19f836404052b0b27e2"
+    },
+    {
+      "kind": "functions",
+      "object_count": 61,
+      "definition_hash": "c2c2099b40849aedbd99644672843be0"
+    },
+    {
+      "kind": "indexes",
+      "object_count": 80,
+      "definition_hash": "77c256ff5a24287fde9889ba543d27b2"
+    },
+    {
+      "kind": "policies",
+      "object_count": 33,
+      "definition_hash": "ecd3e40e29e1978a393f59d1c6ab0d80"
+    },
+    {
+      "kind": "relations",
+      "object_count": 37,
+      "definition_hash": "a9e820bb824904c31edeeefba3360298"
+    },
+    {
+      "kind": "triggers",
+      "object_count": 15,
+      "definition_hash": "8ac1ebaa4d97a8ae8258f169c36bbbb1"
+    }
+  ],
+  "fingerprint_includes_rls_role_bindings": true,
+  "note": "19 October hosted 56-migration snapshot; function ACL, owner, effective EXECUTE and schema USAGE for all four actor roles recorded. This is not a full platform auth/storage or data clone certificate.",
+  "functions_include_execute_acl_and_schema_usage": true,
+  "recorded_migrations": 56,
+  "migration_ledger_tip": "20261019132131",
+  "actor_schema_usage_roles": [
+    "anon",
+    "authenticated",
+    "service_role",
+    "supabase_auth_admin"
+  ]
+}
