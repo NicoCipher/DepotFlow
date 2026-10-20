@@ -80,7 +80,7 @@ export default async function Home() {
       const result = await supabase
         .from("products")
         .select(
-          "id,bottles_per_crate,crate_types(is_legacy,pocket_count,empty_family)",
+          "id,bottles_per_crate,crate_types!products_crate_type_id_fkey(is_legacy,pocket_count,empty_family)",
         )
         .eq("is_active", true)
         .order("id")

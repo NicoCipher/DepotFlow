@@ -23,7 +23,7 @@ export default async function ProductsPage({
   let request = supabase
     .from("products")
     .select(
-      "id,name,size,image_url,bottles_per_crate,full_crate_price,bottle_price,is_active,crate_types(is_legacy,pocket_count,empty_family),product_catalogue(image_path)",
+      "id,name,size,image_url,bottles_per_crate,full_crate_price,bottle_price,is_active,crate_types!products_crate_type_id_fkey(is_legacy,pocket_count,empty_family),product_catalogue(image_path)",
       { count: "exact" },
     )
     .eq("is_active", !removed)
