@@ -9,7 +9,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
-from urllib.parse import urlsplit, parse_qs
+from urllib.parse import urlsplit, parse_qs, unquote
 
 SHA = "7181bae6585f98473f878bd798fae81f73b4f5db"
 PROJECT = "coyivbklakhilpcqqrzg"
@@ -52,14 +52,55 @@ def sanitized_psql_failure(stderr, returncode):
         return "Database connection failed (unclassified). Stop and inspect credentials/network out of band."
     return "Database SQL command failed (unclassified). Stop and inspect the remote ledger."
 
-def psql(sql):
+def database_environment():
+    """Convert the approved Session pooler URI into libpq environment parameters.
+
+    libpq does NOT expand a URL stored in PGDATABASE; PGDATABASE alone means
+    the database *name*. Explicit PGHOST/PGPORT/PGUSER/PGPASSWORD avoids
+    putting secrets in process arguments or diagnostic logs.
+    """
+    uri = os.environ.get("PGDATABASE", "")
+    try:
+        parsed = urlsplit(uri)
+        host, port = parsed.hostname, parsed.port
+        username, password = parsed.username, parsed.password
+        options = parse_qs(parsed.query, strict_parsing=True)
+    except ValueError:
+        stop("Malformed database connection URI in GitHub environment secret.")
+    if (
+        parsed.scheme not in ("postgres", "postgresql")
+        or username != "postgres." + PROJECT
+        # This production runner is pinned to the known project pooler endpoint.
+        # Do not accept libpq multi-host syntax (comma-separated failover hosts):
+        # it could send the production password to an attacker-controlled first host.
+        or host != "aws-1-eu-west-1.pooler.supabase.com"
+        or port != 5432
+        or parsed.path != "/postgres"
+        or parsed.fragment
+        or not password
+    ):
+        stop("Wrong or incomplete production Session pooler URI. Check the approved project, host, user and port.")
+    if options != {"sslmode": ["require"]}:
+        stop("Database connection must specify only sslmode=require")
     env = os.environ.copy()
-    uri = env.get("PGDATABASE", "")
-    parsed = urlsplit(uri)
-    if parsed.scheme not in ("postgres", "postgresql") or PROJECT not in parsed.netloc:
-        stop("Missing/wrong production database URL. Use the approved Supabase project only.")
-    if parse_qs(parsed.query).get("sslmode") != ["require"]:
-        stop("Database connection must specify sslmode=require")
+    # Ignore connection overrides inherited from the runner.
+    for key in list(env):
+        if key.startswith("PG"):
+            env.pop(key, None)
+    env.update({
+        "PGHOST": host,
+        "PGPORT": str(port),
+        "PGDATABASE": "postgres",
+        "PGUSER": username,
+        "PGPASSWORD": unquote(password),
+        "PGSSLMODE": "require",
+        "PGCONNECT_TIMEOUT": "20",
+    })
+    return env
+
+
+def psql(sql):
+    env = database_environment()
     run = subprocess.run(
         ["psql", "-X", "-w", "-q", "-A", "-t", "-v", "ON_ERROR_STOP=1"],
         input=sql, text=True, capture_output=True, timeout=180, env=env
