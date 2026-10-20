@@ -18,7 +18,7 @@ export default async function StockPage({
   );
   const { data, error, count } = await supabase
     .from("products")
-    .select("id,name,size,image_url,bottles_per_crate,stock(total_bottles),product_catalogue(image_path)", {
+    .select("id,name,size,image_url,bottles_per_crate,stock!stock_product_id_fkey(total_bottles),product_catalogue(image_path)", {
       count: "exact",
     })
     .eq("is_active", true)
