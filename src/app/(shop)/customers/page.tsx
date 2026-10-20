@@ -17,7 +17,7 @@ export default async function CustomersPage({
   const page = Math.max(1, Math.min(10000, Number.parseInt(params.page ?? "1", 10) || 1));
   let request = supabase
     .from("customers")
-    .select("id,name,phone,business_name,money_owed(amount)", { count: "exact" })
+    .select("id,name,phone,business_name,money_owed!money_owed_customer_id_fkey(amount)", { count: "exact" })
     .is("archived_at", null)
     .order("name")
     .order("id")
