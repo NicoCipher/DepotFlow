@@ -17,6 +17,7 @@ import {
   emptyEmptiesV2,
   matchSaleEmpties,
   missingEmptiesMessage,
+  noBottlesReturnedState,
   simpleBottleReturnChoice,
 } from "./sale-empties.ts";
 import {
@@ -110,6 +111,64 @@ function sale(productId: string, crates = 1): SaleDraft {
     },
   };
 }
+
+test("no bottles returned marks bottles owed without erasing separate crate returns", () => {
+  const draft = sale("goldberg");
+  draft.emptiesV2.mode = "exact";
+  const expected = matchSaleEmpties(draft, catalog);
+  draft.emptiesV2 = noBottlesReturnedState(draft.emptiesV2, expected);
+
+  assert.equal(draft.emptiesV2.mode, "actual");
+  assert.equal(draft.emptiesV2.confirmedAllReturned, null);
+  assert.equal(draft.emptiesV2.returnedCrates["goldberg-crate"], "1");
+  assert.equal(draft.emptiesV2.returnedBottles["Goldberg bottle"], "0");
+  const result = matchSaleEmpties(draft, catalog);
+  assert.equal(result.lines[0].cratesOwed, 0);
+  assert.equal(result.lines[0].bottlesOwed, 12);
+  assert.deepEqual(actualSaleEmpties(draft, catalog).bottles, []);
+  assert.equal(actualSaleEmpties(draft, catalog).crates[0].quantity, 1);
+});
+
+test("no bottles shortcut clears wrong bottle returns and decisions while retaining edited crate counts", () => {
+  const draft = sale("goldberg");
+  draft.lines.push({ productId: "trophy", quantity: { crates: 1, fraction: 0, bottles: 0 } });
+  draft.emptiesV2.returnedCrates = { "goldberg-crate": "0", "trophy-crate": "1" };
+  draft.emptiesV2.returnedBottles = { "Goldberg bottle": "6", "Trophy bottle": "12", "Big bottle": "2" };
+  draft.emptiesV2.decisions = [{
+    productId: "goldberg", kind: "bottle", returnedType: "Big bottle",
+    quantity: "2", decision: "hold",
+  }];
+  const preview = matchSaleEmpties({ ...draft, emptiesV2: { ...draft.emptiesV2, mode: "exact", decisions: [] } }, catalog);
+  const updated = noBottlesReturnedState(draft.emptiesV2, preview);
+  assert.deepEqual(updated.returnedCrates, { "goldberg-crate": "0", "trophy-crate": "1" });
+  assert.deepEqual(updated.returnedBottles, { "Goldberg bottle": "0", "Trophy bottle": "0" });
+  assert.deepEqual(updated.decisions, []);
+  const result = matchSaleEmpties({ ...draft, emptiesV2: updated }, catalog);
+  assert.equal(result.lines.find(line => line.productId === "goldberg")?.bottlesOwed, 12);
+  assert.equal(result.lines.find(line => line.productId === "trophy")?.bottlesOwed, 12);
+  assert.equal(hasUnmatchedSaleEmpties(result), false);
+  assert.equal(result.lines.find(line => line.productId === "goldberg")?.cratesOwed, 1);
+  assert.equal(result.lines.find(line => line.productId === "trophy")?.cratesOwed, 0);
+});
+
+test("no-bottle shortcut keeps existing crate accept/hold decisions", () => {
+  const existing = {
+    ...emptyEmptiesV2,
+    mode: "actual" as const,
+    returnedCrates: { "trophy-crate": "1" },
+    returnedBottles: { "Big bottle": "4" },
+    decisions: [
+      { productId: "goldberg", kind: "crate" as const, returnedType: "trophy-crate", quantity: "1", decision: "hold" as const },
+      { productId: "goldberg", kind: "bottle" as const, returnedType: "Big bottle", quantity: "4", decision: "hold" as const },
+    ],
+  };
+  const draft = sale("goldberg");
+  const expected = matchSaleEmpties({ ...draft, emptiesV2: { ...existing, mode: "exact", decisions: [] } }, catalog);
+  const next = noBottlesReturnedState(existing, expected);
+  assert.deepEqual(next.returnedCrates, { "trophy-crate": "1" });
+  assert.deepEqual(next.decisions, [existing.decisions[0]]);
+  assert.deepEqual(next.returnedBottles, { "Goldberg bottle": "0" });
+});
 
 test("exact complete return settles crate and bottles", () => {
   const draft = sale("goldberg");
