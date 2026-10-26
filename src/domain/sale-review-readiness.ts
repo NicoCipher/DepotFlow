@@ -47,7 +47,7 @@ export function reviewConfirmationIssue(input: {
   if (input.oldDebtInputError)
     return { message: input.oldDebtInputError, action: "edit_payment" };
   if (!input.hasPaymentBreakdown)
-    return { message: "Check the customer balance and payment amounts before saving.", action: "check_balance" };
+    return { message: "Enter or correct the payment amounts before saving.", action: "edit_payment" };
   if (input.collectNow !== null && input.collectNow > 0 &&
       !["cash", "transfer", "pos"].includes(input.paymentMethod))
     return { message: "Choose Cash, Transfer or POS for this payment.", action: "edit_payment" };
