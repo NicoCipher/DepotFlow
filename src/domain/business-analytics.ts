@@ -142,8 +142,9 @@ export function calculateCoreFinancialMetrics(input: {
   let outstandingDebt = 0;
   const customersOwingIds = new Set<string>();
   for (const balance of input.currentBalances) {
-    if (balance.businessId !== businessId || balance.amount <= 0) continue;
-    assertAmount(balance.amount, "customer balance", false);
+    if (balance.businessId !== businessId) continue;
+    assertAmount(balance.amount, "customer balance");
+    if (balance.amount === 0) continue;
     if (!balance.customerId) {
       throw new Error("Invalid customer balance: missing customer identifier.");
     }
