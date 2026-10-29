@@ -120,7 +120,7 @@ class ForwardOnlyRehearsalTests(unittest.TestCase):
 
         def fake_run(command, **kwargs):
             if command[3] == "diff":
-                return SimpleNamespace(stdout="\n".join(added) + "\n")
+                return SimpleNamespace(stdout="\n".join("A\t" + path for path in added) + "\n")
             if command[3] == "rev-parse":
                 path = command[-1].split("HEAD:", 1)[1]
                 return SimpleNamespace(stdout=hashes[path] + "\n")
@@ -135,10 +135,22 @@ class ForwardOnlyRehearsalTests(unittest.TestCase):
 
     def test_compare_ref_blocks_unreviewed_new_migration(self):
         def fake_run(command, **kwargs):
-            return SimpleNamespace(stdout="supabase/migrations/20261029999999_unreviewed.sql\\n")
+            return SimpleNamespace(stdout="A\tsupabase/migrations/20261029999999_unreviewed.sql\n")
 
         with patch.object(forward.subprocess, "run", side_effect=fake_run):
             with self.assertRaisesRegex(ValueError, "newly added SQL migrations"):
+                forward.validate_sources(
+                    ROOT, self.inventory, self.history["live_tip"], compare_ref="origin/main"
+                )
+
+    def test_compare_ref_blocks_modified_reviewed_migration_source(self):
+        source = self.inventory["phase_a_source_migrations"][0]
+
+        def fake_run(command, **kwargs):
+            return SimpleNamespace(stdout="M\t" + source + "\n")
+
+        with patch.object(forward.subprocess, "run", side_effect=fake_run):
+            with self.assertRaisesRegex(ValueError, "existing migration source files were modified"):
                 forward.validate_sources(
                     ROOT, self.inventory, self.history["live_tip"], compare_ref="origin/main"
                 )
@@ -152,7 +164,7 @@ class ForwardOnlyRehearsalTests(unittest.TestCase):
 
         def fake_run(command, **kwargs):
             if command[3] == "diff":
-                return SimpleNamespace(stdout=path + "\n")
+                return SimpleNamespace(stdout="A\t" + path + "\n")
             if command[3] == "rev-parse":
                 return SimpleNamespace(stdout="0" * 40 + "\n")
             raise AssertionError("Unexpected git command: " + repr(command))
