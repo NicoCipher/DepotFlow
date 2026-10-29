@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { formatNaira } from "@/domain/products";
 import { saveBulkPrices } from "@/app/(shop)/products/price-actions";
 
@@ -39,7 +39,70 @@ export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) 
   const [search, setSearch] = useState("");
   const [review, setReview] = useState(false);
   const [requestId, setRequestId] = useState("");
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftNotice, setDraftNotice] = useState("");
   const [actionState, action, pending] = useActionState(saveBulkPrices, {});
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("depotflow-price-editor-draft-v1");
+      if (!raw) {
+        setDraftReady(true);
+        return;
+      }
+      const saved = JSON.parse(raw) as { rows?: DraftRow[] };
+      const savedRows = saved.rows;
+      const sameBaseline = Array.isArray(savedRows)
+        && savedRows.length === initialRows.length
+        && initialRows.every((current) => {
+          const prior = savedRows.find((row) => row.id === current.id);
+          return prior
+            && prior.fullCratePrice === current.fullCratePrice
+            && prior.bottlePrice === current.bottlePrice
+            && prior.costPrice === current.costPrice
+            && prior.catalogueProductId === current.catalogueProductId
+            && typeof prior.costText === "string"
+            && typeof prior.crateText === "string"
+            && typeof prior.bottleText === "string";
+        });
+      if (sameBaseline && savedRows) {
+        setRows(initialRows.map((current) => {
+          const prior = savedRows.find((row) => row.id === current.id)!;
+          return { ...current, costText: prior.costText, crateText: prior.crateText, bottleText: prior.bottleText };
+        }));
+        setDraftNotice("Your unsaved edits were restored.");
+      } else {
+        sessionStorage.removeItem("depotflow-price-editor-draft-v1");
+        setDraftNotice("Prices changed since the saved draft. The current prices are shown.");
+      }
+    } catch {
+      try { sessionStorage.removeItem("depotflow-price-editor-draft-v1"); } catch {}
+    }
+    setDraftReady(true);
+  }, [initialRows]);
+
+  useEffect(() => {
+    try {
+      if (!draftReady) return;
+      if (actionState.saved) {
+        sessionStorage.removeItem("depotflow-price-editor-draft-v1");
+        return;
+      }
+      const hasEdits = rows.some((row) =>
+        row.crateText !== String(row.fullCratePrice)
+        || !sameOptionalPrice(row.bottleText, row.bottlePrice)
+        || (row.catalogueProductId !== null && row.costText.trim() !== ""
+          && Number(row.costText) !== row.costPrice)
+      );
+      if (!hasEdits) {
+        sessionStorage.removeItem("depotflow-price-editor-draft-v1");
+        return;
+      }
+      sessionStorage.setItem("depotflow-price-editor-draft-v1", JSON.stringify({ rows }));
+    } catch {
+      // Editing and saving still work when session storage is unavailable.
+    }
+  }, [rows, draftReady, actionState.saved, initialRows]);
   const visibleRows = rows.filter((row) => row.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())
     || (row.size ?? "").toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
   const changes = useMemo(() => rows.flatMap((row) => {
@@ -76,7 +139,10 @@ export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) 
     setReview(false);
     setRequestId("");
   }
-  const changedFields = changes.reduce((sum, item) => sum + Number(item.change_cost) + Number(item.change_selling), 0);
+  const changedFields = rows.reduce((sum, row) => sum
+    + Number(row.catalogueProductId !== null && row.costText.trim() !== "" && Number(row.costText) !== row.costPrice)
+    + Number(row.crateText.trim() !== "" && Number(row.crateText) !== row.fullCratePrice)
+    + Number(!sameOptionalPrice(row.bottleText, row.bottlePrice)), 0);
   const serialized = JSON.stringify(changes);
   const unusualChange = changes.some((item) => {
     const row = rows.find((candidate) => candidate.id === item.product_id);
@@ -94,7 +160,7 @@ export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) 
     return (
       <section className="mt-5 space-y-4">
         <p role="status" className="rounded-xl border border-emerald-300 bg-emerald-50 p-4 font-semibold text-emerald-950">{actionState.message ?? "Prices saved."}</p>
-        <p className="text-sm text-stone-600">{changedFields} price groups updated. Stock, debts and past sales were not changed.</p>
+        <p className="text-sm text-stone-600">{changedFields} price fields updated. Stock, debts and past sales were not changed.</p>
         <Link className="primary w-full" href="/products">Back to drinks</Link>
       </section>
     );
@@ -105,6 +171,7 @@ export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) 
       <input type="hidden" name="request_id" value={requestId} />
       <label htmlFor="price-search">Find a drink</label>
       <input id="price-search" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Type a drink name" />
+      {draftNotice && <p role="status" className="text-sm text-stone-600">{draftNotice}</p>}
       <div className="flex items-center justify-between gap-3 border-b border-stone-300 pb-3 text-sm">
         <span className="text-stone-600">Edit only what you want. Cost needs a catalogue link.</span>
         <span className="shrink-0 font-semibold">{changedFields} changed</span>
