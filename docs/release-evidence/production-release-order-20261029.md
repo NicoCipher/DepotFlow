@@ -100,3 +100,34 @@ This closes the **manual inspection pass** for the four archives, but not the fu
 ## Verification on the audit documentation commit
 
 The database and app verification workflows for commit `14dd1d4cc504ccfe52375cc314c4a11a7509d001` both completed successfully. This verifies repository checks and the disposable PostgreSQL 17 rehearsal. The workflow's own output explicitly describes its rehearsal as **not** a live-schema, fresh-ledger, or production-release certificate. CI success therefore does not change the NO-GO decision.
+
+## Read-only AST provenance and exact 121-stage schema comparison — 2026-10-29
+
+This section supersedes the earlier "Next required evidence" item asking for a PostgreSQL-aware first-pass comparison of the 22 lexical-only mappings. It does **not** supersede the production NO-GO decision.
+
+### Original applied SQL evidence
+
+- A read-only query retrieved the original recorded statement arrays for all 22 previously lexical-only migration versions (206 parsed top-level statements across the captured arrays).
+- Evidence file: `docs/release-evidence/production-applied-sql-statements-lexical-only-20261029.json`.
+- AST report: `docs/release-evidence/applied-sql-ast-comparison-20261029.json`.
+- The PostgreSQL parser audit reports 17 direct AST matches, 4 cases where the recorded applied array omits the source file's paired outer `BEGIN`/`COMMIT` wrappers while all inner AST nodes match, and 1 case where the only difference is full-line comments inside a PL/pgSQL body. There are zero parse errors, missing source candidates, or unresolved AST differences.
+- This improves historical SQL provenance confidence, but is not a full runtime-semantic or managed-platform certificate. The four archived originals remain inert evidence and are not replayable migrations.
+
+### Exact current-state reconstruction comparison
+
+- Production metadata was captured read-only with `supabase/tests/fixtures/current_schema_parity_fingerprint.sql` and stored in `docs/release-evidence/production-schema-parity-fingerprint-20261029.json`.
+- The isolated PostgreSQL 17 comparison reconstructs 55 historical migrations + the hosted Auth guard + 65 forward-only Phase A stages, corresponding to the current 121-entry ledger tip. It does not connect to production and does not include customer rows.
+- Comparison report: `docs/release-evidence/current-schema-parity-comparison-20261029.json`.
+- Matching categories: 410 columns, 385 constraints, 134 indexes, 36 policies, 48 triggers, and 2 schemas. The reconstruction also contains 67 relations and 100 functions, matching the production inventory counts.
+- Remaining differences: 28 relation metadata objects, 28 column-grant groups, and one function definition. Sample relation differences are effective `service_role` `REFERENCES` and `TRIGGER` privileges present in production but absent from the minimal PG17 bootstrap. The matching column-grant differences are consistent with those two extra privileges per affected table. `public.rls_auto_enable()` differs because production has a SECURITY DEFINER/configured managed function while the disposable bootstrap uses a non-definer stub.
+- These are identified platform-emulation differences, **not certified harmless**. Confirm the intended production role privileges against the managed Supabase model. The earlier RLS review items remain open: `public.known_empty_crates`, `private.customer_empty_returns`, and `private.held_empty_collections` have RLS disabled and no matching policy entry in the inspected catalog.
+
+### Current release decision
+
+**NO-GO.** The historical AST comparison has no unresolved differences, but full schema/grant parity is not certified because of the managed-role and managed-function differences above and the unresolved RLS access-model questions. Keep PR #154 draft/unmerged. Do not set `release_authorized=true`, repair the migration ledger, apply migrations, enable gates, merge, or deploy based on this evidence.
+
+CI diagnostic run: https://github.com/NicoCipher/DepotFlow/actions/runs/40874241883  
+A green workflow run means the isolated tests passed; its parity step still reports NO-GO for the live-versus-reconstruction comparison.
+
+All production queries were read-only. No production schema, permissions, data, migration ledger, gates, or deployment were changed.
+
