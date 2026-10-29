@@ -1211,6 +1211,7 @@ export type Database = {
         Args: { p_request_id: string; p_changes: Json }
         Returns: Json
       }
+      get_legacy_price_editor_business_id: { Args: Record<string, never>; Returns: string }
       create_crate_type: {
         Args: {
           p_empty_family: string
