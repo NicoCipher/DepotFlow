@@ -34,39 +34,35 @@ grant usage on schema auth to anon, authenticated;
 -- Production has SECURITY DEFINER and a fixed pg_catalog search_path. Keeping
 -- the real behavior here means a missing explicit ENABLE ROW LEVEL SECURITY
 -- in a migration cannot silently pass the reconstruction.
-create or replace function public.rls_auto_enable() returns event_trigger
-language plpgsql
-security definer
-set search_path = pg_catalog
+create or replace function public.rls_auto_enable()
+ returns event_trigger
+ language plpgsql
+ security definer
+ set search_path to 'pg_catalog'
 as $function$
-declare
+DECLARE
   cmd record;
-begin
-  for cmd in
-    select *
-    from pg_event_trigger_ddl_commands()
-    where command_tag in ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
-      and object_type in ('table', 'partitioned table')
-  loop
-    if cmd.schema_name is not null
-      and cmd.schema_name in ('public')
-      and cmd.schema_name not in ('pg_catalog', 'information_schema')
-      and cmd.schema_name not like 'pg_toast%'
-      and cmd.schema_name not like 'pg_temp%' then
-      begin
-        execute format('alter table if exists %s enable row level security', cmd.object_identity);
-        raise log 'rls_auto_enable: enabled RLS on %', cmd.object_identity;
-      exception when others then
-        raise log 'rls_auto_enable: failed to enable RLS on %', cmd.object_identity;
-      end;
-    else
-      raise log 'rls_auto_enable: skip % (either system schema or not in enforced list: %.)',
-        cmd.object_identity, cmd.schema_name;
-    end if;
-  end loop;
-end;
+BEGIN
+  FOR cmd IN
+    SELECT *
+    FROM pg_event_trigger_ddl_commands()
+    WHERE command_tag IN ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
+      AND object_type IN ('table','partitioned table')
+  LOOP
+     IF cmd.schema_name IS NOT NULL AND cmd.schema_name IN ('public') AND cmd.schema_name NOT IN ('pg_catalog','information_schema') AND cmd.schema_name NOT LIKE 'pg_toast%' AND cmd.schema_name NOT LIKE 'pg_temp%' THEN
+      BEGIN
+        EXECUTE format('alter table if exists %s enable row level security', cmd.object_identity);
+        RAISE LOG 'rls_auto_enable: enabled RLS on %', cmd.object_identity;
+      EXCEPTION
+        WHEN OTHERS THEN
+          RAISE LOG 'rls_auto_enable: failed to enable RLS on %', cmd.object_identity;
+      END;
+     ELSE
+        RAISE LOG 'rls_auto_enable: skip % (either system schema or not in enforced list: %.)', cmd.object_identity, cmd.schema_name;
+     END IF;
+  END LOOP;
+END;
 $function$;
-
 drop event trigger if exists ensure_rls;
 create event trigger ensure_rls
   on ddl_command_end
