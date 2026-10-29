@@ -15,6 +15,8 @@ on:
       - "scripts/test_forward_only_bundle.py"
       - "docs/release-evidence/**"
       - "scripts/build-forward-only-m2-release.py"
+      - "scripts/classify-m2-schema-drift.py"
+      - "scripts/test_classify_m2_schema_drift.py"
       - "scripts/compare-applied-sql-ast.py"
       - "supabase/tests/check_production_migration_reconciliation.py"
       - "supabase/tests/fixtures/production_migration_history_20261029_after_m2_phase_a.json"
