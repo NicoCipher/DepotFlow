@@ -55,7 +55,7 @@ jobs:
       - name: Verify all historical SQL evidence and preserved original checksums
         run: python3 -m unittest discover -s supabase/tests -p 'test_applied_sql_manifest.py'
 
-      - name: Compare original applied SQL with PostgreSQL parse trees
+      - name: Compare original applied SQL with PostgreSQL parse trees and dispositions
         run: |
           set -euo pipefail
           python3 -m pip install --disable-pip-version-check pglast==7.21
