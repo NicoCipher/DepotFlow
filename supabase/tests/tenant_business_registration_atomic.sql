@@ -12,15 +12,33 @@ select private.link_legacy_shop_business();
 
 do $off_by_default$
 begin
- if (select enabled from private.business_registration_gate)
- or has_function_privilege('authenticated',
-   'public.register_my_business(uuid,text,text,text)','EXECUTE')
+ if (select enabled from private.business_selection_gate)
+ or (select enabled from private.business_registration_gate)
+ or (select enabled from private.business_assortment_setup_gate)
+ or (select enabled from private.business_auth_signup_gate) then
+  raise exception 'An onboarding rollout gate is ON before release';
+ end if;
+ -- Authenticated callers need EXECUTE to reach the fail-closed RPCs.
+ -- The database gates, not missing grants, control release readiness.
+ if not has_function_privilege('authenticated',
+      'public.can_register_business()','EXECUTE')
+ or not has_function_privilege('authenticated',
+      'public.list_my_businesses_for_setup()','EXECUTE')
+ or not has_function_privilege('authenticated',
+      'public.register_my_business(uuid,text,text,text)','EXECUTE')
+ or not has_function_privilege('authenticated',
+      'public.preview_business_assortment_setup(uuid)','EXECUTE') then
+  raise exception 'Authenticated onboarding RPC grants are missing';
+ end if;
+ if has_function_privilege('anon',
+      'public.can_register_business()','EXECUTE')
  or has_function_privilege('anon',
-   'public.register_my_business(uuid,text,text,text)','EXECUTE')
- or has_function_privilege('authenticated',
-   'public.can_register_business()','EXECUTE')
- then
-  raise exception 'Registration accidentally exposed before release';
+      'public.list_my_businesses_for_setup()','EXECUTE')
+ or has_function_privilege('anon',
+      'public.register_my_business(uuid,text,text,text)','EXECUTE')
+ or has_function_privilege('anon',
+      'public.preview_business_assortment_setup(uuid)','EXECUTE') then
+  raise exception 'Anonymous onboarding RPC access is exposed';
  end if;
 end;
 $off_by_default$;
@@ -28,8 +46,8 @@ grant execute on function public.register_my_business(uuid,text,text,text)
  to authenticated;
 grant execute on function public.can_register_business()
  to authenticated;
--- The picker remains ungranted in real deployment. The rollback fixture
--- enables it only to inspect verified owner results.
+-- Grants are expected in the deployed baseline. The rollback fixture does
+-- not open any rollout gate until after it verifies the default-off denial.
 grant execute on function public.list_my_businesses_for_setup()
  to authenticated;
 set local role authenticated;
