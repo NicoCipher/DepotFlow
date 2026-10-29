@@ -102,7 +102,7 @@ def validate_sources(root: Path, inventory: dict, live_tip: str, compare_ref=Non
         modified = []
         unsupported_changes = []
         for line in cp.stdout.splitlines():
-            fields = line.split("\\t")
+            fields = line.split("\t")
             status = fields[0]
             if status == "A" and len(fields) == 2:
                 found.add(fields[1])
