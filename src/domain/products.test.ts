@@ -170,6 +170,7 @@ test("duplicate retry comparison checks every saved detail without assuming uniq
   }
   const values = productValues({
     ...data,
+    business_id: null,
     crate_type: null,
     empty_family: null,
     catalogue_product_id: null,
