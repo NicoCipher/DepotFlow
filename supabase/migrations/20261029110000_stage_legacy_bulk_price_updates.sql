@@ -49,8 +49,17 @@ begin
     raise exception 'Choose at least one price change.' using errcode='22023';
   end if;
 
-  select business_id into v_business
-  from private.legacy_write_scope_gate where enabled is true;
+  -- This legacy-only editor is unavailable until the audited write-scope
+  -- gate has been explicitly enabled. Never interpret a missing/disabled gate
+  -- as permission to write products whose business_id is NULL.
+  select g.business_id into v_business
+  from private.legacy_write_scope_gate g
+  where g.enabled is true
+  for share;
+  if not found or v_business is null then
+    raise exception 'Price updates are not enabled for this shop yet.'
+      using errcode='42501';
+  end if;
 
   if exists (
     select 1
