@@ -62,8 +62,9 @@ insert into private.businesses(id,status)
 insert into private.business_memberships(business_id,user_id,member_kind,status)
  values('b8c00000-0000-4000-9000-000000000061',
         'b8c00000-0000-4000-8000-000000000021','owner','active');
--- This is a fixture-only business setup. Open the separate setup gate
--- only while creating its crate/product, then close it before price RPC tests.
+-- This is a fixture-only business setup. Set the owner identity and open
+-- the separate setup gate only while creating its crate/product, then close it.
+select set_config('request.jwt.claim.sub','b8c00000-0000-4000-8000-000000000021',true);
 update private.business_assortment_setup_gate set enabled=true where singleton=true;
 insert into public.crate_types(id,name,empty_family,pocket_count,business_id)
  values ('b8c00000-0000-4000-8000-000000000062','Foreign business test crate','NB',12,
