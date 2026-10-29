@@ -94,16 +94,39 @@ def validate_sources(root: Path, inventory: dict, live_tip: str, compare_ref=Non
         raise ValueError("Missing source SQL migration")
     if compare_ref:
         cp = subprocess.run(
-            ["git", "-C", str(root), "diff", "--name-only", "--diff-filter=A",
+            ["git", "-C", str(root), "diff", "--name-status",
              compare_ref, "HEAD", "--", "supabase/migrations/"],
             check=True, capture_output=True, text=True,
         )
-        found = set(cp.stdout.splitlines())
+        found = set()
+        modified = []
+        unsupported_changes = []
+        for line in cp.stdout.splitlines():
+            fields = line.split("\\t")
+            status = fields[0]
+            if status == "A" and len(fields) == 2:
+                found.add(fields[1])
+            elif status == "M" and len(fields) == 2:
+                modified.append(fields[1])
+            else:
+                # Deletions, renames, copies, type changes and malformed
+                # status records are not safe release-inventory changes.
+                unsupported_changes.append(line)
+        if modified:
+            raise ValueError(
+                "RELEASE INVENTORY DRIFT: existing migration source files were modified; "
+                f"reviewed sources must remain byte-identical: {sorted(modified)}"
+            )
+        if unsupported_changes:
+            raise ValueError(
+                "RELEASE INVENTORY DRIFT: migration deletions, renames, or other non-additive "
+                f"changes are not permitted: {unsupported_changes}"
+            )
 
         # The 65 Phase A sources and the already-installed Auth source are a
         # reviewed inventory, not a promise that all 67 must be newly added
         # relative to every PR base. Once those historical files exist on the
-        # comparison branch, --diff-filter=A correctly omits them. Require
+        # comparison branch, --name-status correctly omits them. Require
         # every newly added migration to be accounted for by either the
         # reviewed release inventory or an explicit, hash-locked exclusion.
         excluded = locked.get("reviewed_excluded_sources")
