@@ -257,3 +257,10 @@ The latest disposable PostgreSQL 17 workflow for PR #152 executed `supabase/test
 4. Re-run the release-order checker against that fresh export and test the exact proposed migration plan on a restorable clone of the actual production schema before any production DDL.
 
 No migration repair, schema change, production data change, gate/grant activation, deployment, or second-business onboarding is authorized by this evidence refresh.
+
+
+### Preliminary source audit (2026-10-29)
+
+A read-only static source review of selected high-risk M2 instructions is recorded in [`docs/release-evidence/m2-source-audit-20261029.md`](release-evidence/m2-source-audit-20261029.md). It covers the applied migration mapping, tenant-aware relationships, inventory read barriers, physical-empty key changes, staged onboarding, server-generated customer/assortment IDs, and the separately staged Phase B cutover. It also records the current live metadata inventory and the 31 unvalidated foreign keys.
+
+This source audit is **not** a production-clone rehearsal and does not change the NO-GO decision. Next, restore a verified production backup into an isolated PostgreSQL 17 environment, run the exact candidate sequence, validate all relevant FK/data invariants and cross-tenant tests, and compare the resulting object inventory. Do not activate onboarding or apply Phase B as part of the default database-first rehearsal.
