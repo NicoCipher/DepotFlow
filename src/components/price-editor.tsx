@@ -9,13 +9,16 @@ export type PriceEditorRow = {
   id: string;
   name: string;
   size: string | null;
+  bottlesPerCrate: number;
   fullCratePrice: number;
+  halfCratePrice: number | null;
+  quarterCratePrice: number | null;
   bottlePrice: number | null;
   catalogueProductId: string | null;
   costPrice: number | null;
 };
 
-type DraftRow = PriceEditorRow & { costText: string; crateText: string; bottleText: string };
+type DraftRow = PriceEditorRow & { costText: string; crateText: string; halfText: string; quarterText: string; bottleText: string };
 
 function sameOptionalPrice(value: string, current: number | null) {
   if (!value.trim()) return current === null;
@@ -34,6 +37,8 @@ export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) 
     ...row,
     costText: row.costPrice === null ? "" : String(row.costPrice),
     crateText: String(row.fullCratePrice),
+    halfText: row.halfCratePrice === null ? "" : String(row.halfCratePrice),
+    quarterText: row.quarterCratePrice === null ? "" : String(row.quarterCratePrice),
     bottleText: row.bottlePrice === null ? "" : String(row.bottlePrice),
   })));
   const [search, setSearch] = useState("");
@@ -58,17 +63,21 @@ export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) 
             const prior = savedRows.find((row) => row.id === current.id);
             return prior
               && prior.fullCratePrice === current.fullCratePrice
+              && prior.halfCratePrice === current.halfCratePrice
+              && prior.quarterCratePrice === current.quarterCratePrice
               && prior.bottlePrice === current.bottlePrice
               && prior.costPrice === current.costPrice
               && prior.catalogueProductId === current.catalogueProductId
               && typeof prior.costText === "string"
               && typeof prior.crateText === "string"
+              && typeof prior.halfText === "string"
+              && typeof prior.quarterText === "string"
               && typeof prior.bottleText === "string";
           });
         if (sameBaseline && savedRows) {
           restoredRows = initialRows.map((current) => {
             const prior = savedRows.find((row) => row.id === current.id)!;
-            return { ...current, costText: prior.costText, crateText: prior.crateText, bottleText: prior.bottleText };
+            return { ...current, costText: prior.costText, crateText: prior.crateText, halfText: prior.halfText, quarterText: prior.quarterText, bottleText: prior.bottleText };
           });
           notice = "Your unsaved edits were restored.";
         } else {
@@ -98,6 +107,8 @@ export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) 
       const hasEdits = rows.some((row) =>
         row.crateText !== String(row.fullCratePrice)
         || !sameOptionalPrice(row.bottleText, row.bottlePrice)
+        || !sameOptionalPrice(row.halfText, row.halfCratePrice)
+        || !sameOptionalPrice(row.quarterText, row.quarterCratePrice)
         || (row.catalogueProductId !== null && row.costText.trim() !== ""
           && Number(row.costText) !== row.costPrice)
       );
@@ -115,8 +126,13 @@ export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) 
   const changes = useMemo(() => rows.flatMap((row) => {
     const newCrate = row.crateText.trim() === "" ? NaN : Number(row.crateText);
     const newBottle = row.bottleText.trim() === "" ? null : Number(row.bottleText);
+    const newHalf = row.halfText.trim() === "" ? null : Number(row.halfText);
+    const newQuarter = row.quarterText.trim() === "" ? null : Number(row.quarterText);
     const newCost = row.costText.trim() === "" ? null : Number(row.costText);
-    const changeSelling = newCrate !== row.fullCratePrice || !sameOptionalPrice(row.bottleText, row.bottlePrice);
+    const changeSelling = newCrate !== row.fullCratePrice
+      || !sameOptionalPrice(row.bottleText, row.bottlePrice)
+      || !sameOptionalPrice(row.halfText, row.halfCratePrice)
+      || !sameOptionalPrice(row.quarterText, row.quarterCratePrice);
     const changeCost = row.catalogueProductId !== null && newCost !== null && newCost !== row.costPrice;
     if (!changeSelling && !changeCost) return [];
     return [{
@@ -127,6 +143,10 @@ export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) 
       new_full_crate_price: newCrate,
       expected_bottle_price: row.bottlePrice,
       new_bottle_price: newBottle,
+      expected_half_crate_price: row.halfCratePrice,
+      new_half_crate_price: newHalf,
+      expected_quarter_crate_price: row.quarterCratePrice,
+      new_quarter_crate_price: newQuarter,
       catalogue_product_id: row.catalogueProductId,
       expected_cost_price: row.costPrice,
       new_cost_price: newCost,
@@ -135,13 +155,15 @@ export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) 
   const invalidRows = rows.filter((row) => {
     const crate = row.crateText.trim();
     const bottle = row.bottleText.trim();
+    const half = row.halfText.trim();
+    const quarter = row.quarterText.trim();
     const cost = row.costText.trim();
     return !/^\d+$/.test(crate) || !Number.isSafeInteger(Number(crate)) || Number(crate) > 2147483600 || Number(crate) % 50 !== 0
-      || (bottle !== "" && (!/^\d+$/.test(bottle) || !Number.isSafeInteger(Number(bottle)) || Number(bottle) > 2147483600 || Number(bottle) % 50 !== 0))
+      || [bottle, half, quarter].some((value) => value !== "" && (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)) || Number(value) > 2147483600 || Number(value) % 50 !== 0))
       || (cost !== "" && (!/^\d+$/.test(cost) || !Number.isSafeInteger(Number(cost)) || Number(cost) > 2147483600))
       || (row.catalogueProductId === null && cost !== "");
   });
-  function update(id: string, field: "costText" | "crateText" | "bottleText", value: string) {
+  function update(id: string, field: "costText" | "crateText" | "halfText" | "quarterText" | "bottleText", value: string) {
     setRows((current) => current.map((row) => row.id === id ? { ...row, [field]: value } : row));
     setReview(false);
     setRequestId("");
@@ -149,6 +171,8 @@ export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) 
   const changedFields = rows.reduce((sum, row) => sum
     + Number(row.catalogueProductId !== null && row.costText.trim() !== "" && Number(row.costText) !== row.costPrice)
     + Number(row.crateText.trim() !== "" && Number(row.crateText) !== row.fullCratePrice)
+    + Number(!sameOptionalPrice(row.halfText, row.halfCratePrice))
+    + Number(!sameOptionalPrice(row.quarterText, row.quarterCratePrice))
     + Number(!sameOptionalPrice(row.bottleText, row.bottlePrice)), 0);
   const serialized = JSON.stringify(changes);
   const unusualChange = changes.some((item) => {
@@ -158,6 +182,8 @@ export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) 
       item.change_cost ? [row.costPrice, item.new_cost_price] as const : null,
       item.change_selling ? [row.fullCratePrice, item.new_full_crate_price] as const : null,
       item.change_selling ? [row.bottlePrice, item.new_bottle_price] as const : null,
+      item.change_selling ? [row.halfCratePrice, item.new_half_crate_price] as const : null,
+      item.change_selling ? [row.quarterCratePrice, item.new_quarter_crate_price] as const : null,
     ].filter((pair): pair is readonly [number | null, number | null] => pair !== null);
     return newValues.some(([oldValue, newValue]) =>
       newValue === 0 || (oldValue !== null && oldValue > 0 && newValue !== null
@@ -214,6 +240,24 @@ export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) 
                 {row.crateText !== String(row.fullCratePrice)
                   && <p className="mt-1 text-xs text-stone-600">Was {formatNaira(row.fullCratePrice)}</p>}
               </div>
+              <div>
+                <label htmlFor={row.id + "-half"}>Half crate ({row.bottlesPerCrate / 2} bottles, ₦)</label>
+                <input id={row.id + "-half"} type="text" inputMode="numeric" pattern="[0-9]*"
+                  value={row.halfText} disabled={pending}
+                  onChange={(event) => update(row.id, "halfText", event.target.value)}
+                  placeholder="Not set" />
+                {row.halfText !== (row.halfCratePrice === null ? "" : String(row.halfCratePrice))
+                  && <p className="mt-1 text-xs text-stone-600">Was {row.halfCratePrice === null ? "not set" : formatNaira(row.halfCratePrice)}</p>}
+              </div>
+              <div>
+                <label htmlFor={row.id + "-quarter"}>Quarter crate ({row.bottlesPerCrate / 4} bottles, ₦)</label>
+                <input id={row.id + "-quarter"} type="text" inputMode="numeric" pattern="[0-9]*"
+                  value={row.quarterText} disabled={pending}
+                  onChange={(event) => update(row.id, "quarterText", event.target.value)}
+                  placeholder="Not set" />
+                {row.quarterText !== (row.quarterCratePrice === null ? "" : String(row.quarterCratePrice))
+                  && <p className="mt-1 text-xs text-stone-600">Was {row.quarterCratePrice === null ? "not set" : formatNaira(row.quarterCratePrice)}</p>}
+              </div>
               <div className="col-span-2">
                 <label htmlFor={row.id + "-bottle"}>Selling / bottle (₦, optional)</label>
                 <input id={row.id + "-bottle"} type="text" inputMode="numeric" pattern="[0-9]*"
@@ -241,6 +285,8 @@ export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) 
                 {item.change_selling && <>
                   <p className="text-sm">Crate: {formatNaira(row.fullCratePrice)} → {formatNaira(Number(item.new_full_crate_price))} {difference(row.fullCratePrice, item.new_full_crate_price)}</p>
                   <p className="text-sm">Bottle: {row.bottlePrice === null ? "Not set" : formatNaira(row.bottlePrice)} → {item.new_bottle_price === null ? "Not set" : formatNaira(item.new_bottle_price)} {difference(row.bottlePrice, item.new_bottle_price)}</p>
+                  <p className="text-sm">Half crate ({row.bottlesPerCrate / 2} bottles): {row.halfCratePrice === null ? "Not set" : formatNaira(row.halfCratePrice)} → {item.new_half_crate_price === null ? "Not set" : formatNaira(item.new_half_crate_price)} {difference(row.halfCratePrice, item.new_half_crate_price)}</p>
+                  <p className="text-sm">Quarter crate ({row.bottlesPerCrate / 4} bottles): {row.quarterCratePrice === null ? "Not set" : formatNaira(row.quarterCratePrice)} → {item.new_quarter_crate_price === null ? "Not set" : formatNaira(item.new_quarter_crate_price)} {difference(row.quarterCratePrice, item.new_quarter_crate_price)}</p>
                 </>}
               </div>
             );
