@@ -890,5 +890,10 @@
   "project_id": "coyivbklakhilpcqqrzg",
   "ci_run_url": "https://github.com/NicoCipher/DepotFlow/actions/runs/40874241883",
   "source_evidence_file": "docs/release-evidence/production-applied-sql-statements-lexical-only-20261029.json",
-  "note": "All 22 candidates parsed with PostgreSQL grammar. Seventeen ASTs match after source-position removal; four have only outer BEGIN/COMMIT wrapper differences; one has only full-line comments added inside a function body. This is stronger provenance evidence, not a full runtime-semantic or production release certificate."
+  "note": "All 22 candidates parsed with PostgreSQL grammar. Seventeen ASTs match after source-position removal; four have only outer BEGIN/COMMIT wrapper differences; one has only full-line comments added inside a function body. This is stronger provenance evidence, not a full runtime-semantic or production release certificate.",
+  "totals": {
+    "recorded_statement_array_entries": 206,
+    "applied_parsed_top_level_statements": 263,
+    "source_parsed_top_level_statements": 271
+  }
 }
