@@ -493,7 +493,7 @@
     },
     {
       "filename": "20261029180000_scope_product_writes_to_business_owner.sql",
-      "git_blob_sha1": "d475b8e2a4471b05b7d41c5f998a7a09413d0b84",
+      "git_blob_sha1": "345cd929a97d0900a1ffe5c2c449a58214d73084",
       "reason": "Separate draft tenant product-write RLS repair; not part of the 2026-10-19 historical M2 rehearsal bundle and not authorized for production deployment."
     }
   ]
