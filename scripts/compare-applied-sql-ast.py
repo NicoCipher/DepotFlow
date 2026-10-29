@@ -59,14 +59,16 @@ def compare():
                 applied_trees = []
                 for statement in applied_sql:
                     applied_trees.extend(parse_tree(statement).get("stmts", []))
-                applied_tree = {"stmts": applied_trees}
                 local_tree = parse_tree((MIGRATIONS / source).read_text(encoding="utf-8"))
-                same = applied_tree == local_tree
+                local_trees = local_tree.get("stmts", [])
+                same = applied_trees == local_trees
+                applied_tree = {"stmts": applied_trees}
+                source_tree = {"stmts": local_trees}
                 result["status"] = "ast_equal" if same else "ast_different"
                 result["applied_parsed_statement_count"] = len(applied_trees)
-                result["source_parsed_statement_count"] = len(local_tree.get("stmts", []))
+                result["source_parsed_statement_count"] = len(local_trees)
                 result["applied_top_level_types"] = statement_types(applied_tree)
-                result["source_top_level_types"] = statement_types(local_tree)
+                result["source_top_level_types"] = statement_types(source_tree)
                 if not same:
                     counts["ast_different"] += 1
                     result["review_required"] = True
