@@ -1201,6 +1201,10 @@ export type Database = {
         }
         Returns: string
       }
+      update_legacy_product_prices: {
+        Args: { p_request_id: string; p_changes: Json }
+        Returns: Json
+      }
       create_crate_type: {
         Args: {
           p_empty_family: string
