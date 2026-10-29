@@ -15,6 +15,9 @@ on:
       - "scripts/test_forward_only_bundle.py"
       - "docs/release-evidence/**"
       - "scripts/build-forward-only-m2-release.py"
+      - "supabase/tests/check_production_migration_reconciliation.py"
+      - "supabase/tests/fixtures/production_migration_history_20261029_after_m2_phase_a.json"
+      - "docs/release-evidence/production-migration-reconciliation-20261029.json"
       - ".github/workflows/verify-database.yml"
 
 jobs:
@@ -63,6 +66,9 @@ jobs:
           python3 -m unittest discover -s supabase/tests -p 'test_forward_only_m2_release.py'
           python3 scripts/build-forward-only-m2-release.py \
             --remote-history supabase/tests/fixtures/production_migration_history_20261019_after_auth.json
+
+      - name: Reconcile current production migration ledger and release order
+        run: python3 supabase/tests/check_production_migration_reconciliation.py
 
       - name: Test strict six-category schema drift classifier (offline)
         run: python3 -m unittest discover -s scripts -p 'test_classify_m2_schema_drift.py'
@@ -642,15 +648,13 @@ jobs:
             > "$work/synthetic-ledger-before.sha"
           test "$(wc -c < "$work/synthetic-ledger-before.sha")" -eq 33
 
-          # This is a separate and mandatory FORWARD-ONLY rehearsal. It tests
-          # an actual 66-stage re-versioned Phase A package against the
-          # reconstructed 55-stage historical schema; its Phase B legacy API
-          # revocation is never included or authorized. No production access.
-          git fetch --depth=1 --no-tags origin main
+          # Historical M2 rehearsal only: test the 65 Phase A SQL sources
+          # against a reconstructed pre-M2 schema. M2 Phase A is already
+          # recorded in current production; this bundle is never a deployment
+          # package and does not determine the next production migration.
           python3 scripts/build-forward-only-bundle.py \
             --out "$work/phase-a-forward-only" \
-            --remote-history supabase/tests/fixtures/production_migration_history_20261019_after_auth.json \
-            --compare-ref FETCH_HEAD
+            --remote-history supabase/tests/fixtures/production_migration_history_20261019_after_auth.json
           test "$(find "$work/phase-a-forward-only" -type f -name '*.sql' | wc -l)" -eq 65
           createdb -h /tmp -p 55439 -T "$db" depotflow_forward_phase_a_rehearsal
           psql -h /tmp -p 55439 -d depotflow_forward_phase_a_rehearsal -X -v ON_ERROR_STOP=1 \
