@@ -11,6 +11,10 @@ type PriceChange = {
   new_full_crate_price: number;
   expected_bottle_price: number | null;
   new_bottle_price: number | null;
+  expected_half_crate_price: number | null;
+  new_half_crate_price: number | null;
+  expected_quarter_crate_price: number | null;
+  new_quarter_crate_price: number | null;
   catalogue_product_id: string | null;
   expected_cost_price: number | null;
   new_cost_price: number | null;
@@ -57,7 +61,12 @@ export async function saveBulkPrices(
         || item.new_full_crate_price! % 50 !== 0
         || !validAmount(item.expected_bottle_price, true)
         || !validAmount(item.new_bottle_price, true)
-        || (item.new_bottle_price !== null && item.new_bottle_price! % 50 !== 0)
+        || !validAmount(item.expected_half_crate_price, true)
+        || !validAmount(item.new_half_crate_price, true)
+        || !validAmount(item.expected_quarter_crate_price, true)
+        || !validAmount(item.new_quarter_crate_price, true)
+        || [item.new_bottle_price, item.new_half_crate_price, item.new_quarter_crate_price]
+          .some((price) => price !== null && price !== undefined && price % 50 !== 0)
       ))
       || (item.change_cost && (
         typeof item.catalogue_product_id !== "string"
