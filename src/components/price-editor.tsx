@@ -22,6 +22,13 @@ function sameOptionalPrice(value: string, current: number | null) {
   return /^\d+$/.test(value) && Number(value) === current;
 }
 
+function difference(oldValue: number | null, newValue: number | null) {
+  if (oldValue === null || newValue === null) return "";
+  const delta = newValue - oldValue;
+  if (delta === 0) return "no change";
+  return `${delta > 0 ? "+" : "−"}${formatNaira(Math.abs(delta))}`;
+}
+
 export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) {
   const [rows, setRows] = useState<DraftRow[]>(() => initialRows.map((row) => ({
     ...row,
