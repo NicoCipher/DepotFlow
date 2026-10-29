@@ -26,7 +26,7 @@ function sameOptionalPrice(value: string, current: number | null) {
 }
 
 function roundedSellingText(value: string): string {
-  if (!/^\\d+$/.test(value)) return value;
+  if (!/^\d+$/.test(value)) return value;
   const amount = Number(value);
   if (!Number.isSafeInteger(amount) || amount > 2_147_483_600) return value;
   return String(roundUpToSellingPriceStep(amount));
