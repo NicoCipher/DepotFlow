@@ -4,6 +4,77 @@ begin;
 set local lock_timeout='5s';
 set local statement_timeout='60s';
 
+-- The page reads the same fail-closed scope used by the write RPC.
+-- Returning no business is not permission to fall back to unscoped products.
+create function public.get_legacy_price_editor_business_id()
+returns uuid
+language plpgsql stable security definer set search_path=''
+as $price_scope$
+declare
+  v_actor uuid := private.assert_legacy_assortment_owner();
+  v_business uuid;
+begin
+  select g.business_id into v_business
+  from private.legacy_write_scope_gate g
+  where g.enabled is true;
+  if not found or v_business is null then
+    raise exception 'Price updates are not enabled for this shop yet.'
+      using errcode='42501';
+  end if;
+  return v_business;
+end;
+$price_scope$;
+revoke all on function public.get_legacy_price_editor_business_id() from public,anon,authenticated,service_role;
+grant execute on function public.get_legacy_price_editor_business_id() to authenticated;
+
+-- Bottle prices are independent of crate prices. Keep an append-only history
+-- that records both a new value and an explicit clearing of a bottle price.
+create table public.product_bottle_selling_price_history (
+  id uuid primary key default gen_random_uuid(),
+  owner_user_id uuid not null references auth.users(id),
+  business_id uuid not null,
+  product_id uuid not null references public.products(id) on delete restrict,
+  catalogue_product_id uuid references public.product_catalogue(id),
+  bottle_price integer check (bottle_price is null or (bottle_price >= 0 and bottle_price % 50 = 0)),
+  effective_on date not null,
+  recorded_at timestamptz not null default now()
+);
+create index product_bottle_selling_price_history_current_idx
+  on public.product_bottle_selling_price_history
+  (owner_user_id,business_id,product_id,effective_on desc,recorded_at desc,id desc);
+alter table public.product_bottle_selling_price_history enable row level security;
+revoke all on public.product_bottle_selling_price_history from public,anon,authenticated,service_role;
+grant select on public.product_bottle_selling_price_history to authenticated;
+create policy owner_read on public.product_bottle_selling_price_history for select to authenticated
+  using (owner_user_id=(select auth.uid()) and
+    exists(select 1 from private.shop_owner where user_id=(select auth.uid())));
+
+create function private.record_product_bottle_selling_price() returns trigger
+language plpgsql security definer set search_path='' as $bottle_history$
+declare
+  v_owner uuid;
+begin
+  if new.bottle_price is not distinct from old.bottle_price then
+    return new;
+  end if;
+  if new.business_id is null then
+    raise exception 'Bottle-price history requires a business-scoped product.';
+  end if;
+  select user_id into v_owner from private.shop_owner;
+  if v_owner is null then
+    raise exception 'Bottle-price history requires an owner.';
+  end if;
+  insert into public.product_bottle_selling_price_history
+    (owner_user_id,business_id,product_id,catalogue_product_id,bottle_price,effective_on)
+  values (v_owner,new.business_id,new.id,new.catalogue_product_id,new.bottle_price,
+    (now() at time zone 'Africa/Lagos')::date);
+  return new;
+end;
+$bottle_history$;
+revoke all on function private.record_product_bottle_selling_price() from public,anon,authenticated,service_role;
+create trigger record_product_bottle_selling_price after update of bottle_price
+  on public.products for each row execute function private.record_product_bottle_selling_price();
+
 create table private.legacy_price_update_requests (
   owner_id uuid not null references auth.users(id) on delete restrict,
   request_id uuid not null,
