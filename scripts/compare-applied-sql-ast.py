@@ -5,6 +5,7 @@ This is a diagnostic. AST equality is stronger than whitespace normalization but
 is not a full proof of runtime semantic equivalence or platform parity.
 """
 import json
+import os
 import re
 from pathlib import Path
 
@@ -50,13 +51,35 @@ def parse_tree(sql):
     return remove_locations(json.loads(parse_sql_json(sql)))
 
 
-def strip_outer_transaction_wrappers(statements):
-    if len(statements) >= 2:
-        first = next(iter(statements[0].get("stmt", {})), "")
-        last = next(iter(statements[-1].get("stmt", {})), "")
-        if first == "TransactionStmt" and last == "TransactionStmt":
-            return statements[1:-1]
-    return statements
+def _transaction_stmt(statement):
+    return statement.get("stmt", {}).get("TransactionStmt", {})
+
+
+def _is_plain_begin(statement):
+    node = _transaction_stmt(statement)
+    return (
+        node.get("kind") in {"TRANS_STMT_BEGIN", "TRANS_STMT_START"}
+        and not node.get("options")
+        and not node.get("chain", False)
+    )
+
+
+def _is_plain_commit(statement):
+    node = _transaction_stmt(statement)
+    return (
+        node.get("kind") == "TRANS_STMT_COMMIT"
+        and not node.get("options")
+        and not node.get("chain", False)
+    )
+
+
+def strip_outer_transaction_wrappers(local_statements, applied_statements):
+    """Strip only a plain local BEGIN/START TRANSACTION ... COMMIT pair."""
+    if len(local_statements) != len(applied_statements) + 2:
+        return None
+    if not _is_plain_begin(local_statements[0]) or not _is_plain_commit(local_statements[-1]):
+        return None
+    return local_statements[1:-1]
 
 
 def statement_types(tree):
@@ -104,8 +127,31 @@ def compare():
     evidence = json.loads(EVIDENCE.read_text(encoding="utf-8"))
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     candidates = {x["version"]: x for x in manifest["entries"]}
+    lexical_versions = [x["version"] for x in manifest["entries"] if x.get("status") == "lexical_only"]
+    evidence_versions = [x.get("version") for x in evidence.get("entries", [])]
+    duplicate_evidence_versions = sorted({v for v in evidence_versions if evidence_versions.count(v) > 1})
+    missing_evidence_versions = sorted(set(lexical_versions) - set(evidence_versions))
+    extra_evidence_versions = sorted(set(evidence_versions) - set(lexical_versions))
+    coverage_failed = bool(duplicate_evidence_versions or missing_evidence_versions or extra_evidence_versions)
     report = {
         "captured_on": evidence["captured_on"],
+        "project": evidence.get("project", "DepotFlow"),
+        "project_id": evidence.get("project_id", "coyivbklakhilpcqqrzg"),
+        "ci_run_url": (
+            f"{os.environ.get('GITHUB_SERVER_URL', 'https://github.com')}/"
+            f"{os.environ.get('GITHUB_REPOSITORY', 'NicoCipher/DepotFlow')}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
+            if os.environ.get("GITHUB_RUN_ID") else None
+        ),
+        "source_evidence_file": str(EVIDENCE.relative_to(ROOT)),
+        "note": "Diagnostic PostgreSQL AST comparison only; not runtime-semantic, data-migration, or managed-platform certification.",
+        "evidence_coverage": {
+            "expected_lexical_only_versions": len(lexical_versions),
+            "actual_evidence_versions": len(evidence_versions),
+            "duplicate_versions": duplicate_evidence_versions,
+            "missing_versions": missing_evidence_versions,
+            "extra_versions": extra_evidence_versions,
+            "passed": not coverage_failed,
+        },
         "method": "Strict pglast/libpg_query PostgreSQL AST comparison after removing parser source offsets; five known differences receive narrow, explicit follow-up checks for transaction wrappers or full-line function comments",
         "warning": "AST equality is not a complete runtime-semantic, data-migration, or Supabase managed-platform certificate.",
         "counts": {},
@@ -143,8 +189,8 @@ def compare():
                 else:
                     result["raw_ast_diff_samples"] = diff_paths(applied_tree, source_tree)
                     if version in TRANSACTION_WRAPPER_ONLY:
-                        dispositioned = (strip_outer_transaction_wrappers(raw_applied)
-                                         == strip_outer_transaction_wrappers(raw_local))
+                        dispositioned_local = strip_outer_transaction_wrappers(raw_local, raw_applied)
+                        dispositioned = dispositioned_local == raw_applied
                         if dispositioned:
                             result["status"] = "outer_transaction_wrappers_only"
                             result["manual_disposition"] = "Applied statement array omits the local source's paired outer BEGIN/COMMIT; all inner PostgreSQL AST nodes match."
@@ -172,7 +218,13 @@ def compare():
                 counts["parse_error"] += 1
         report["entries"].append(result)
     report["counts"] = counts
-    report["release_decision"] = "NO-GO" if counts["ast_different_unresolved"] or counts["parse_error"] or counts["candidate_missing"] else "AST_MATCH_WITH_MANUAL_DISPOSITIONS_NOT_RELEASE_AUTHORIZATION"
+    report["totals"] = {
+        "evidence_versions": len(evidence_versions),
+        "manifest_lexical_only_versions": len(lexical_versions),
+        "parsed_entries": len(report["entries"]),
+        "statuses": counts,
+    }
+    report["release_decision"] = "NO-GO" if coverage_failed or counts["ast_different_unresolved"] or counts["parse_error"] or counts["candidate_missing"] else "AST_MATCH_WITH_MANUAL_DISPOSITIONS_NOT_RELEASE_AUTHORIZATION"
     return report
 
 
