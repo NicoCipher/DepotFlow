@@ -25,8 +25,11 @@ class ForwardOnlyBundleTest(unittest.TestCase):
             },
         )
         stages = module.build(SNAPSHOT)
+        staged_sources = {item["source"] for item in stages}
+        self.assertNotIn("20261029103000_revoke_client_maintenance_privileges.sql",
+                         staged_sources)
         self.assertNotIn("20261029110000_stage_legacy_bulk_price_updates.sql",
-                         {item["source"] for item in stages})
+                         staged_sources)
         self.assertEqual(len(stages), 66)
 
     def test_all_66_remaining_versions_are_new_and_phase_b_separate(self):
