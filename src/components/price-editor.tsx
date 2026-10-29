@@ -71,6 +71,18 @@ export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) 
   }
   const changedFields = changes.reduce((sum, item) => sum + Number(item.change_cost) + Number(item.change_selling), 0);
   const serialized = JSON.stringify(changes);
+  const unusualChange = changes.some((item) => {
+    const row = rows.find((candidate) => candidate.id === item.product_id);
+    if (!row) return false;
+    const newValues = [
+      item.change_cost ? [row.costPrice, item.new_cost_price] as const : null,
+      item.change_selling ? [row.fullCratePrice, item.new_full_crate_price] as const : null,
+      item.change_selling ? [row.bottlePrice, item.new_bottle_price] as const : null,
+    ].filter((pair): pair is readonly [number | null, number | null] => pair !== null);
+    return newValues.some(([oldValue, newValue]) =>
+      newValue === 0 || (oldValue !== null && oldValue > 0 && newValue !== null
+        && Math.abs(newValue - oldValue) / oldValue >= 0.5));
+  });
   if (actionState.saved) {
     return (
       <section className="mt-5 space-y-4">
@@ -87,7 +99,7 @@ export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) 
       <label htmlFor="price-search">Find a drink</label>
       <input id="price-search" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Type a drink name" />
       <div className="flex items-center justify-between gap-3 border-b border-stone-300 pb-3 text-sm">
-        <span className="text-stone-600">Edit only the prices you want.</span>
+        <span className="text-stone-600">Edit only what you want. Cost needs a catalogue link.</span>
         <span className="shrink-0 font-semibold">{changedFields} changed</span>
       </div>
       {visibleRows.map((row) => {
@@ -112,7 +124,6 @@ export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) 
                   placeholder={row.catalogueProductId ? "Not recorded" : "Not linked"} />
                 {row.costPrice !== null && row.costText !== String(row.costPrice)
                   && <p className="mt-1 text-xs text-stone-600">Was {formatNaira(row.costPrice)}</p>}
-                {!row.catalogueProductId && <p className="mt-1 text-xs text-stone-500">Cost tracking needs a catalogue link.</p>}
               </div>
               <div>
                 <label htmlFor={row.id + "-crate"}>Selling / crate (₦)</label>
@@ -145,14 +156,15 @@ export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) 
             return (
               <div key={item.product_id} className="border-b border-stone-200 pb-3 last:border-0">
                 <p className="font-semibold">{row.name}</p>
-                {item.change_cost && <p className="text-sm">Cost: {row.costPrice === null ? "Not set" : formatNaira(row.costPrice)} → {formatNaira(Number(item.new_cost_price))}</p>}
+                {item.change_cost && <p className="text-sm">Cost: {row.costPrice === null ? "Not set" : formatNaira(row.costPrice)} → {formatNaira(Number(item.new_cost_price))} {difference(row.costPrice, item.new_cost_price)}</p>}
                 {item.change_selling && <>
-                  <p className="text-sm">Crate: {formatNaira(row.fullCratePrice)} → {formatNaira(Number(item.new_full_crate_price))}</p>
-                  <p className="text-sm">Bottle: {row.bottlePrice === null ? "Not set" : formatNaira(row.bottlePrice)} → {item.new_bottle_price === null ? "Not set" : formatNaira(item.new_bottle_price)}</p>
+                  <p className="text-sm">Crate: {formatNaira(row.fullCratePrice)} → {formatNaira(Number(item.new_full_crate_price))} {difference(row.fullCratePrice, item.new_full_crate_price)}</p>
+                  <p className="text-sm">Bottle: {row.bottlePrice === null ? "Not set" : formatNaira(row.bottlePrice)} → {item.new_bottle_price === null ? "Not set" : formatNaira(item.new_bottle_price)} {difference(row.bottlePrice, item.new_bottle_price)}</p>
                 </>}
               </div>
             );
           })}
+          {unusualChange && <p role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">Check carefully: at least one price is zero or changes by 50% or more. You can still save after reviewing.</p>}
           <p className="text-sm text-stone-600">Only these prices will change. Past sales, stock and debts stay as they are.</p>
           <button className="primary w-full" disabled={pending || invalidRows.length > 0 || changes.length === 0}
             onClick={() => { if (!requestId) setRequestId(crypto.randomUUID()); }}>
