@@ -32,7 +32,12 @@ begin
        'public.add_business_catalogue_drink(uuid,uuid,uuid,uuid,integer,integer,integer,integer,integer,boolean,text,text)','EXECUTE')
      or has_function_privilege('anon',
        'public.add_business_catalogue_drink(uuid,uuid,uuid,uuid,integer,integer,integer,integer,integer,boolean,text,text)','EXECUTE') then
-    raise exception 'Tenant product creation must use the authenticated gated catalogue RPC, not direct INSERT';
+    raise exception 'Tenant product write privilege boundary failed: direct_insert=%, authenticated_rpc=%, anon_rpc=%',
+      has_any_column_privilege('authenticated','public.products','INSERT'),
+      has_function_privilege('authenticated',
+        'public.add_business_catalogue_drink(uuid,uuid,uuid,uuid,integer,integer,integer,integer,integer,boolean,text,text)','EXECUTE'),
+      has_function_privilege('anon',
+        'public.add_business_catalogue_drink(uuid,uuid,uuid,uuid,integer,integer,integer,integer,integer,boolean,text,text)','EXECUTE');
   end if;
 
 
