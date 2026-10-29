@@ -42,20 +42,17 @@ revoke all on function private.can_insert_tenant_product(uuid)
 grant execute on function private.can_insert_tenant_product(uuid)
   to authenticated;
 
--- The earlier cutover revoked direct product INSERT completely. Restore only
--- the columns needed by the guarded tenant path; deliberately omit `id` so
--- callers cannot choose globally colliding product UUIDs. RLS still requires
--- the legacy business predicate OR both rollout gates plus exact ownership.
-grant insert (business_id, name, size, image_url, bottles_per_crate,
-  full_crate_price, half_crate_price, quarter_crate_price, bottle_price,
-  bottles_returnable, empty_family, crate_type, bottle_type)
-  on public.products to authenticated;
 
 alter policy owner_insert_product on public.products
-  with check (
-    private.can_read_legacy_customer(business_id)
-    or private.can_insert_tenant_product(business_id)
-  );
+  with check (private.can_read_legacy_customer(business_id));
+
+-- New-business catalogue writes must use the SECURITY DEFINER RPC, which
+-- validates active ownership, both rollout gates, catalogue identity, and a
+-- crate belonging to the same business. Direct table INSERT stays revoked:
+-- it cannot safely validate crate_type_id or master-catalogue linkage.
+grant execute on function public.add_business_catalogue_drink(
+  uuid,uuid,uuid,uuid,integer,integer,integer,integer,integer,boolean,text,text
+) to authenticated;
 
 alter policy owner_update_product on public.products
   using (private.can_read_legacy_customer(business_id))
