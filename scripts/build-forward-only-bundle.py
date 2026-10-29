@@ -99,11 +99,50 @@ def validate_sources(root: Path, inventory: dict, live_tip: str, compare_ref=Non
             check=True, capture_output=True, text=True,
         )
         found = set(cp.stdout.splitlines())
-        if found != set(all_sources + [inventory["already_applied_auth_source"]]):
+
+        # The 65 Phase A sources and the already-installed Auth source are a
+        # reviewed inventory, not a promise that all 67 must be newly added
+        # relative to every PR base. Once those historical files exist on the
+        # comparison branch, --diff-filter=A correctly omits them. Require
+        # every newly added migration to be accounted for by either the
+        # reviewed release inventory or an explicit, hash-locked exclusion.
+        excluded = locked.get("reviewed_excluded_sources")
+        if not isinstance(excluded, list):
+            raise ValueError("Missing reviewed exclusions for migrations outside the historical rehearsal bundle")
+        excluded_paths = set()
+        excluded_hashes = {}
+        for item in excluded:
+            if not isinstance(item, dict):
+                raise ValueError("Malformed reviewed migration exclusion")
+            filename = item.get("filename")
+            blob_sha = item.get("git_blob_sha1")
+            if not isinstance(filename, str) or not re.fullmatch(r"\d{14}_[a-z][a-z0-9_]*\.sql", filename):
+                raise ValueError("Unsafe reviewed migration exclusion filename")
+            if not isinstance(blob_sha, str) or not re.fullmatch(r"[0-9a-f]{40}", blob_sha):
+                raise ValueError("Missing reviewed Git blob SHA for excluded migration")
+            path = "supabase/migrations/" + filename
+            if path in excluded_paths or path in all_sources or path == preinstalled:
+                raise ValueError("Duplicate or conflicting reviewed migration exclusion")
+            excluded_paths.add(path)
+            excluded_hashes[path] = blob_sha
+
+        allowed_added = set(all_sources + [preinstalled]) | excluded_paths
+        unexpected = sorted(found - allowed_added)
+        if unexpected:
             raise ValueError(
-                "RELEASE INVENTORY DRIFT: git-added SQL stages do not equal the 67 reviewed migrations; "
-                f"missing={sorted(set(all_sources + [inventory['already_applied_auth_source']])-found)} new={sorted(found-set(all_sources + [inventory['already_applied_auth_source']]))}"
+                "RELEASE INVENTORY DRIFT: newly added SQL migrations are not in the reviewed release inventory "
+                "or hash-locked exclusions; "
+                f"unexpected={unexpected}"
             )
+        for path in sorted(found & excluded_paths):
+            actual_blob = subprocess.run(
+                ["git", "-C", str(root), "rev-parse", "HEAD:" + path],
+                check=True, capture_output=True, text=True,
+            ).stdout.strip()
+            if actual_blob != excluded_hashes[path]:
+                raise ValueError(
+                    "RELEASE INVENTORY DRIFT: reviewed excluded migration content changed: " + path
+                )
     start = datetime.strptime(inventory["phase_a_version_start"], STAMP)
     versions = [(start + timedelta(seconds=i * 1)).strftime(STAMP) for i in range(len(stages))]
     if versions[0] <= live_tip or versions != sorted(set(versions)):
