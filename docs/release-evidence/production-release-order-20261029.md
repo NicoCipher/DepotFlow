@@ -107,7 +107,7 @@ This section supersedes the earlier "Next required evidence" item asking for a P
 
 ### Original applied SQL evidence
 
-- A read-only query retrieved the original recorded statement arrays for all 22 previously lexical-only migration versions (206 parsed top-level statements across the captured arrays).
+- A read-only query retrieved the original recorded statement arrays for all 22 previously lexical-only migration versions (206 recorded statement-array entries parsed into 263 top-level SQL statements (the local source candidates parse into 271 because four source files include outer BEGIN/COMMIT wrappers absent from the recorded arrays)).
 - Evidence file: `docs/release-evidence/production-applied-sql-statements-lexical-only-20261029.json`.
 - AST report: `docs/release-evidence/applied-sql-ast-comparison-20261029.json`.
 - The PostgreSQL parser audit reports 17 direct AST matches, 4 cases where the recorded applied array omits the source file's paired outer `BEGIN`/`COMMIT` wrappers while all inner AST nodes match, and 1 case where the only difference is full-line comments inside a PL/pgSQL body. There are zero parse errors, missing source candidates, or unresolved AST differences.
