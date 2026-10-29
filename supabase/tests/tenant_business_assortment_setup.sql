@@ -48,7 +48,7 @@ insert into private.business_memberships(
 do $inactive$
 begin
  if (select enabled from private.business_assortment_setup_gate)
-    or has_function_privilege('authenticated',
+    or not has_function_privilege('authenticated',
        'public.create_business_crate_type(uuid,uuid,text,text,integer,text)','EXECUTE')
     or not has_function_privilege('authenticated',
        'public.add_business_catalogue_drink(uuid,uuid,uuid,uuid,integer,integer,integer,integer,integer,boolean,text,text)','EXECUTE')
@@ -76,14 +76,18 @@ begin
    raise exception 'Disabled assortment gate permitted catalogue drink' using errcode='PT001';
  exception when insufficient_privilege then null;
  end;
+ begin
+   perform public.create_business_crate_type(
+    '89600000-0000-4000-9000-000000000021',
+    '89600000-0000-4000-9000-000000000051',
+    'Gate-off crate','NBL',20,null);
+   raise exception 'Disabled assortment gate permitted crate creation' using errcode='PT001';
+ exception when insufficient_privilege then null;
+ end;
 end;
 $disabled$;
 reset role;
 update private.business_assortment_setup_gate set enabled=true where singleton;
--- Test-only grant: exercise the staged crate RPC's ownership/validation logic
--- after separately asserting the production migration keeps it revoked.
-grant execute on function public.create_business_crate_type(uuid,uuid,text,text,integer,text)
- to authenticated;
 -- Guided setup discovery is separately protected; only this disposable
 -- test grants its read permission and enables owner business selection.
 grant execute on function public.preview_business_assortment_setup(uuid)
