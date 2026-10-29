@@ -30,7 +30,18 @@ export default async function ProductPricesPage() {
     if (page.error) throw new Error("Could not load drink prices.");
     products.push(...page.data);
     if (page.data.length < 1000) break;
-    if (products.length >= 5000) throw new Error("The price list is too large to load safely.");
+    if (products.length >= 5000) {
+      const overflow = await supabase.from("products")
+        .select("id")
+        .eq("is_active", true)
+        .eq("business_id", businessId)
+        .order("name")
+        .order("id")
+        .range(5000, 5000);
+      if (overflow.error) throw new Error("Could not confirm the size of the price list.");
+      if (overflow.data.length > 0) throw new Error("The price list is too large to load safely.");
+      break;
+    }
   }
 
   const costs = new Map<string, number>();
