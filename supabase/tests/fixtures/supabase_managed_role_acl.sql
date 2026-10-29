@@ -33,6 +33,15 @@ grant truncate, references, trigger, maintain on table
   public.stock_movements
 to service_role;
 
+-- These two legacy relations also have the same narrow managed maintenance
+-- ACL for anon/authenticated in production. Preserve their existing SELECT
+-- distinction: anon has no SELECT; authenticated keeps only its pre-existing
+-- SELECT plus these non-DML maintenance privileges.
+grant truncate, references, trigger, maintain on table
+  public.sale_empty_decisions,
+  public.shop_profile
+to anon, authenticated;
+
 do $managed_acl_check$
 declare
   v_relation text;
@@ -83,6 +92,15 @@ begin
     or has_table_privilege('service_role','public.products','UPDATE')
     or has_table_privilege('service_role','public.products','DELETE') then
     raise exception 'Managed ACL fixture accidentally granted service_role DML';
+  end if;
+
+  if not has_table_privilege('anon','public.sale_empty_decisions','REFERENCES')
+    or not has_table_privilege('anon','public.sale_empty_decisions','TRIGGER')
+    or has_table_privilege('anon','public.sale_empty_decisions','SELECT')
+    or not has_table_privilege('authenticated','public.shop_profile','REFERENCES')
+    or not has_table_privilege('authenticated','public.shop_profile','TRIGGER')
+    or not has_table_privilege('authenticated','public.shop_profile','SELECT') then
+    raise exception 'Managed legacy relation ACL does not match the production role matrix';
   end if;
 end;
 $managed_acl_check$;
