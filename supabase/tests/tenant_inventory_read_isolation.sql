@@ -667,6 +667,44 @@ end;
 $foreign_write_oracle_guard$;
 reset role;
 
+-- A legacy owner may not release a foreign customer's held decision by
+-- attaching its UUID to a return for the owner's own customer. The failure
+-- must roll back the return request and leave the foreign decision untouched.
+set local role authenticated;
+select set_config('request.jwt.claim.sub',
+ '89600000-0000-4000-8000-000000000001',true);
+do $foreign_held_return_id$
+declare
+  v_error text;
+begin
+  begin
+    perform public.record_customer_empty_return(
+      '89600000-0000-4000-9000-000000000099',
+      '89600000-0000-4000-9000-000000000062',
+      '[]'::jsonb,'[]'::jsonb,
+      array['89600000-0000-4000-9000-000000000085'::uuid]);
+    raise exception 'Legacy owner released a foreign held decision'
+      using errcode='PT001';
+  exception when invalid_parameter_value then
+    get stacked diagnostics v_error=message_text;
+    if v_error<>'These held empties were already collected. Check the customer.' then
+      raise exception 'Foreign held-decision probe exposed state: %',v_error;
+    end if;
+  end;
+end;
+$foreign_held_return_id$;
+reset role;
+
+select pg_temp.assert_true(
+ (select released_at is null from public.sale_empty_decisions
+   where id='89600000-0000-4000-9000-000000000085')
+ and not exists(select 1 from private.held_empty_collections
+   where decision_id='89600000-0000-4000-9000-000000000085')
+ and not exists(select 1 from private.customer_empty_returns
+   where request_id='89600000-0000-4000-9000-000000000099'),
+ 'Foreign held-decision attempt changed the decision or persisted a return'
+);
+
 select pg_temp.assert_true(
  (select amount=9999 from public.money_owed where
    customer_id='89600000-0000-4000-9000-000000000061')
