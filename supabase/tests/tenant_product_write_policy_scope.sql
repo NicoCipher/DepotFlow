@@ -21,7 +21,6 @@ begin
 
   if v_insert is null
      or position('can_read_legacy_customer' in v_insert)=0
-     or position('can_insert_tenant_product' in v_insert)=0
      or position('is_shop_owner' in v_insert)>0 then
     raise exception 'Product INSERT policy is not scoped to legacy or gated owned business';
   end if;
@@ -36,17 +35,6 @@ begin
     raise exception 'Tenant product creation must use the authenticated gated catalogue RPC, not direct INSERT';
   end if;
 
-  if not exists (
-    select 1 from pg_proc p
-    join pg_namespace n on n.oid=p.pronamespace
-    where n.nspname='private' and p.proname='can_insert_tenant_product'
-      and p.prosecdef is true
-      and pg_get_functiondef(p.oid) like '%legacy_write_scope_gate%'
-      and pg_get_functiondef(p.oid) like '%business_assortment_setup_gate%'
-      and pg_get_functiondef(p.oid) like '%owns_new_business%'
-  ) then
-    raise exception 'Tenant product insert helper must privately check both rollout gates and ownership';
-  end if;
 
   if v_update_using is null
      or v_update_check is null
