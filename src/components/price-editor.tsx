@@ -76,7 +76,7 @@ export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) 
         setDraftNotice("Prices changed since the saved draft. The current prices are shown.");
       }
     } catch {
-      try { sessionStorage.removeItem("depotflow-price-editor-draft-v1"); } catch {}
+      setDraftNotice("Could not restore the draft. Current prices are shown.");
     }
     setDraftReady(true);
   }, [initialRows]);
@@ -102,7 +102,7 @@ export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) 
     } catch {
       // Editing and saving still work when session storage is unavailable.
     }
-  }, [rows, draftReady, actionState.saved, initialRows]);
+  }, [rows, draftReady, actionState.saved]);
   const visibleRows = rows.filter((row) => row.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())
     || (row.size ?? "").toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
   const changes = useMemo(() => rows.flatMap((row) => {
