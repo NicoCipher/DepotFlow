@@ -652,7 +652,7 @@ jobs:
           # when this PR actually changes migration files; on a test-only PR,
           # comparing against main would incorrectly demand those already-
           # landed migrations be re-added by this branch.
-          if git diff --quiet FETCH_HEAD...HEAD -- supabase/migrations/; then
+          if git diff --quiet FETCH_HEAD HEAD -- supabase/migrations/; then
             echo "No migration changes in this PR; skipping only the PR-delta inventory assertion."
             python3 scripts/build-forward-only-bundle.py \
               --out "$work/phase-a-forward-only" \
