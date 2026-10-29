@@ -134,6 +134,8 @@ begin
       'change_selling',true,'change_cost',true,
       'expected_full_crate_price',10000,'new_full_crate_price',10500,
       'expected_bottle_price',900,'new_bottle_price',950,
+      'expected_half_crate_price',null,'new_half_crate_price',5500,
+      'expected_quarter_crate_price',null,'new_quarter_crate_price',3000,
       'catalogue_product_id',v_goldberg_catalogue,
       'expected_cost_price',8000,'new_cost_price',8200
     )
@@ -155,7 +157,17 @@ begin
      or not exists(select 1 from public.product_bottle_selling_price_history
        where product_id='b8c00000-0000-4000-8000-000000000041'
          and bottle_price=950 and business_id=(select business_id from public.products
-           where id='b8c00000-0000-4000-8000-000000000041')) then
+           where id='b8c00000-0000-4000-8000-000000000041'))
+     or (select half_crate_price from public.products
+         where id='b8c00000-0000-4000-8000-000000000041')<>5500
+     or (select quarter_crate_price from public.products
+         where id='b8c00000-0000-4000-8000-000000000041')<>3000
+     or not exists(select 1 from public.product_pack_selling_price_history
+       where product_id='b8c00000-0000-4000-8000-000000000041'
+         and pack_size='half_crate' and pack_price=5500)
+     or not exists(select 1 from public.product_pack_selling_price_history
+       where product_id='b8c00000-0000-4000-8000-000000000041'
+         and pack_size='quarter_crate' and pack_price=3000) then
     raise exception 'Valid batch did not update prices and append crate, bottle and cost histories';
   end if;
 
@@ -182,6 +194,8 @@ begin
     'change_selling',true,'change_cost',false,
     'expected_full_crate_price',10500,'new_full_crate_price',10500,
     'expected_bottle_price',950,'new_bottle_price',1000,
+    'expected_half_crate_price',5500,'new_half_crate_price',5500,
+    'expected_quarter_crate_price',3000,'new_quarter_crate_price',3000,
     'catalogue_product_id',null,'expected_cost_price',null,'new_cost_price',null
   ));
   perform public.update_legacy_product_prices(
@@ -192,6 +206,7 @@ begin
       where id='b8c00000-0000-4000-8000-000000000041')<>1000
      or (select count(*) from public.product_selling_price_history
       where source='product_edit')<>v_history_before
+     or (select count(*) from public.product_bottle_selling_price_history)<>v_bottle_history_before+1
      or not exists(select 1 from public.product_bottle_selling_price_history
       where product_id='b8c00000-0000-4000-8000-000000000041'
         and bottle_price=1000) then
@@ -203,7 +218,7 @@ begin
   begin
     perform public.update_legacy_product_prices(
       'b8c00000-0000-4000-8000-000000000058',
-      '[{"product_id":"b8c00000-0000-4000-8000-000000000043","change_selling":true,"change_cost":false,"expected_full_crate_price":9000,"new_full_crate_price":9500,"expected_bottle_price":800,"new_bottle_price":850,"catalogue_product_id":null,"expected_cost_price":null,"new_cost_price":null}]'::jsonb);
+      '[{"product_id":"b8c00000-0000-4000-8000-000000000043","change_selling":true,"change_cost":false,"expected_full_crate_price":9000,"new_full_crate_price":9500,"expected_bottle_price":800,"new_bottle_price":850,"expected_half_crate_price":null,"new_half_crate_price":null,"expected_quarter_crate_price":null,"new_quarter_crate_price":null,"catalogue_product_id":null,"expected_cost_price":null,"new_cost_price":null}]'::jsonb);
     raise exception 'Cross-business product update unexpectedly accepted';
   exception when serialization_failure then null;
   end;
