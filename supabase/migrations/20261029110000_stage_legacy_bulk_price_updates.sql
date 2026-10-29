@@ -60,8 +60,10 @@ begin
   if new.bottle_price is not distinct from old.bottle_price then
     return new;
   end if;
+  -- Unscoped legacy fixtures/rows are outside this business-scoped editor.
+  -- Do not invent a tenant for their history; scoped editor writes always have one.
   if new.business_id is null then
-    raise exception 'Bottle-price history requires a business-scoped product.';
+    return new;
   end if;
   select user_id into v_owner from private.shop_owner;
   if v_owner is null then
@@ -110,8 +112,10 @@ begin
      and new.quarter_crate_price is not distinct from old.quarter_crate_price then
     return new;
   end if;
+  -- Unscoped legacy fixtures/rows are outside this business-scoped editor.
+  -- Do not invent a tenant for their history; scoped editor writes always have one.
   if new.business_id is null then
-    raise exception 'Pack-price history requires a business-scoped product.';
+    return new;
   end if;
   select user_id into v_owner from private.shop_owner;
   if v_owner is null then
