@@ -16,7 +16,7 @@
     },
     {
       "source": "20261029110000_stage_legacy_bulk_price_updates.sql",
-      "git_blob_sha": "5def490a06bd4880efb01481b972aaf2f9f72fe3",
+      "git_blob_sha": "8a8dd4de7e90d9b907b631a84a704a918653220c",
       "disposition": "reviewed_but_not_part_of_M2_bundle",
       "requires": [
         "private.assert_legacy_assortment_owner",
