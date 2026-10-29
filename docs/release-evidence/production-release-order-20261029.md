@@ -139,3 +139,19 @@ All production queries were read-only. No production schema, permissions, data, 
 A fresh read-only ACL expansion confirmed direct grants of `TRUNCATE`, `REFERENCES`, `TRIGGER`, and `MAINTAIN` to both `anon` and `authenticated` on `public.sale_empty_decisions` and `public.shop_profile`. These are not required for application SELECT/RLS behavior. A new forward-only candidate, `20261029103000_revoke_client_maintenance_privileges.sql`, now fails closed unless the captured pre-state matches, revokes only these four privileges from the client roles, and asserts that intended authenticated SELECT remains and anonymous SELECT remains denied. Its regression test is included in the disposable PG17 workflow. This migration is staged but **not applied to production**.
 
 The exact-current 121-stage reconstruction uses a separate, clearly labeled disposable-only fixture to reproduce the pre-fix ACL snapshot for comparison. The migration is then rehearsed against that clone after the current-state fingerprint is captured. The pre-fix grants are not treated as safe; they are explicitly recorded as the reason for the first forward-only release candidate.
+
+
+## Latest verification update — 2026-10-29 (supersedes earlier parity/RLS findings)
+
+The disposable PostgreSQL 17 workflow now reports **MATCH across all nine exact-current metadata categories** for the 121-stage reconstruction. The managed `public.rls_auto_enable()` function/configuration is reproduced, and the parity-only fixture reproduces the captured pre-fix ACLs for `anon`, `authenticated`, and `service_role`. The workflow confirms:
+
+- 67 relations, 410 columns, 385 constraints, 134 indexes, 100 functions, 36 policies, 48 triggers, 30 column-grant groups, and 2 schemas match the read-only production fingerprint.
+- `public.known_empty_crates` is treated as a security-invoker view; its underlying tables retain RLS and owner-read policies.
+- The private customer-empty-return and held-collection tables have no direct table privileges for client/service roles. The tested SECURITY DEFINER entrypoints must retain verified-owner and business-scoped customer checks.
+- The proposed maintenance-grant revocation migration succeeds against the captured pre-fix ACL state in the disposable clone, and the SQL suite confirms it removes the four non-DML privileges without changing intended SELECT access.
+
+Verification runs:
+- Database / PostgreSQL 17: https://github.com/NicoCipher/DepotFlow/actions/runs/40877395371
+- App: https://github.com/NicoCipher/DepotFlow/actions/runs/40877395313
+
+**Release remains NO-GO.** Production still has the unsafe `TRUNCATE`, `REFERENCES`, `TRIGGER`, and `MAINTAIN` grants on `public.sale_empty_decisions` and `public.shop_profile`. The forward-only migration `20261029103000_revoke_client_maintenance_privileges.sql` is staged and tested but not applied. It must be reviewed and authorized before the bulk-price candidate `20261029110000_stage_legacy_bulk_price_updates.sql`. Historical SQL AST review has zero unresolved parse-tree differences, but it does not certify complete runtime-semantic equivalence. The draft PR must stay unmerged, and no production migration, gate, or deployment action is authorized by these passing CI runs.
