@@ -82,3 +82,21 @@ Next required evidence:
 3. Run the full preflight against the exact PR head and fresh ledger; obtain explicit release approval only if every required comparison passes.
 
 Do not set `release_authorized=true`, run migration repair, use `--include-all`, apply any production migration, merge this feature PR, deploy, or enable gates based on this follow-up. The report is an audit record, not authorization.
+
+
+## Archived-original line-by-line disposition — 2026-10-29 follow-up
+
+I inspected all four preserved original applied-SQL evidence files against the similarly named repository candidates. These files remain inert evidence; none was copied into the migration directory or executed.
+
+| Applied version | Result of direct source review | Disposition |
+|---|---|---|
+| `20260925113009_product_images` | Original creates/uses the public `product-images` Storage bucket and creates authenticated Storage-object INSERT/DELETE policies guarded by `public.is_shop_owner()`. No unique executable source migration was found by repository search. | Historical SQL preserved with recorded MD5 `90ea13d53f3745d4904657563eefd001`; source provenance unresolved. Compare live Storage bucket/policies and intended Storage state separately; do not replay. |
+| `20260927154550_customer_archiving` | Applied SQL adds `customers.archived_at`, grants column UPDATE, and defines `private.save_sale(...)`. The closest source candidate adds a final `REVOKE ALL ... FROM public,anon,authenticated` that is **absent from the preserved applied SQL**. | Confirmed substantive SQL difference, not a whitespace-only variation. The later source revoke cannot be credited to this applied migration. Current live catalog previously showed that old `private.save_sale(...)` signature is absent, so this historical difference does not alone prove a currently callable routine. |
+| `20261001022503_join_bottled_desperados_catalogue` | Original is a guarded transaction: locks catalogue/product/cost-history/selling-price-history tables, verifies Desperado/Desperados identities, merges catalogue references, and checks protected product/stock/can data with hashes before commit. No unique equivalent source file was found. | Historical SQL preserved with MD5 `ed0546e85bb295d6615e25b77461a759`; source provenance unresolved. Do not recreate or rerun this data migration without its original state and explicit data review. |
+| `20261014072834_sale_with_old_debt_payment` | Applied SQL defines the atomic old-debt-plus-sale RPC and its authenticated EXECUTE grant. The similarly named `20261014110000_sale_with_old_debt_payment.sql` instead includes receipt-snapshot work and is not the same migration. That local source maps to a different later live migration. | Confirmed distinct historical purpose. Original preserved with MD5 `6ccd363e6b69a8831931b9515e8499db`; keep the two migration identities separate. |
+
+This closes the **manual inspection pass** for the four archives, but not the full provenance requirement: their original text is now characterized, while exact semantic state correspondence still requires replay/AST review and comparison against the intended production schema. No archive is certified as a replayable migration.
+
+## Verification on the audit documentation commit
+
+The database and app verification workflows for commit `14dd1d4cc504ccfe52375cc314c4a11a7509d001` both completed successfully. This verifies repository checks and the disposable PostgreSQL 17 rehearsal. The workflow's own output explicitly describes its rehearsal as **not** a live-schema, fresh-ledger, or production-release certificate. CI success therefore does not change the NO-GO decision.
