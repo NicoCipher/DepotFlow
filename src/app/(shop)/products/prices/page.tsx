@@ -4,6 +4,10 @@ import { PriceEditor, type PriceEditorRow } from "@/components/price-editor";
 
 export default async function ProductPricesPage() {
   const supabase = await requireOwner();
+  const { data: businessId, error: scopeError } = await supabase.rpc("get_legacy_price_editor_business_id");
+  if (scopeError || !businessId) {
+    throw new Error("Price updates are not enabled for this shop yet.");
+  }
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit",
   }).format(new Date());
@@ -15,7 +19,7 @@ export default async function ProductPricesPage() {
   for (let offset = 0; ; offset += 1000) {
     const page = await supabase.from("products")
       .select("id,name,size,full_crate_price,bottle_price,catalogue_product_id,business_id")
-      .eq("is_active", true).order("name").order("id")
+      .eq("is_active", true).eq("business_id", businessId).order("name").order("id")
       .range(offset, offset + 999);
     if (page.error) throw new Error("Could not load drink prices.");
     products.push(...page.data);
@@ -26,10 +30,15 @@ export default async function ProductPricesPage() {
   const costs = new Map<string, number>();
   for (let offset = 0; ; offset += 1000) {
     const page = await supabase.from("product_cost_history")
-      .select("catalogue_product_id,cost_price,effective_on,recorded_at,business_id")
+      .select("catalogue_product_id,cost_price,effective_on,recorded_at,business_id,id")
+      .in("catalogue_product_id", [...new Set(products
+        .filter((product) => product.catalogue_product_id !== null)
+        .map((product) => product.catalogue_product_id!))])
+      .eq("business_id", businessId)
       .lte("effective_on", today)
       .order("effective_on", { ascending: false })
       .order("recorded_at", { ascending: false })
+      .order("id", { ascending: false })
       .range(offset, offset + 999);
     if (page.error) throw new Error("Could not load buying costs.");
     for (const item of page.data) {
@@ -37,7 +46,6 @@ export default async function ProductPricesPage() {
       if (!costs.has(key)) costs.set(key, item.cost_price);
     }
     if (page.data.length < 1000) break;
-    if (offset >= 4000) throw new Error("The buying-cost history is too large to load safely.");
   }
 
   const rows: PriceEditorRow[] = products.map((product) => ({
