@@ -37,11 +37,9 @@ insert into public.business_profiles(business_id,name,address,phone)
 do $default_off$
 begin
  if (select enabled from private.business_selection_gate)
- or has_function_privilege('authenticated',
-   'public.list_my_businesses_for_setup()','EXECUTE')
  or has_function_privilege('anon',
    'public.list_my_businesses_for_setup()','EXECUTE') then
-  raise exception 'Business picker exposed by default';
+  raise exception 'Business picker gate exposed by default';
  end if;
 end;
 $default_off$;
