@@ -57,7 +57,7 @@ jobs:
       - name: Compare original applied SQL with PostgreSQL parse trees
         run: |
           set -euo pipefail
-          python3 -m pip install --disable-pip-version-check pglast==7.7
+          python3 -m pip install --disable-pip-version-check pglast==7.21
           python3 scripts/compare-applied-sql-ast.py > /tmp/applied-sql-ast-report.json
           cat /tmp/applied-sql-ast-report.json
           python3 - <<'PY'
@@ -66,9 +66,9 @@ jobs:
           counts=report["counts"]
           summary=pathlib.Path(os.environ["GITHUB_STEP_SUMMARY"])
           with summary.open("a") as out:
-              out.write("\\n## Historical applied-SQL PostgreSQL AST comparison\\n")
-              out.write(json.dumps(counts,sort_keys=True)+"\\n")
-              out.write("Decision: "+report["release_decision"]+"\\n")
+              out.write(chr(10)+"## Historical applied-SQL PostgreSQL AST comparison"+chr(10))
+              out.write(json.dumps(counts,sort_keys=True)+chr(10))
+              out.write("Decision: "+report["release_decision"]+chr(10))
           if report["release_decision"] == "NO-GO":
               print("::warning::Historical SQL AST differences or parse errors remain; inspect report before release.")
           PY
