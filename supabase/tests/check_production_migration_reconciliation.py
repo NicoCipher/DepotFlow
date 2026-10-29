@@ -16,8 +16,8 @@ PREVIOUS = ROOT / "tests/fixtures/production_migration_history_20261019_after_au
 LOCK = ROOT / "tests/fixtures/m2_forward_only_sources_20261019.json"
 MANIFEST = REPO / "docs/release-evidence/production-migration-reconciliation-20261029.json"
 MIGRATIONS = ROOT / "migrations"
-STAMP = re.compile(r"^\\d{14}$")
-FILENAME = re.compile(r"^(\\d{14})_([a-z][a-z0-9_]*)\\.sql$")
+STAMP = re.compile(r"^\d{14}$")
+FILENAME = re.compile(r"^(\d{14})_([a-z][a-z0-9_]*)\.sql$")
 
 
 def read(path):
