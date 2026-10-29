@@ -44,6 +44,21 @@ def validate():
     if manifest.get("status") != "ledger_reconciled_schema_and_applied_sql_provenance_not_fully_certified":
         raise ValueError("Reconciliation status must preserve the applied-SQL/schema caveat")
 
+    findings = manifest.get("findings", {})
+    if findings.get("legacy_write_scope_enabled") is not False:
+        raise ValueError("Legacy write-scope gate changed; re-review owner/business isolation")
+    if findings.get("new_business_registration_enabled") is not False \
+       or findings.get("business_selection_enabled") is not False:
+        raise ValueError("Business activation gates changed; re-review release order")
+    if findings.get("authenticated_direct_insert_product_available") is not True \
+       or findings.get("authenticated_legacy_create_rpcs_available") is not True:
+        raise ValueError("Legacy app creation path changed; separately review Phase B cutover")
+    order = manifest.get("approved_release_order", {})
+    if order.get("next_candidate") != "20261029110000_stage_legacy_bulk_price_updates.sql":
+        raise ValueError("Next forward migration changed; re-review release order")
+    if order.get("production_deployment", "").startswith("GO"):
+        raise ValueError("Ledger reconciliation alone must never authorize production deployment")
+
     # The first 55 historical entries must remain byte-for-byte represented by
     # the prior ledger snapshot and historical SQL evidence. No repair/replay.
     if versions[:55] != previous.get("versions", [])[:55]:
