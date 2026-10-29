@@ -22,6 +22,12 @@ alter policy owner_insert_product on public.products
 -- validates active ownership, both rollout gates, catalogue identity, and a
 -- crate belonging to the same business. Direct table INSERT stays revoked:
 -- it cannot safely validate crate_type_id or master-catalogue linkage.
+-- Both steps of guided assortment setup must be callable by authenticated
+-- owners. Each SECURITY DEFINER RPC independently verifies active ownership
+-- and both rollout gates (which remain OFF by default); anon stays denied.
+grant execute on function public.create_business_crate_type(
+  uuid,uuid,text,text,integer,text
+) to authenticated;
 grant execute on function public.add_business_catalogue_drink(
   uuid,uuid,uuid,uuid,integer,integer,integer,integer,integer,boolean,text,text
 ) to authenticated;
