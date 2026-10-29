@@ -34,3 +34,51 @@ Therefore, do not set `release_authorized=true`, run migration repair, use `--in
 ## Safety boundary
 
 All production checks used here were read-only. No migration was applied, no migration ledger row was changed, and no business data or production application state was modified.
+
+
+## Independent follow-up audit — 2026-10-29 (read-only, not release approval)
+
+### Live ledger and historical SQL provenance
+
+A separate read-only Supabase session reconfirmed **121** rows in `supabase_migrations.schema_migrations`, from `20260912230917` through `20261019140104`. The live ledger is consistent with the reviewed 55 historical entries + 1 Auth guard + 65 M2 Phase A entries. No ledger row was inserted, removed, renamed, or repaired.
+
+The source-to-applied-SQL inventory remains **29 byte-exact, 22 lexical-only, and 4 original applied SQL archives**. A read-only query confirmed that the 22 flagged live ledger entries retain their original recorded statement arrays and statement counts; this follow-up did **not** upgrade their provenance classification. Lexical normalization is not a PostgreSQL parse-tree or semantic-equivalence proof. The four archived SQL records remain evidence for manual review, not executable migrations. Do not infer equivalence from names, timestamps, or hashes of differently normalized text.
+
+### Current production catalog snapshot
+
+A fresh metadata-only inventory over `public` and `private` returned the following broad counts:
+
+| Catalog category | Live count |
+|---|---:|
+| Relations (tables/partitions/views/materialized views/sequences in the query scope) | 67 |
+| Columns | 410 |
+| Constraints | 385 |
+| Indexes | 134 |
+| Functions | 100 |
+| SECURITY DEFINER functions | 79 |
+| Policies | 36 |
+| Non-internal triggers | 48 |
+| `information_schema.column_privileges` rows across all grantees in these schemas | 2,186 |
+
+These are **current inventory counts, not parity proof**. The 2,186 grant-row scope includes all visible grantees and is not directly comparable to the earlier 473-row hosted client/managed-reference inventory. The saved 19 October fingerprint is a pre-Phase-A baseline, so it cannot be used as the expected post-Phase-A schema without a deliberate, exact-version comparison.
+
+The read-only spot check also found `public.known_empty_crates` has RLS disabled, has an `authenticated SELECT` table grant, and has no matching policy entry. `private.customer_empty_returns` and `private.held_empty_collections` also have RLS disabled and no matching policy entry in the inspected catalog. These may have an intentional access design, but that intent and the effective privilege paths must be proven against the exact intended schema; do not silently classify these as harmless drift.
+
+### Gate and legacy-write observations
+
+- `private.legacy_write_scope_gate`: zero rows; zero enabled rows. The bulk-price writer must continue to fail closed.
+- `private.business_auth_signup_gate`: one row, `enabled=false`.
+- The bulk-price RPC `public.update_legacy_product_prices(uuid,jsonb)` is still absent from production.
+- The legacy `public.create_crate_type(...)` and `private.create_crate_type(...)` routines remain executable by `authenticated`; `public.save_sale_with_old_debt_payment(...)` is also executable by `authenticated`. This confirms the old creation/cutover surface has not been retired.
+- No live data, grants, functions, gates, schema objects, or migration history were modified.
+
+### Release decision after this audit
+
+**Still NO-GO.** The provenance task is not complete enough to certify the 22 lexical-only mappings, and full schema/grant parity has not been demonstrated against a confidential, isolated PostgreSQL 17 reconstruction of the *current 121-entry production state* with Supabase-managed role inheritance/ACL behavior accounted for. The current metadata inventory identifies concrete items that must be reconciled, but does not explain them away.
+
+Next required evidence:
+1. Compare all 55 original applied statement arrays to source using a PostgreSQL-aware parser/semantic review, with explicit disposition for the 22 lexical-only mappings and four archived originals; retain any unresolved entry as a blocker.
+2. Build a disposable PG17 reconstruction from the reviewed historical source plus exact forward-only Phase A sequence, with minimal managed-platform emulation documented. Compare per-object definitions, owners, SECURITY DEFINER flags, direct/effective ACLs, RLS, policies, triggers, and column grants against a fresh live metadata snapshot. Explain every mismatch, including the three RLS-disabled relations above.
+3. Run the full preflight against the exact PR head and fresh ledger; obtain explicit release approval only if every required comparison passes.
+
+Do not set `release_authorized=true`, run migration repair, use `--include-all`, apply any production migration, merge this feature PR, deploy, or enable gates based on this follow-up. The report is an audit record, not authorization.
