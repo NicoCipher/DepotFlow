@@ -34,11 +34,11 @@ def normalize_function_bodies(value, in_function=False):
         return out
     if isinstance(value, list):
         return [normalize_function_bodies(child, in_function) for child in value]
-    if in_function and isinstance(value, str) and "\\n" in value:
+    if in_function and isinstance(value, str) and "\n" in value:
         # Function bodies are string literals to the SQL parser. Ignore only
         # full-line -- comments inside CREATE FUNCTION bodies; preserve all
         # executable text and string literals.
-        return "\\n".join(line for line in value.splitlines() if not line.lstrip().startswith("--"))
+        return "\n".join(line for line in value.splitlines() if not line.lstrip().startswith("--"))
     return value
 
 
