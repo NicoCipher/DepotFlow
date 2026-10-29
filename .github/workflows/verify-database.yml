@@ -424,6 +424,36 @@ jobs:
           $post_sql_fixture$;
           SQL
 
+      - name: Reconcile Supabase-managed service_role ACLs in disposable reconstruction
+        run: psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 -f supabase/tests/fixtures/supabase_managed_role_acl.sql
+
+      - name: Verify the managed RLS event trigger is faithfully emulated
+        run: |
+          set -euo pipefail
+          psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 <<'SQL'
+          do $managed_rls_check$
+          begin
+            if not exists (
+              select 1 from pg_proc p
+              join pg_namespace n on n.oid=p.pronamespace
+              where n.nspname='public' and p.proname='rls_auto_enable'
+                and p.prosecdef
+                and p.proconfig @> array['search_path=pg_catalog']
+            ) then
+              raise exception 'Supabase managed rls_auto_enable definition/config mismatch';
+            end if;
+            if not exists (
+              select 1 from pg_event_trigger e
+              where e.evtname='ensure_rls'
+                and e.evtenabled='O'
+                and e.evtfoid='public.rls_auto_enable()'::regprocedure
+            ) then
+              raise exception 'Supabase ensure_rls event trigger is missing or disabled';
+            end if;
+          end;
+          $managed_rls_check$;
+          SQL
+
       - name: Run real-concurrency checks
         run: |
           set -euo pipefail
