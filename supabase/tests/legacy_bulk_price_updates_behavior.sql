@@ -15,6 +15,9 @@ insert into private.businesses(id,status)
 insert into private.business_memberships(business_id,user_id,member_kind,status)
  values('b8c00000-0000-4000-9000-000000000061',
         'b8c00000-0000-4000-8000-000000000021','owner','active');
+insert into public.crate_types(id,name,empty_family,pocket_count,business_id)
+ values ('b8c00000-0000-4000-8000-000000000062','Foreign business test crate','NB',12,
+         'b8c00000-0000-4000-9000-000000000061');
 
 insert into public.crate_types(id,name,empty_family,pocket_count)
  values ('b8c00000-0000-4000-8000-000000000031','Bulk price test crate','NB',12);
@@ -35,7 +38,7 @@ insert into public.products
  (id,name,bottles_per_crate,full_crate_price,bottle_price,bottles_returnable,
   crate_type_id,catalogue_product_id,business_id)
 select 'b8c00000-0000-4000-8000-000000000043','Foreign Trophy',12,9000,800,false,
-       'b8c00000-0000-4000-8000-000000000031',id,
+       'b8c00000-0000-4000-8000-000000000062',id,
        'b8c00000-0000-4000-9000-000000000061'
 from public.product_catalogue where name='Trophy';
 
