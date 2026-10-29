@@ -120,7 +120,7 @@ def validate_sources(root: Path, inventory: dict, live_tip: str, compare_ref=Non
             )
         for path in found & set(exclusion_paths):
             worktree_bytes = (root / path).read_bytes()
-            blob = b"blob " + str(len(worktree_bytes)).encode("ascii") + b"\\0" + worktree_bytes
+            blob = b"blob " + str(len(worktree_bytes)).encode("ascii") + b"\0" + worktree_bytes
             if hashlib.sha1(blob).hexdigest() != exclusion_paths[path]:
                 raise ValueError("RELEASE INVENTORY DRIFT: excluded migration content changed: " + path)
             committed = subprocess.run(
