@@ -42,6 +42,15 @@ revoke all on function private.can_insert_tenant_product(uuid)
 grant execute on function private.can_insert_tenant_product(uuid)
   to authenticated;
 
+-- The earlier cutover revoked direct product INSERT completely. Restore only
+-- the columns needed by the guarded tenant path; deliberately omit `id` so
+-- callers cannot choose globally colliding product UUIDs. RLS still requires
+-- the legacy business predicate OR both rollout gates plus exact ownership.
+grant insert (business_id, name, size, image_url, bottles_per_crate,
+  full_crate_price, half_crate_price, quarter_crate_price, bottle_price,
+  bottles_returnable, empty_family, crate_type, bottle_type)
+  on public.products to authenticated;
+
 alter policy owner_insert_product on public.products
   with check (
     private.can_read_legacy_customer(business_id)
