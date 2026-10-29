@@ -26,6 +26,15 @@ begin
     raise exception 'Product INSERT policy is not scoped to legacy or gated owned business';
   end if;
 
+  -- A guarded tenant INSERT must be callable, but caller-chosen global IDs
+  -- must remain unavailable. This catches the previous state where the RLS
+  -- helper existed but no authenticated insert grant could reach it.
+  if not has_column_privilege('authenticated','public.products','business_id','INSERT')
+     or not has_column_privilege('authenticated','public.products','name','INSERT')
+     or has_column_privilege('authenticated','public.products','id','INSERT') then
+    raise exception 'Tenant product INSERT grants must include business_id and omit caller-supplied id';
+  end if;
+
   if not exists (
     select 1 from pg_proc p
     join pg_namespace n on n.oid=p.pronamespace
