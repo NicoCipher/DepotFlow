@@ -19,7 +19,7 @@ POSITION_KEYS = {"location", "stmt_location", "stmt_len"}
 
 def remove_locations(value):
     if isinstance(value, dict):
-        return {k: remove_locations(v) for k, v in value.items() if k not in POSITION_KEYS}
+        return {k: remove_locations(v) for k, v in value.items() if k not in POSITION_KEYS and not k.endswith("_location")}
     if isinstance(value, list):
         return [remove_locations(v) for v in value]
     return value
