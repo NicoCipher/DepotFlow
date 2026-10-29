@@ -33,15 +33,10 @@ grant truncate, references, trigger, maintain on table
   public.stock_movements
 to service_role;
 
--- These two legacy relations also have the same narrow managed maintenance
--- ACL for anon/authenticated in production. Preserve their existing SELECT
--- distinction: anon has no SELECT; authenticated keeps only its pre-existing
--- SELECT plus these non-DML maintenance privileges.
-grant truncate, references, trigger, maintain on table
-  public.sale_empty_decisions,
-  public.shop_profile
-to anon, authenticated;
-
+-- Client maintenance grants are intentionally NOT reproduced here. They are
+-- a known production defect and the forward-only hardening migration must
+-- remove them before release. The exact-current-state parity rehearsal uses
+-- a separate isolated snapshot fixture to reproduce the pre-fix live state.
 do $managed_acl_check$
 declare
   v_relation text;
@@ -94,13 +89,23 @@ begin
     raise exception 'Managed ACL fixture accidentally granted service_role DML';
   end if;
 
-  if not has_table_privilege('anon','public.sale_empty_decisions','REFERENCES')
-    or not has_table_privilege('anon','public.sale_empty_decisions','TRIGGER')
-    or has_table_privilege('anon','public.sale_empty_decisions','SELECT')
-    or not has_table_privilege('authenticated','public.shop_profile','REFERENCES')
-    or not has_table_privilege('authenticated','public.shop_profile','TRIGGER')
-    or not has_table_privilege('authenticated','public.shop_profile','SELECT') then
-    raise exception 'Managed legacy relation ACL does not match the production role matrix';
+  if has_table_privilege('anon','public.sale_empty_decisions','TRUNCATE')
+    or has_table_privilege('anon','public.sale_empty_decisions','REFERENCES')
+    or has_table_privilege('anon','public.sale_empty_decisions','TRIGGER')
+    or has_table_privilege('anon','public.sale_empty_decisions','MAINTAIN')
+    or has_table_privilege('authenticated','public.sale_empty_decisions','TRUNCATE')
+    or has_table_privilege('authenticated','public.sale_empty_decisions','REFERENCES')
+    or has_table_privilege('authenticated','public.sale_empty_decisions','TRIGGER')
+    or has_table_privilege('authenticated','public.sale_empty_decisions','MAINTAIN')
+    or has_table_privilege('anon','public.shop_profile','TRUNCATE')
+    or has_table_privilege('anon','public.shop_profile','REFERENCES')
+    or has_table_privilege('anon','public.shop_profile','TRIGGER')
+    or has_table_privilege('anon','public.shop_profile','MAINTAIN')
+    or has_table_privilege('authenticated','public.shop_profile','TRUNCATE')
+    or has_table_privilege('authenticated','public.shop_profile','REFERENCES')
+    or has_table_privilege('authenticated','public.shop_profile','TRIGGER')
+    or has_table_privilege('authenticated','public.shop_profile','MAINTAIN') then
+    raise exception 'Unsafe client maintenance grants remain after hardening';
   end if;
 end;
 $managed_acl_check$;
