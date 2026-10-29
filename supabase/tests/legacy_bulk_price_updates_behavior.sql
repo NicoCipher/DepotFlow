@@ -8,6 +8,13 @@ insert into auth.users(id) values
 insert into private.shop_owner(user_id)
  values ('b8c00000-0000-4000-8000-000000000021');
 select private.link_legacy_shop_business();
+-- A second business owned by the same principal proves that the legacy
+-- price editor remains constrained to its explicitly enabled legacy scope.
+insert into private.businesses(id,status)
+ values('b8c00000-0000-4000-9000-000000000061','active');
+insert into private.business_memberships(business_id,user_id,member_kind,status)
+ values('b8c00000-0000-4000-9000-000000000061',
+        'b8c00000-0000-4000-8000-000000000021','owner','active');
 
 insert into public.crate_types(id,name,empty_family,pocket_count)
  values ('b8c00000-0000-4000-8000-000000000031','Bulk price test crate','NB',12);
@@ -23,6 +30,13 @@ insert into public.products
   crate_type_id,catalogue_product_id)
 select 'b8c00000-0000-4000-8000-000000000042','Bulk Trophy',12,9000,800,false,
        'b8c00000-0000-4000-8000-000000000031',id
+from public.product_catalogue where name='Trophy';
+insert into public.products
+ (id,name,bottles_per_crate,full_crate_price,bottle_price,bottles_returnable,
+  crate_type_id,catalogue_product_id,business_id)
+select 'b8c00000-0000-4000-8000-000000000043','Foreign Trophy',12,9000,800,false,
+       'b8c00000-0000-4000-8000-000000000031',id,
+       'b8c00000-0000-4000-9000-000000000061'
 from public.product_catalogue where name='Trophy';
 
 insert into public.product_cost_history(owner_user_id,catalogue_product_id,cost_price,effective_on)
@@ -70,6 +84,7 @@ declare
   v_result jsonb;
   v_retry jsonb;
   v_history_before bigint;
+  v_bottle_history_before bigint;
   v_cost_before bigint;
 begin
   select id into strict v_goldberg_catalogue from public.product_catalogue where name='Goldberg';
@@ -136,8 +151,12 @@ begin
                           where id='b8c00000-0000-4000-8000-000000000041'))
      or not exists(select 1 from public.product_selling_price_history
        where catalogue_product_id=v_goldberg_catalogue and selling_price=10500
-         and source='product_edit') then
-    raise exception 'Valid batch did not update prices and append both histories';
+         and source='product_edit')
+     or not exists(select 1 from public.product_bottle_selling_price_history
+       where product_id='b8c00000-0000-4000-8000-000000000041'
+         and bottle_price=950 and business_id=(select business_id from public.products
+           where id='b8c00000-0000-4000-8000-000000000041')) then
+    raise exception 'Valid batch did not update prices and append crate, bottle and cost histories';
   end if;
 
   -- Exact retry returns the same result and does not duplicate either history.
@@ -151,6 +170,48 @@ begin
          where source='product_edit')<>v_history_before
      or (select count(*) from public.product_cost_history)<>v_cost_before then
     raise exception 'Exact retry changed result or duplicated price history';
+  end if;
+
+  -- Bottle-only edits must be auditable without fabricating a crate-price change.
+  select count(*) into v_history_before
+  from public.product_selling_price_history where source='product_edit';
+  select count(*) into v_bottle_history_before
+  from public.product_bottle_selling_price_history;
+  v_payload:=jsonb_build_array(jsonb_build_object(
+    'product_id','b8c00000-0000-4000-8000-000000000041',
+    'change_selling',true,'change_cost',false,
+    'expected_full_crate_price',10500,'new_full_crate_price',10500,
+    'expected_bottle_price',950,'new_bottle_price',1000,
+    'catalogue_product_id',null,'expected_cost_price',null,'new_cost_price',null
+  ));
+  perform public.update_legacy_product_prices(
+    'b8c00000-0000-4000-8000-000000000057',v_payload);
+  if (select full_crate_price from public.products
+      where id='b8c00000-0000-4000-8000-000000000041')<>10500
+     or (select bottle_price from public.products
+      where id='b8c00000-0000-4000-8000-000000000041')<>1000
+     or (select count(*) from public.product_selling_price_history
+      where source='product_edit')<>v_history_before
+     or not exists(select 1 from public.product_bottle_selling_price_history
+      where product_id='b8c00000-0000-4000-8000-000000000041'
+        and bottle_price=1000) then
+    raise exception 'Bottle-only update changed crate history or missed bottle history';
+  end if;
+
+  -- A product belonging to another business must be rejected even when the
+  -- same owner has membership in both businesses.
+  begin
+    perform public.update_legacy_product_prices(
+      'b8c00000-0000-4000-8000-000000000058',
+      '[{"product_id":"b8c00000-0000-4000-8000-000000000043","change_selling":true,"change_cost":false,"expected_full_crate_price":9000,"new_full_crate_price":9500,"expected_bottle_price":800,"new_bottle_price":850,"catalogue_product_id":null,"expected_cost_price":null,"new_cost_price":null}]'::jsonb);
+    raise exception 'Cross-business product update unexpectedly accepted';
+  exception when serialization_failure then null;
+  end;
+  if (select full_crate_price from public.products
+      where id='b8c00000-0000-4000-8000-000000000043')<>9000
+     or (select bottle_price from public.products
+      where id='b8c00000-0000-4000-8000-000000000043')<>800 then
+    raise exception 'Cross-business attempt changed a foreign product';
   end if;
 
   -- A request UUID cannot be reused with different content.
