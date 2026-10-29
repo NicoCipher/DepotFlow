@@ -10,7 +10,7 @@ from pathlib import Path
 
 from pglast.parser import parse_sql_json
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE = ROOT / "docs/release-evidence/production-applied-sql-statements-lexical-only-20261029.json"
 MANIFEST = ROOT / "docs/m2-applied-sql-reconciliation-manifest-20261019.json"
 MIGRATIONS = ROOT / "supabase/migrations"
