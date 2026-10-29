@@ -48,24 +48,18 @@ insert into private.business_memberships(
 do $inactive$
 begin
  if (select enabled from private.business_assortment_setup_gate)
-    or has_function_privilege('authenticated',
+    or not has_function_privilege('authenticated',
        'public.create_business_crate_type(uuid,uuid,text,text,integer,text)','EXECUTE')
-    or has_function_privilege('authenticated',
+    or not has_function_privilege('authenticated',
        'public.add_business_catalogue_drink(uuid,uuid,uuid,uuid,integer,integer,integer,integer,integer,boolean,text,text)','EXECUTE')
     or has_function_privilege('anon',
        'public.create_business_crate_type(uuid,uuid,text,text,integer,text)','EXECUTE')
     or has_function_privilege('anon',
        'public.add_business_catalogue_drink(uuid,uuid,uuid,uuid,integer,integer,integer,integer,integer,boolean,text,text)','EXECUTE') then
-    raise exception 'Draft setup unexpectedly enabled';
+    raise exception 'Draft setup privilege boundary or disabled gate is incorrect';
  end if;
 end;
 $inactive$;
-grant execute on function public.create_business_crate_type(
- uuid,uuid,text,text,integer,text
-) to authenticated;
-grant execute on function public.add_business_catalogue_drink(
- uuid,uuid,uuid,uuid,integer,integer,integer,integer,integer,boolean,text,text
-) to authenticated;
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
