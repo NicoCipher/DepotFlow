@@ -1,0 +1,271 @@
+{
+  "captured_on": "2026-10-29",
+  "project": "DepotFlow",
+  "project_id": "coyivbklakhilpcqqrzg",
+  "source_run_url": "https://github.com/NicoCipher/DepotFlow/actions/runs/40874241883",
+  "production_fingerprint": "docs/release-evidence/production-schema-parity-fingerprint-20261029.json",
+  "query_file": "supabase/tests/fixtures/current_schema_parity_fingerprint.sql",
+  "reconstruction": "Disposable PostgreSQL 17. Exact schema stage: 55 historical migrations + hosted Auth guard + 65 forward-only Phase A migrations = 121-stage production tip. Minimal Supabase-platform emulation only.",
+  "result": "NO-GO — three fingerprint categories differ; differences are characterized below but not certified as harmless.",
+  "production_inventory": {
+    "postgres": "17.6",
+    "relations": 67,
+    "columns": 410,
+    "constraints": 385,
+    "indexes": 134,
+    "functions": 100,
+    "policies": 36,
+    "triggers": 48,
+    "column_grant_tables": 30,
+    "schemas": 2
+  },
+  "matching_categories": {
+    "columns": 410,
+    "constraints": 385,
+    "indexes": 134,
+    "policies": 36,
+    "triggers": 48,
+    "schemas": 2
+  },
+  "differences": {
+    "column_grants": {
+      "different_or_missing_count": 28,
+      "examples": {
+        "public.bottle_deposit_price": [
+          {
+            "path": "",
+            "production": {
+              "items": 8,
+              "sha256": "07122615e515",
+              "type": "array"
+            },
+            "reconstruction": {
+              "items": 4,
+              "sha256": "bc59342b2dab",
+              "type": "array"
+            }
+          }
+        ],
+        "public.bottle_obligations": [
+          {
+            "path": "",
+            "production": {
+              "items": 8,
+              "sha256": "a035af9149f6",
+              "type": "array"
+            },
+            "reconstruction": {
+              "items": 4,
+              "sha256": "d2a473cc138c",
+              "type": "array"
+            }
+          }
+        ],
+        "public.crate_deposit_prices": [
+          {
+            "path": "",
+            "production": {
+              "items": 12,
+              "sha256": "ff3ddbf8385d",
+              "type": "array"
+            },
+            "reconstruction": {
+              "items": 6,
+              "sha256": "8f86b0b5eed6",
+              "type": "array"
+            }
+          }
+        ],
+        "public.crate_obligations": [
+          {
+            "path": "",
+            "production": {
+              "items": 10,
+              "sha256": "99fae165e6b5",
+              "type": "array"
+            },
+            "reconstruction": {
+              "items": 5,
+              "sha256": "11e6c3c255b6",
+              "type": "array"
+            }
+          }
+        ],
+        "public.crate_swap_rules": [
+          {
+            "path": "",
+            "production": {
+              "items": 8,
+              "sha256": "0691bbe76c72",
+              "type": "array"
+            },
+            "reconstruction": {
+              "items": 4,
+              "sha256": "aac1cc89a6dd",
+              "type": "array"
+            }
+          }
+        ]
+      },
+      "production_count": 30,
+      "reconstruction_count": 30,
+      "sample_keys": [
+        "public.bottle_deposit_price",
+        "public.bottle_obligations",
+        "public.crate_deposit_prices",
+        "public.crate_obligations",
+        "public.crate_swap_rules",
+        "public.crate_types",
+        "public.customer_opening_balances",
+        "public.customer_payments",
+        "public.customers",
+        "public.deposits",
+        "public.empty_bottle_stock",
+        "public.empty_crate_movements",
+        "public.empty_crate_stock",
+        "public.known_empty_crates",
+        "public.money_owed",
+        "public.product_catalogue",
+        "public.product_cost_history",
+        "public.product_selling_price_history",
+        "public.products",
+        "public.sale_empty_bottle_returns"
+      ]
+    },
+    "functions": {
+      "different_or_missing_count": 1,
+      "examples": {
+        "public.rls_auto_enable()": [
+          {
+            "path": "config",
+            "production": {
+              "items": 1,
+              "sha256": "f156afc13bf2",
+              "type": "array"
+            },
+            "reconstruction": {
+              "items": 0,
+              "sha256": "4f53cda18c2b",
+              "type": "array"
+            }
+          },
+          {
+            "path": "definition_hash",
+            "production": "6998ea6b4c2480f5d2e34b5dcf3f8d36",
+            "reconstruction": "e91c73567ad94f57a756d4cbada82b3d"
+          },
+          {
+            "path": "security_definer",
+            "production": true,
+            "reconstruction": false
+          }
+        ]
+      },
+      "production_count": 100,
+      "reconstruction_count": 100,
+      "sample_keys": [
+        "public.rls_auto_enable()"
+      ]
+    },
+    "relations": {
+      "different_or_missing_count": 28,
+      "examples": {
+        "public.bottle_deposit_price": [
+          {
+            "path": "effective.service_role.references",
+            "production": true,
+            "reconstruction": false
+          },
+          {
+            "path": "effective.service_role.trigger",
+            "production": true,
+            "reconstruction": false
+          }
+        ],
+        "public.bottle_obligations": [
+          {
+            "path": "effective.service_role.references",
+            "production": true,
+            "reconstruction": false
+          },
+          {
+            "path": "effective.service_role.trigger",
+            "production": true,
+            "reconstruction": false
+          }
+        ],
+        "public.crate_deposit_prices": [
+          {
+            "path": "effective.service_role.references",
+            "production": true,
+            "reconstruction": false
+          },
+          {
+            "path": "effective.service_role.trigger",
+            "production": true,
+            "reconstruction": false
+          }
+        ],
+        "public.crate_obligations": [
+          {
+            "path": "effective.service_role.references",
+            "production": true,
+            "reconstruction": false
+          },
+          {
+            "path": "effective.service_role.trigger",
+            "production": true,
+            "reconstruction": false
+          }
+        ],
+        "public.crate_swap_rules": [
+          {
+            "path": "effective.service_role.references",
+            "production": true,
+            "reconstruction": false
+          },
+          {
+            "path": "effective.service_role.trigger",
+            "production": true,
+            "reconstruction": false
+          }
+        ]
+      },
+      "production_count": 67,
+      "reconstruction_count": 67,
+      "sample_keys": [
+        "public.bottle_deposit_price",
+        "public.bottle_obligations",
+        "public.crate_deposit_prices",
+        "public.crate_obligations",
+        "public.crate_swap_rules",
+        "public.crate_types",
+        "public.customer_opening_balances",
+        "public.customer_payments",
+        "public.customers",
+        "public.deposits",
+        "public.empty_bottle_stock",
+        "public.empty_crate_movements",
+        "public.empty_crate_stock",
+        "public.known_empty_crates",
+        "public.money_owed",
+        "public.product_catalogue",
+        "public.product_cost_history",
+        "public.product_selling_price_history",
+        "public.products",
+        "public.sale_empty_bottle_returns"
+      ]
+    }
+  },
+  "classification": {
+    "relations": "28 relation metadata objects differ. The sampled differences are effective service_role REFERENCES and TRIGGER privileges present in production but absent in the minimal PG17 reconstruction. Relation owner/RLS-definition fields in the sampled rows match.",
+    "column_grants": "28 of 30 table grant arrays differ. Example production/reconstruction row counts are 8/4 for public.bottle_deposit_price and 12/6 for public.crate_deposit_prices; this is consistent with two additional service_role privilege rows per table, matching REFERENCES and TRIGGER.",
+    "functions": "Only public.rls_auto_enable() differs. Production reports SECURITY DEFINER=true and one function config setting; reconstruction's minimal bootstrap stub reports SECURITY DEFINER=false and no config. This is a managed-platform emulation gap, not a proven function-definition match."
+  },
+  "security_followups": [
+    "Confirm the exact intended production service_role REFERENCES/TRIGGER privileges against the Supabase managed-role model before treating these differences as resolved.",
+    "The live catalog still shows public.known_empty_crates, private.customer_empty_returns, and private.held_empty_collections with RLS disabled and no matching policy entry in the earlier inventory. Confirm intended access rules explicitly.",
+    "This fingerprint compares data-free definitions and effective privileges for anon/authenticated/service_role. It is not a complete clone of every Supabase-managed role, Storage/Auth object, or all possible role inheritance paths."
+  ],
+  "safety": "All production queries were read-only. No production data, schema, grants, migration ledger, gates, or deployment were changed."
+}
