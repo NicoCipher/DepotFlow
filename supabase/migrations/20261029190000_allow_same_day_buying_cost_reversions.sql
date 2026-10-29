@@ -14,17 +14,24 @@ declare r record;
 begin
   for r in
     select i.indexrelid::regclass as index_name,
-           c.conname as constraint_name
+           c.conname as constraint_name,
+           array_agg(a.attname::text order by a.attname::text)
+             filter (where k.ordinality <= i.indnkeyatts) as key_columns
     from pg_catalog.pg_index i
     join pg_catalog.pg_class t on t.oid=i.indrelid
     join pg_catalog.pg_namespace n on n.oid=t.relnamespace
+    cross join lateral unnest(i.indkey) with ordinality as k(attnum,ordinality)
+    join pg_catalog.pg_attribute a on a.attrelid=t.oid and a.attnum=k.attnum
     left join pg_catalog.pg_constraint c on c.conindid=i.indexrelid and c.contype='u'
     where n.nspname='public' and t.relname='product_cost_history'
       and i.indisunique and not i.indisprimary and i.indpred is null
-      and pg_catalog.pg_get_indexdef(i.indexrelid) ilike '%business_id%'
-      and pg_catalog.pg_get_indexdef(i.indexrelid) ilike '%catalogue_product_id%'
-      and pg_catalog.pg_get_indexdef(i.indexrelid) ilike '%effective_on%'
-      and pg_catalog.pg_get_indexdef(i.indexrelid) ilike '%cost_price%'
+    group by i.indexrelid,c.conname,i.indnkeyatts
+    having array_agg(a.attname::text order by a.attname::text)
+             filter (where k.ordinality <= i.indnkeyatts)
+           in (
+             array['business_id','catalogue_product_id','cost_price','effective_on']::text[],
+             array['business_id','catalogue_product_id','cost_price','effective_on','owner_user_id']::text[]
+           )
   loop
     if r.constraint_name is not null then
       execute format('alter table public.product_cost_history drop constraint %I',r.constraint_name);
