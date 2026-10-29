@@ -789,6 +789,16 @@ jobs:
               if left != right:
                   return [{"path":path,"production":brief(left),"reconstruction":brief(right)}]
               return []
+          required_categories = set(categories)
+          missing_live = sorted(category for category in required_categories
+                                if category not in live or not isinstance(live[category], dict))
+          missing_actual = sorted(category for category in required_categories
+                                  if category not in actual or not isinstance(actual[category], dict))
+          if missing_live or missing_actual:
+              raise SystemExit(
+                  "PRODUCTION PARITY NO-GO: fingerprint is missing required object categories; "
+                  f"production={missing_live}, reconstruction={missing_actual}"
+              )
           differences = {}
           for category in categories:
               expected, got = live.get(category,{}), actual.get(category,{})
@@ -807,9 +817,9 @@ jobs:
               else:
                   out.write("Fingerprint match for all nine categories. Managed-role and historical SQL semantic parity still require separate proof."+chr(10))
           if differences:
-              print("::warning::PRODUCTION PARITY NO-GO: "+json.dumps(differences,sort_keys=True))
-          else:
-              print("MATCH: all nine metadata categories; managed platform/effective-role limits remain.")
+              print("::error::PRODUCTION PARITY NO-GO: expanded fingerprint mismatch: "+json.dumps(differences,sort_keys=True))
+              raise SystemExit("Expanded production privilege/schema fingerprint differs from the exact-current PostgreSQL 17 reconstruction.")
+          print("PASS: exact current-state fingerprint matches all nine categories, including all eight effective table privileges for anon, authenticated, and service_role. This is still not production release authorization.")
           PY
           # Rehearse the pending client-maintenance hardening only AFTER the
           # exact-current-state fingerprint has been captured. This preserves
