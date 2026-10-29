@@ -8,18 +8,7 @@ insert into auth.users(id) values
 insert into private.shop_owner(user_id)
  values ('b8c00000-0000-4000-8000-000000000021');
 select private.link_legacy_shop_business();
--- A second business owned by the same principal proves that the legacy
--- price editor remains constrained to its explicitly enabled legacy scope.
-insert into private.businesses(id,status)
- values('b8c00000-0000-4000-9000-000000000061','active');
-insert into private.business_memberships(business_id,user_id,member_kind,status)
- values('b8c00000-0000-4000-9000-000000000061',
-        'b8c00000-0000-4000-8000-000000000021','owner','active');
-insert into public.crate_types(id,name,empty_family,pocket_count,business_id)
- values ('b8c00000-0000-4000-8000-000000000062','Foreign business test crate','NB',12,
-         'b8c00000-0000-4000-9000-000000000061');
-
-insert into public.crate_types(id,name,empty_family,pocket_count)
+ insert into public.crate_types(id,name,empty_family,pocket_count)
  values ('b8c00000-0000-4000-8000-000000000031','Bulk price test crate','NB',12);
 
 insert into public.products
@@ -34,15 +23,7 @@ insert into public.products
 select 'b8c00000-0000-4000-8000-000000000042','Bulk Trophy',12,9000,800,false,
        'b8c00000-0000-4000-8000-000000000031',id
 from public.product_catalogue where name='Trophy';
-insert into public.products
- (id,name,bottles_per_crate,full_crate_price,bottle_price,bottles_returnable,
-  crate_type_id,catalogue_product_id,business_id)
-select 'b8c00000-0000-4000-8000-000000000043','Foreign Trophy',12,9000,800,false,
-       'b8c00000-0000-4000-8000-000000000062',id,
-       'b8c00000-0000-4000-9000-000000000061'
-from public.product_catalogue where name='Trophy';
-
-insert into public.product_cost_history(owner_user_id,catalogue_product_id,cost_price,effective_on)
+ insert into public.product_cost_history(owner_user_id,catalogue_product_id,cost_price,effective_on)
 select 'b8c00000-0000-4000-8000-000000000021',id,8000,
        (now() at time zone 'Africa/Lagos')::date
 from public.product_catalogue where name='Goldberg';
@@ -73,6 +54,24 @@ begin
 end;
 $validate_tenant_fks$;
 select private.enable_legacy_write_scope(private.legacy_scope_snapshot());
+
+-- Add the second business only after the legacy-only backfill phase has
+-- completed. Its product must remain outside the gated legacy write scope.
+insert into private.businesses(id,status)
+ values('b8c00000-0000-4000-9000-000000000061','active');
+insert into private.business_memberships(business_id,user_id,member_kind,status)
+ values('b8c00000-0000-4000-9000-000000000061',
+        'b8c00000-0000-4000-8000-000000000021','owner','active');
+insert into public.crate_types(id,name,empty_family,pocket_count,business_id)
+ values ('b8c00000-0000-4000-8000-000000000062','Foreign business test crate','NB',12,
+         'b8c00000-0000-4000-9000-000000000061');
+insert into public.products
+ (id,name,bottles_per_crate,full_crate_price,bottle_price,bottles_returnable,
+  crate_type_id,catalogue_product_id,business_id)
+select 'b8c00000-0000-4000-8000-000000000043','Foreign Trophy',12,9000,800,false,
+       'b8c00000-0000-4000-8000-000000000062',id,
+       'b8c00000-0000-4000-9000-000000000061'
+from public.product_catalogue where name='Trophy';
 
 -- Keep the owner and catalogue IDs available to each assertion without
 -- relying on seeded UUID ordering.
