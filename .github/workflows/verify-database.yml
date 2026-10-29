@@ -142,6 +142,12 @@ jobs:
           set -euo pipefail
           for f in supabase/migrations/*.sql; do
             echo "Applying $f"
+            if [[ "$f" == *20261029103000_revoke_client_maintenance_privileges.sql ]]; then
+              # Recreate the captured pre-fix production ACL only in this
+              # disposable DB so the migration's preflight is exercised.
+              psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+                -f supabase/tests/fixtures/production_legacy_maintenance_acl_snapshot.sql
+            fi
             if [[ "$f" == *retire_legacy_public_rpcs.sql ]]; then
               # These files exercise the historical signatures; run them at
               # their final supported migration state before retirement.
@@ -787,6 +793,13 @@ jobs:
           else:
               print("MATCH: all nine metadata categories; managed platform/effective-role limits remain.")
           PY
+          # Rehearse the pending client-maintenance hardening only AFTER the
+          # exact-current-state fingerprint has been captured. This preserves
+          # the production snapshot comparison and proves the forward fix.
+          psql -h /tmp -p 55439 -d depotflow_forward_phase_a_rehearsal -X -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/20261029103000_revoke_client_maintenance_privileges.sql
+          psql -h /tmp -p 55439 -d depotflow_forward_phase_a_rehearsal -X -v ON_ERROR_STOP=1 \
+            -f supabase/tests/empty_access_model.sql
           # The old-app compat fixture intentionally creates a singleton
           # shop owner. Run that assertion in ANOTHER freshly upgraded
           # disposable clone so it cannot collide with the ledger seed.
