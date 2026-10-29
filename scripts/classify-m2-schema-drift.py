@@ -26,7 +26,6 @@ EXPECTED_AUTH_FUNCTIONS = {
     "private.depotflow_auth_user_insert_guard()",
 }
 EXPECTED_EXISTING_FUNCTION_DRIFT = {
-    "public.rls_auto_enable()",
     "private.record_payment(p_request_id uuid, p_customer_id uuid, p_amount numeric, p_business_date date)",
 }
 
@@ -73,7 +72,7 @@ def differences(live: dict, historical: dict):
         "historical_removed": sorted(func_removed),
         "existing_definition_changed": sorted(func_changed),
         "classification": (
-            "2 Auth-only functions; known managed RLS stub and comment/whitespace-normalized payment function"
+            "2 Auth-only functions; comment/whitespace-normalized historical payment function"
             if func_added == EXPECTED_AUTH_FUNCTIONS and not func_removed
             and func_changed == EXPECTED_EXISTING_FUNCTION_DRIFT else "UNCLASSIFIED"
         ),
