@@ -490,6 +490,11 @@
       "filename": "20261029170523_restore_authenticated_onboarding_rpc_grants_keep_gates_closed.sql",
       "git_blob_sha1": "6f78f1b4a26fe6b576f3830bc8b8ac2162ebe406",
       "reason": "Separate hosted-production onboarding RPC grant repair; already applied to production and intentionally not part of the 2026-10-19 historical M2 rehearsal bundle. Rollout gates remain closed."
+    },
+    {
+      "filename": "20261029180000_scope_product_writes_to_business_owner.sql",
+      "git_blob_sha1": "dda6e8d06c7bc2e432d59adec51e679e54d6eb4b",
+      "reason": "Separate draft tenant product-write RLS repair; not part of the 2026-10-19 historical M2 rehearsal bundle and not authorized for production deployment."
     }
   ]
 }
