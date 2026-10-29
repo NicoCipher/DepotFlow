@@ -75,7 +75,10 @@ begin
     return v_saved.result;
   end if;
 
-  for v_item in select value from jsonb_array_elements(p_changes)
+  -- Lock products in a stable order so overlapping batches do not deadlock.
+  for v_item in
+    select value from jsonb_array_elements(p_changes)
+    order by value->>'product_id'
   loop
     begin
       v_id := (v_item->>'product_id')::uuid;
