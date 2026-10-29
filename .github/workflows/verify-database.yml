@@ -789,6 +789,16 @@ jobs:
               if left != right:
                   return [{"path":path,"production":brief(left),"reconstruction":brief(right)}]
               return []
+          required_categories = set(categories)
+          missing_live = sorted(category for category in required_categories
+                                if category not in live or not isinstance(live[category], dict))
+          missing_actual = sorted(category for category in required_categories
+                                  if category not in actual or not isinstance(actual[category], dict))
+          if missing_live or missing_actual:
+              raise SystemExit(
+                  "PRODUCTION PARITY NO-GO: fingerprint is missing required object categories; "
+                  f"production={missing_live}, reconstruction={missing_actual}"
+              )
           differences = {}
           for category in categories:
               expected, got = live.get(category,{}), actual.get(category,{})
