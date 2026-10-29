@@ -9,6 +9,7 @@ import {
   validImageUrl,
   productValues,
   isProductId,
+  roundUpToSellingPriceStep,
 } from "./products.ts";
 
 const valid = {
@@ -182,4 +183,15 @@ test("duplicate retry comparison checks every saved detail without assuming uniq
   assert.equal(values.half_crate_price, "");
   assert.equal(isProductId("10000000-0000-4000-8000-000000000001"), true);
   assert.equal(isProductId("bad-id"), false);
+});
+
+test("selling-price rounding always rounds upward to the next ₦50", () => {
+  assert.equal(roundUpToSellingPriceStep(1062), 1100);
+  assert.equal(roundUpToSellingPriceStep(1101), 1150);
+  assert.equal(roundUpToSellingPriceStep(1150), 1150);
+  assert.equal(roundUpToSellingPriceStep(0), 0);
+  assert.equal(roundUpToSellingPriceStep(2147483600), 2147483600);
+  for (const invalid of [-1, 1.5, Number.NaN, 2147483601]) {
+    assert.throws(() => roundUpToSellingPriceStep(invalid), RangeError);
+  }
 });
