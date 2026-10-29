@@ -1,0 +1,64 @@
+import Link from "next/link";
+import { requireOwner } from "@/lib/auth/owner";
+import { PriceEditor, type PriceEditorRow } from "@/components/price-editor";
+
+export default async function ProductPricesPage() {
+  const supabase = await requireOwner();
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+
+  const products: {
+    id: string; name: string; size: string | null; full_crate_price: number;
+    bottle_price: number | null; catalogue_product_id: string | null;
+  }[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const page = await supabase.from("products")
+      .select("id,name,size,full_crate_price,bottle_price,catalogue_product_id")
+      .eq("is_active", true).order("name").order("id")
+      .range(offset, offset + 999);
+    if (page.error) throw new Error("Could not load drink prices.");
+    products.push(...page.data);
+    if (page.data.length < 1000) break;
+    if (products.length >= 5000) throw new Error("The price list is too large to load safely.");
+  }
+
+  const costs = new Map<string, number>();
+  for (let offset = 0; ; offset += 1000) {
+    const page = await supabase.from("product_cost_history")
+      .select("catalogue_product_id,cost_price,effective_on,recorded_at")
+      .lte("effective_on", today)
+      .order("effective_on", { ascending: false })
+      .order("recorded_at", { ascending: false })
+      .range(offset, offset + 999);
+    if (page.error) throw new Error("Could not load buying costs.");
+    for (const item of page.data) {
+      if (!costs.has(item.catalogue_product_id)) costs.set(item.catalogue_product_id, item.cost_price);
+    }
+    if (page.data.length < 1000) break;
+    if (offset >= 4000) throw new Error("The buying-cost history is too large to load safely.");
+  }
+
+  const rows: PriceEditorRow[] = products.map((product) => ({
+    id: product.id,
+    name: product.name,
+    size: product.size,
+    fullCratePrice: product.full_crate_price,
+    bottlePrice: product.bottle_price,
+    catalogueProductId: product.catalogue_product_id,
+    costPrice: product.catalogue_product_id ? costs.get(product.catalogue_product_id) ?? null : null,
+  }));
+
+  return (
+    <>
+      <Link href="/products" className="quiet-link">← Drinks</Link>
+      <h1 className="mt-5">Update prices</h1>
+      <p className="mt-2 text-sm text-stone-600">
+        Change only what you need. Buying cost and selling prices are separate.
+      </p>
+      {rows.length ? <PriceEditor initialRows={rows} /> : (
+        <p className="mt-6 text-stone-600">No active drinks to update.</p>
+      )}
+    </>
+  );
+}
