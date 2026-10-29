@@ -80,6 +80,30 @@ begin
       raise exception 'Owner/business guard missing from %',v_name;
     end if;
   end loop;
+
+  -- Client API roles must not retain table-maintenance privileges that bypass
+  -- RLS, especially TRUNCATE. The forward-only hardening migration removes
+  -- all four non-DML maintenance privileges while preserving authenticated
+  -- SELECT and keeping anon SELECT denied.
+  foreach v_name in array array[
+    'public.sale_empty_decisions','public.shop_profile'
+  ] loop
+    foreach v_role in array array['anon','authenticated'] loop
+      if has_table_privilege(v_role,v_name,'TRUNCATE')
+        or has_table_privilege(v_role,v_name,'REFERENCES')
+        or has_table_privilege(v_role,v_name,'TRIGGER')
+        or has_table_privilege(v_role,v_name,'MAINTAIN') then
+        raise exception 'Client role % retains a maintenance privilege on %',v_role,v_name;
+      end if;
+    end loop;
+  end loop;
+
+  if has_table_privilege('anon','public.sale_empty_decisions','SELECT')
+    or has_table_privilege('anon','public.shop_profile','SELECT')
+    or not has_table_privilege('authenticated','public.sale_empty_decisions','SELECT')
+    or not has_table_privilege('authenticated','public.shop_profile','SELECT') then
+    raise exception 'Maintenance hardening changed intended SELECT access';
+  end if;
 end;
 $empty_access_model$;
 
