@@ -1,7 +1,23 @@
 -- Rollback-only checks for the original-shop bulk price RPC boundary.
 begin;
 do $price_rpc_boundary$
+declare
+  v_definition text;
+  v_is_security_definer boolean;
 begin
+  select pg_catalog.pg_get_functiondef(p.oid),p.prosecdef
+    into v_definition,v_is_security_definer
+  from pg_catalog.pg_proc p
+  where p.oid='public.update_legacy_product_prices(uuid,jsonb)'::regprocedure;
+  if v_definition is null or v_is_security_definer is distinct from true then
+    raise exception 'Price update RPC must exist as SECURITY DEFINER';
+  end if;
+  if pg_catalog.strpos(v_definition,'private.assert_legacy_assortment_owner()')=0
+     or pg_catalog.strpos(v_definition,'p.business_id=v_business')=0
+     or pg_catalog.strpos(v_definition,'h.business_id is not distinct from v_product.business_id')=0
+     or pg_catalog.strpos(v_definition,'h.owner_user_id=v_actor')=0 then
+    raise exception 'Price update RPC is missing legacy-owner or per-business write/read barriers';
+  end if;
   if not has_function_privilege(
     'authenticated',
     'public.update_legacy_product_prices(uuid,jsonb)',
