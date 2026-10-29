@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { formatNaira } from "@/domain/products";
+import { formatNaira, roundUpToSellingPriceStep } from "@/domain/products";
 import { saveBulkPrices } from "@/app/(shop)/products/price-actions";
 
 export type PriceEditorRow = {
@@ -23,6 +23,13 @@ type DraftRow = PriceEditorRow & { costText: string; crateText: string; halfText
 function sameOptionalPrice(value: string, current: number | null) {
   if (!value.trim()) return current === null;
   return /^\d+$/.test(value) && Number(value) === current;
+}
+
+function roundedSellingText(value: string): string {
+  if (!/^\\d+$/.test(value)) return value;
+  const amount = Number(value);
+  if (!Number.isSafeInteger(amount) || amount > 2_147_483_600) return value;
+  return String(roundUpToSellingPriceStep(amount));
 }
 
 function difference(oldValue: number | null, newValue: number | null) {
@@ -205,6 +212,9 @@ export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) 
       <label htmlFor="price-search">Find a drink</label>
       <input id="price-search" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Type a drink name" />
       {draftNotice && <p role="status" className="text-sm text-stone-600">{draftNotice}</p>}
+      <p className="rounded-lg bg-stone-100 p-3 text-sm text-stone-700">
+        Selling prices round up to the next ₦50 when you leave a field. Example: ₦1,062 becomes ₦1,100. Bottle and pack prices remain independent.
+      </p>
       <div className="flex items-center justify-between gap-3 border-b border-stone-300 pb-3 text-sm">
         <span className="text-stone-600">Edit only what you want. Cost needs a catalogue link.</span>
         <span className="shrink-0 font-semibold">{changedFields} changed</span>
@@ -236,7 +246,8 @@ export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) 
                 <label htmlFor={row.id + "-crate"}>Selling / crate (₦)</label>
                 <input id={row.id + "-crate"} type="text" inputMode="numeric" pattern="[0-9]*"
                   value={row.crateText} disabled={pending}
-                  onChange={(event) => update(row.id, "crateText", event.target.value)} />
+                  onChange={(event) => update(row.id, "crateText", event.target.value)}
+                  onBlur={() => update(row.id, "crateText", roundedSellingText(row.crateText))} />
                 {row.crateText !== String(row.fullCratePrice)
                   && <p className="mt-1 text-xs text-stone-600">Was {formatNaira(row.fullCratePrice)}</p>}
               </div>
@@ -245,6 +256,7 @@ export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) 
                 <input id={row.id + "-half"} type="text" inputMode="numeric" pattern="[0-9]*"
                   value={row.halfText} disabled={pending}
                   onChange={(event) => update(row.id, "halfText", event.target.value)}
+                  onBlur={() => update(row.id, "halfText", roundedSellingText(row.halfText))}
                   placeholder="Not set" />
                 {row.halfText !== (row.halfCratePrice === null ? "" : String(row.halfCratePrice))
                   && <p className="mt-1 text-xs text-stone-600">Was {row.halfCratePrice === null ? "not set" : formatNaira(row.halfCratePrice)}</p>}
@@ -254,6 +266,7 @@ export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) 
                 <input id={row.id + "-quarter"} type="text" inputMode="numeric" pattern="[0-9]*"
                   value={row.quarterText} disabled={pending}
                   onChange={(event) => update(row.id, "quarterText", event.target.value)}
+                  onBlur={() => update(row.id, "quarterText", roundedSellingText(row.quarterText))}
                   placeholder="Not set" />
                 {row.quarterText !== (row.quarterCratePrice === null ? "" : String(row.quarterCratePrice))
                   && <p className="mt-1 text-xs text-stone-600">Was {row.quarterCratePrice === null ? "not set" : formatNaira(row.quarterCratePrice)}</p>}
@@ -263,6 +276,7 @@ export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) 
                 <input id={row.id + "-bottle"} type="text" inputMode="numeric" pattern="[0-9]*"
                   value={row.bottleText} disabled={pending}
                   onChange={(event) => update(row.id, "bottleText", event.target.value)}
+                  onBlur={() => update(row.id, "bottleText", roundedSellingText(row.bottleText))}
                   placeholder="No separate bottle price" />
                 {row.bottleText !== (row.bottlePrice === null ? "" : String(row.bottlePrice))
                   && <p className="mt-1 text-xs text-stone-600">Was {row.bottlePrice === null ? "not set" : formatNaira(row.bottlePrice)}</p>}
