@@ -16,7 +16,10 @@ declare
 begin
   select g.business_id into v_business
   from private.legacy_write_scope_gate g
-  where g.enabled is true;
+  join private.businesses b on b.id=g.business_id and b.legacy_singleton is true
+  join private.business_memberships m on m.business_id=b.id
+    and m.user_id=v_actor and m.member_kind='owner' and m.status='active'
+  where g.enabled is true and b.status='active';
   if not found or v_business is null then
     raise exception 'Price updates are not enabled for this shop yet.'
       using errcode='42501';
@@ -185,8 +188,11 @@ begin
   -- as permission to write products whose business_id is NULL.
   select g.business_id into v_business
   from private.legacy_write_scope_gate g
-  where g.enabled is true
-  for share;
+  join private.businesses b on b.id=g.business_id and b.legacy_singleton is true
+  join private.business_memberships m on m.business_id=b.id
+    and m.user_id=v_actor and m.member_kind='owner' and m.status='active'
+  where g.enabled is true and b.status='active'
+  for share of g;
   if not found or v_business is null then
     raise exception 'Price updates are not enabled for this shop yet.'
       using errcode='42501';
