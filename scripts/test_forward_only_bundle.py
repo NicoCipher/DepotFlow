@@ -5,6 +5,8 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location(
@@ -107,6 +109,71 @@ class ForwardOnlyRehearsalTests(unittest.TestCase):
         ][0]
         with self.assertRaisesRegex(ValueError, "unique"):
             self.plan(inventory=changed)
+
+    def test_compare_ref_allows_existing_inventory_and_hash_locked_exclusions(self):
+        lock = json.loads(
+            (ROOT / "supabase/tests/fixtures/m2_forward_only_sources_20261019.json").read_text()
+        )
+        excluded = lock["reviewed_excluded_sources"]
+        added = ["supabase/migrations/" + item["filename"] for item in excluded]
+        hashes = {path: item["git_blob_sha1"] for path, item in zip(added, excluded)}
+
+        def fake_run(command, **kwargs):
+            if command[3] == "diff":
+                return SimpleNamespace(stdout="\n".join("A\t" + path for path in added) + "\n")
+            if command[3] == "rev-parse":
+                path = command[-1].split("HEAD:", 1)[1]
+                return SimpleNamespace(stdout=hashes[path] + "\n")
+            raise AssertionError("Unexpected git command: " + repr(command))
+
+        with patch.object(forward.subprocess, "run", side_effect=fake_run):
+            files, versions = forward.validate_sources(
+                ROOT, self.inventory, self.history["live_tip"], compare_ref="origin/main"
+            )
+        self.assertEqual(len(files), 65)
+        self.assertEqual(len(versions), 65)
+
+    def test_compare_ref_blocks_unreviewed_new_migration(self):
+        def fake_run(command, **kwargs):
+            return SimpleNamespace(stdout="A\tsupabase/migrations/20261029999999_unreviewed.sql\n")
+
+        with patch.object(forward.subprocess, "run", side_effect=fake_run):
+            with self.assertRaisesRegex(ValueError, "newly added SQL migrations"):
+                forward.validate_sources(
+                    ROOT, self.inventory, self.history["live_tip"], compare_ref="origin/main"
+                )
+
+    def test_compare_ref_blocks_modified_reviewed_migration_source(self):
+        source = self.inventory["phase_a_source_migrations"][0]
+
+        def fake_run(command, **kwargs):
+            return SimpleNamespace(stdout="M\t" + source + "\n")
+
+        with patch.object(forward.subprocess, "run", side_effect=fake_run):
+            with self.assertRaisesRegex(ValueError, "existing migration source files were modified"):
+                forward.validate_sources(
+                    ROOT, self.inventory, self.history["live_tip"], compare_ref="origin/main"
+                )
+
+    def test_compare_ref_blocks_changed_hash_locked_exclusion(self):
+        lock = json.loads(
+            (ROOT / "supabase/tests/fixtures/m2_forward_only_sources_20261019.json").read_text()
+        )
+        item = lock["reviewed_excluded_sources"][0]
+        path = "supabase/migrations/" + item["filename"]
+
+        def fake_run(command, **kwargs):
+            if command[3] == "diff":
+                return SimpleNamespace(stdout="A\t" + path + "\n")
+            if command[3] == "rev-parse":
+                return SimpleNamespace(stdout="0" * 40 + "\n")
+            raise AssertionError("Unexpected git command: " + repr(command))
+
+        with patch.object(forward.subprocess, "run", side_effect=fake_run):
+            with self.assertRaisesRegex(ValueError, "content changed"):
+                forward.validate_sources(
+                    ROOT, self.inventory, self.history["live_tip"], compare_ref="origin/main"
+                )
 
     def test_release_authorization_inside_manifest_blocks(self):
         changed = copy.deepcopy(self.inventory)

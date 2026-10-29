@@ -48,24 +48,18 @@ insert into private.business_memberships(
 do $inactive$
 begin
  if (select enabled from private.business_assortment_setup_gate)
-    or has_function_privilege('authenticated',
+    or not has_function_privilege('authenticated',
        'public.create_business_crate_type(uuid,uuid,text,text,integer,text)','EXECUTE')
-    or has_function_privilege('authenticated',
+    or not has_function_privilege('authenticated',
        'public.add_business_catalogue_drink(uuid,uuid,uuid,uuid,integer,integer,integer,integer,integer,boolean,text,text)','EXECUTE')
     or has_function_privilege('anon',
        'public.create_business_crate_type(uuid,uuid,text,text,integer,text)','EXECUTE')
     or has_function_privilege('anon',
        'public.add_business_catalogue_drink(uuid,uuid,uuid,uuid,integer,integer,integer,integer,integer,boolean,text,text)','EXECUTE') then
-    raise exception 'Draft setup unexpectedly enabled';
+    raise exception 'Draft setup privilege boundary or disabled gate is incorrect';
  end if;
 end;
 $inactive$;
-grant execute on function public.create_business_crate_type(
- uuid,uuid,text,text,integer,text
-) to authenticated;
-grant execute on function public.add_business_catalogue_drink(
- uuid,uuid,uuid,uuid,integer,integer,integer,integer,integer,boolean,text,text
-) to authenticated;
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
@@ -73,11 +67,21 @@ select set_config('request.jwt.claim.sub',
 do $disabled$
 begin
  begin
+   perform public.add_business_catalogue_drink(
+    '89600000-0000-4000-9000-000000000021',
+    '89600000-0000-4000-9000-000000000051',
+    '89600000-0000-4000-9000-000000000090',
+    '89600000-0000-4000-9000-000000000031',
+    20,10000,null,null,500,true,'Goldberg bottle',null);
+   raise exception 'Disabled assortment gate permitted catalogue drink' using errcode='PT001';
+ exception when insufficient_privilege then null;
+ end;
+ begin
    perform public.create_business_crate_type(
     '89600000-0000-4000-9000-000000000021',
-    '89600000-0000-4000-9000-000000000031',
-    'NBL shared','NBL',20,null);
-   raise exception 'Disabled assortment gate permitted crate' using errcode='PT001';
+    '89600000-0000-4000-9000-000000000051',
+    'Gate-off crate','NBL',20,null);
+   raise exception 'Disabled assortment gate permitted crate creation' using errcode='PT001';
  exception when insufficient_privilege then null;
  end;
 end;

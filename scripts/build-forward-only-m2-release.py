@@ -65,6 +65,15 @@ def validate_remote(remote, snapshot, evidence):
 
 
 def build(remote_path, out_dir=None):
+    # Validate the requested output location before other release checks so
+    # path-safety tests cannot be masked by unrelated source-lock failures.
+    if out_dir is not None:
+        output = out_dir.resolve()
+        if output == ROOT or ROOT in output.parents:
+            raise ValueError("BLOCKED: generated release output must not be inside the repository")
+        if output.exists():
+            raise ValueError("BLOCKED: output directory must not already exist (no stale bundle reuse)")
+
     lock = read_json(SOURCE_LOCK)
     snapshot = read_json(HISTORY_SNAPSHOT)
     evidence = read_json(APPLIED_EVIDENCE)
@@ -104,8 +113,33 @@ def build(remote_path, out_dir=None):
     if historic_candidates.intersection(source_set):
         raise ValueError("BLOCKED: historical SQL candidate overlaps tenant Phase A or cutover source")
     candidate_files = {p.name for p in MIGRATIONS.glob("*.sql")}
+    # Explicitly reviewed exclusions let unrelated later fixes remain outside
+    # this dated rehearsal bundle without weakening the fail-closed check for
+    # any other newly added migration. Verify Git's blob identity so edits to
+    # an excluded migration automatically block the rehearsal.
+    exclusions = lock.get("reviewed_excluded_sources", [])
+    if not isinstance(exclusions, list):
+        raise ValueError("BLOCKED: reviewed source exclusions must be a list")
+    excluded_names = set()
+    for item in exclusions:
+        if not isinstance(item, dict):
+            raise ValueError("BLOCKED: malformed reviewed source exclusion")
+        name = item.get("filename")
+        expected_blob = item.get("git_blob_sha1")
+        if not isinstance(name, str) or not isinstance(expected_blob, str) or not item.get("reason"):
+            raise ValueError("BLOCKED: incomplete reviewed source exclusion")
+        if name in excluded_names or name not in candidate_files:
+            raise ValueError("BLOCKED: duplicate or missing reviewed exclusion " + str(name))
+        raw = (MIGRATIONS / name).read_bytes()
+        actual_blob = hashlib.sha1(
+            b"blob " + str(len(raw)).encode("ascii") + b"\0" + raw
+        ).hexdigest()
+        if actual_blob != expected_blob:
+            raise ValueError("BLOCKED: reviewed excluded source changed: " + name)
+        excluded_names.add(name)
     unreviewed = sorted(
-        name for name in candidate_files - source_set - historic_candidates - {lock["already_applied_auth_source"]}
+        name for name in candidate_files - source_set - historic_candidates
+        - {lock["already_applied_auth_source"]} - excluded_names
         if name >= "20261016020000"
     )
     if unreviewed or any(name not in candidate_files for name in sources):
@@ -139,10 +173,6 @@ def build(remote_path, out_dir=None):
 
     if out_dir is not None:
         output = out_dir.resolve()
-        if output == ROOT or ROOT in output.parents:
-            raise ValueError("BLOCKED: generated release output must not be inside the repository")
-        if output.exists():
-            raise ValueError("BLOCKED: output directory must not already exist (no stale bundle reuse)")
         output.mkdir(parents=True)
         for item in stage:
             dest = output / item["phase"]

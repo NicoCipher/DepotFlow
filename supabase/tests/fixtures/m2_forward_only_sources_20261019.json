@@ -484,5 +484,17 @@
       "localCandidate": "20261017132742_activate_multi_tender_owner_only_20261017.sql"
     }
   ],
-  "applied_sql_provenance_policy": "Exact 55 historical applied SQL records, in actual live ledger order. Including (version,name,status,localCandidate,md5/archive) under the same reviewed source lock prevents reassociation of historical migration candidates into M2 exclusions."
+  "applied_sql_provenance_policy": "Exact 55 historical applied SQL records, in actual live ledger order. Including (version,name,status,localCandidate,md5/archive) under the same reviewed source lock prevents reassociation of historical migration candidates into M2 exclusions.",
+  "reviewed_excluded_sources": [
+    {
+      "filename": "20261029170523_restore_authenticated_onboarding_rpc_grants_keep_gates_closed.sql",
+      "git_blob_sha1": "6f78f1b4a26fe6b576f3830bc8b8ac2162ebe406",
+      "reason": "Separate hosted-production onboarding RPC grant repair; already applied to production and intentionally not part of the 2026-10-19 historical M2 rehearsal bundle. Rollout gates remain closed."
+    },
+    {
+      "filename": "20261029180000_scope_product_writes_to_business_owner.sql",
+      "git_blob_sha1": "4cee7e29730b6064f933b5f0803fed1eadede5ee",
+      "reason": "Separate draft tenant product-write RLS repair, now including the gated crate-creation RPC grant required by the guided setup flow; not part of the 2026-10-19 historical M2 rehearsal bundle and not authorized for production deployment."
+    }
+  ]
 }

@@ -368,7 +368,7 @@ jobs:
           SQL
           for f in supabase/tests/*.sql; do
             case "$f" in
-              */customer_archiving.sql|*/customer_payments.sql|*/empties_rules.sql|*/sale_partial_pricing.sql|*/record_sale_v2_empties.sql|*/legacy_creation_pre_cutover_compat.sql) continue ;;
+              */customer_archiving.sql|*/customer_payments.sql|*/empties_rules.sql|*/sale_partial_pricing.sql|*/record_sale_v2_empties.sql|*/legacy_creation_pre_cutover_compat.sql|*/tenant_product_write_policy_scope.sql) continue ;;
             esac
             echo "Running $f"
             psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 -f "$f"
@@ -385,6 +385,10 @@ jobs:
           revoke execute on function public.create_crate_type(uuid,text,text,numeric,text) from authenticated;
           revoke execute on function private.create_crate_type(uuid,text,text,numeric,text) from authenticated;
           SQL
+          # This policy test asserts the production privilege boundary, so run
+          # it only after the historical fixtures' temporary product INSERT
+          # grant has been revoked.
+          psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 -f supabase/tests/tenant_product_write_policy_scope.sql
           psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 <<'SQL'
           do $post_sql_fixture$
           begin
