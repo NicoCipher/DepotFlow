@@ -15,6 +15,10 @@ EVIDENCE = ROOT / "docs/release-evidence/production-applied-sql-statements-lexic
 MANIFEST = ROOT / "docs/m2-applied-sql-reconciliation-manifest-20261019.json"
 MIGRATIONS = ROOT / "supabase/migrations"
 POSITION_KEYS = {"location", "stmt_location", "stmt_len"}
+TRANSACTION_WRAPPER_ONLY = {
+    "20261016152420", "20261016152535", "20261016153051", "20261016153418"
+}
+FUNCTION_COMMENT_ONLY = {"20260925095320"}
 
 
 def remove_locations(value):
@@ -43,7 +47,7 @@ def normalize_function_bodies(value, in_function=False):
 
 
 def parse_tree(sql):
-    return normalize_function_bodies(remove_locations(json.loads(parse_sql_json(sql))))
+    return remove_locations(json.loads(parse_sql_json(sql)))
 
 
 def strip_outer_transaction_wrappers(statements):
@@ -102,12 +106,12 @@ def compare():
     candidates = {x["version"]: x for x in manifest["entries"]}
     report = {
         "captured_on": evidence["captured_on"],
-        "method": "pglast/libpg_query PostgreSQL parse-tree comparison; source locations, full-line function-body comments, and paired outer BEGIN/COMMIT wrappers normalized",
+        "method": "Strict pglast/libpg_query PostgreSQL AST comparison after removing parser source offsets; five known differences receive narrow, explicit follow-up checks for transaction wrappers or full-line function comments",
         "warning": "AST equality is not a complete runtime-semantic, data-migration, or Supabase managed-platform certificate.",
         "counts": {},
         "entries": [],
     }
-    counts = {"ast_equal": 0, "ast_different": 0, "parse_error": 0, "candidate_missing": 0}
+    counts = {"ast_equal": 0, "outer_transaction_wrappers_only": 0, "function_body_comments_only": 0, "ast_different_unresolved": 0, "parse_error": 0, "candidate_missing": 0}
     for row in evidence["entries"]:
         version = row["version"]
         source = candidates.get(version, {}).get("localCandidate")
@@ -124,29 +128,51 @@ def compare():
                     applied_trees.extend(parse_tree(statement).get("stmts", []))
                 local_tree = parse_tree((MIGRATIONS / source).read_text(encoding="utf-8"))
                 local_trees = local_tree.get("stmts", [])
-                applied_trees = strip_outer_transaction_wrappers(applied_trees)
-                local_trees = strip_outer_transaction_wrappers(local_trees)
-                same = applied_trees == local_trees
-                applied_tree = {"stmts": applied_trees}
-                source_tree = {"stmts": local_trees}
-                result["status"] = "ast_equal" if same else "ast_different"
-                result["applied_parsed_statement_count"] = len(applied_trees)
-                result["source_parsed_statement_count"] = len(local_trees)
+                raw_applied = list(applied_trees)
+                raw_local = list(local_trees)
+                applied_tree = {"stmts": raw_applied}
+                source_tree = {"stmts": raw_local}
+                same = raw_applied == raw_local
+                result["applied_parsed_statement_count"] = len(raw_applied)
+                result["source_parsed_statement_count"] = len(raw_local)
                 result["applied_top_level_types"] = statement_types(applied_tree)
                 result["source_top_level_types"] = statement_types(source_tree)
-                if not same:
-                    result["ast_diff_samples"] = diff_paths(applied_tree, source_tree)
-                    counts["ast_different"] += 1
-                    result["review_required"] = True
-                else:
+                if same:
+                    result["status"] = "ast_equal"
                     counts["ast_equal"] += 1
+                else:
+                    result["raw_ast_diff_samples"] = diff_paths(applied_tree, source_tree)
+                    if version in TRANSACTION_WRAPPER_ONLY:
+                        dispositioned = (strip_outer_transaction_wrappers(raw_applied)
+                                         == strip_outer_transaction_wrappers(raw_local))
+                        if dispositioned:
+                            result["status"] = "outer_transaction_wrappers_only"
+                            result["manual_disposition"] = "Applied statement array omits the local source's paired outer BEGIN/COMMIT; all inner PostgreSQL AST nodes match."
+                            counts["outer_transaction_wrappers_only"] += 1
+                        else:
+                            result["status"] = "ast_different_unresolved"
+                            counts["ast_different_unresolved"] += 1
+                    elif version in FUNCTION_COMMENT_ONLY:
+                        normalized_applied = normalize_function_bodies({"stmts": raw_applied})
+                        normalized_local = normalize_function_bodies({"stmts": raw_local})
+                        if normalized_applied == normalized_local:
+                            result["status"] = "function_body_comments_only"
+                            result["manual_disposition"] = "The only difference is full-line comments in the PL/pgSQL body; executable body text and all other AST nodes match."
+                            counts["function_body_comments_only"] += 1
+                        else:
+                            result["status"] = "ast_different_unresolved"
+                            counts["ast_different_unresolved"] += 1
+                    else:
+                        result["status"] = "ast_different_unresolved"
+                        counts["ast_different_unresolved"] += 1
+                    result["review_required"] = result["status"] == "ast_different_unresolved"
             except Exception as exc:
                 result["status"] = "parse_error"
                 result["error"] = f"{type(exc).__name__}: {str(exc)[:300]}"
                 counts["parse_error"] += 1
         report["entries"].append(result)
     report["counts"] = counts
-    report["release_decision"] = "NO-GO" if counts["ast_different"] or counts["parse_error"] or counts["candidate_missing"] else "AST_MATCH_ONLY_NOT_RELEASE_AUTHORIZATION"
+    report["release_decision"] = "NO-GO" if counts["ast_different_unresolved"] or counts["parse_error"] or counts["candidate_missing"] else "AST_MATCH_WITH_MANUAL_DISPOSITIONS_NOT_RELEASE_AUTHORIZATION"
     return report
 
 
