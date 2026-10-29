@@ -15,34 +15,6 @@ begin;
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 
--- RLS expressions execute with the caller's table privileges. The gate
--- tables intentionally deny SELECT to authenticated, so read them only
--- through this narrowly scoped SECURITY DEFINER predicate.
-create function private.can_insert_tenant_product(p_business_id uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path=''
-as $function$
-  select p_business_id is not null
-    and exists (
-      select 1 from private.legacy_write_scope_gate g
-      where g.enabled is true
-    )
-    and exists (
-      select 1 from private.business_assortment_setup_gate g
-      where g.enabled is true
-    )
-    and private.owns_new_business(p_business_id);
-$function$;
-
-revoke all on function private.can_insert_tenant_product(uuid)
-  from public, anon, service_role;
-grant execute on function private.can_insert_tenant_product(uuid)
-  to authenticated;
-
-
 alter policy owner_insert_product on public.products
   with check (private.can_read_legacy_customer(business_id));
 
