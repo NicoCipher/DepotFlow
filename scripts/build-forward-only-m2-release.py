@@ -18,11 +18,42 @@ SOURCE_LOCK = ROOT / "supabase/tests/fixtures/m2_forward_only_sources_20261019.j
 HISTORY_SNAPSHOT = ROOT / "supabase/tests/fixtures/production_migration_history_20261019_after_auth.json"
 APPLIED_EVIDENCE = ROOT / "docs/m2-applied-sql-reconciliation-manifest-20261019.json"
 MIGRATIONS = ROOT / "supabase/migrations"
+DEFERRED_SOURCES = ROOT / "supabase/tests/fixtures/deferred_post_m2_migrations_20261029.json"
 FILENAME = re.compile(r"(\d{14})_([a-z][a-z0-9_]*)\.sql")
 
 
 def read_json(path):
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def validate_deferred_sources():
+    """Validate separately reviewed migrations that are explicitly excluded from M2."""
+    manifest = read_json(DEFERRED_SOURCES)
+    entries = manifest.get("entries")
+    if manifest.get("release_status") != "deferred_until_M2_schema_release_is_independently_approved" \
+       or not isinstance(entries, list) or not entries:
+        raise ValueError("BLOCKED: deferred migration manifest is missing or not explicitly deferred")
+    names = []
+    for item in entries:
+        if not isinstance(item, dict) \
+           or item.get("disposition") != "reviewed_but_not_part_of_M2_bundle":
+            raise ValueError("BLOCKED: deferred migration lacks explicit exclusion review")
+        name = item.get("source")
+        expected_blob = item.get("git_blob_sha")
+        if not isinstance(name, str) or FILENAME.fullmatch(name) is None \
+           or not isinstance(expected_blob, str) or re.fullmatch(r"[0-9a-f]{40}", expected_blob) is None:
+            raise ValueError("BLOCKED: malformed deferred migration evidence")
+        source = MIGRATIONS / name
+        if not source.is_file():
+            raise ValueError("BLOCKED: deferred migration source is missing: " + name)
+        raw = source.read_bytes()
+        actual_blob = hashlib.sha1(b"blob " + str(len(raw)).encode("ascii") + b"\0" + raw).hexdigest()
+        if actual_blob != expected_blob:
+            raise ValueError("BLOCKED: deferred migration source changed after review: " + name)
+        names.append(name)
+    if len(names) != len(set(names)):
+        raise ValueError("BLOCKED: duplicate deferred migration evidence")
+    return set(names)
 
 
 def validate_remote(remote, snapshot, evidence):
@@ -103,9 +134,13 @@ def build(remote_path, out_dir=None):
     historic_candidates = {x["localCandidate"] for x in lock["applied_sql_provenance"] if x.get("localCandidate")}
     if historic_candidates.intersection(source_set):
         raise ValueError("BLOCKED: historical SQL candidate overlaps tenant Phase A or cutover source")
+    deferred_sources = validate_deferred_sources()
+    if deferred_sources.intersection(source_set | historic_candidates | {lock["already_applied_auth_source"]}):
+        raise ValueError("BLOCKED: deferred migration overlaps an applied or M2 bundle source")
     candidate_files = {p.name for p in MIGRATIONS.glob("*.sql")}
     unreviewed = sorted(
-        name for name in candidate_files - source_set - historic_candidates - {lock["already_applied_auth_source"]}
+        name for name in candidate_files - source_set - historic_candidates
+        - {lock["already_applied_auth_source"]} - deferred_sources
         if name >= "20261016020000"
     )
     if unreviewed or any(name not in candidate_files for name in sources):

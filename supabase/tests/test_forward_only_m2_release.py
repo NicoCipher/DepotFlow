@@ -15,6 +15,23 @@ SNAPSHOT = ROOT / "supabase/tests/fixtures/production_migration_history_20261019
 
 
 class ForwardOnlyBundleTest(unittest.TestCase):
+    def test_post_m2_bulk_price_migration_is_hash_pinned_and_excluded(self):
+        deferred = module.validate_deferred_sources()
+        self.assertEqual(
+            deferred,
+            {
+                "20261029103000_revoke_client_maintenance_privileges.sql",
+                "20261029110000_stage_legacy_bulk_price_updates.sql",
+            },
+        )
+        stages = module.build(SNAPSHOT)
+        staged_sources = {item["source"] for item in stages}
+        self.assertNotIn("20261029103000_revoke_client_maintenance_privileges.sql",
+                         staged_sources)
+        self.assertNotIn("20261029110000_stage_legacy_bulk_price_updates.sql",
+                         staged_sources)
+        self.assertEqual(len(stages), 66)
+
     def test_all_66_remaining_versions_are_new_and_phase_b_separate(self):
         with tempfile.TemporaryDirectory() as temp:
             output = Path(temp) / "rehearsal"

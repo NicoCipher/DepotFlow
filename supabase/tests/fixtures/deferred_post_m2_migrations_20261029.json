@@ -1,0 +1,30 @@
+{
+  "purpose": "Separately reviewed forward-only migrations excluded from the historical M2 rehearsal bundle. This record does not authorize production deployment.",
+  "captured_on": "2026-10-29",
+  "release_status": "deferred_until_M2_schema_release_is_independently_approved",
+  "entries": [
+    {
+      "source": "20261029103000_revoke_client_maintenance_privileges.sql",
+      "git_blob_sha": "f647e427532aa43408aa89bfb5dc1efcfb963a68",
+      "disposition": "reviewed_but_not_part_of_M2_bundle",
+      "requires": [
+        "Current production ACL state for public.sale_empty_decisions and public.shop_profile",
+        "PostgreSQL 17 MAINTAIN privilege support",
+        "Preservation of existing authenticated SELECT and owner RLS behavior"
+      ],
+      "reason": "Revoke unsafe TRUNCATE, REFERENCES, TRIGGER and MAINTAIN privileges from anon/authenticated on two legacy tables. The migration must run before the bulk-price feature migration and must not be folded into the fixed 65+1 tenancy rehearsal."
+    },
+    {
+      "source": "20261029110000_stage_legacy_bulk_price_updates.sql",
+      "git_blob_sha": "8a8dd4de7e90d9b907b631a84a704a918653220c",
+      "disposition": "reviewed_but_not_part_of_M2_bundle",
+      "requires": [
+        "private.assert_legacy_assortment_owner",
+        "private.legacy_write_scope_gate",
+        "business_id columns from the staged M2 schema",
+        "Successful prior client maintenance-grant hardening"
+      ],
+      "reason": "Bulk price editor is a post-M2 feature migration. It must not be silently inserted into the fixed 65+1 tenancy rehearsal bundle or treated as approval to deploy the unreconciled production migration history."
+    }
+  ]
+}

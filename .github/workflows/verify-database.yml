@@ -15,6 +15,12 @@ on:
       - "scripts/test_forward_only_bundle.py"
       - "docs/release-evidence/**"
       - "scripts/build-forward-only-m2-release.py"
+      - "scripts/classify-m2-schema-drift.py"
+      - "scripts/test_classify_m2_schema_drift.py"
+      - "scripts/compare-applied-sql-ast.py"
+      - "supabase/tests/check_production_migration_reconciliation.py"
+      - "supabase/tests/fixtures/production_migration_history_20261029_after_m2_phase_a.json"
+      - "docs/release-evidence/production-migration-reconciliation-20261029.json"
       - ".github/workflows/verify-database.yml"
 
 jobs:
@@ -51,6 +57,35 @@ jobs:
       - name: Verify all historical SQL evidence and preserved original checksums
         run: python3 -m unittest discover -s supabase/tests -p 'test_applied_sql_manifest.py'
 
+      - name: Compare original applied SQL with PostgreSQL parse trees and dispositions
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check pglast==7.21
+          python3 scripts/compare-applied-sql-ast.py > /tmp/applied-sql-ast-report.json
+          cat /tmp/applied-sql-ast-report.json
+          python3 - <<'PY'
+          import json, pathlib, os
+          report=json.loads(pathlib.Path("/tmp/applied-sql-ast-report.json").read_text())
+          checked=json.loads(pathlib.Path("docs/release-evidence/applied-sql-ast-comparison-20261029.json").read_text())
+          # ci_run_url is run-specific; compare all reproducible evidence.
+          generated_url=report.pop("ci_run_url", None)
+          checked.pop("ci_run_url", None)
+          if os.environ.get("GITHUB_RUN_ID"):
+              expected=f"{os.environ.get('GITHUB_SERVER_URL','https://github.com')}/{os.environ.get('GITHUB_REPOSITORY','NicoCipher/DepotFlow')}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
+              if generated_url != expected:
+                  raise SystemExit("AST report ci_run_url does not identify this workflow run")
+          if report != checked:
+              raise SystemExit("Generated applied-SQL AST report differs from checked-in evidence; refresh reviewed evidence explicitly.")
+          counts=report["counts"]
+          summary=pathlib.Path(os.environ["GITHUB_STEP_SUMMARY"])
+          with summary.open("a") as out:
+              out.write(chr(10)+"## Historical applied-SQL PostgreSQL AST comparison"+chr(10))
+              out.write(json.dumps(counts,sort_keys=True)+chr(10))
+              out.write("Decision: "+report["release_decision"]+chr(10))
+          if report["release_decision"] == "NO-GO":
+              raise SystemExit("Historical SQL AST evidence has coverage gaps, parse errors, missing candidates, or unresolved differences.")
+          PY
+
       - name: Verify sandbox-only replay materialization
         run: python3 -m unittest discover -s supabase/tests -p 'test_materialize_prod_history.py'
 
@@ -63,6 +98,9 @@ jobs:
           python3 -m unittest discover -s supabase/tests -p 'test_forward_only_m2_release.py'
           python3 scripts/build-forward-only-m2-release.py \
             --remote-history supabase/tests/fixtures/production_migration_history_20261019_after_auth.json
+
+      - name: Reconcile current production migration ledger and release order
+        run: python3 supabase/tests/check_production_migration_reconciliation.py
 
       - name: Test strict six-category schema drift classifier (offline)
         run: python3 -m unittest discover -s scripts -p 'test_classify_m2_schema_drift.py'
@@ -114,6 +152,12 @@ jobs:
           set -euo pipefail
           for f in supabase/migrations/*.sql; do
             echo "Applying $f"
+            if [[ "$f" == *20261029103000_revoke_client_maintenance_privileges.sql ]]; then
+              # Recreate the captured pre-fix production ACL only in this
+              # disposable DB so the migration's preflight is exercised.
+              psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 \
+                -f supabase/tests/fixtures/production_legacy_maintenance_acl_snapshot.sql
+            fi
             if [[ "$f" == *retire_legacy_public_rpcs.sql ]]; then
               # These files exercise the historical signatures; run them at
               # their final supported migration state before retirement.
@@ -398,6 +442,36 @@ jobs:
           $post_sql_fixture$;
           SQL
 
+      - name: Reconcile Supabase-managed service_role ACLs in disposable reconstruction
+        run: psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 -f supabase/tests/fixtures/supabase_managed_role_acl.sql
+
+      - name: Verify the managed RLS event trigger is faithfully emulated
+        run: |
+          set -euo pipefail
+          psql -h /tmp -p 55439 -d postgres -X -v ON_ERROR_STOP=1 <<'SQL'
+          do $managed_rls_check$
+          begin
+            if not exists (
+              select 1 from pg_proc p
+              join pg_namespace n on n.oid=p.pronamespace
+              where n.nspname='public' and p.proname='rls_auto_enable'
+                and p.prosecdef
+                and p.proconfig @> array['search_path=pg_catalog']
+            ) then
+              raise exception 'Supabase managed rls_auto_enable definition/config mismatch';
+            end if;
+            if not exists (
+              select 1 from pg_event_trigger e
+              where e.evtname='ensure_rls'
+                and e.evtenabled='O'
+                and e.evtfoid='public.rls_auto_enable()'::regprocedure
+            ) then
+              raise exception 'Supabase ensure_rls event trigger is missing or disabled';
+            end if;
+          end;
+          $managed_rls_check$;
+          SQL
+
       - name: Run real-concurrency checks
         run: |
           set -euo pipefail
@@ -416,6 +490,10 @@ jobs:
           db=depotflow_catalogue_import
           psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 -f supabase/tests/bootstrap.sql
           for f in supabase/migrations/*.sql; do
+            if [[ "$f" == *20261029103000_revoke_client_maintenance_privileges.sql ]]; then
+              psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 \
+                -f supabase/tests/fixtures/production_legacy_maintenance_acl_snapshot.sql
+            fi
             if [[ "$f" == *business_product_cost_catalogue.sql ]]; then
               psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 -f supabase/tests/fixtures/product_catalogue_before.sql
             fi
@@ -642,15 +720,13 @@ jobs:
             > "$work/synthetic-ledger-before.sha"
           test "$(wc -c < "$work/synthetic-ledger-before.sha")" -eq 33
 
-          # This is a separate and mandatory FORWARD-ONLY rehearsal. It tests
-          # an actual 66-stage re-versioned Phase A package against the
-          # reconstructed 55-stage historical schema; its Phase B legacy API
-          # revocation is never included or authorized. No production access.
-          git fetch --depth=1 --no-tags origin main
+          # Historical M2 rehearsal only: test the 65 Phase A SQL sources
+          # against a reconstructed pre-M2 schema. M2 Phase A is already
+          # recorded in current production; this bundle is never a deployment
+          # package and does not determine the next production migration.
           python3 scripts/build-forward-only-bundle.py \
             --out "$work/phase-a-forward-only" \
-            --remote-history supabase/tests/fixtures/production_migration_history_20261019_after_auth.json \
-            --compare-ref FETCH_HEAD
+            --remote-history supabase/tests/fixtures/production_migration_history_20261019_after_auth.json
           test "$(find "$work/phase-a-forward-only" -type f -name '*.sql' | wc -l)" -eq 65
           createdb -h /tmp -p 55439 -T "$db" depotflow_forward_phase_a_rehearsal
           psql -h /tmp -p 55439 -d depotflow_forward_phase_a_rehearsal -X -v ON_ERROR_STOP=1 \
@@ -674,6 +750,84 @@ jobs:
               exit 1
             }
           done
+          # Match only the exact managed service_role ACLs present in the
+          # production fingerprint; never broaden the app/client grants.
+          psql -h /tmp -p 55439 -d depotflow_forward_phase_a_rehearsal -X -v ON_ERROR_STOP=1 \
+            -f supabase/tests/fixtures/supabase_managed_role_acl.sql
+          # Recreate the captured pre-hardening client grants only in this
+          # disposable exact-current snapshot; the next step fingerprints it.
+          psql -h /tmp -p 55439 -d depotflow_forward_phase_a_rehearsal -X -v ON_ERROR_STOP=1 \
+            -f supabase/tests/fixtures/production_legacy_maintenance_acl_snapshot.sql
+          # Read-only data-free metadata comparison: 55 historical + Auth guard
+          # + 65 Phase A stages = exact current 121-entry production ledger.
+          psql -h /tmp -p 55439 -d depotflow_forward_phase_a_rehearsal -X -v ON_ERROR_STOP=1 -At \
+            -f supabase/tests/fixtures/current_schema_parity_fingerprint.sql \
+            > "$work/reconstructed-current-schema-fingerprint.json"
+          python3 - "$work/reconstructed-current-schema-fingerprint.json" <<'PY'
+          import json, os, pathlib, sys
+          live = json.loads(pathlib.Path("docs/release-evidence/production-schema-parity-fingerprint-20261029.json").read_text())
+          actual = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          categories = ("relations","columns","constraints","indexes","functions","policies","triggers","column_grants","schemas")
+          def brief(value):
+              if isinstance(value,dict):
+                  return {"type":"object","keys":len(value)}
+              if isinstance(value,list):
+                  import hashlib
+                  raw=json.dumps(value,sort_keys=True,separators=(",",":"))
+                  return {"type":"array","items":len(value),"sha256":hashlib.sha256(raw.encode()).hexdigest()[:12]}
+              return value
+          def leaf_diffs(left,right,path=""):
+              if isinstance(left,dict) and isinstance(right,dict):
+                  out=[]
+                  for key in sorted(set(left)|set(right)):
+                      p=(path+"."+key) if path else key
+                      if key not in left: out.append({"path":p,"production":"<missing>","reconstruction":brief(right[key])})
+                      elif key not in right: out.append({"path":p,"production":brief(left[key]),"reconstruction":"<missing>"})
+                      else: out.extend(leaf_diffs(left[key],right[key],p))
+                      if len(out)>=8: return out[:8]
+                  return out
+              if left != right:
+                  return [{"path":path,"production":brief(left),"reconstruction":brief(right)}]
+              return []
+          required_categories = set(categories)
+          missing_live = sorted(category for category in required_categories
+                                if category not in live or not isinstance(live[category], dict))
+          missing_actual = sorted(category for category in required_categories
+                                  if category not in actual or not isinstance(actual[category], dict))
+          if missing_live or missing_actual:
+              raise SystemExit(
+                  "PRODUCTION PARITY NO-GO: fingerprint is missing required object categories; "
+                  f"production={missing_live}, reconstruction={missing_actual}"
+              )
+          differences = {}
+          for category in categories:
+              expected, got = live.get(category,{}), actual.get(category,{})
+              changed = sorted(k for k in set(expected)|set(got) if expected.get(k)!=got.get(k))
+              if changed:
+                  differences[category] = {"production_count":len(expected),"reconstruction_count":len(got),
+                    "different_or_missing_count":len(changed),"sample_keys":changed[:20],
+                    "examples":{k:leaf_diffs(expected.get(k,"<missing>"),got.get(k,"<missing>")) for k in changed[:5]}}
+          summary = pathlib.Path(os.environ["GITHUB_STEP_SUMMARY"])
+          with summary.open("a") as out:
+              out.write(chr(10)+"## Exact 121-stage production metadata comparison (diagnostic)"+chr(10))
+              out.write("Production PostgreSQL: "+str(live.get("server_version"))+"; reconstructed PostgreSQL: "+str(actual.get("server_version"))+chr(10))
+              if differences:
+                  out.write("NO-GO: metadata mismatch detected."+chr(10))
+                  out.write(json.dumps(differences,indent=2)+chr(10))
+              else:
+                  out.write("Fingerprint match for all nine categories. Managed-role and historical SQL semantic parity still require separate proof."+chr(10))
+          if differences:
+              print("::error::PRODUCTION PARITY NO-GO: expanded fingerprint mismatch: "+json.dumps(differences,sort_keys=True))
+              raise SystemExit("Expanded production privilege/schema fingerprint differs from the exact-current PostgreSQL 17 reconstruction.")
+          print("PASS: exact current-state fingerprint matches all nine categories, including all eight effective table privileges for anon, authenticated, and service_role. This is still not production release authorization.")
+          PY
+          # Rehearse the pending client-maintenance hardening only AFTER the
+          # exact-current-state fingerprint has been captured. This preserves
+          # the production snapshot comparison and proves the forward fix.
+          psql -h /tmp -p 55439 -d depotflow_forward_phase_a_rehearsal -X -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/20261029103000_revoke_client_maintenance_privileges.sql
+          psql -h /tmp -p 55439 -d depotflow_forward_phase_a_rehearsal -X -v ON_ERROR_STOP=1 \
+            -f supabase/tests/empty_access_model.sql
           # The old-app compat fixture intentionally creates a singleton
           # shop owner. Run that assertion in ANOTHER freshly upgraded
           # disposable clone so it cannot collide with the ledger seed.
