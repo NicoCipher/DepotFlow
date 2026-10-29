@@ -360,7 +360,10 @@
     "business_selection_enabled": false,
     "authenticated_legacy_create_rpcs_available": true,
     "authenticated_direct_insert_customer_available": true,
-    "authenticated_direct_insert_product_available": true
+    "authenticated_direct_insert_product_available": true,
+    "legacy_write_scope_enabled": false,
+    "active_legacy_businesses": 1,
+    "active_legacy_owner_memberships": 1
   },
   "limitations": [
     "Migration version/name ledger is reconciled to a fresh read-only live export.",
