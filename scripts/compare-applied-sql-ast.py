@@ -33,6 +33,43 @@ def statement_types(tree):
     return [next(iter(item.get("stmt", {})), "unknown") for item in tree.get("stmts", [])]
 
 
+def summarize(value):
+    if isinstance(value, str) and len(value) > 100:
+        import hashlib
+        return {"type":"string","length":len(value),"sha256":hashlib.sha256(value.encode()).hexdigest()[:12]}
+    if isinstance(value, (dict,list)):
+        import hashlib
+        raw=json.dumps(value,sort_keys=True,separators=(",",":"))
+        return {"type":"object" if isinstance(value,dict) else "array",
+                "size":len(value),"sha256":hashlib.sha256(raw.encode()).hexdigest()[:12]}
+    return value
+
+
+def diff_paths(left, right, path="$", limit=10):
+    out=[]
+    def walk(a,b,p):
+        if len(out)>=limit:
+            return
+        if isinstance(a,dict) and isinstance(b,dict):
+            for key in sorted(set(a)|set(b)):
+                if len(out)>=limit: return
+                q=p+"."+key
+                if key not in a: out.append({"path":q,"applied":"<missing>","source":summarize(b[key])})
+                elif key not in b: out.append({"path":q,"applied":summarize(a[key]),"source":"<missing>"})
+                else: walk(a[key],b[key],q)
+        elif isinstance(a,list) and isinstance(b,list):
+            if len(a)!=len(b):
+                out.append({"path":p+".length","applied":len(a),"source":len(b)})
+                return
+            for i,(av,bv) in enumerate(zip(a,b)):
+                if len(out)>=limit: return
+                walk(av,bv,f"{p}[{i}]")
+        elif a!=b:
+            out.append({"path":p,"applied":summarize(a),"source":summarize(b)})
+    walk(left,right,path)
+    return out
+
+
 def compare():
     evidence = json.loads(EVIDENCE.read_text(encoding="utf-8"))
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
@@ -70,6 +107,7 @@ def compare():
                 result["applied_top_level_types"] = statement_types(applied_tree)
                 result["source_top_level_types"] = statement_types(source_tree)
                 if not same:
+                    result["ast_diff_samples"] = diff_paths(applied_tree, source_tree)
                     counts["ast_different"] += 1
                     result["review_required"] = True
                 else:
