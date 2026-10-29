@@ -480,6 +480,10 @@ jobs:
           db=depotflow_catalogue_import
           psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 -f supabase/tests/bootstrap.sql
           for f in supabase/migrations/*.sql; do
+            if [[ "$f" == *20261029103000_revoke_client_maintenance_privileges.sql ]]; then
+              psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 \
+                -f supabase/tests/fixtures/production_legacy_maintenance_acl_snapshot.sql
+            fi
             if [[ "$f" == *business_product_cost_catalogue.sql ]]; then
               psql -h /tmp -p 55439 -d "$db" -X -v ON_ERROR_STOP=1 -f supabase/tests/fixtures/product_catalogue_before.sql
             fi
