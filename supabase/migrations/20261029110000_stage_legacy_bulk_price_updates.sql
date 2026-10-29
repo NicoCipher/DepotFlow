@@ -42,8 +42,10 @@ declare
   v_count integer := 0;
   v_id uuid;
 begin
-  if p_request_id is null or jsonb_typeof(p_changes) is distinct from 'array'
-     or jsonb_array_length(p_changes) not between 1 and 500 then
+  if p_request_id is null or jsonb_typeof(p_changes) is distinct from 'array' then
+    raise exception 'Choose at least one price change.' using errcode='22023';
+  end if;
+  if jsonb_array_length(p_changes) not between 1 and 500 then
     raise exception 'Choose at least one price change.' using errcode='22023';
   end if;
 
@@ -145,6 +147,10 @@ begin
           owner_user_id,business_id,catalogue_product_id,cost_price,effective_on
         ) values(v_actor,v_product.business_id,v_catalogue,v_new_cost,v_today)
         on conflict do nothing;
+        if not found then
+          raise exception 'This buying cost was already recorded today. Refresh the list before trying again.'
+            using errcode='22023';
+        end if;
       end if;
     end if;
     v_result := v_result || jsonb_build_array(jsonb_build_object('product_id',v_id));
