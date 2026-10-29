@@ -26,13 +26,14 @@ begin
     raise exception 'Product INSERT policy is not scoped to legacy or gated owned business';
   end if;
 
-  -- A guarded tenant INSERT must be callable, but caller-chosen global IDs
-  -- must remain unavailable. This catches the previous state where the RLS
-  -- helper existed but no authenticated insert grant could reach it.
-  if not has_column_privilege('authenticated','public.products','business_id','INSERT')
-     or not has_column_privilege('authenticated','public.products','name','INSERT')
-     or has_column_privilege('authenticated','public.products','id','INSERT') then
-    raise exception 'Tenant product INSERT grants must include business_id and omit caller-supplied id';
+  -- Direct table INSERT must remain unavailable. The validated SECURITY
+  -- DEFINER catalogue RPC is the sole new-business product creation path.
+  if has_any_column_privilege('authenticated','public.products','INSERT')
+     or not has_function_privilege('authenticated',
+       'public.add_business_catalogue_drink(uuid,uuid,uuid,uuid,integer,integer,integer,integer,integer,boolean,text,text)','EXECUTE')
+     or has_function_privilege('anon',
+       'public.add_business_catalogue_drink(uuid,uuid,uuid,uuid,integer,integer,integer,integer,integer,boolean,text,text)','EXECUTE') then
+    raise exception 'Tenant product creation must use the authenticated gated catalogue RPC, not direct INSERT';
   end if;
 
   if not exists (
