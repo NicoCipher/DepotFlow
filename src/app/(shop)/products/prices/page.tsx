@@ -8,9 +8,9 @@ export default async function ProductPricesPage() {
   if (scopeError || !businessId) {
     throw new Error("Price updates are not enabled for this shop yet.");
   }
-  const { data: businessProfile, error: businessProfileError } = await supabase
-    .from("business_profiles").select("name").eq("business_id", businessId).maybeSingle();
-  if (businessProfileError || !businessProfile?.name) {
+  const { data: shopProfile, error: shopProfileError } = await supabase
+    .from("shop_profile").select("name").eq("id", true).maybeSingle();
+  if (shopProfileError || !shopProfile?.name) {
     throw new Error("Could not confirm which shop these prices belong to.");
   }
   const today = new Intl.DateTimeFormat("en-CA", {
@@ -76,7 +76,7 @@ export default async function ProductPricesPage() {
     <>
       <Link href="/products" className="quiet-link">← Drinks</Link>
       <h1 className="mt-5">Update prices</h1>
-      <p className="mt-1 font-semibold">{businessProfile.name}</p>
+      <p className="mt-1 font-semibold">{shopProfile.name}</p>
       <p className="mt-2 text-sm text-stone-600">
         Change only what you need. Buying cost and selling prices are separate.
       </p>
