@@ -62,6 +62,9 @@ insert into private.businesses(id,status)
 insert into private.business_memberships(business_id,user_id,member_kind,status)
  values('b8c00000-0000-4000-9000-000000000061',
         'b8c00000-0000-4000-8000-000000000021','owner','active');
+-- This is a fixture-only business setup. Open the separate setup gate
+-- only while creating its crate/product, then close it before price RPC tests.
+update private.business_assortment_setup_gate set enabled=true where singleton=true;
 insert into public.crate_types(id,name,empty_family,pocket_count,business_id)
  values ('b8c00000-0000-4000-8000-000000000062','Foreign business test crate','NB',12,
          'b8c00000-0000-4000-9000-000000000061');
@@ -72,6 +75,7 @@ select 'b8c00000-0000-4000-8000-000000000043','Foreign Trophy',12,9000,800,false
        'b8c00000-0000-4000-8000-000000000062',id,
        'b8c00000-0000-4000-9000-000000000061'
 from public.product_catalogue where name='Trophy';
+update private.business_assortment_setup_gate set enabled=false where singleton=true;
 
 -- Keep the owner and catalogue IDs available to each assertion without
 -- relying on seeded UUID ordering.
