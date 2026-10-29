@@ -54,6 +54,25 @@ jobs:
       - name: Verify all historical SQL evidence and preserved original checksums
         run: python3 -m unittest discover -s supabase/tests -p 'test_applied_sql_manifest.py'
 
+      - name: Compare original applied SQL with PostgreSQL parse trees
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check pglast==7.7
+          python3 scripts/compare-applied-sql-ast.py > /tmp/applied-sql-ast-report.json
+          cat /tmp/applied-sql-ast-report.json
+          python3 - <<'PY'
+          import json, pathlib, os
+          report=json.loads(pathlib.Path("/tmp/applied-sql-ast-report.json").read_text())
+          counts=report["counts"]
+          summary=pathlib.Path(os.environ["GITHUB_STEP_SUMMARY"])
+          with summary.open("a") as out:
+              out.write("\\n## Historical applied-SQL PostgreSQL AST comparison\\n")
+              out.write(json.dumps(counts,sort_keys=True)+"\\n")
+              out.write("Decision: "+report["release_decision"]+"\\n")
+          if report["release_decision"] == "NO-GO":
+              print("::warning::Historical SQL AST differences or parse errors remain; inspect report before release.")
+          PY
+
       - name: Verify sandbox-only replay materialization
         run: python3 -m unittest discover -s supabase/tests -p 'test_materialize_prod_history.py'
 
@@ -688,13 +707,35 @@ jobs:
           live = json.loads(pathlib.Path("docs/release-evidence/production-schema-parity-fingerprint-20261029.json").read_text())
           actual = json.loads(pathlib.Path(sys.argv[1]).read_text())
           categories = ("relations","columns","constraints","indexes","functions","policies","triggers","column_grants","schemas")
+          def brief(value):
+              if isinstance(value,dict):
+                  return {"type":"object","keys":len(value)}
+              if isinstance(value,list):
+                  import hashlib
+                  raw=json.dumps(value,sort_keys=True,separators=(",",":"))
+                  return {"type":"array","items":len(value),"sha256":hashlib.sha256(raw.encode()).hexdigest()[:12]}
+              return value
+          def leaf_diffs(left,right,path=""):
+              if isinstance(left,dict) and isinstance(right,dict):
+                  out=[]
+                  for key in sorted(set(left)|set(right)):
+                      p=(path+"."+key) if path else key
+                      if key not in left: out.append({"path":p,"production":"<missing>","reconstruction":brief(right[key])})
+                      elif key not in right: out.append({"path":p,"production":brief(left[key]),"reconstruction":"<missing>"})
+                      else: out.extend(leaf_diffs(left[key],right[key],p))
+                      if len(out)>=8: return out[:8]
+                  return out
+              if left != right:
+                  return [{"path":path,"production":brief(left),"reconstruction":brief(right)}]
+              return []
           differences = {}
           for category in categories:
               expected, got = live.get(category,{}), actual.get(category,{})
               changed = sorted(k for k in set(expected)|set(got) if expected.get(k)!=got.get(k))
               if changed:
                   differences[category] = {"production_count":len(expected),"reconstruction_count":len(got),
-                    "different_or_missing_count":len(changed),"sample_keys":changed[:20]}
+                    "different_or_missing_count":len(changed),"sample_keys":changed[:20],
+                    "examples":{k:leaf_diffs(expected.get(k,"<missing>"),got.get(k,"<missing>")) for k in changed[:5]}}
           summary = pathlib.Path(os.environ["GITHUB_STEP_SUMMARY"])
           with summary.open("a") as out:
               out.write(chr(10)+"## Exact 121-stage production metadata comparison (diagnostic)"+chr(10))
