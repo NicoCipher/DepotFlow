@@ -25,8 +25,34 @@ def remove_locations(value):
     return value
 
 
+def normalize_function_bodies(value, in_function=False):
+    if isinstance(value, dict):
+        out = {}
+        for key, child in value.items():
+            nested = in_function or key == "CreateFunctionStmt"
+            out[key] = normalize_function_bodies(child, nested)
+        return out
+    if isinstance(value, list):
+        return [normalize_function_bodies(child, in_function) for child in value]
+    if in_function and isinstance(value, str) and "\\n" in value:
+        # Function bodies are string literals to the SQL parser. Ignore only
+        # full-line -- comments inside CREATE FUNCTION bodies; preserve all
+        # executable text and string literals.
+        return "\\n".join(line for line in value.splitlines() if not line.lstrip().startswith("--"))
+    return value
+
+
 def parse_tree(sql):
-    return remove_locations(json.loads(parse_sql_json(sql)))
+    return normalize_function_bodies(remove_locations(json.loads(parse_sql_json(sql))))
+
+
+def strip_outer_transaction_wrappers(statements):
+    if len(statements) >= 2:
+        first = next(iter(statements[0].get("stmt", {})), "")
+        last = next(iter(statements[-1].get("stmt", {})), "")
+        if first == "TransactionStmt" and last == "TransactionStmt":
+            return statements[1:-1]
+    return statements
 
 
 def statement_types(tree):
@@ -76,7 +102,7 @@ def compare():
     candidates = {x["version"]: x for x in manifest["entries"]}
     report = {
         "captured_on": evidence["captured_on"],
-        "method": "pglast/libpg_query PostgreSQL parse-tree comparison; source locations removed",
+        "method": "pglast/libpg_query PostgreSQL parse-tree comparison; source locations, full-line function-body comments, and paired outer BEGIN/COMMIT wrappers normalized",
         "warning": "AST equality is not a complete runtime-semantic, data-migration, or Supabase managed-platform certificate.",
         "counts": {},
         "entries": [],
@@ -98,6 +124,8 @@ def compare():
                     applied_trees.extend(parse_tree(statement).get("stmts", []))
                 local_tree = parse_tree((MIGRATIONS / source).read_text(encoding="utf-8"))
                 local_trees = local_tree.get("stmts", [])
+                applied_trees = strip_outer_transaction_wrappers(applied_trees)
+                local_trees = strip_outer_transaction_wrappers(local_trees)
                 same = applied_trees == local_trees
                 applied_tree = {"stmts": applied_trees}
                 source_tree = {"stmts": local_trees}
