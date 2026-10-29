@@ -10,11 +10,11 @@ export default async function ProductPricesPage() {
 
   const products: {
     id: string; name: string; size: string | null; full_crate_price: number;
-    bottle_price: number | null; catalogue_product_id: string | null;
+    bottle_price: number | null; catalogue_product_id: string | null; business_id: string | null;
   }[] = [];
   for (let offset = 0; ; offset += 1000) {
     const page = await supabase.from("products")
-      .select("id,name,size,full_crate_price,bottle_price,catalogue_product_id")
+      .select("id,name,size,full_crate_price,bottle_price,catalogue_product_id,business_id")
       .eq("is_active", true).order("name").order("id")
       .range(offset, offset + 999);
     if (page.error) throw new Error("Could not load drink prices.");
@@ -26,14 +26,15 @@ export default async function ProductPricesPage() {
   const costs = new Map<string, number>();
   for (let offset = 0; ; offset += 1000) {
     const page = await supabase.from("product_cost_history")
-      .select("catalogue_product_id,cost_price,effective_on,recorded_at")
+      .select("catalogue_product_id,cost_price,effective_on,recorded_at,business_id")
       .lte("effective_on", today)
       .order("effective_on", { ascending: false })
       .order("recorded_at", { ascending: false })
       .range(offset, offset + 999);
     if (page.error) throw new Error("Could not load buying costs.");
     for (const item of page.data) {
-      if (!costs.has(item.catalogue_product_id)) costs.set(item.catalogue_product_id, item.cost_price);
+      const key = `${item.business_id ?? "legacy"}:${item.catalogue_product_id}`;
+      if (!costs.has(key)) costs.set(key, item.cost_price);
     }
     if (page.data.length < 1000) break;
     if (offset >= 4000) throw new Error("The buying-cost history is too large to load safely.");
@@ -46,7 +47,9 @@ export default async function ProductPricesPage() {
     fullCratePrice: product.full_crate_price,
     bottlePrice: product.bottle_price,
     catalogueProductId: product.catalogue_product_id,
-    costPrice: product.catalogue_product_id ? costs.get(product.catalogue_product_id) ?? null : null,
+    costPrice: product.catalogue_product_id
+      ? costs.get(`${product.business_id ?? "legacy"}:${product.catalogue_product_id}`) ?? null
+      : null,
   }));
 
   return (
