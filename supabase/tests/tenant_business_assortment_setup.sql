@@ -48,7 +48,7 @@ insert into private.business_memberships(
 do $inactive$
 begin
  if (select enabled from private.business_assortment_setup_gate)
-    or not has_function_privilege('authenticated',
+    or has_function_privilege('authenticated',
        'public.create_business_crate_type(uuid,uuid,text,text,integer,text)','EXECUTE')
     or not has_function_privilege('authenticated',
        'public.add_business_catalogue_drink(uuid,uuid,uuid,uuid,integer,integer,integer,integer,integer,boolean,text,text)','EXECUTE')
@@ -67,11 +67,13 @@ select set_config('request.jwt.claim.sub',
 do $disabled$
 begin
  begin
-   perform public.create_business_crate_type(
+   perform public.add_business_catalogue_drink(
     '89600000-0000-4000-9000-000000000021',
+    '89600000-0000-4000-9000-000000000051',
+    '89600000-0000-4000-9000-000000000090',
     '89600000-0000-4000-9000-000000000031',
-    'NBL shared','NBL',20,null);
-   raise exception 'Disabled assortment gate permitted crate' using errcode='PT001';
+    20,10000,null,null,500,true,'Goldberg bottle',null);
+   raise exception 'Disabled assortment gate permitted catalogue drink' using errcode='PT001';
  exception when insufficient_privilege then null;
  end;
 end;
