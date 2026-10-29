@@ -93,7 +93,7 @@ begin
     end if;
 
     select * into v_product from public.products p
-    where p.id=v_id
+    where p.id=v_id and p.is_active is true
       and ((v_business is null and p.business_id is null)
         or (v_business is not null and p.business_id=v_business))
     for update;
