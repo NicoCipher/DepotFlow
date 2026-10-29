@@ -367,5 +367,14 @@
     "The source mapping for M2 Phase A matches the reviewed source order and canonical migration names, but ledger metadata does not prove byte-for-byte equivalence of SQL applied in production.",
     "The 22 historical lexical-only SQL matches remain non-semantic evidence; four historical applied SQL files remain archived checksums. Do not mark release_authorized true based on this ledger reconciliation alone.",
     "The schema observations are read-only spot checks, not a complete current schema/grant parity certificate."
+  ],
+  "approved_release_order": {
+    "next_candidate": "20261029110000_stage_legacy_bulk_price_updates.sql",
+    "sequence": "After live tip 20261019140104 (M2 Phase A), only after feature SQL/security review and current release checks; do not replay any historical/M2 source aliases.",
+    "phase_b_finalizer": "Do not apply the source file at its original 20261018124000 timestamp. It is older than the current live tip and must be separately reviewed/re-versioned as a new forward-only migration after application cutover readiness and fresh operator approval.",
+    "production_deployment": "NO-GO until exact historical SQL provenance and current full schema/grant parity are independently certified; ledger alignment alone is insufficient."
+  },
+  "pending_forward_migrations": [
+    "20261029110000_stage_legacy_bulk_price_updates.sql"
   ]
 }
