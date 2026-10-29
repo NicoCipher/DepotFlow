@@ -22,8 +22,9 @@ The new read-only database checks confirm that `products.business_id`, `product_
 ## Approved sequence (order only, not deployment authorization)
 
 1. **Do not replay M2 Phase A.** The 65 stages are already in the live ledger. Their original source filenames are historical source aliases, not pending production migrations.
-2. **Next candidate: `20261029110000_stage_legacy_bulk_price_updates.sql`.** It is strictly newer than the current live tip and depends on the M2 business identity and owner guard that are present. It may be considered for release only after its SQL, business isolation, price-history behavior, app checks, and production release preflight are approved.
-3. **Keep M2 Phase B deferred.** Do not run `20261018124000_finalize_legacy_creation_api_cutover.sql` at its original timestamp: it is older than the live tip and is not recorded as applied. After the new app has demonstrably switched to the replacement creation RPCs, the operator must review a new forward-only migration version, obtain fresh explicit approval in the same transaction, and release it separately. The current live gates must not be enabled as part of the bulk-price migration.
+2. **First candidate: `20261029103000_revoke_client_maintenance_privileges.sql`.** The live ACL snapshot shows `anon` and `authenticated` retain `TRUNCATE`, `REFERENCES`, `TRIGGER`, and `MAINTAIN` on `public.sale_empty_decisions` and `public.shop_profile`. RLS does not protect `TRUNCATE`. The new migration checks the expected pre-state, revokes only these maintenance privileges, and verifies intended SELECT access remains. It is staged for review only; not applied to production.
+3. **Second candidate: `20261029110000_stage_legacy_bulk_price_updates.sql`.** It is strictly newer than the current live tip and depends on the M2 business identity and owner guard that are present. It must follow the ACL hardening migration and may be considered only after its SQL, business isolation, price-history behavior, app checks, and production release preflight are approved.
+4. **Keep M2 Phase B deferred.** Do not run `20261018124000_finalize_legacy_creation_api_cutover.sql` at its original timestamp: it is older than the live tip and is not recorded as applied. After the new app has demonstrably switched to the replacement creation RPCs, the operator must review a new forward-only migration version, obtain fresh explicit approval in the same transaction, and release it separately. The current live gates must not be enabled as part of the bulk-price migration.
 
 ## Why production is still NO-GO
 
@@ -131,3 +132,10 @@ A green workflow run means the isolated tests passed; its parity step still repo
 
 All production queries were read-only. No production schema, permissions, data, migration ledger, gates, or deployment were changed.
 
+
+
+## ACL hardening finding — 2026-10-29
+
+A fresh read-only ACL expansion confirmed direct grants of `TRUNCATE`, `REFERENCES`, `TRIGGER`, and `MAINTAIN` to both `anon` and `authenticated` on `public.sale_empty_decisions` and `public.shop_profile`. These are not required for application SELECT/RLS behavior. A new forward-only candidate, `20261029103000_revoke_client_maintenance_privileges.sql`, now fails closed unless the captured pre-state matches, revokes only these four privileges from the client roles, and asserts that intended authenticated SELECT remains and anonymous SELECT remains denied. Its regression test is included in the disposable PG17 workflow. This migration is staged but **not applied to production**.
+
+The exact-current 121-stage reconstruction uses a separate, clearly labeled disposable-only fixture to reproduce the pre-fix ACL snapshot for comparison. The migration is then rehearsed against that clone after the current-state fingerprint is captured. The pre-fix grants are not treated as safe; they are explicitly recorded as the reason for the first forward-only release candidate.
