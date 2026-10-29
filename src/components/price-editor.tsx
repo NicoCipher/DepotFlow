@@ -44,41 +44,48 @@ export function PriceEditor({ initialRows }: { initialRows: PriceEditorRow[] }) 
   const [actionState, action, pending] = useActionState(saveBulkPrices, {});
 
   useEffect(() => {
+    let active = true;
+    let restoredRows: DraftRow[] | null = null;
+    let notice = "";
     try {
       const raw = sessionStorage.getItem("depotflow-price-editor-draft-v1");
-      if (!raw) {
-        setDraftReady(true);
-        return;
-      }
-      const saved = JSON.parse(raw) as { rows?: DraftRow[] };
-      const savedRows = saved.rows;
-      const sameBaseline = Array.isArray(savedRows)
-        && savedRows.length === initialRows.length
-        && initialRows.every((current) => {
-          const prior = savedRows.find((row) => row.id === current.id);
-          return prior
-            && prior.fullCratePrice === current.fullCratePrice
-            && prior.bottlePrice === current.bottlePrice
-            && prior.costPrice === current.costPrice
-            && prior.catalogueProductId === current.catalogueProductId
-            && typeof prior.costText === "string"
-            && typeof prior.crateText === "string"
-            && typeof prior.bottleText === "string";
-        });
-      if (sameBaseline && savedRows) {
-        setRows(initialRows.map((current) => {
-          const prior = savedRows.find((row) => row.id === current.id)!;
-          return { ...current, costText: prior.costText, crateText: prior.crateText, bottleText: prior.bottleText };
-        }));
-        setDraftNotice("Your unsaved edits were restored.");
-      } else {
-        sessionStorage.removeItem("depotflow-price-editor-draft-v1");
-        setDraftNotice("Prices changed since the saved draft. The current prices are shown.");
+      if (raw) {
+        const saved = JSON.parse(raw) as { rows?: DraftRow[] };
+        const savedRows = saved.rows;
+        const sameBaseline = Array.isArray(savedRows)
+          && savedRows.length === initialRows.length
+          && initialRows.every((current) => {
+            const prior = savedRows.find((row) => row.id === current.id);
+            return prior
+              && prior.fullCratePrice === current.fullCratePrice
+              && prior.bottlePrice === current.bottlePrice
+              && prior.costPrice === current.costPrice
+              && prior.catalogueProductId === current.catalogueProductId
+              && typeof prior.costText === "string"
+              && typeof prior.crateText === "string"
+              && typeof prior.bottleText === "string";
+          });
+        if (sameBaseline && savedRows) {
+          restoredRows = initialRows.map((current) => {
+            const prior = savedRows.find((row) => row.id === current.id)!;
+            return { ...current, costText: prior.costText, crateText: prior.crateText, bottleText: prior.bottleText };
+          });
+          notice = "Your unsaved edits were restored.";
+        } else {
+          sessionStorage.removeItem("depotflow-price-editor-draft-v1");
+          notice = "Prices changed since the saved draft. The current prices are shown.";
+        }
       }
     } catch {
-      setDraftNotice("Could not restore the draft. Current prices are shown.");
+      notice = "Could not restore the draft. Current prices are shown.";
     }
-    setDraftReady(true);
+    queueMicrotask(() => {
+      if (!active) return;
+      if (restoredRows) setRows(restoredRows);
+      setDraftNotice(notice);
+      setDraftReady(true);
+    });
+    return () => { active = false; };
   }, [initialRows]);
 
   useEffect(() => {
