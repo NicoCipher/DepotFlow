@@ -890,7 +890,8 @@
     "expected_lexical_only_versions": 22,
     "extra_versions": [],
     "missing_versions": [],
-    "passed": true
+    "passed": true,
+    "duplicate_manifest_versions": []
   },
   "method": "Strict pglast/libpg_query PostgreSQL AST comparison after removing parser source offsets; five known differences receive narrow, explicit follow-up checks for transaction wrappers or full-line function comments",
   "note": "Diagnostic PostgreSQL AST comparison only; not runtime-semantic, data-migration, or managed-platform certification.",
