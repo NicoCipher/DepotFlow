@@ -32,7 +32,7 @@ grant execute on function public.get_legacy_price_editor_business_id() to authen
 create table public.product_bottle_selling_price_history (
   id uuid primary key default gen_random_uuid(),
   owner_user_id uuid not null references auth.users(id),
-  business_id uuid not null,
+  business_id uuid not null references private.businesses(id) on delete restrict,
   product_id uuid not null references public.products(id) on delete restrict,
   catalogue_product_id uuid references public.product_catalogue(id),
   bottle_price integer check (bottle_price is null or (bottle_price >= 0 and bottle_price % 50 = 0)),
