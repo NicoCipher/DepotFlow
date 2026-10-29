@@ -66,6 +66,16 @@ jobs:
           python3 - <<'PY'
           import json, pathlib, os
           report=json.loads(pathlib.Path("/tmp/applied-sql-ast-report.json").read_text())
+          checked=json.loads(pathlib.Path("docs/release-evidence/applied-sql-ast-comparison-20261029.json").read_text())
+          # ci_run_url is run-specific; compare all reproducible evidence.
+          generated_url=report.pop("ci_run_url", None)
+          checked.pop("ci_run_url", None)
+          if os.environ.get("GITHUB_RUN_ID"):
+              expected=f"{os.environ.get('GITHUB_SERVER_URL','https://github.com')}/{os.environ.get('GITHUB_REPOSITORY','NicoCipher/DepotFlow')}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
+              if generated_url != expected:
+                  raise SystemExit("AST report ci_run_url does not identify this workflow run")
+          if report != checked:
+              raise SystemExit("Generated applied-SQL AST report differs from checked-in evidence; refresh reviewed evidence explicitly.")
           counts=report["counts"]
           summary=pathlib.Path(os.environ["GITHUB_STEP_SUMMARY"])
           with summary.open("a") as out:
@@ -73,7 +83,7 @@ jobs:
               out.write(json.dumps(counts,sort_keys=True)+chr(10))
               out.write("Decision: "+report["release_decision"]+chr(10))
           if report["release_decision"] == "NO-GO":
-              print("::warning::Historical SQL AST differences or parse errors remain; inspect report before release.")
+              raise SystemExit("Historical SQL AST evidence has coverage gaps, parse errors, missing candidates, or unresolved differences.")
           PY
 
       - name: Verify sandbox-only replay materialization
