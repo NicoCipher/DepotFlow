@@ -19,7 +19,10 @@ class ForwardOnlyBundleTest(unittest.TestCase):
         deferred = module.validate_deferred_sources()
         self.assertEqual(
             deferred,
-            {"20261029110000_stage_legacy_bulk_price_updates.sql"},
+            {
+                "20261029103000_revoke_client_maintenance_privileges.sql",
+                "20261029110000_stage_legacy_bulk_price_updates.sql",
+            },
         )
         stages = module.build(SNAPSHOT)
         self.assertNotIn("20261029110000_stage_legacy_bulk_price_updates.sql",
