@@ -53,9 +53,13 @@ def validate():
     if findings.get("authenticated_direct_insert_product_available") is not True \
        or findings.get("authenticated_legacy_create_rpcs_available") is not True:
         raise ValueError("Legacy app creation path changed; separately review Phase B cutover")
+    if findings.get("client_maintenance_grants_present") is not True:
+        raise ValueError("Client maintenance grant baseline changed; re-review the hardening migration")
     order = manifest.get("approved_release_order", {})
-    if order.get("next_candidate") != "20261029110000_stage_legacy_bulk_price_updates.sql":
+    if order.get("next_candidate") != "20261029103000_revoke_client_maintenance_privileges.sql":
         raise ValueError("Next forward migration changed; re-review release order")
+    if order.get("following_candidate") != "20261029110000_stage_legacy_bulk_price_updates.sql":
+        raise ValueError("Bulk-price migration order changed; re-review release sequence")
     if order.get("production_deployment", "").startswith("GO"):
         raise ValueError("Ledger reconciliation alone must never authorize production deployment")
 
@@ -115,7 +119,10 @@ def validate():
             raise ValueError("Duplicate local migration version: " + version)
         local[version] = name
     pending = sorted((version, name) for version, name in local.items() if version > versions[-1])
-    expected_pending = [("20261029110000", "stage_legacy_bulk_price_updates")]
+    expected_pending = [
+        ("20261029103000", "revoke_client_maintenance_privileges"),
+        ("20261029110000", "stage_legacy_bulk_price_updates"),
+    ]
     if pending != expected_pending:
         raise ValueError("Pending forward migration inventory changed: " + repr(pending))
     if pending[0][0] <= versions[-1]:
