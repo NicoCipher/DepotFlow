@@ -80,6 +80,10 @@ end;
 $disabled$;
 reset role;
 update private.business_assortment_setup_gate set enabled=true where singleton;
+-- Test-only grant: exercise the staged crate RPC's ownership/validation logic
+-- after separately asserting the production migration keeps it revoked.
+grant execute on function public.create_business_crate_type(uuid,uuid,text,text,integer,text)
+ to authenticated;
 -- Guided setup discovery is separately protected; only this disposable
 -- test grants its read permission and enables owner business selection.
 grant execute on function public.preview_business_assortment_setup(uuid)
