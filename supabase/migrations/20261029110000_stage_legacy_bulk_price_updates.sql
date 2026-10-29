@@ -75,6 +75,62 @@ revoke all on function private.record_product_bottle_selling_price() from public
 create trigger record_product_bottle_selling_price after update of bottle_price
   on public.products for each row execute function private.record_product_bottle_selling_price();
 
+-- Half- and quarter-crate prices are independent selling prices too.
+-- Half means 6/10/12 bottles and quarter means 3/5/6 for 12/20/24-pocket crates.
+create table public.product_pack_selling_price_history (
+  id uuid primary key default gen_random_uuid(),
+  owner_user_id uuid not null references auth.users(id),
+  business_id uuid not null references private.businesses(id) on delete restrict,
+  product_id uuid not null references public.products(id) on delete restrict,
+  pack_size text not null check (pack_size in ('half_crate','quarter_crate')),
+  pack_price integer check (pack_price is null or (pack_price >= 0 and pack_price % 50 = 0)),
+  effective_on date not null,
+  recorded_at timestamptz not null default now()
+);
+create index product_pack_selling_price_history_current_idx
+  on public.product_pack_selling_price_history
+  (owner_user_id,business_id,product_id,pack_size,effective_on desc,recorded_at desc,id desc);
+alter table public.product_pack_selling_price_history enable row level security;
+revoke all on public.product_pack_selling_price_history from public,anon,authenticated,service_role;
+grant select on public.product_pack_selling_price_history to authenticated;
+create policy owner_read on public.product_pack_selling_price_history for select to authenticated
+  using (owner_user_id=(select auth.uid()) and
+    exists(select 1 from private.shop_owner where user_id=(select auth.uid())));
+
+create function private.record_product_pack_selling_price() returns trigger
+language plpgsql security definer set search_path='' as $pack_history$
+declare
+  v_owner uuid;
+  v_today date := (now() at time zone 'Africa/Lagos')::date;
+begin
+  if new.half_crate_price is not distinct from old.half_crate_price
+     and new.quarter_crate_price is not distinct from old.quarter_crate_price then
+    return new;
+  end if;
+  if new.business_id is null then
+    raise exception 'Pack-price history requires a business-scoped product.';
+  end if;
+  select user_id into v_owner from private.shop_owner;
+  if v_owner is null then
+    raise exception 'Pack-price history requires an owner.';
+  end if;
+  if new.half_crate_price is distinct from old.half_crate_price then
+    insert into public.product_pack_selling_price_history
+      (owner_user_id,business_id,product_id,pack_size,pack_price,effective_on)
+    values (v_owner,new.business_id,new.id,'half_crate',new.half_crate_price,v_today);
+  end if;
+  if new.quarter_crate_price is distinct from old.quarter_crate_price then
+    insert into public.product_pack_selling_price_history
+      (owner_user_id,business_id,product_id,pack_size,pack_price,effective_on)
+    values (v_owner,new.business_id,new.id,'quarter_crate',new.quarter_crate_price,v_today);
+  end if;
+  return new;
+end;
+$pack_history$;
+revoke all on function private.record_product_pack_selling_price() from public,anon,authenticated,service_role;
+create trigger record_product_pack_selling_price after update of half_crate_price,quarter_crate_price
+  on public.products for each row execute function private.record_product_pack_selling_price();
+
 create table private.legacy_price_update_requests (
   owner_id uuid not null references auth.users(id) on delete restrict,
   request_id uuid not null,
@@ -105,6 +161,10 @@ declare
   v_new_full integer;
   v_expected_bottle integer;
   v_new_bottle integer;
+  v_expected_half integer;
+  v_new_half integer;
+  v_expected_quarter integer;
+  v_new_quarter integer;
   v_expected_cost integer;
   v_new_cost integer;
   v_current_cost integer;
@@ -193,14 +253,28 @@ begin
       end if;
       v_expected_bottle := nullif(v_item->>'expected_bottle_price','')::integer;
       v_new_bottle := nullif(v_item->>'new_bottle_price','')::integer;
+      v_expected_half := nullif(v_item->>'expected_half_crate_price','')::integer;
+      v_new_half := nullif(v_item->>'new_half_crate_price','')::integer;
+      v_expected_quarter := nullif(v_item->>'expected_quarter_crate_price','')::integer;
+      v_new_quarter := nullif(v_item->>'new_quarter_crate_price','')::integer;
       if v_expected_bottle is distinct from v_product.bottle_price
          or (v_new_bottle is not null and
              (v_new_bottle < 0 or v_new_bottle > 2147483600 or v_new_bottle % 50 <> 0)) then
         raise exception 'A bottle price changed elsewhere or is invalid. Refresh and review again.'
           using errcode='40001';
       end if;
+      if v_expected_half is distinct from v_product.half_crate_price
+         or (v_new_half is not null and
+             (v_new_half < 0 or v_new_half > 2147483600 or v_new_half % 50 <> 0))
+         or v_expected_quarter is distinct from v_product.quarter_crate_price
+         or (v_new_quarter is not null and
+             (v_new_quarter < 0 or v_new_quarter > 2147483600 or v_new_quarter % 50 <> 0)) then
+        raise exception 'A pack price changed elsewhere or is invalid. Refresh and review again.'
+          using errcode='40001';
+      end if;
       update public.products
-      set full_crate_price=v_new_full, bottle_price=v_new_bottle
+      set full_crate_price=v_new_full, bottle_price=v_new_bottle,
+          half_crate_price=v_new_half, quarter_crate_price=v_new_quarter
       where id=v_id;
     end if;
 
