@@ -129,10 +129,11 @@ def compare():
     candidates = {x["version"]: x for x in manifest["entries"]}
     lexical_versions = [x["version"] for x in manifest["entries"] if x.get("status") == "lexical_only"]
     evidence_versions = [x.get("version") for x in evidence.get("entries", [])]
+    duplicate_manifest_versions = sorted({v for v in lexical_versions if lexical_versions.count(v) > 1})
     duplicate_evidence_versions = sorted({v for v in evidence_versions if evidence_versions.count(v) > 1})
     missing_evidence_versions = sorted(set(lexical_versions) - set(evidence_versions))
     extra_evidence_versions = sorted(set(evidence_versions) - set(lexical_versions))
-    coverage_failed = bool(duplicate_evidence_versions or missing_evidence_versions or extra_evidence_versions)
+    coverage_failed = bool(duplicate_manifest_versions or duplicate_evidence_versions or missing_evidence_versions or extra_evidence_versions)
     report = {
         "captured_on": evidence["captured_on"],
         "project": evidence.get("project", "DepotFlow"),
@@ -147,6 +148,7 @@ def compare():
         "evidence_coverage": {
             "expected_lexical_only_versions": len(lexical_versions),
             "actual_evidence_versions": len(evidence_versions),
+            "duplicate_manifest_versions": duplicate_manifest_versions,
             "duplicate_versions": duplicate_evidence_versions,
             "missing_versions": missing_evidence_versions,
             "extra_versions": extra_evidence_versions,
