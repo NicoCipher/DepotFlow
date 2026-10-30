@@ -498,7 +498,7 @@
     },
     {
       "filename": "20261030100000_revoke_client_maintenance_privileges.sql",
-      "git_blob_sha1": "1727325683b9328be8a9c2c8740744dfb6160fc6",
+      "git_blob_sha1": "a5fe79b831da084d2d3099fbb68402906766e13a",
       "reason": "Separate forward-only client ACL hardening for sale_empty_decisions and shop_profile; not part of the 2026-10-19 historical M2 rehearsal bundle."
     }
   ]
