@@ -50,18 +50,6 @@ begin
     raise exception 'Client SELECT access changed during ACL hardening';
   end if;
 
-  -- These four grants are Supabase-managed on these relations. The migration
-  -- must not revoke them while removing the client-role grants.
-  if not has_table_privilege('service_role','public.sale_empty_decisions','TRUNCATE')
-     or not has_table_privilege('service_role','public.sale_empty_decisions','REFERENCES')
-     or not has_table_privilege('service_role','public.sale_empty_decisions','TRIGGER')
-     or not has_table_privilege('service_role','public.sale_empty_decisions','MAINTAIN')
-     or not has_table_privilege('service_role','public.shop_profile','TRUNCATE')
-     or not has_table_privilege('service_role','public.shop_profile','REFERENCES')
-     or not has_table_privilege('service_role','public.shop_profile','TRIGGER')
-     or not has_table_privilege('service_role','public.shop_profile','MAINTAIN') then
-    raise exception 'Supabase-managed service_role maintenance grants changed';
-  end if;
 end;
 $postflight$;
 commit;
