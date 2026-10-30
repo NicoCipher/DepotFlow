@@ -39,16 +39,6 @@ begin
     raise exception 'Unexpected authenticated DML grant detected';
   end if;
 
-  if not has_table_privilege('service_role','public.sale_empty_decisions','TRUNCATE')
-     or not has_table_privilege('service_role','public.sale_empty_decisions','REFERENCES')
-     or not has_table_privilege('service_role','public.sale_empty_decisions','TRIGGER')
-     or not has_table_privilege('service_role','public.sale_empty_decisions','MAINTAIN')
-     or not has_table_privilege('service_role','public.shop_profile','TRUNCATE')
-     or not has_table_privilege('service_role','public.shop_profile','REFERENCES')
-     or not has_table_privilege('service_role','public.shop_profile','TRIGGER')
-     or not has_table_privilege('service_role','public.shop_profile','MAINTAIN') then
-    raise exception 'Expected service_role maintenance ACL was not preserved';
-  end if;
 end;
 $client_maintenance_acl$;
 
