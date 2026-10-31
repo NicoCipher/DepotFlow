@@ -1,0 +1,497 @@
+{
+  "captured_on": "2026-10-29",
+  "source": "Read-only Supabase list_migrations query; no SQL was executed and no schema/data was changed.",
+  "project_ref": "coyivbklakhilpcqqrzg",
+  "count": 121,
+  "latest": {
+    "version": "20261019140104",
+    "name": "generate_legacy_assortment_ids_and_replay"
+  },
+  "release_authorized": false,
+  "migrations": [
+    {
+      "version": "20260912230917",
+      "name": "initial_foundation"
+    },
+    {
+      "version": "20260912235108",
+      "name": "harden_rls_auto_enable"
+    },
+    {
+      "version": "20260913000019",
+      "name": "owner_customers"
+    },
+    {
+      "version": "20260913033135",
+      "name": "owner_products"
+    },
+    {
+      "version": "20260913041500",
+      "name": "receive_stock"
+    },
+    {
+      "version": "20260913043114",
+      "name": "dated_stock_movements"
+    },
+    {
+      "version": "20260913103338",
+      "name": "empty_crate_counts"
+    },
+    {
+      "version": "20260913113337",
+      "name": "crate_type_identity"
+    },
+    {
+      "version": "20260914051020",
+      "name": "crate_metadata_management"
+    },
+    {
+      "version": "20260922142856",
+      "name": "complete_sale_flow"
+    },
+    {
+      "version": "20260923095431",
+      "name": "partial_crate_price_fallback"
+    },
+    {
+      "version": "20260925095320",
+      "name": "customer_payments"
+    },
+    {
+      "version": "20260925113009",
+      "name": "product_images"
+    },
+    {
+      "version": "20260927154550",
+      "name": "customer_archiving"
+    },
+    {
+      "version": "20260927173816",
+      "name": "empties_rules_foundation"
+    },
+    {
+      "version": "20260927180933",
+      "name": "correct_deposit_and_packaging_model"
+    },
+    {
+      "version": "20260927181104",
+      "name": "optional_crate_only_deposit"
+    },
+    {
+      "version": "20260927192502",
+      "name": "record_sale_v2_empties"
+    },
+    {
+      "version": "20260928045709",
+      "name": "delete_unused_crate_type"
+    },
+    {
+      "version": "20260928180317",
+      "name": "payment_receipts_and_activity"
+    },
+    {
+      "version": "20260929051433",
+      "name": "customer_opening_balances"
+    },
+    {
+      "version": "20260929114106",
+      "name": "business_product_cost_catalogue"
+    },
+    {
+      "version": "20260930115230",
+      "name": "retire_legacy_public_rpcs"
+    },
+    {
+      "version": "20260930164224",
+      "name": "current_selling_prices"
+    },
+    {
+      "version": "20260930164225",
+      "name": "catalogue_product_setup"
+    },
+    {
+      "version": "20261001022503",
+      "name": "join_bottled_desperados_catalogue"
+    },
+    {
+      "version": "20261001185600",
+      "name": "real_customer_sale_flow"
+    },
+    {
+      "version": "20261002174235",
+      "name": "round_partial_prices"
+    },
+    {
+      "version": "20261004133956",
+      "name": "public_receipt_details"
+    },
+    {
+      "version": "20261004135428",
+      "name": "snapshot_receipt_identity"
+    },
+    {
+      "version": "20261013054129",
+      "name": "catalogue_product_photos"
+    },
+    {
+      "version": "20261013071315",
+      "name": "goldberg_first_party_packshot"
+    },
+    {
+      "version": "20261013073310",
+      "name": "hold_goldberg_photo_until_rights"
+    },
+    {
+      "version": "20261013203900",
+      "name": "restore_goldberg_pilot_packshot"
+    },
+    {
+      "version": "20261013233708",
+      "name": "bulk_shop_real_packshots"
+    },
+    {
+      "version": "20261014041613",
+      "name": "remaining_five_shop_packshots"
+    },
+    {
+      "version": "20261014050916",
+      "name": "smirnoff_ice_big_packshot"
+    },
+    {
+      "version": "20261014054222",
+      "name": "master_maltina_can_packshot"
+    },
+    {
+      "version": "20261014070652",
+      "name": "three_verified_catalogue_packshots_oct14"
+    },
+    {
+      "version": "20261014072834",
+      "name": "sale_with_old_debt_payment"
+    },
+    {
+      "version": "20261014115322",
+      "name": "upgrade_old_debt_sale_receipt_snapshot_oct14"
+    },
+    {
+      "version": "20261014115332",
+      "name": "verify_historical_account_receipts_oct14"
+    },
+    {
+      "version": "20261014144130",
+      "name": "customer_account_activity"
+    },
+    {
+      "version": "20261014145140",
+      "name": "customer_records_hub"
+    },
+    {
+      "version": "20261014164830",
+      "name": "group_checkout_records"
+    },
+    {
+      "version": "20261015181335",
+      "name": "customer_branded_crate_returns"
+    },
+    {
+      "version": "20261015233039",
+      "name": "shop_drink_lifecycle"
+    },
+    {
+      "version": "20261016152420",
+      "name": "split_tender_ledger_staged_20261016"
+    },
+    {
+      "version": "20261016152535",
+      "name": "split_tender_atomic_saver_staged_20261016"
+    },
+    {
+      "version": "20261016153051",
+      "name": "verify_split_tender_receipts_staged_20261016"
+    },
+    {
+      "version": "20261016153418",
+      "name": "split_sale_read_only_recovery_20261016"
+    },
+    {
+      "version": "20261016162615",
+      "name": "split_sale_request_fence_staged_20261016"
+    },
+    {
+      "version": "20261016165128",
+      "name": "activate_cash_transfer_owner_only_20261016"
+    },
+    {
+      "version": "20261017132205",
+      "name": "generalize_multi_tender_guarded_20261017"
+    },
+    {
+      "version": "20261017132742",
+      "name": "activate_multi_tender_owner_only_20261017"
+    },
+    {
+      "version": "20261019132131",
+      "name": "depotflow_hosted_auth_signup_closed_guard_20261019"
+    },
+    {
+      "version": "20261019140000",
+      "name": "private_business_membership_foundation"
+    },
+    {
+      "version": "20261019140001",
+      "name": "link_legacy_test_shop_business"
+    },
+    {
+      "version": "20261019140002",
+      "name": "add_business_identity_to_tenant_tables"
+    },
+    {
+      "version": "20261019140003",
+      "name": "guarded_legacy_scope_backfill"
+    },
+    {
+      "version": "20261019140004",
+      "name": "tenant_aware_relationships"
+    },
+    {
+      "version": "20261019140005",
+      "name": "legacy_operational_write_scope"
+    },
+    {
+      "version": "20261019140006",
+      "name": "gate_legacy_owner_reads"
+    },
+    {
+      "version": "20261019140007",
+      "name": "guard_legacy_reporting_rpcs"
+    },
+    {
+      "version": "20261019140008",
+      "name": "dependency_ordered_legacy_backfill"
+    },
+    {
+      "version": "20261019140009",
+      "name": "nonlegacy_business_profiles"
+    },
+    {
+      "version": "20261019140010",
+      "name": "tenant_customer_access"
+    },
+    {
+      "version": "20261019140011",
+      "name": "legacy_account_customer_scope"
+    },
+    {
+      "version": "20261019140012",
+      "name": "legacy_customer_reader_scope"
+    },
+    {
+      "version": "20261019140013",
+      "name": "guard_legacy_drink_lifecycle"
+    },
+    {
+      "version": "20261019140014",
+      "name": "guard_legacy_write_rpc_entrypoints"
+    },
+    {
+      "version": "20261019140015",
+      "name": "tenant_inventory_read_barriers"
+    },
+    {
+      "version": "20261019140016",
+      "name": "scope_legacy_inventory_reports"
+    },
+    {
+      "version": "20261019140017",
+      "name": "scope_legacy_financial_read_policies"
+    },
+    {
+      "version": "20261019140018",
+      "name": "scope_legacy_drink_lifecycle_lookup"
+    },
+    {
+      "version": "20261019140019",
+      "name": "guard_legacy_payment_and_held_id_lookup"
+    },
+    {
+      "version": "20261019140020",
+      "name": "scope_legacy_multi_tender_ledger_reads"
+    },
+    {
+      "version": "20261019140021",
+      "name": "scope_legacy_mixed_write_rpcs"
+    },
+    {
+      "version": "20261019140022",
+      "name": "tenant_physical_empty_stock_key"
+    },
+    {
+      "version": "20261019140023",
+      "name": "scope_legacy_base_sale_replay"
+    },
+    {
+      "version": "20261019140024",
+      "name": "stage_tenant_empty_bottle_count"
+    },
+    {
+      "version": "20261019140025",
+      "name": "stage_tenant_empty_crate_count"
+    },
+    {
+      "version": "20261019140026",
+      "name": "scope_legacy_base_sale_inventory_reads"
+    },
+    {
+      "version": "20261019140027",
+      "name": "scope_legacy_opening_balance_reads"
+    },
+    {
+      "version": "20261019140028",
+      "name": "scope_legacy_customer_empty_returns"
+    },
+    {
+      "version": "20261019140029",
+      "name": "scope_historical_request_keys"
+    },
+    {
+      "version": "20261019140030",
+      "name": "scope_legacy_sale_payment_wrappers"
+    },
+    {
+      "version": "20261019140031",
+      "name": "scope_legacy_sale_payment_request_keys"
+    },
+    {
+      "version": "20261019140032",
+      "name": "scope_split_recovery_fences"
+    },
+    {
+      "version": "20261019140033",
+      "name": "scope_mixed_debt_replay_payment_lookup"
+    },
+    {
+      "version": "20261019140034",
+      "name": "stage_tenant_product_stock_count"
+    },
+    {
+      "version": "20261019140035",
+      "name": "scope_stock_receipt_request_keys"
+    },
+    {
+      "version": "20261019140036",
+      "name": "stage_tenant_stock_receiving"
+    },
+    {
+      "version": "20261019140037",
+      "name": "scope_legacy_stock_crate_queries"
+    },
+    {
+      "version": "20261019140038",
+      "name": "reject_receive_count_request_reuse"
+    },
+    {
+      "version": "20261019140039",
+      "name": "tenant_unique_assortment_catalogue"
+    },
+    {
+      "version": "20261019140040",
+      "name": "stage_business_assortment_setup"
+    },
+    {
+      "version": "20261019140041",
+      "name": "replay_stock_operations_before_metadata"
+    },
+    {
+      "version": "20261019140042",
+      "name": "stage_tenant_cost_price_history"
+    },
+    {
+      "version": "20261019140043",
+      "name": "stage_tenant_customer_opening_balances"
+    },
+    {
+      "version": "20261019140044",
+      "name": "stage_tenant_physical_opening_inventory"
+    },
+    {
+      "version": "20261019140045",
+      "name": "validate_tenant_bottle_count_identity"
+    },
+    {
+      "version": "20261019140046",
+      "name": "serialize_physical_opening_vs_count"
+    },
+    {
+      "version": "20261019140047",
+      "name": "stage_business_opening_readiness_preview"
+    },
+    {
+      "version": "20261019140048",
+      "name": "readiness_audit_and_customer_population"
+    },
+    {
+      "version": "20261019140049",
+      "name": "stage_owner_opening_review_attestation"
+    },
+    {
+      "version": "20261019140050",
+      "name": "serialize_business_profile_signoff"
+    },
+    {
+      "version": "20261019140051",
+      "name": "stage_owner_business_selection"
+    },
+    {
+      "version": "20261019140052",
+      "name": "stage_self_service_business_registration"
+    },
+    {
+      "version": "20261019140053",
+      "name": "reserve_global_depot_identity"
+    },
+    {
+      "version": "20261019140054",
+      "name": "stage_owner_guided_assortment_preview"
+    },
+    {
+      "version": "20261019140055",
+      "name": "preserve_registered_depot_location"
+    },
+    {
+      "version": "20261019140056",
+      "name": "stage_business_opening_count_progress"
+    },
+    {
+      "version": "20261019140057",
+      "name": "reserve_immutable_registered_depot_identity"
+    },
+    {
+      "version": "20261019140058",
+      "name": "fail_closed_on_truncated_assortment_preview"
+    },
+    {
+      "version": "20261019140059",
+      "name": "block_profile_claim_of_reserved_identity"
+    },
+    {
+      "version": "20261019140100",
+      "name": "stage_tenant_generated_customer_identity"
+    },
+    {
+      "version": "20261019140101",
+      "name": "restrict_direct_tenant_customer_insert"
+    },
+    {
+      "version": "20261019140102",
+      "name": "generate_legacy_customer_ids_and_replay"
+    },
+    {
+      "version": "20261019140103",
+      "name": "require_customer_creation_rpc"
+    },
+    {
+      "version": "20261019140104",
+      "name": "generate_legacy_assortment_ids_and_replay"
+    }
+  ]
+}
