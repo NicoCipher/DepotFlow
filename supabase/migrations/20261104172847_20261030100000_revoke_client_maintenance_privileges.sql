@@ -1,0 +1,4 @@
+-- Ledger reconciliation marker for the Supabase MCP-applied client ACL migration.
+-- The schema change is carried by 20261030100000_revoke_client_maintenance_privileges.sql.
+-- Supabase MCP recorded that application under hosted version 20261104172847.
+-- This comment-only file preserves that hosted ledger identity on fresh replays.
