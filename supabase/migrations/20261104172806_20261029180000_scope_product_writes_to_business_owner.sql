@@ -1,4 +1,0 @@
--- Ledger reconciliation marker for the Supabase MCP-applied product-scope migration.
--- The schema change is carried by 20261029180000_scope_product_writes_to_business_owner.sql.
--- Supabase MCP recorded that application under hosted version 20261104172806.
--- This comment-only file preserves that hosted ledger identity on fresh replays.
