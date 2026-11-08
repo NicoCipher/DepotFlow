@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   browser-isolation:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
       DEPOTFLOW_BUSINESS_E2E_LOCAL_ONLY: I_VERIFY_DISPOSABLE_LOOPBACK_ONLY
@@ -67,7 +67,7 @@ jobs:
         run: |
           set -euo pipefail
           docker info >/dev/null
-          npx --yes supabase@2.119.0 start -x storage,realtime,imgproxy,edge-runtime,analytics,vector,studio,postgres-meta
+          npx --yes supabase@2.119.0 start -x storage-api,realtime,imgproxy,edge-runtime,logflare,vector,studio,postgres-meta
           npx --yes supabase@2.119.0 status -o env > "$RUNNER_TEMP/depotflow-business-status.env"
           test -s "$RUNNER_TEMP/depotflow-business-status.env"
       - name: Apply migrations with explicit disposable-only cutover simulation
