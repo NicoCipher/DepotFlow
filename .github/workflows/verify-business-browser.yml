@@ -1,0 +1,116 @@
+name: Verify two-owner business isolation (local only)
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/verify-business-browser.yml"
+      - "supabase/migrations/**"
+      - "supabase/tests/business-browser/**"
+      - "supabase/tests/legacy_creation_pre_cutover_compat.sql"
+      - "scripts/test-business-owner-browser.mjs"
+      - "src/**"
+      - "package.json"
+      - "package-lock.json"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  browser-isolation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      DEPOTFLOW_BUSINESS_E2E_LOCAL_ONLY: I_VERIFY_DISPOSABLE_LOOPBACK_ONLY
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install application dependencies
+        run: npm ci
+      - name: Prepare isolated Supabase project with repository migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/depotflow-business-e2e/supabase"
+          cp supabase/tests/business-browser/config.toml "$RUNNER_TEMP/depotflow-business-e2e/supabase/config.toml"
+          cp -R supabase/migrations "$RUNNER_TEMP/depotflow-business-e2e/supabase/migrations"
+          test "$(find "$RUNNER_TEMP/depotflow-business-e2e/supabase/migrations" -name '*.sql' | wc -l)" -gt 100
+          # Production Supabase projects have this platform-owned event-trigger
+          # function before project migrations run. This test-only stub exists
+          # solely in the disposable project copy.
+          cat > "$RUNNER_TEMP/depotflow-business-e2e/supabase/migrations/20260912230000_test_platform_rls_auto_enable.sql" <<'SQL'
+          create or replace function public.rls_auto_enable()
+          returns event_trigger
+          language plpgsql
+          as $function$
+          begin
+            null;
+          end;
+          $function$;
+          SQL
+          # Supabase's local bootstrap grants broader default table reads than
+          # the hosted project baseline. Recreate the verified production
+          # client-read baseline in this disposable database only, immediately
+          # before the ACL-hardening migration under test.
+          cat > "$RUNNER_TEMP/depotflow-business-e2e/supabase/migrations/20261030095900_test_platform_client_acl_baseline.sql" <<'SQL'
+          revoke select on table public.sale_empty_decisions, public.shop_profile from anon;
+          grant select on table public.sale_empty_decisions, public.shop_profile to authenticated;
+          SQL
+      - name: Start disposable PostgreSQL 17 and Supabase services
+        working-directory: ${{ runner.temp }}/depotflow-business-e2e
+        timeout-minutes: 20
+        run: |
+          set -euo pipefail
+          docker info >/dev/null
+          npx --yes supabase@2.119.0 start -x storage-api,realtime,imgproxy,edge-runtime,logflare,vector,studio,postgres-meta
+          npx --yes supabase@2.119.0 status -o env > "$RUNNER_TEMP/depotflow-business-status.env"
+          test -s "$RUNNER_TEMP/depotflow-business-status.env"
+      - name: Apply migrations with explicit disposable-only cutover simulation
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a
+          source "$RUNNER_TEMP/depotflow-business-status.env"
+          set +a
+          test "${DB_URL}" = "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+          psql "$DB_URL" -X -v ON_ERROR_STOP=1 -c "select current_setting('server_version_num')::int / 10000" | grep -q 17
+          migration_dir="$RUNNER_TEMP/depotflow-business-e2e/supabase/migrations"
+          for f in "$migration_dir"/*.sql; do
+            echo "Applying $f"
+            if [[ "$f" == *20261018124000_finalize_legacy_creation_api_cutover.sql ]]; then
+              # This one-way legacy API cutover is exercised only in this
+              # throwaway database. First prove pre-cutover compatibility;
+              # then simulate explicit operator approval in disposable CI.
+              psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/legacy_creation_pre_cutover_compat.sql
+              psql "$DB_URL" -X -v ON_ERROR_STOP=1 -c "update private.legacy_creation_cutover_gate set authorized=true,authorized_at=now() where singleton"
+              psql "$DB_URL" -X -v ON_ERROR_STOP=1 \
+                -c "BEGIN; SET LOCAL depotflow.legacy_creation_cutover_attempt='confirmed';" \
+                -f "$f"
+            else
+              psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f "$f"
+            fi
+          done
+          echo "All repository migrations applied to disposable Supabase PostgreSQL 17."
+      - name: Install browser runner
+        run: |
+          npm install --no-save --package-lock=false playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: Run two-owner browser acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a
+          source "$RUNNER_TEMP/depotflow-business-status.env"
+          set +a
+          export NEXT_PUBLIC_SUPABASE_URL="${API_URL}"
+          export NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="${PUBLISHABLE_KEY}"
+          node scripts/test-business-owner-browser.mjs
+      - name: Stop and delete disposable Supabase services
+        if: always()
+        working-directory: ${{ runner.temp }}/depotflow-business-e2e
+        run: npx --yes supabase@2.119.0 stop --no-backup || true
