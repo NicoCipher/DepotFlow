@@ -5,7 +5,7 @@
  * Never accepts hosted URLs or credentials.
  */
 import assert from "node:assert/strict";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { execFileSync, spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { createClient } from "@supabase/supabase-js";
@@ -63,7 +63,7 @@ async function registerDepot(page, name, address, phone) {
   await page.getByLabel(/location/i).fill(address);
   const phoneField = page.getByLabel(/phone/i);
   if (await phoneField.count()) await phoneField.fill(phone);
-  await page.getByRole("button", { name: /register depot/i }).click();
+  await page.getByRole("button", { name: "Create depot" }).click();
   await page.waitForURL(/\/businesses\/[0-9a-f-]+\/drinks$/, { timeout: 15000 });
   const match = page.url().match(/\/businesses\/([0-9a-f-]+)\/drinks$/);
   assert.ok(match, "Registration did not navigate to the new depot setup");
@@ -74,7 +74,6 @@ assertLoopback();
 assert.equal(sql("select current_setting('server_version_num')::int / 10000"), "17",
   "Browser acceptance must run on PostgreSQL 17");
 
-const anonKey = env("ANON_KEY");
 const serviceKey = env("SERVICE_ROLE_KEY");
 const admin = createClient(API, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
 const suffix = randomBytes(6).toString("hex");
@@ -83,7 +82,6 @@ const owners = [
   { email: `owner-a-${suffix}@example.org`, name: "Browser Test Depot A", address: `Ikeja test ${suffix}`, phone: "08000000001" },
   { email: `owner-b-${suffix}@example.org`, name: "Browser Test Depot B", address: `Yaba test ${suffix}`, phone: "08000000002" },
 ];
-const created = [];
 let browser;
 let app;
 try {
@@ -98,7 +96,6 @@ try {
     });
     if (error) throw error;
     owner.id = data.user.id;
-    created.push(owner.id);
   }
 
   app = spawn("npm", ["run", "dev", "--", "--hostname", "127.0.0.1"], {
@@ -133,20 +130,18 @@ try {
     "Owner B can see Owner A's depot");
 
   // Direct URL access must not disclose the other tenant's business identity or setup data.
-  await ownerBPage.goto(APP + `/businesses/${businessA}/drinks`);
+  const deniedA = await ownerBPage.goto(APP + `/businesses/${businessA}/drinks`);
   await ownerBPage.waitForLoadState("domcontentloaded");
+  assert.equal(deniedA?.status(), 404, "Owner B direct access to Owner A depot must return 404");
   assert.equal(await ownerBPage.getByText(owners[0].name, { exact: true }).count(), 0,
     "Owner B can read Owner A's depot name through a direct URL");
 
-  await page.goto(APP + `/businesses/${businessB}/drinks`);
+  const deniedB = await page.goto(APP + `/businesses/${businessB}/drinks`);
   await page.waitForLoadState("domcontentloaded");
+  assert.equal(deniedB?.status(), 404, "Owner A direct access to Owner B depot must return 404");
   assert.equal(await page.getByText(owners[1].name, { exact: true }).count(), 0,
     "Owner A can read Owner B's depot name through a direct URL");
 
-  // Confirm the test exercised two distinct authenticated identities and persisted registrations.
-  const { data: aList, error: aError } = await admin.rpc("list_my_businesses_for_setup");
-  // Service role is intentionally not used to assert RLS; browser assertions above do that.
-  if (aError) console.log("Service-role list RPC not used for tenant assertions:", aError.message);
   console.log("PASS: two real browser sessions registered separate depots; picker and direct-URL checks did not leak tenant names.");
   await ownerBContext.close();
 } finally {
