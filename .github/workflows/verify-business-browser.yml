@@ -53,6 +53,14 @@ jobs:
           end;
           $function$;
           SQL
+          # Supabase's local bootstrap grants broader default table reads than
+          # the hosted project baseline. Recreate the verified production
+          # client-read baseline in this disposable database only, immediately
+          # before the ACL-hardening migration under test.
+          cat > "$RUNNER_TEMP/depotflow-business-e2e/supabase/migrations/20261030095900_test_platform_client_acl_baseline.sql" <<'SQL'
+          revoke select on table public.sale_empty_decisions, public.shop_profile from anon;
+          grant select on table public.sale_empty_decisions, public.shop_profile to authenticated;
+          SQL
       - name: Start disposable PostgreSQL 17 and Supabase services
         working-directory: ${{ runner.temp }}/depotflow-business-e2e
         timeout-minutes: 20
