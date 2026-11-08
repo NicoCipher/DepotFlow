@@ -71,7 +71,8 @@ jobs:
           set +a
           test "${DB_URL}" = "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
           psql "$DB_URL" -X -v ON_ERROR_STOP=1 -c "select current_setting('server_version_num')::int / 10000" | grep -q 17
-          for f in supabase/migrations/*.sql; do
+          migration_dir="$RUNNER_TEMP/depotflow-business-e2e/supabase/migrations"
+          for f in "$migration_dir"/*.sql; do
             echo "Applying $f"
             if [[ "$f" == *20261018124000_finalize_legacy_creation_api_cutover.sql ]]; then
               # This one-way legacy API cutover is exercised only in this
