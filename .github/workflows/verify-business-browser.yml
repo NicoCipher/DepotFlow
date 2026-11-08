@@ -39,6 +39,20 @@ jobs:
           cp supabase/tests/business-browser/config.toml "$RUNNER_TEMP/depotflow-business-e2e/supabase/config.toml"
           cp -R supabase/migrations "$RUNNER_TEMP/depotflow-business-e2e/supabase/migrations"
           test "$(find "$RUNNER_TEMP/depotflow-business-e2e/supabase/migrations" -name '*.sql' | wc -l)" -gt 100
+          # Production Supabase projects have this platform-owned event-trigger
+          # function before project migrations run. It is not part of this repo's
+          # migration history, so provide a test-only compatibility stub in the
+          # disposable migration copy, before the first project migration.
+          cat > "$RUNNER_TEMP/depotflow-business-e2e/supabase/migrations/20260912230000_test_platform_rls_auto_enable.sql" <<'SQL'
+          create or replace function public.rls_auto_enable()
+          returns event_trigger
+          language plpgsql
+          as $function$
+          begin
+            null;
+          end;
+          $function$;
+          SQL
       - name: Start disposable PostgreSQL 17 and Supabase services
         working-directory: ${{ runner.temp }}/depotflow-business-e2e
         timeout-minutes: 20
