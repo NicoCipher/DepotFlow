@@ -494,7 +494,7 @@
     {
       "filename": "20261029180000_scope_product_writes_to_business_owner.sql",
       "git_blob_sha1": "4cee7e29730b6064f933b5f0803fed1eadede5ee",
-      "reason": "Separate draft tenant product-write RLS repair, now including the gated crate-creation RPC grant required by the guided setup flow; not part of the 2026-10-19 historical M2 rehearsal bundle and not authorized for production deployment."
+      "reason": "Separate tenant product-write RLS repair and gated guided-assortment RPC grants; applied to production as hosted version 20261104172806 and excluded from the 2026-10-19 historical M2 rehearsal bundle."
     },
     {
       "filename": "20261030100000_revoke_client_maintenance_privileges.sql",
