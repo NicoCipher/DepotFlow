@@ -191,6 +191,43 @@ begin
     raise exception 'Exact retry changed result or duplicated price history';
   end if;
 
+  -- Same-day cost reversion must append a second event, preserve the first,
+  -- and make the restored value current. This catches both the old partial
+  -- unique indexes and incorrect event ordering inside one test transaction.
+  v_payload:=jsonb_build_array(jsonb_build_object(
+    'product_id','b8c00000-0000-4000-8000-000000000041',
+    'change_selling',false,'change_cost',true,
+    'expected_full_crate_price',null,'new_full_crate_price',null,
+    'expected_bottle_price',null,'new_bottle_price',null,
+    'expected_half_crate_price',null,'new_half_crate_price',null,
+    'expected_quarter_crate_price',null,'new_quarter_crate_price',null,
+    'catalogue_product_id',v_goldberg_catalogue,
+    'expected_cost_price',8200,'new_cost_price',8000
+  ));
+  v_cost_before:=(select count(*) from public.product_cost_history);
+  perform public.update_legacy_product_prices(
+    'b8c00000-0000-4000-8000-000000000059',v_payload);
+  if (select count(*) from public.product_cost_history)<>v_cost_before+1
+     or (select count(*) from public.product_cost_history
+         where catalogue_product_id=v_goldberg_catalogue
+           and cost_price in (8000,8200))<2
+     or (select cost_price from public.product_cost_history
+         where catalogue_product_id=v_goldberg_catalogue
+           and business_id=(select business_id from public.products
+             where id='b8c00000-0000-4000-8000-000000000041')
+           and effective_on<=(now() at time zone 'Africa/Lagos')::date
+         order by effective_on desc,recorded_at desc,id desc limit 1)<>8000 then
+    raise exception 'Same-day cost reversion failed, rewrote history, or left the wrong cost current';
+  end if;
+
+  -- Exact replay of the reversion request must not append a duplicate event.
+  v_history_before:=(select count(*) from public.product_cost_history);
+  perform public.update_legacy_product_prices(
+    'b8c00000-0000-4000-8000-000000000059',v_payload);
+  if (select count(*) from public.product_cost_history)<>v_history_before then
+    raise exception 'Replaying the reversion request duplicated cost history';
+  end if;
+
   -- Bottle-only edits must be auditable without fabricating a crate-price change.
   select count(*) into v_history_before
   from public.product_selling_price_history where source='product_edit';
