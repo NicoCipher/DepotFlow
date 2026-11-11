@@ -210,7 +210,26 @@ begin
   if (select count(*) from public.product_cost_history)<>v_cost_before+1
      or (select count(*) from public.product_cost_history
          where catalogue_product_id=v_goldberg_catalogue
-           and cost_price in (8000,8200))<2
+           and business_id=(select business_id from public.products
+             where id='b8c00000-0000-4000-8000-000000000041')
+           and effective_on=(now() at time zone 'Africa/Lagos')::date)<>3
+     or (select count(*) from public.product_cost_history
+         where catalogue_product_id=v_goldberg_catalogue
+           and business_id=(select business_id from public.products
+             where id='b8c00000-0000-4000-8000-000000000041')
+           and cost_price=8000
+           and effective_on=(now() at time zone 'Africa/Lagos')::date)<>2
+     or (select count(*) from public.product_cost_history
+         where catalogue_product_id=v_goldberg_catalogue
+           and business_id=(select business_id from public.products
+             where id='b8c00000-0000-4000-8000-000000000041')
+           and cost_price=8200
+           and effective_on=(now() at time zone 'Africa/Lagos')::date)<>1
+     or (select count(distinct source_request_id) from public.product_cost_history
+         where catalogue_product_id=v_goldberg_catalogue
+           and business_id=(select business_id from public.products
+             where id='b8c00000-0000-4000-8000-000000000041')
+           and source_request_id is not null)<>2
      or (select cost_price from public.product_cost_history
          where catalogue_product_id=v_goldberg_catalogue
            and business_id=(select business_id from public.products
