@@ -34,27 +34,29 @@ begin
     raise exception 'Expected both historical partial cost indexes; refusing ambiguous cleanup';
   end if;
 
-  select array_agg(a.attname::text order by k.ordinality),
-         pg_catalog.pg_get_expr(i.indpred,i.indrelid)
-    into v_keys,v_predicate
+  select array_agg(a.attname::text order by k.ordinality)
+    into v_keys
   from pg_catalog.pg_index i
   cross join lateral unnest(i.indkey) with ordinality as k(attnum,ordinality)
   join pg_catalog.pg_attribute a on a.attrelid=i.indrelid and a.attnum=k.attnum
-  where i.indexrelid=v_business_index and k.ordinality<=i.indnkeyatts
-  group by i.indpred,i.indrelid;
+  where i.indexrelid=v_business_index and k.ordinality<=i.indnkeyatts;
+  select pg_catalog.pg_get_expr(i.indpred,i.indrelid)
+    into v_predicate from pg_catalog.pg_index i
+    where i.indexrelid=v_business_index;
   if v_keys is distinct from array['business_id','catalogue_product_id','effective_on','cost_price']::text[]
      or v_predicate is distinct from '(business_id IS NOT NULL)' then
     raise exception 'business_cost_history_unique definition drift: keys %, predicate %',v_keys,v_predicate;
   end if;
 
-  select array_agg(a.attname::text order by k.ordinality),
-         pg_catalog.pg_get_expr(i.indpred,i.indrelid)
-    into v_keys,v_predicate
+  select array_agg(a.attname::text order by k.ordinality)
+    into v_keys
   from pg_catalog.pg_index i
   cross join lateral unnest(i.indkey) with ordinality as k(attnum,ordinality)
   join pg_catalog.pg_attribute a on a.attrelid=i.indrelid and a.attnum=k.attnum
-  where i.indexrelid=v_legacy_index and k.ordinality<=i.indnkeyatts
-  group by i.indpred,i.indrelid;
+  where i.indexrelid=v_legacy_index and k.ordinality<=i.indnkeyatts;
+  select pg_catalog.pg_get_expr(i.indpred,i.indrelid)
+    into v_predicate from pg_catalog.pg_index i
+    where i.indexrelid=v_legacy_index;
   if v_keys is distinct from array['owner_user_id','catalogue_product_id','effective_on','cost_price']::text[]
      or v_predicate is distinct from '(business_id IS NULL)' then
     raise exception 'prebackfill_owner_cost_history_unique definition drift: keys %, predicate %',v_keys,v_predicate;
