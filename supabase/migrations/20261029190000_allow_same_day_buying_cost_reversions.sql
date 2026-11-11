@@ -7,46 +7,73 @@ set local statement_timeout='60s';
 
 alter table public.product_cost_history add column if not exists source_request_id uuid;
 
--- Remove only the old uniqueness rule that treats a repeated cost value on the
--- same business/date/catalogue as a duplicate event. Keep all other unique keys.
-do $drop_cost_value_uniqueness$
-declare r record;
+-- The two historical cost-value indexes are partial indexes. Verify their
+-- exact definitions, then remove only those two indexes. Do not match by
+-- column set alone: unrelated unique indexes must remain untouched.
+do $replace_cost_value_uniqueness$
+declare
+  v_business_index oid;
+  v_legacy_index oid;
+  v_keys text[];
+  v_predicate text;
 begin
-  for r in
-    select i.indexrelid::regclass as index_name,
-           c.conname as constraint_name,
-           array_agg(a.attname::text order by a.attname::text)
-             filter (where k.ordinality <= i.indnkeyatts) as key_columns
-    from pg_catalog.pg_index i
-    join pg_catalog.pg_class t on t.oid=i.indrelid
-    join pg_catalog.pg_namespace n on n.oid=t.relnamespace
-    cross join lateral unnest(i.indkey) with ordinality as k(attnum,ordinality)
-    join pg_catalog.pg_attribute a on a.attrelid=t.oid and a.attnum=k.attnum
-    left join pg_catalog.pg_constraint c on c.conindid=i.indexrelid and c.contype='u'
-    where n.nspname='public' and t.relname='product_cost_history'
-      and i.indisunique and not i.indisprimary and i.indpred is null
-    group by i.indexrelid,c.conname,i.indnkeyatts
-    having array_agg(a.attname::text order by a.attname::text)
-             filter (where k.ordinality <= i.indnkeyatts)
-           in (
-             array['business_id','catalogue_product_id','cost_price','effective_on']::text[],
-             array['business_id','catalogue_product_id','cost_price','effective_on','owner_user_id']::text[]
-           )
-  loop
-    if r.constraint_name is not null then
-      execute format('alter table public.product_cost_history drop constraint %I',r.constraint_name);
-    else
-      execute format('drop index %s',r.index_name);
-    end if;
-  end loop;
-end;
-$drop_cost_value_uniqueness$;
+  select i.indexrelid into v_business_index
+  from pg_catalog.pg_index i
+  join pg_catalog.pg_class idx on idx.oid=i.indexrelid
+  where i.indrelid='public.product_cost_history'::regclass
+    and idx.relname='business_cost_history_unique'
+    and i.indisunique and not i.indisprimary;
+  select i.indexrelid into v_legacy_index
+  from pg_catalog.pg_index i
+  join pg_catalog.pg_class idx on idx.oid=i.indexrelid
+  where i.indrelid='public.product_cost_history'::regclass
+    and idx.relname='prebackfill_owner_cost_history_unique'
+    and i.indisunique and not i.indisprimary;
 
--- Enforce one history event per request/catalogue/business, without forbidding
--- a later request from restoring a previously used cost value.
-create unique index if not exists product_cost_history_source_request_uidx
+  if v_business_index is null or v_legacy_index is null then
+    raise exception 'Expected both historical partial cost indexes; refusing ambiguous cleanup';
+  end if;
+
+  select array_agg(a.attname::text order by k.ordinality),
+         pg_catalog.pg_get_expr(i.indpred,i.indrelid)
+    into v_keys,v_predicate
+  from pg_catalog.pg_index i
+  cross join lateral unnest(i.indkey) with ordinality as k(attnum,ordinality)
+  join pg_catalog.pg_attribute a on a.attrelid=i.indrelid and a.attnum=k.attnum
+  where i.indexrelid=v_business_index and k.ordinality<=i.indnkeyatts
+  group by i.indpred,i.indrelid;
+  if v_keys is distinct from array['business_id','catalogue_product_id','effective_on','cost_price']::text[]
+     or v_predicate is distinct from '(business_id IS NOT NULL)' then
+    raise exception 'business_cost_history_unique definition drift: keys %, predicate %',v_keys,v_predicate;
+  end if;
+
+  select array_agg(a.attname::text order by k.ordinality),
+         pg_catalog.pg_get_expr(i.indpred,i.indrelid)
+    into v_keys,v_predicate
+  from pg_catalog.pg_index i
+  cross join lateral unnest(i.indkey) with ordinality as k(attnum,ordinality)
+  join pg_catalog.pg_attribute a on a.attrelid=i.indrelid and a.attnum=k.attnum
+  where i.indexrelid=v_legacy_index and k.ordinality<=i.indnkeyatts
+  group by i.indpred,i.indrelid;
+  if v_keys is distinct from array['owner_user_id','catalogue_product_id','effective_on','cost_price']::text[]
+     or v_predicate is distinct from '(business_id IS NULL)' then
+    raise exception 'prebackfill_owner_cost_history_unique definition drift: keys %, predicate %',v_keys,v_predicate;
+  end if;
+
+  drop index public.business_cost_history_unique;
+  drop index public.prebackfill_owner_cost_history_unique;
+end;
+$replace_cost_value_uniqueness$;
+
+-- Request IDs make each append-only event unique in both business-scoped
+-- and legacy NULL-business rows. Separate partial indexes are required:
+-- ordinary UNIQUE treats NULL business_id values as distinct.
+create unique index product_cost_history_business_request_uidx
   on public.product_cost_history(owner_user_id,business_id,catalogue_product_id,source_request_id)
-  where source_request_id is not null;
+  where business_id is not null and source_request_id is not null;
+create unique index product_cost_history_legacy_request_uidx
+  on public.product_cost_history(owner_user_id,catalogue_product_id,source_request_id)
+  where business_id is null and source_request_id is not null;
 
 create or replace function public.update_legacy_product_prices(
   p_request_id uuid,
@@ -210,8 +237,8 @@ begin
       end if;
       if v_new_cost is distinct from v_current_cost then
         insert into public.product_cost_history(
-          owner_user_id,business_id,catalogue_product_id,cost_price,effective_on,source_request_id
-        ) values(v_actor,v_product.business_id,v_catalogue,v_new_cost,v_today,p_request_id);
+          owner_user_id,business_id,catalogue_product_id,cost_price,effective_on,recorded_at,source_request_id
+        ) values(v_actor,v_product.business_id,v_catalogue,v_new_cost,v_today,clock_timestamp(),p_request_id);
       end if;
     end if;
     v_result := v_result || jsonb_build_array(jsonb_build_object('product_id',v_id));
