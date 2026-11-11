@@ -27,15 +27,35 @@ begin
     raise exception 'Cost update must append request-scoped events and order current cost by event order';
   end if;
 
-  select pg_catalog.pg_get_indexdef(i.indexrelid) into v_index_definition
-  from pg_catalog.pg_index i
-  join pg_catalog.pg_class idx on idx.oid=i.indexrelid
-  join pg_catalog.pg_namespace n on n.oid=idx.relnamespace
-  where n.nspname='public' and idx.relname='product_cost_history_source_request_uidx'
-    and i.indisunique;
-  if v_index_definition is null
-     or pg_catalog.strpos(v_index_definition,'source_request_id')=0 then
-    raise exception 'Request-scoped cost event uniqueness must be enforced';
+  if not exists (
+    select 1 from pg_catalog.pg_index i
+    join pg_catalog.pg_class idx on idx.oid=i.indexrelid
+    join pg_catalog.pg_namespace n on n.oid=idx.relnamespace
+    where n.nspname='public' and idx.relname='product_cost_history_business_request_uidx'
+      and i.indisunique
+      and pg_catalog.pg_get_expr(i.indpred,i.indrelid)=
+          '(business_id IS NOT NULL) AND (source_request_id IS NOT NULL)'
+  ) then
+    raise exception 'Business-scoped request uniqueness must be enforced';
+  end if;
+  if not exists (
+    select 1 from pg_catalog.pg_index i
+    join pg_catalog.pg_class idx on idx.oid=i.indexrelid
+    join pg_catalog.pg_namespace n on n.oid=idx.relnamespace
+    where n.nspname='public' and idx.relname='product_cost_history_legacy_request_uidx'
+      and i.indisunique
+      and pg_catalog.pg_get_expr(i.indpred,i.indrelid)=
+          '(business_id IS NULL) AND (source_request_id IS NOT NULL)'
+  ) then
+    raise exception 'Legacy NULL-business request uniqueness must be enforced';
+  end if;
+  if exists (
+    select 1 from pg_catalog.pg_class idx
+    join pg_catalog.pg_namespace n on n.oid=idx.relnamespace
+    where n.nspname='public'
+      and idx.relname in ('business_cost_history_unique','prebackfill_owner_cost_history_unique')
+  ) then
+    raise exception 'Old cost-value uniqueness indexes must be removed';
   end if;
 end;
 $cost_reversion_contract$;
