@@ -6,7 +6,6 @@ begin;
 do $cost_reversion_contract$
 declare
   v_definition text;
-  v_index_definition text;
 begin
   if not exists (
     select 1 from information_schema.columns
