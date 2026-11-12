@@ -32,8 +32,9 @@ begin
     join pg_catalog.pg_namespace n on n.oid=idx.relnamespace
     where n.nspname='public' and idx.relname='product_cost_history_business_request_uidx'
       and i.indisunique
-      and pg_catalog.pg_get_expr(i.indpred,i.indrelid)=
-          '(business_id IS NOT NULL) AND (source_request_id IS NOT NULL)'
+      and pg_catalog.regexp_replace(
+          pg_catalog.pg_get_expr(i.indpred,i.indrelid), '[()[:space:]]', '', 'g'
+        )='business_idISNOTNULLANDsource_request_idISNOTNULL'
   ) then
     raise exception 'Business-scoped request uniqueness must be enforced';
   end if;
@@ -43,8 +44,9 @@ begin
     join pg_catalog.pg_namespace n on n.oid=idx.relnamespace
     where n.nspname='public' and idx.relname='product_cost_history_legacy_request_uidx'
       and i.indisunique
-      and pg_catalog.pg_get_expr(i.indpred,i.indrelid)=
-          '(business_id IS NULL) AND (source_request_id IS NOT NULL)'
+      and pg_catalog.regexp_replace(
+          pg_catalog.pg_get_expr(i.indpred,i.indrelid), '[()[:space:]]', '', 'g'
+        )='business_idISNULLANDsource_request_idISNOTNULL'
   ) then
     raise exception 'Legacy NULL-business request uniqueness must be enforced';
   end if;
