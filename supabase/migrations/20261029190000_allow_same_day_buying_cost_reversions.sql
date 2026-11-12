@@ -258,4 +258,91 @@ revoke all on function public.update_legacy_product_prices(uuid,jsonb)
   from public,anon,authenticated,service_role;
 grant execute on function public.update_legacy_product_prices(uuid,jsonb)
   to authenticated;
+-- Preserve the tenant quote API's duplicate-quote rule after replacing the
+-- old cost-value unique indexes. The bulk editor may record a same-day
+-- reversion as a distinct request event; this separate RPC must still reject
+-- an identical business/catalogue/date/cost quote. Serialize that check so
+-- two different request IDs cannot race past it.
+create or replace function public.record_business_buying_cost(
+  p_business_id uuid, p_event_id uuid, p_catalogue_product_id uuid,
+  p_cost_price integer, p_effective_on date
+) returns jsonb
+language plpgsql security definer set search_path=''
+as $record_cost$
+declare
+  v_actor uuid:=auth.uid();
+  v_event private.business_cost_history_requests%rowtype;
+  v_written uuid;
+begin
+  if v_actor is null or p_business_id is null then
+    raise exception 'Verified business owner session required' using errcode='42501';
+  end if;
+  perform 1 from private.business_memberships m
+    join private.businesses b on b.id=m.business_id
+    where m.business_id=p_business_id and m.user_id=v_actor
+      and m.member_kind='owner' and m.status='active'
+      and b.status in ('setup','active') and b.legacy_singleton is null
+    for share of m,b;
+  if not found then
+    raise exception 'Business not available' using errcode='42501';
+  end if;
+  perform 1 from private.business_cost_history_gate where enabled is true for share;
+  if not found or not exists(
+    select 1 from private.legacy_write_scope_gate where enabled is true
+  ) then
+    raise exception 'Business buying-cost history is not available' using errcode='42501';
+  end if;
+  if p_event_id is null or p_catalogue_product_id is null
+     or p_cost_price is null or p_cost_price<0 or p_effective_on is null then
+    raise exception 'Choose a drink, buying cost and valid effective date' using errcode='22023';
+  end if;
+
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(p_business_id::text||':'||p_event_id::text,0)
+  );
+  select * into v_event from private.business_cost_history_requests
+    where request_id=p_event_id and business_id=p_business_id for update;
+  if found then
+    if v_event.catalogue_product_id is distinct from p_catalogue_product_id
+       or v_event.cost_price is distinct from p_cost_price
+       or v_event.effective_on is distinct from p_effective_on
+       or v_event.actor_id is distinct from v_actor then
+      raise exception 'This buying-cost request was already used' using errcode='22023';
+    end if;
+    return jsonb_build_object(
+      'requestId',p_event_id,'eventId',v_event.history_id,
+      'businessId',p_business_id,'catalogueProductId',v_event.catalogue_product_id,
+      'costPrice',v_event.cost_price,'effectiveOn',v_event.effective_on
+    );
+  end if;
+
+  if not exists(select 1 from public.product_catalogue where id=p_catalogue_product_id) then
+    raise exception 'Master catalogue drink not found' using errcode='22023';
+  end if;
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+    'business-cost-quote:'||p_business_id::text||':'||p_catalogue_product_id::text||':'||
+    p_effective_on::text||':'||p_cost_price::text,0));
+  if exists(select 1 from public.product_cost_history h
+    where h.owner_user_id=v_actor and h.business_id=p_business_id
+      and h.catalogue_product_id=p_catalogue_product_id
+      and h.effective_on=p_effective_on and h.cost_price=p_cost_price) then
+    raise exception 'Identical business buying-cost quote already recorded' using errcode='22023';
+  end if;
+
+  insert into public.product_cost_history(
+    owner_user_id,business_id,catalogue_product_id,cost_price,effective_on
+  ) values(v_actor,p_business_id,p_catalogue_product_id,p_cost_price,p_effective_on)
+  returning id into v_written;
+  insert into private.business_cost_history_requests(
+    business_id,request_id,actor_id,catalogue_product_id,cost_price,effective_on,history_id
+  ) values(p_business_id,p_event_id,v_actor,p_catalogue_product_id,p_cost_price,p_effective_on,v_written);
+  return jsonb_build_object(
+    'requestId',p_event_id,'eventId',v_written,'businessId',p_business_id,
+    'catalogueProductId',p_catalogue_product_id,'costPrice',p_cost_price,'effectiveOn',p_effective_on
+  );
+end;
+$record_cost$;
+revoke all on function public.record_business_buying_cost(uuid,uuid,uuid,integer,date)
+  from public,anon,authenticated,service_role;
+
 commit;
