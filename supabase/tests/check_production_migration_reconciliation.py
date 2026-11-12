@@ -122,6 +122,7 @@ def validate():
     expected_pending = [
         ("20261029103000", "revoke_client_maintenance_privileges"),
         ("20261029110000", "stage_legacy_bulk_price_updates"),
+        ("20261029190000", "allow_same_day_buying_cost_reversions"),
     ]
     if pending != expected_pending:
         raise ValueError("Pending forward migration inventory changed: " + repr(pending))
