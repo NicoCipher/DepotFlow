@@ -25,6 +25,17 @@
         "Successful prior client maintenance-grant hardening"
       ],
       "reason": "Bulk price editor is a post-M2 feature migration. It must not be silently inserted into the fixed 65+1 tenancy rehearsal bundle or treated as approval to deploy the unreconciled production migration history."
+    },
+    {
+      "source": "20261029190000_allow_same_day_buying_cost_reversions.sql",
+      "git_blob_sha": "b8114a6922f89a72a6b46d889201e4a9d89db681",
+      "disposition": "reviewed_but_not_part_of_M2_bundle",
+      "requires": [
+        "The earlier 20261029110000_stage_legacy_bulk_price_updates.sql feature migration",
+        "The product_cost_history schema and both exact historical partial unique indexes created by the staged legacy bulk-price feature",
+        "PostgreSQL 17 execution of the cost-reversion and request-id replay regression tests"
+      ],
+      "reason": "Follow-up post-M2 bulk-price feature migration. It replaces cost-value uniqueness with request-scoped event uniqueness so a same-day cost can be reverted without rewriting append-only history. Keep it excluded from the fixed 65+1 tenancy rehearsal; its feature correctness must be verified independently on disposable PostgreSQL 17 before the feature PR is considered complete. This entry is an M2 bundle exclusion only, not approval to deploy."
     }
   ]
 }
