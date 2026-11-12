@@ -347,6 +347,9 @@ reset role;
 
 -- Exercise both partial unique indexes against real rows. Function-level
 -- replay checks above are necessary but must not be the only duplicate guard.
+-- Restore the verified owner identity after the non-owner denial case above;
+-- RESET ROLE does not reset request.jwt.claim.sub.
+select set_config('request.jwt.claim.sub','b8c00000-0000-4000-8000-000000000021',true);
 do $request_history_unique_indexes$
 declare
   v_owner uuid := 'b8c00000-0000-4000-8000-000000000021';
