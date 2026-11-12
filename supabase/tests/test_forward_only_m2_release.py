@@ -22,6 +22,7 @@ class ForwardOnlyBundleTest(unittest.TestCase):
             {
                 "20261029103000_revoke_client_maintenance_privileges.sql",
                 "20261029110000_stage_legacy_bulk_price_updates.sql",
+                "20261029190000_allow_same_day_buying_cost_reversions.sql",
             },
         )
         stages = module.build(SNAPSHOT)
