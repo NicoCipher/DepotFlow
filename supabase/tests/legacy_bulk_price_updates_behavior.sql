@@ -344,6 +344,55 @@ end;
 $non_owner_denied$;
 
 reset role;
+
+-- Exercise both partial unique indexes against real rows. Function-level
+-- replay checks above are necessary but must not be the only duplicate guard.
+do $request_history_unique_indexes$
+declare
+  v_owner uuid := 'b8c00000-0000-4000-8000-000000000021';
+  v_product public.products%rowtype;
+  v_business_request uuid := 'b8c00000-0000-4000-8000-000000000071';
+  v_legacy_request uuid := 'b8c00000-0000-4000-8000-000000000072';
+begin
+  select * into strict v_product from public.products
+  where id='b8c00000-0000-4000-8000-000000000041';
+
+  insert into public.product_cost_history(
+    owner_user_id,business_id,catalogue_product_id,cost_price,effective_on,source_request_id
+  ) values (
+    v_owner,v_product.business_id,v_product.catalogue_product_id,1234567,
+    (now() at time zone 'Africa/Lagos')::date,v_business_request
+  );
+  begin
+    insert into public.product_cost_history(
+      owner_user_id,business_id,catalogue_product_id,cost_price,effective_on,source_request_id
+    ) values (
+      v_owner,v_product.business_id,v_product.catalogue_product_id,1234567,
+      (now() at time zone 'Africa/Lagos')::date,v_business_request
+    );
+    raise exception 'Business-scoped request index accepted a duplicate event';
+  exception when unique_violation then null;
+  end;
+
+  insert into public.product_cost_history(
+    owner_user_id,business_id,catalogue_product_id,cost_price,effective_on,source_request_id
+  ) values (
+    v_owner,null,v_product.catalogue_product_id,1234568,
+    (now() at time zone 'Africa/Lagos')::date,v_legacy_request
+  );
+  begin
+    insert into public.product_cost_history(
+      owner_user_id,business_id,catalogue_product_id,cost_price,effective_on,source_request_id
+    ) values (
+      v_owner,null,v_product.catalogue_product_id,1234568,
+      (now() at time zone 'Africa/Lagos')::date,v_legacy_request
+    );
+    raise exception 'Legacy NULL-business request index accepted a duplicate event';
+  exception when unique_violation then null;
+  end;
+end;
+$request_history_unique_indexes$;
+
 set local role anon;
 do $anonymous_denied$
 begin
