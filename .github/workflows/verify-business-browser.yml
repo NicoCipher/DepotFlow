@@ -98,7 +98,16 @@ jobs:
           echo "All repository migrations applied to disposable Supabase PostgreSQL 17."
       - name: Install browser runner
         run: |
+          set -euo pipefail
           npm install --no-save --package-lock=false playwright@1.58.2
+
+          # Use the HTTPS Ubuntu mirror; the runner's configured Azure HTTP
+          # mirror stalled during the previous Chromium dependency install.
+          sudo sed -i \
+            's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' \
+            /etc/apt/sources.list.d/ubuntu.sources
+
+          sudo apt-get update
           npx playwright install --with-deps chromium
       - name: Run two-owner browser acceptance
         shell: bash
