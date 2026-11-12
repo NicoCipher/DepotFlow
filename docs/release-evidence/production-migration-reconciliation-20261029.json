@@ -376,12 +376,14 @@
   "approved_release_order": {
     "next_candidate": "20261029103000_revoke_client_maintenance_privileges.sql",
     "following_candidate": "20261029110000_stage_legacy_bulk_price_updates.sql",
-    "sequence": "After live tip 20261019140104 (M2 Phase A), first revoke client TRUNCATE/REFERENCES/TRIGGER/MAINTAIN grants on public.sale_empty_decisions and public.shop_profile; only then consider the bulk-price feature migration after feature SQL/security review and current release checks. Do not replay any historical/M2 source aliases.",
+    "sequence": "After live tip 20261019140104 (M2 Phase A), first revoke client TRUNCATE/REFERENCES/TRIGGER/MAINTAIN grants on public.sale_empty_decisions and public.shop_profile; only then consider the bulk-price feature migration after feature SQL/security review and current release checks; its same-day cost-reversion follow-up must run after the bulk-price schema/index migration and independent PostgreSQL 17 regression verification. Do not replay any historical/M2 source aliases.",
     "phase_b_finalizer": "Do not apply the source file at its original 20261018124000 timestamp. It is older than the current live tip and must be separately reviewed/re-versioned as a new forward-only migration after application cutover readiness and fresh operator approval.",
-    "production_deployment": "NO-GO until exact historical SQL provenance and current full schema/grant parity are independently certified; ledger alignment alone is insufficient."
+    "production_deployment": "NO-GO until exact historical SQL provenance and current full schema/grant parity are independently certified; ledger alignment alone is insufficient.",
+    "subsequent_candidate": "20261029190000_allow_same_day_buying_cost_reversions.sql"
   },
   "pending_forward_migrations": [
     "20261029103000_revoke_client_maintenance_privileges.sql",
-    "20261029110000_stage_legacy_bulk_price_updates.sql"
+    "20261029110000_stage_legacy_bulk_price_updates.sql",
+    "20261029190000_allow_same_day_buying_cost_reversions.sql"
   ]
 }
