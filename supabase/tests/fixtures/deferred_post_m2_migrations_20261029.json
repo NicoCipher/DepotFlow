@@ -28,7 +28,7 @@
     },
     {
       "source": "20261029190000_allow_same_day_buying_cost_reversions.sql",
-      "git_blob_sha": "b8114a6922f89a72a6b46d889201e4a9d89db681",
+      "git_blob_sha": "5e16562d068268e20a0a6531ad62731e30d4e21b",
       "disposition": "reviewed_but_not_part_of_M2_bundle",
       "requires": [
         "The earlier 20261029110000_stage_legacy_bulk_price_updates.sql feature migration",
