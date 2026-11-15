@@ -497,6 +497,11 @@
       "reason": "Separate tenant product-write RLS repair and gated guided-assortment RPC grants; applied to production as hosted version 20261104172806 and excluded from the 2026-10-19 historical M2 rehearsal bundle."
     },
     {
+      "filename": "20261029190000_allow_same_day_buying_cost_reversions.sql",
+      "git_blob_sha1": "5e16562d068268e20a0a6531ad62731e30d4e21b",
+      "reason": "Bulk-price feature follow-up for request-scoped same-day buying-cost history; current source blob is hash-pinned here, excluded from the dated 2026-10-19 historical rehearsal bundle, and not authorized for production deployment."
+    },
+    {
       "filename": "20261030100000_revoke_client_maintenance_privileges.sql",
       "git_blob_sha1": "a5fe79b831da084d2d3099fbb68402906766e13a",
       "reason": "Separate forward-only client ACL hardening for sale_empty_decisions and shop_profile; not part of the 2026-10-19 historical M2 rehearsal bundle."
