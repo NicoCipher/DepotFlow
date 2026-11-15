@@ -206,7 +206,7 @@ begin
   if not exists(select 1 from public.business_profiles p where p.business_id=p_business_id) then
     raise exception using errcode='23503',message='Business receipt details are unavailable';
   end if;
-  if (p_paid>0 and p_payment_method not in ('cash','transfer','pos'))
+  if (p_paid>0 and (p_payment_method is null or p_payment_method not in ('cash','transfer','pos')))
      or (p_paid=0 and p_payment_method is distinct from 'not_recorded') then
     raise exception using errcode='22023',message='Choose a valid payment method.';
   end if;
@@ -603,7 +603,12 @@ declare
            where s.id=new.sale_id and s.business_id=new.business_id
              and s.created_at=pg_catalog.transaction_timestamp()
              and si.crate_type_id=new.crate_type_id
-             and si.crates_returned>=new.quantity
+             and (
+               select coalesce(sum(si2.crates_returned),0)
+               from public.sale_items si2
+               where si2.sale_id=s.id and si2.business_id=new.business_id
+                 and si2.crate_type_id=new.crate_type_id
+             )>=new.quantity
          ) then
         raise exception 'Business returned crate is not linked to this depot sale' using errcode='42501';
       end if;
@@ -617,7 +622,12 @@ declare
            where s.id=new.sale_id and s.business_id=new.business_id
              and s.created_at=pg_catalog.transaction_timestamp()
              and si.bottle_type=new.bottle_type
-             and si.bottles_returned>=new.quantity
+             and (
+               select coalesce(sum(si2.bottles_returned),0)
+               from public.sale_items si2
+               where si2.sale_id=s.id and si2.business_id=new.business_id
+                 and si2.bottle_type=new.bottle_type
+             )>=new.quantity
          ) then
         raise exception 'Business returned bottle is not linked to this depot sale' using errcode='42501';
       end if;
