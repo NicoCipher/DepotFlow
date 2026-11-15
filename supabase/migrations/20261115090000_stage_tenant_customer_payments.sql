@@ -38,15 +38,16 @@ begin
     select 1 from private.businesses b
     where b.id=new.business_id and b.legacy_singleton is null
   ) then
-    select jsonb_build_object(
-      'name',p.name,
-      'address',p.address,
-      'phone',p.phone,
-      'logo_url',null
-    )
-    into new.receipt_business
-    from public.business_profiles p
-    where p.business_id=new.business_id;
+    new.receipt_business := (
+      select jsonb_build_object(
+        'name',p.name,
+        'address',p.address,
+        'phone',p.phone,
+        'logo_url',null
+      )
+      from public.business_profiles p
+      where p.business_id=new.business_id
+    );
 
     select c.name
     into v_customer_name
@@ -176,7 +177,6 @@ declare
   v_customer public.customers%rowtype;
   v_payment public.customer_payments%rowtype;
   v_owed integer;
-  v_status text;
 begin
   -- Authorization and feature gates precede replay, so a revoked owner
   -- cannot use an old request UUID to recover another depot's receipt.
@@ -185,7 +185,7 @@ begin
       using errcode='42501';
   end if;
 
-  select b.status into v_status
+  perform 1
   from private.business_memberships m
   join private.businesses b on b.id=m.business_id
   where m.business_id=p_business_id and m.user_id=v_actor
