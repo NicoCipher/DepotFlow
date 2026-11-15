@@ -481,7 +481,41 @@ declare
      )
      and new.business_id is not null
      and new.business_id is distinct from v_business then$anchor$;
-  v_replacement constant text := $replacement$  if tg_table_schema='public'
+  v_replacement constant text := $replacement$  if tg_table_schema='public' and tg_table_name='stock_movements' and tg_op='INSERT' then
+    if new.movement_type='sale' then
+      if new.business_id is null or new.business_id is not distinct from v_business
+         or not private.business_sale_write_allowed(new.business_id,v_actor)
+         or new.sale_id is null
+         or not exists(
+           select 1 from public.sales s
+           join public.sale_items si on si.sale_id=s.id
+           join public.stock st on st.product_id=new.product_id and st.business_id=new.business_id
+           where s.id=new.sale_id and s.business_id=new.business_id
+             and s.created_at=pg_catalog.transaction_timestamp()
+             and si.product_id=new.product_id and si.total_bottles=-new.quantity_change
+             and st.total_bottles=new.resulting_stock
+         ) then
+        raise exception 'Business sale stock movement is not linked to its sale' using errcode='42501';
+      end if;
+      return new;
+    end if;
+  end if;
+  if tg_table_schema='public' and tg_table_name='money_owed' and tg_op='UPDATE' then
+    if new.amount>old.amount and exists(
+      select 1 from public.sales s
+      where s.business_id=new.business_id and s.customer_id=new.customer_id
+        and s.created_at=pg_catalog.transaction_timestamp()
+        and s.total_amount-s.paid_amount=new.amount-old.amount
+    ) then
+      if not private.business_sale_write_allowed(new.business_id,v_actor)
+         or old.business_id is distinct from new.business_id
+         or old.customer_id is distinct from new.customer_id then
+        raise exception 'Business customer debt increase is not linked to this depot sale' using errcode='42501';
+      end if;
+      return new;
+    end if;
+  end if;
+  if tg_table_schema='public'
      and new.business_id is not null
      and new.business_id is distinct from v_business then
     if tg_table_name='sales' and tg_op='INSERT' then
@@ -544,21 +578,6 @@ declare
         end if;
         return new;
       end if;
-    elsif tg_table_name='stock_movements' and tg_op='INSERT' and new.movement_type='sale' then
-      if not private.business_sale_write_allowed(new.business_id,v_actor)
-         or new.sale_id is null
-         or not exists(
-           select 1 from public.sales s
-           join public.sale_items si on si.sale_id=s.id
-           join public.stock st on st.product_id=new.product_id and st.business_id=new.business_id
-           where s.id=new.sale_id and s.business_id=new.business_id
-             and s.created_at=pg_catalog.transaction_timestamp()
-             and si.product_id=new.product_id and si.total_bottles=-new.quantity_change
-             and st.total_bottles=new.resulting_stock
-         ) then
-        raise exception 'Business sale stock movement is not linked to its sale' using errcode='42501';
-      end if;
-      return new;
     elsif tg_table_name='crate_obligations' and tg_op in ('INSERT','UPDATE') then
       if exists(
         select 1 from public.sales s
@@ -673,20 +692,6 @@ declare
       ) then
         if not private.business_sale_write_allowed(new.business_id,v_actor) or new.amount<=0 then
           raise exception 'Business customer debt is not linked to this depot sale' using errcode='42501';
-        end if;
-        return new;
-      end if;
-    elsif tg_table_name='money_owed' and tg_op='UPDATE' and new.amount>old.amount then
-      if exists(
-        select 1 from public.sales s
-        where s.business_id=new.business_id and s.customer_id=new.customer_id
-          and s.created_at=pg_catalog.transaction_timestamp()
-          and s.total_amount-s.paid_amount=new.amount-old.amount
-      ) then
-        if not private.business_sale_write_allowed(new.business_id,v_actor)
-           or old.business_id is distinct from new.business_id
-           or old.customer_id is distinct from new.customer_id then
-          raise exception 'Business customer debt increase is not linked to this depot sale' using errcode='42501';
         end if;
         return new;
       end if;
