@@ -62,12 +62,12 @@ begin
  if v is distinct from true then raise exception '%',msg; end if;
 end $$;
 
+-- Feature gate OFF must fail closed before exposing a saved request.
+update private.business_customer_payment_gate set enabled=false;
 set local role authenticated;
 select pg_catalog.set_config('request.jwt.claim.sub',
  '91000000-0000-4000-8000-000000000002',true);
 
--- Feature gate OFF must fail closed before exposing a saved request.
-update private.business_customer_payment_gate set enabled=false;
 do $$begin
  begin
   perform public.record_business_customer_payment(
