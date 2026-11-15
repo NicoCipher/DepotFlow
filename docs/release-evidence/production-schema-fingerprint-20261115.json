@@ -46,5 +46,10 @@
       "object_count": 48,
       "definition_hash": "dee4e73091fead250f700aa8467cbf72"
     }
+  ],
+  "notes": [
+    "Read-only metadata capture from the live Supabase project; no business/customer rows or secrets are included.",
+    "Captured against the 124-entry production migration ledger ending at 20261104172847.",
+    "Raw Supabase-managed REFERENCES grants are not used as application DML parity evidence; the separate app-client ACL snapshot compares SELECT/INSERT/UPDATE/DELETE and effective DELETE exactly."
   ]
 }
