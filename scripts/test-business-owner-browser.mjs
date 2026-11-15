@@ -125,6 +125,51 @@ try {
   // The two operational gates are opened only inside this disposable loopback database.
   sql("update private.business_sales_gate set enabled=true where singleton");
 
+  // Exercise the real local GoTrue invite path with public signup OFF. The
+  // auth.users trigger must accept only GoTrue's invited_at marker paired with
+  // the exact operator-prepared email; ordinary admin createUser must fail.
+  sql("update private.business_auth_signup_gate set enabled=false where singleton");
+  const invitationRequestId = randomUUID();
+  const invitationEmail = `invited-${suffix}@example.org`;
+  const invitationBusinessName = "Invited E2E Depot";
+  sql(`select private.prepare_business_invitation(
+    '${invitationRequestId}','${invitationEmail}','${invitationBusinessName}',
+    'Local invitation test address','08000000004'
+  )`);
+  const invited = await admin.auth.admin.inviteUserByEmail(invitationEmail);
+  if (invited.error) throw invited.error;
+  assert.ok(invited.data.user?.id, "GoTrue did not return an invited Auth user");
+  const invitedLookup = await admin.auth.admin.getUserById(invited.data.user.id);
+  if (invitedLookup.error) throw invitedLookup.error;
+  assert.ok(invitedLookup.data.user?.invited_at,
+    "GoTrue invitation did not set invited_at; the Auth insert guard must remain closed");
+  assert.equal(
+    sql(`select status || '|' || invited_user_id::text
+      from private.business_invitation_requests where request_id='${invitationRequestId}'`),
+    `user_created|${invited.data.user.id}`,
+    "The Auth insert guard did not consume the exact prepared invitation",
+  );
+  const provisionedInvite = JSON.parse(sql(
+    `select private.provision_invited_business('${invitationRequestId}')`,
+  ));
+  assert.equal(provisionedInvite.status, "setup");
+  assert.equal(provisionedInvite.canOperate, false);
+  assert.equal(sql(`select count(*) from private.business_memberships
+    where business_id='${provisionedInvite.businessId}'
+      and user_id='${invited.data.user.id}' and member_kind='owner' and status='active'`), "1");
+  assert.equal(sql(`select count(*) from public.business_profiles
+    where business_id='${provisionedInvite.businessId}'`), "1");
+
+  const unpreparedEmail = `unprepared-${suffix}@example.org`;
+  const rejectedSignup = await admin.auth.admin.createUser({
+    email: unpreparedEmail, password, email_confirm: true,
+  });
+  assert.ok(rejectedSignup.error,
+    "Ordinary Auth user creation was accepted while public signup was OFF");
+  assert.equal(sql(`select count(*) from auth.users where email='${unpreparedEmail}'`), "0",
+    "Rejected ordinary signup left an Auth user behind");
+  sql("update private.business_auth_signup_gate set enabled=true where singleton");
+
   for (const owner of owners) {
     const { data, error } = await admin.auth.admin.createUser({
       email: owner.email, password, email_confirm: true,
