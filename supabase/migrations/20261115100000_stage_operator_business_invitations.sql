@@ -1,6 +1,6 @@
 -- M2 controlled onboarding: one-time operator-authorised Auth invitation.
--- Public signup stays closed. Only an actual GoTrue invite (invited_at set)
--- matching one unexpired operator-prepared email can pass the auth.users guard.
+-- Public signup stays closed. Only the trusted Auth database role with an
+-- exact, unexpired operator-prepared email can pass the auth.users guard.
 begin;
 set local lock_timeout='5s';
 set local statement_timeout='60s';
@@ -159,8 +159,9 @@ revoke all on function private.prepare_business_invitation(uuid,text,text,text,t
 
 -- Auth's Before User Created hook runs before auth.users INSERT. It may
 -- approve the exact prepared email, but the trigger below is authoritative:
--- it also requires GoTrue's invited_at marker and consumes the request in
--- the auth.users INSERT transaction.
+-- it checks the trusted Auth database role and consumes the one-time request
+-- in the auth.users INSERT transaction. It cannot rely on invited_at because
+-- GoTrue may populate that field after the initial INSERT.
 create or replace function private.depotflow_before_user_created(event jsonb)
 returns jsonb
 language plpgsql
@@ -213,7 +214,7 @@ grant execute on function private.depotflow_before_user_created(jsonb)
 -- Keep the atomic INSERT fence. With the global signup gate OFF, only
 -- supabase_auth_admin creating a user for the exact prepared, unexpired email
 -- can consume the one-time authorisation. GoTrue may populate invited_at after
--- the initial INSERT, so the trigger must not depend on that later marker.
+-- the initial INSERT, so the trigger deliberately does not depend on it.
 create or replace function private.depotflow_auth_user_insert_guard()
 returns trigger
 language plpgsql
