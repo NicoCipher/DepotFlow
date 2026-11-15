@@ -65,6 +65,10 @@ insert into private.businesses(id,status) values
  ('87000000-0000-4000-9000-000000000001','setup'),
  ('87000000-0000-4000-9000-000000000002','setup');
 
+insert into public.business_profiles(business_id,name,address,phone) values
+ ('87000000-0000-4000-9000-000000000001','Relationship Depot A','1 Relationship Road, Lagos','08000880021'),
+ ('87000000-0000-4000-9000-000000000002','Relationship Depot B','2 Relationship Road, Lagos','08000880022');
+
 insert into public.customers(id,name,phone,business_id) values
  ('87000000-0000-4000-8000-000000000011','M2c A','08000000011',
   '87000000-0000-4000-9000-000000000001'),
