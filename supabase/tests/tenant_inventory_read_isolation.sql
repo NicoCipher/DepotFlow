@@ -107,6 +107,10 @@ values
  ('89600000-0000-4000-9000-000000000042',
   '89600000-0000-4000-8000-000000000003','active','owner');
 
+insert into public.business_profiles(business_id,name,address,phone) values
+ ('89600000-0000-4000-9000-000000000041','Isolation Depot A','1 Isolation Road, Lagos','08000896041'),
+ ('89600000-0000-4000-9000-000000000042','Isolation Depot B','2 Isolation Road, Lagos','08000896042');
+
 -- Simulate a future business-tagged assortment and physical inventory.
 -- Direct operational writes for new owners remain blocked. Only the
 -- disposable superuser temporarily suspends the named legacy write trigger
