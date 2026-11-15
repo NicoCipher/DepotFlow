@@ -185,6 +185,8 @@ begin
  if not exists(
   select 1 from public.sales s
   where s.id=sale_id and s.receipt_business->>'name'='Depot A'
+    and s.receipt_business->>'address'='1 A Road, Lagos'
+    and s.receipt_business->>'phone'='08000890021'
     and s.receipt_customer_name='A Customer'
  ) then
   raise exception 'Receipt snapshot did not capture the correct business/customer';
