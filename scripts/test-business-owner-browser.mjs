@@ -226,10 +226,8 @@ try {
   await page.getByRole("button", { name: "Add drink to sale" }).click();
   await page.getByRole("button", { name: "Review returned empties" }).click();
   await page.getByRole("button", { name: /Something is different/ }).click();
-  await page.getByRole("button", { name: /Some empty crates or empty bottles are incomplete or loose/ }).click();
-  await page.getByLabel("Complete empty-crate sets").fill("0");
-  await page.getByLabel("Empty crates without a complete bottle set").fill("1");
-  await page.getByLabel("Loose empty bottles").fill("10");
+  await page.getByLabel("E2E return crate empty crates").fill("1");
+  await page.getByLabel("Empty bottles · E2E return bottle").fill("10");
   await page.getByRole("button", { name: "Next: Enter payment" }).click();
   await page.getByLabel("Amount received (₦)").fill("3000");
   await page.getByLabel("Payment method").selectOption("cash");
