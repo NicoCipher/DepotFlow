@@ -67,9 +67,12 @@ def compare(args) -> dict:
     }
 
     object_rows = read_json(args.object_digests)
-    if not isinstance(object_rows, list) or len(object_rows) != 1 or "fingerprints" not in object_rows[0]:
+    if isinstance(object_rows, dict) and "fingerprints" in object_rows:
+        actual_objects = json.loads(object_rows["fingerprints"])
+    elif isinstance(object_rows, dict):
+        actual_objects = object_rows
+    else:
         raise ValueError("Malformed disposable per-object fingerprint output")
-    actual_objects = json.loads(object_rows[0]["fingerprints"])
     object_differences = {}
     for key in ("shape_by_kind", "functions"):
         if object_expected.get(key) != actual_objects.get(key):
@@ -79,9 +82,12 @@ def compare(args) -> dict:
             }
 
     acl_rows = read_json(args.app_client_acl)
-    if not isinstance(acl_rows, list) or len(acl_rows) != 1 or "fingerprint" not in acl_rows[0]:
+    if isinstance(acl_rows, dict) and "fingerprint" in acl_rows:
+        actual_acl = json.loads(acl_rows["fingerprint"])
+    elif isinstance(acl_rows, dict):
+        actual_acl = acl_rows
+    else:
         raise ValueError("Malformed disposable application-client ACL output")
-    actual_acl = json.loads(acl_rows[0]["fingerprint"])
     acl_differences = {
         key: {
             "expected_count": len(acl_expected.get(key, {})),
