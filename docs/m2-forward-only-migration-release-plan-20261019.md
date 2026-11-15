@@ -33,3 +33,20 @@ The gate table, Auth hook SQL routine and active `auth.users` insert trigger are
 ### Go/no-go
 
 **NO-GO for PR #107 merge and Phase A deployment:** no actual production-schema clone with complete managed grants, no confirmed hosted Auth management settings or controlled direct API outcome, no validated confidential ledger backup/pre/post checks, no Phase A operator approval. Multi-business signup and activation remain OFF. The user-authorized isolated hosted Auth security installation is complete, but it is **not** authorization for tenant schema rollout or Vercel deployment. No new paid project, branch or infrastructure was used.
+
+---
+
+## 15 November 2026 addendum — later operational-writer work
+
+This document's 56-entry baseline and 65+1 package describe the **19 October 2026 rehearsal only**. They are not a current production migration count or release certificate. A later read-only production audit found 124 applied migration records, ending at `20261104172847`; the 19 October source mapping must not be represented as a fresh live ledger.
+
+Three later SQL migrations are staged on the dependent operational-writers branch and intentionally excluded from the dated 65+1 rehearsal package:
+
+- `20261115090000_stage_tenant_customer_payments.sql` — tenant customer-payment writer.
+- `20261115100000_stage_operator_business_invitations.sql` — controlled operator invitation/provisioning.
+- `20261115110000_stage_tenant_business_sales.sql` — tenant-scoped sales writer and business-specific receipt snapshots.
+
+Their exact Git blob identities and reasons are recorded in `reviewed_excluded_sources` in `supabase/tests/fixtures/m2_forward_only_sources_20261019.json`. This exclusion only keeps later staged work out of the historical rehearsal; it does **not** approve deployment, mark the migrations applied, or authorize production changes.
+
+The new `business_sales_gate` is created OFF by default. Public registration remains closed. No production migration, gate, grant, user or business record was changed by this work. The staged sales writer is not ready for deployment until its full test suite, application workflow, invitation path, production-schema rehearsal and separately approved release process are complete.
+
