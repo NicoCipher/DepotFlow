@@ -136,8 +136,27 @@ try {
     '${invitationRequestId}','${invitationEmail}','${invitationBusinessName}',
     'Local invitation test address','08000000004'
   )`);
-  const invited = await admin.auth.admin.inviteUserByEmail(invitationEmail);
-  if (invited.error) throw invited.error;
+  const hookDecision = JSON.parse(sql(`select private.depotflow_before_user_created(
+    jsonb_build_object('user',jsonb_build_object('email','${invitationEmail}'))
+  )`));
+  assert.deepEqual(hookDecision, {}, "The configured before-user-created hook rejected the prepared email");
+  let invited;
+  try {
+    invited = await admin.auth.admin.inviteUserByEmail(invitationEmail);
+    if (invited.error) throw invited.error;
+  } catch (error) {
+    const containers = execFileSync("docker", ["ps", "--format", "{{.Names}}"], { encoding: "utf8" }).trim().split("\n");
+    console.error("Local Auth/Postgres diagnostic logs:");
+    for (const name of containers.filter(x => x.includes("auth") || x.includes("db"))) {
+      try {
+        console.error("CONTAINER", name);
+        console.error(execFileSync("docker", ["logs", name, "--tail", "45"], { encoding: "utf8", timeout: 10000 }));
+      } catch (logError) {
+        console.error("Could not read container log", name, String(logError));
+      }
+    }
+    throw error;
+  }
   assert.ok(invited.data.user?.id, "GoTrue did not return an invited Auth user");
   const invitedLookup = await admin.auth.admin.getUserById(invited.data.user.id);
   if (invitedLookup.error) throw invitedLookup.error;
