@@ -633,6 +633,7 @@ declare
       return new;
     elsif tg_table_name='sales' and tg_op='UPDATE' then
       if not private.business_sale_write_allowed(new.business_id,auth.uid())
+         or not private.business_sale_context_matches(new.business_id,new.request_id)
          or old.business_id is distinct from new.business_id
          or old.id is distinct from new.id
          or (pg_catalog.to_jsonb(new)-array['payment_method','account_receipt','split_request_hash'])
