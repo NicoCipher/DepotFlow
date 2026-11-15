@@ -85,14 +85,20 @@ export default async function ChooseBusinessPage() {
                   <span aria-hidden="true" className="shrink-0 text-emerald-900">→</span>
                 </Link>
               ) : (
-                <div className="rounded-2xl border border-stone-200 bg-stone-100 p-4">
-                  <strong className="block break-words text-base text-stone-950">
-                    {business.business_name}
-                  </strong>
-                  <p className="mt-1 text-xs text-stone-600">
-                    Existing business · Operations access requires the later tenant checkout release
-                  </p>
-                </div>
+                <Link
+                  href={`/businesses/${business.business_id}/sales`}
+                  className="flex min-h-20 items-center justify-between gap-4 rounded-2xl border border-stone-200 bg-white p-4 transition hover:border-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-800"
+                >
+                  <span className="min-w-0">
+                    <strong className="block break-words text-base text-stone-950">
+                      {business.business_name}
+                    </strong>
+                    <span className="mt-1 block text-xs text-stone-600">
+                      Active depot · Owner
+                    </span>
+                  </span>
+                  <span aria-hidden="true" className="shrink-0 text-emerald-900">Open →</span>
+                </Link>
               )}
             </li>
           ))}
