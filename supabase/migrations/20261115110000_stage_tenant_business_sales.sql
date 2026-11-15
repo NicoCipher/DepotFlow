@@ -137,7 +137,7 @@ begin
     raise exception using errcode='22023',message='Choose Accept or Hold for the different empties before saving.';
   end if;
 end;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION private.save_business_sale_v2(p_business_id uuid, p_request_id uuid, p_customer_id uuid, p_business_date date, p_paid numeric, p_payment_method text, p_lines jsonb, p_returned_crates jsonb, p_returned_bottles jsonb)
@@ -468,7 +468,7 @@ begin
       on conflict(customer_id) do update set amount=public.money_owed.amount+excluded.amount;
   end if;
   return jsonb_build_object('id',v_id,'businessId',p_business_id,'requestId',p_request_id,'total',v_total,'paid',p_paid::integer,'owing',v_total-p_paid::integer,'customer',p_customer_id);
-end $function$
+end $function$;
 
 
 do $business_sale_guard$
