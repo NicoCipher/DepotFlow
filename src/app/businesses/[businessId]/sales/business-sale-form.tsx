@@ -107,7 +107,7 @@ export function BusinessSaleForm({businessId,businessDate,products,customers,ini
       <h2 className="font-bold">Payment</h2>
       <label className="block text-sm">Amount received (₦)<input className="mt-1 w-full" type="number" inputMode="numeric" min="0" step="1" value={paid} onChange={e=>setPaid(e.target.value)}/></label>
       <label className="block text-sm">Payment method<select className="mt-1 w-full" value={method} onChange={e=>setMethod(e.target.value as typeof method)}><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="pos">POS</option></select></label>
-      <p className="text-sm text-stone-600">Any unpaid amount becomes this customer's debt. Collect old debt separately.</p>
+      <p className="text-sm text-stone-600">Any unpaid amount becomes this customer&apos;s debt. Collect old debt separately.</p>
     </section>
     {message&&<p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{message}</p>}
     {saved&&<div role="status" className="rounded-xl bg-emerald-50 p-4 text-sm">
