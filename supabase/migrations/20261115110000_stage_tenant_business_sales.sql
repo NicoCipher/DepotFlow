@@ -492,6 +492,69 @@ begin
 end $function$;
 
 
+-- Capture a tenant-specific receipt snapshot for new businesses while
+-- preserving the existing legacy shop-profile receipt behaviour.
+create or replace function private.capture_receipt_business()
+returns trigger
+language plpgsql
+security definer
+set search_path=''
+as $capture_receipt$
+declare
+  v_customer_name text;
+begin
+  if new.business_id is not null and exists(
+    select 1 from private.businesses b
+    where b.id=new.business_id and b.legacy_singleton is null
+  ) then
+    select jsonb_build_object(
+      'name',bp.name,
+      'address',bp.address,
+      'phone',bp.phone
+    )
+    into new.receipt_business
+    from public.business_profiles bp
+    where bp.business_id=new.business_id;
+
+    if new.receipt_business is null then
+      raise exception using errcode='23503',
+        message='Business receipt details are unavailable.';
+    end if;
+
+    select c.name
+    into v_customer_name
+    from public.customers c
+    where c.id=new.customer_id and c.business_id=new.business_id;
+  else
+    new.receipt_business := (
+      select jsonb_build_object(
+        'name',name,
+        'address',address,
+        'phone',phone,
+        'logo_url',logo_url
+      )
+      from public.shop_profile
+      where id
+    );
+
+    select c.name
+    into v_customer_name
+    from public.customers c
+    where c.id=new.customer_id;
+  end if;
+
+  if v_customer_name is null then
+    raise exception using
+      errcode='23503',
+      message='Customer no longer exists.';
+  end if;
+
+  new.receipt_customer_name := v_customer_name;
+  new.receipt_customer_name_source := 'captured';
+  return new;
+end;
+$capture_receipt$;
+
 do $business_sale_guard$
 declare
   v_source text;
