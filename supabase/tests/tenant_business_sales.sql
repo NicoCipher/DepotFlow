@@ -70,7 +70,8 @@ insert into public.products(
 insert into public.customers(id,name,phone,business_id,empties_deposit_required) values
  ('89e00000-0000-4000-9000-000000000051','A Customer','08000890051','89e00000-0000-4000-9000-000000000021',false),
  ('89e00000-0000-4000-9000-000000000052','B Customer','08000890052','89e00000-0000-4000-9000-000000000022',false),
- ('89e00000-0000-4000-9000-000000000053','A Returns Customer','08000890053','89e00000-0000-4000-9000-000000000021',false);
+ ('89e00000-0000-4000-9000-000000000053','A Returns Customer','08000890053','89e00000-0000-4000-9000-000000000021',false),
+ ('89e00000-0000-4000-9000-000000000054','B Partial Returns Customer','08000890054','89e00000-0000-4000-9000-000000000022',false);
 
 insert into public.stock(product_id,total_bottles,business_id) values
  ('89e00000-0000-4000-9000-000000000041',40,'89e00000-0000-4000-9000-000000000021'),
@@ -270,6 +271,34 @@ end;
 $owner_b$;
 reset role;
 
+-- Verify a partial same-type return records only the containers physically
+-- received and leaves the outstanding bottle obligation with this customer.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','89e00000-0000-4000-8000-000000000003',true);
+do $partial_returns$
+declare v jsonb; business_date date;
+begin
+ business_date:=(pg_catalog.now() at time zone 'Africa/Lagos')::date;
+ v:=public.save_business_sale_v2(
+   '89e00000-0000-4000-9000-000000000022',
+   '89e00000-0000-4000-9000-000000000082',
+   '89e00000-0000-4000-9000-000000000054',
+   business_date,9000,'transfer',
+   '[{"productId":"89e00000-0000-4000-9000-000000000042","quantity":{"crates":1,"fraction":0,"bottles":0},"expected":{"full":9000,"half":4500,"quarter":2250,"bottle":550,"size":20,"crate":"89e00000-0000-4000-9000-000000000032","returnable":true,"bottleType":"B return bottle","stock":20},"cratesTaken":1,"returnedCrates":1,"returnedBottles":10}]'::jsonb,
+   '[{"crateTypeId":"89e00000-0000-4000-9000-000000000032","quantity":1}]'::jsonb,
+   '[{"bottleType":"B return bottle","quantity":10}]'::jsonb
+ );
+ if v->>'owing'<>'0'
+    or (select quantity from public.empty_crate_stock where crate_type_id='89e00000-0000-4000-9000-000000000032')<>1
+    or (select quantity from public.empty_bottle_stock where business_id='89e00000-0000-4000-9000-000000000022' and bottle_type='B return bottle')<>10
+    or exists(select 1 from public.crate_obligations where customer_id='89e00000-0000-4000-9000-000000000054')
+    or (select quantity from public.bottle_obligations where customer_id='89e00000-0000-4000-9000-000000000054')<>10 then
+  raise exception 'Partial returned empties or remaining bottle obligation are incorrect: %',v;
+ end if;
+end;
+$partial_returns$;
+reset role;
+
 -- Verify a full crate-and-bottle return is attached to the correct sale and
 -- replenishes only the matching depot's empty inventory.
 set local role authenticated;
@@ -302,10 +331,10 @@ reset role;
 do $final$
 begin
  if (select total_bottles from public.stock where product_id='89e00000-0000-4000-9000-000000000041')<>0
-    or (select total_bottles from public.stock where product_id='89e00000-0000-4000-9000-000000000042')<>20
+    or (select total_bottles from public.stock where product_id='89e00000-0000-4000-9000-000000000042')<>0
     or (select amount from public.money_owed where customer_id='89e00000-0000-4000-9000-000000000051')<>5000
     or (select count(*) from public.sales where business_id='89e00000-0000-4000-9000-000000000021')<>2
-    or (select count(*) from public.sales where business_id='89e00000-0000-4000-9000-000000000022')<>1 then
+    or (select count(*) from public.sales where business_id='89e00000-0000-4000-9000-000000000022')<>2 then
   raise exception 'Final tenant sale state is inconsistent';
  end if;
 end;
