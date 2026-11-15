@@ -157,15 +157,20 @@ try {
   // checkout fixture. The bypassed write triggers are restored in the same
   // transaction; this script is guarded to a disposable loopback database.
   const crateId = randomUUID();
+  const swapCrateId = randomUUID();
   const productId = randomUUID();
   const customerId = randomUUID();
   sql(`begin;
     alter table public.crate_types disable trigger legacy_scope_business_write;
+    alter table public.crate_swap_rules disable trigger legacy_scope_business_write;
     alter table public.products disable trigger legacy_scope_business_write;
     alter table public.customers disable trigger legacy_scope_business_write;
     alter table public.stock disable trigger legacy_scope_business_write;
     insert into public.crate_types(id,business_id,name,empty_family,pocket_count)
-      values ('${crateId}','${businessA}','E2E return crate','NBL',20);
+      values ('${crateId}','${businessA}','E2E return crate','NBL',20),
+             ('${swapCrateId}','${businessA}','E2E swap crate','NBL',20);
+    insert into public.crate_swap_rules(business_id,owed_crate_type_id,returned_crate_type_id)
+      values ('${businessA}','${crateId}','${swapCrateId}');
     insert into public.products(
       id,business_id,name,size,bottles_per_crate,full_crate_price,half_crate_price,
       quarter_crate_price,bottle_price,bottles_returnable,empty_family,crate_type,
@@ -187,6 +192,7 @@ try {
     end;
     $active_business$;
     alter table public.crate_types enable trigger legacy_scope_business_write;
+    alter table public.crate_swap_rules enable trigger legacy_scope_business_write;
     alter table public.products enable trigger legacy_scope_business_write;
     alter table public.customers enable trigger legacy_scope_business_write;
     alter table public.stock enable trigger legacy_scope_business_write;
@@ -226,8 +232,13 @@ try {
   await page.getByRole("button", { name: "Add drink to sale" }).click();
   await page.getByRole("button", { name: "Review returned empties" }).click();
   await page.getByRole("button", { name: /Something is different/ }).click();
-  await page.getByRole("textbox", { name: "E2E return crate empty crates" }).fill("1");
+  await page.getByRole("textbox", { name: "E2E return crate empty crates" }).fill("0");
   await page.getByRole("textbox", { name: "Empty bottles · E2E return bottle" }).fill("10");
+  await page.locator("details").filter({ hasText: "Different type brought back? Add it here" }).locator("summary").click();
+  await page.getByLabel("Different empty crate type").selectOption(swapCrateId);
+  await page.getByRole("textbox", { name: "E2E swap crate empty crates" }).fill("1");
+  await page.getByRole("button", { name: /Accepted as replacement/ }).click();
+  await page.getByRole("button", { name: "Record what happened" }).click();
   await page.getByRole("button", { name: "Next: Enter payment" }).click();
   await page.getByLabel("Amount received (₦)").fill("3000");
   await page.getByLabel("Payment method").selectOption("cash");
@@ -242,8 +253,10 @@ try {
 
   assert.equal(sql(`select total_bottles from public.stock where product_id='${productId}'`), "20",
     "Checkout did not reduce only the sold product stock");
-  assert.equal(sql(`select quantity from public.empty_crate_stock where crate_type_id='${crateId}'`), "1",
-    "Returned crate was not added to this depot's empty-crate stock");
+  assert.equal(sql(`select quantity from public.empty_crate_stock where crate_type_id='${swapCrateId}'`), "1",
+    "Accepted replacement crate was not added to this depot's empty-crate stock");
+  assert.equal(sql(`select coalesce(quantity,0) from public.empty_crate_stock where crate_type_id='${crateId}'`), "0",
+    "The unreturned owed crate type was incorrectly added to empty-crate stock");
   assert.equal(sql(`select quantity from public.empty_bottle_stock where business_id='${businessA}' and bottle_type='E2E return bottle'`), "10",
     "Returned bottles were not added to this depot's empty-bottle stock");
   assert.equal(sql(`select amount from public.money_owed where customer_id='${customerId}'`), "5000",
