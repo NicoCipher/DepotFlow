@@ -29,6 +29,7 @@ type Props = {
   catalog: SaleCatalog;
   update: (patch: Partial<SaleDraft>) => void;
   onBack: () => void;
+  businessId?: string;
 };
 
 function add(map: Record<string, string>, key: string, amount: number) {
@@ -40,7 +41,7 @@ function selectDefaultZero(event: { currentTarget: HTMLInputElement }) {
   if (event.currentTarget.value === "0") event.currentTarget.select();
 }
 
-export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
+export function SaleEmptiesStep({ draft, catalog, update, onBack, businessId }: Props) {
   const state = draft.emptiesV2;
   const [choice, setChoice] = useState({
     productId: "",
@@ -891,12 +892,18 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack }: Props) {
                   {issue.message}
                 </p>
               ))}
-              <Link
-                href="/empties-rules"
-                className="quiet-link mt-2 inline-block"
-              >
-                Set deposit prices
-              </Link>
+              {businessId ? (
+                <p className="mt-2 text-sm text-stone-700">
+                  Deposit prices for this depot are not configurable in this checkout yet. Do not record a sale with missing empties until the depot&apos;s deposit process is set up.
+                </p>
+              ) : (
+                <Link
+                  href="/empties-rules"
+                  className="quiet-link mt-2 inline-block"
+                >
+                  Set deposit prices
+                </Link>
+              )}
             </div>
           )}
           {depositBlocked && missingDepositSetup.length === 0 && (
