@@ -510,6 +510,11 @@
       "filename": "20261104172847_mcp_client_acl_ledger_marker.sql",
       "git_blob_sha1": "774c26f30de306f0e4e80a4211ad02dfead7e44c",
       "reason": "Comment-only ledger reconciliation marker for the MCP-applied client ACL migration recorded in production as version 20261104172847; excluded from the historical 2026-10-19 M2 rehearsal bundle."
+    },
+    {
+      "filename": "20261115120000_validate_tenant_foreign_keys.sql",
+      "git_blob_sha1": "1660ccf47006bf381d8140496bfb2c47e68f0cfe",
+      "reason": "Forward-only validation of the 31 existing composite tenant foreign keys. This migration is not part of the frozen 2026-10-19 historical M2 rehearsal bundle; it requires its own reviewed production rollout."
     }
   ]
 }
