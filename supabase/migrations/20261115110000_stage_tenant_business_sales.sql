@@ -742,17 +742,41 @@ declare
          or new.quantity<=0
          or not exists(
            select 1 from public.sales s
-           join public.sale_items si on si.sale_id=s.id
-           join public.crate_types ct on ct.id=new.crate_type_id and ct.business_id=new.business_id
+           join public.crate_types ct
+             on ct.id=new.crate_type_id and ct.business_id=new.business_id
            where s.id=new.sale_id and s.business_id=new.business_id
              and private.business_sale_context_matches(s.business_id,s.request_id)
-             and si.crate_type_id=new.crate_type_id
-             and (
+             and exists(
+               select 1 from public.sale_items si
+               where si.sale_id=s.id and si.business_id=new.business_id
+                 and (
+                   si.crate_type_id=new.crate_type_id
+                   or exists(
+                     select 1 from public.crate_swap_rules rule
+                     where rule.business_id=new.business_id
+                       and rule.owed_crate_type_id=si.crate_type_id
+                       and rule.returned_crate_type_id=new.crate_type_id
+                   )
+                   or exists(
+                     select 1 from public.sale_empty_decisions decision
+                     where decision.sale_id=s.id
+                       and decision.business_id=new.business_id
+                       and decision.product_id=si.product_id
+                       and decision.kind='crate'
+                       and decision.returned_type=new.crate_type_id::text
+                       and decision.decision in ('accept','hold')
+                   )
+                 )
+             )
+             and new.quantity <= (
                select coalesce(sum(si2.crates_returned),0)
                from public.sale_items si2
                where si2.sale_id=s.id and si2.business_id=new.business_id
-                 and si2.crate_type_id=new.crate_type_id
-             )>=new.quantity
+             ) - (
+               select coalesce(sum(r.quantity),0)
+               from public.sale_empty_crate_returns r
+               where r.sale_id=s.id and r.business_id=new.business_id
+             )
          ) then
         raise exception 'Business returned crate is not linked to this depot sale' using errcode='42501';
       end if;
@@ -762,16 +786,39 @@ declare
          or new.quantity<=0
          or not exists(
            select 1 from public.sales s
-           join public.sale_items si on si.sale_id=s.id
            where s.id=new.sale_id and s.business_id=new.business_id
              and private.business_sale_context_matches(s.business_id,s.request_id)
-             and si.bottle_type=new.bottle_type
-             and (
+             and exists(
+               select 1 from public.sale_items si
+               where si.sale_id=s.id and si.business_id=new.business_id
+                 and (
+                   si.bottle_type=new.bottle_type
+                   or exists(
+                     select 1 from public.sale_empty_decisions decision
+                     where decision.sale_id=s.id
+                       and decision.business_id=new.business_id
+                       and decision.product_id=si.product_id
+                       and decision.kind='bottle'
+                       and decision.returned_type=new.bottle_type
+                       and decision.decision in ('accept','hold')
+                   )
+                 )
+             )
+             and exists(
+               select 1 from public.products p
+               where p.business_id=new.business_id
+                 and p.bottles_returnable is true
+                 and p.bottle_type=new.bottle_type
+             )
+             and new.quantity <= (
                select coalesce(sum(si2.bottles_returned),0)
                from public.sale_items si2
                where si2.sale_id=s.id and si2.business_id=new.business_id
-                 and si2.bottle_type=new.bottle_type
-             )>=new.quantity
+             ) - (
+               select coalesce(sum(r.quantity),0)
+               from public.sale_empty_bottle_returns r
+               where r.sale_id=s.id and r.business_id=new.business_id
+             )
          ) then
         raise exception 'Business returned bottle is not linked to this depot sale' using errcode='42501';
       end if;
