@@ -29,7 +29,7 @@ export default async function BusinessSalesPage({params}:{params:Promise<{busine
 
   const products=(pr.data??[]).flatMap(p=>{
     const available=p.stock?.total_bottles??null;
-    if(!Number.isSafeInteger(available)||available<0) return [];
+    if(available===null||!Number.isSafeInteger(available)||available<0) return [];
     return [{id:p.id,name:p.name,size:p.size,bottles_per_crate:p.bottles_per_crate,
       full_crate_price:p.full_crate_price,bottle_price:p.bottle_price,available}];
   });

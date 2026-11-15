@@ -58,7 +58,7 @@ export async function saveBusinessSale(input: Input) {
     if (!p || !Number.isSafeInteger(p.bottles_per_crate) || p.bottles_per_crate < 1)
       return { error: "A selected drink has invalid setup. Correct it before selling." };
     const stock = p.stock?.total_bottles ?? null;
-    if (!Number.isSafeInteger(stock) || stock < 0)
+    if (stock === null || !Number.isSafeInteger(stock) || stock < 0)
       return { error: "Starting stock has not been verified for every selected drink." };
     const quantity = line.crates * p.bottles_per_crate + line.bottles;
     if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > stock)
