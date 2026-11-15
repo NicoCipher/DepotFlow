@@ -332,7 +332,7 @@ try {
     "Checkout did not reduce only the sold product stock");
   assert.equal(sql(`select quantity from public.empty_crate_stock where crate_type_id='${swapCrateId}'`), "1",
     "Accepted replacement crate was not added to this depot's empty-crate stock");
-  assert.equal(sql(`select coalesce(quantity,0) from public.empty_crate_stock where crate_type_id='${crateId}'`), "0",
+  assert.equal(sql(`select coalesce((select quantity from public.empty_crate_stock where crate_type_id='${crateId}'),0)`), "0",
     "The unreturned owed crate type was incorrectly added to empty-crate stock");
   assert.equal(sql(`select quantity from public.empty_bottle_stock where business_id='${businessA}' and bottle_type='E2E return bottle'`), "10",
     "Returned bottles were not added to this depot's empty-bottle stock");
