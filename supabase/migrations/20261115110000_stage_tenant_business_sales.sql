@@ -41,6 +41,18 @@ $sale_allowed$;
 revoke all on function private.business_sale_write_allowed(uuid,uuid)
   from public,anon,authenticated,service_role;
 
+create function public.can_record_business_sale(p_business_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path=''
+as $sale_gate$
+  select coalesce(private.business_sale_write_allowed(p_business_id,auth.uid()),false);
+$sale_gate$;
+revoke all on function public.can_record_business_sale(uuid) from public,anon;
+grant execute on function public.can_record_business_sale(uuid) to authenticated;
+
 create function private.business_sale_context_matches(p_business_id uuid,p_request_id uuid)
 returns boolean
 language sql
