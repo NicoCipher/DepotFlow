@@ -130,6 +130,22 @@ reset role;
 update private.business_sales_gate set enabled=true where singleton;
 update private.business_selection_gate set enabled=true where singleton;
 
+do $sale_preflight$
+begin
+ if not private.business_sale_write_allowed(
+   '89e00000-0000-4000-9000-000000000021',
+   '89e00000-0000-4000-8000-000000000002'
+ ) then
+  raise exception 'Business sale helper rejected the active owner or enabled gates';
+ end if;
+ if not exists(select 1 from public.customers
+   where id='89e00000-0000-4000-9000-000000000051'
+     and business_id='89e00000-0000-4000-9000-000000000021') then
+  raise exception 'Business sale fixture customer is not tenant-linked';
+ end if;
+end;
+$sale_preflight$;
+
 set local role authenticated;
 select set_config('request.jwt.claim.sub','89e00000-0000-4000-8000-000000000002',true);
 do $owner_a$
