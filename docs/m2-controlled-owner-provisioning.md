@@ -32,6 +32,12 @@ After the approved forward-only migration release has validated all 31 tenant fo
 
 If the snapshot changes, contains unexpected data, the backup cannot be verified, the owner/business counts differ, or any constraint is unvalidated, stop. Do not bypass the preflight by inserting a gate row manually. The backfill and gate activation are production data/security changes and require explicit operator approval.
 
+## Auth invitation verification evidence
+
+The disposable two-owner browser workflow now exercises the real local Supabase GoTrue `inviteUserByEmail` endpoint while the public signup gate is OFF. It prepares one exact email, verifies the Auth insert trigger consumes that request, provisions the invited test user into a separate `setup` business with `canOperate=false`, and confirms an unprepared Auth `createUser` call is rejected. This is stronger than a PostgreSQL-only role simulation, but it is still a disposable local GoTrue stack—not a hosted production invitation.
+
+The production invitation must be the real intended Walnik owner account, not a fake test account. After the approved migration release, prepare the invitation with the final verified business name, address and phone, call Authentication → Users → Invite user, confirm the request changes to `user_created` for the exact Auth user ID, and only then call the operator provisioning function. Do not provision if the request is not consumed by the Auth insert guard.
+
 ## Operator procedure (after separately approved production deployment)
 
 ### 1. Prepare the invitation
