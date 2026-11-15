@@ -608,7 +608,6 @@ declare
         and s.total_amount-s.paid_amount=new.amount-old.amount
     ) then
       if not private.business_sale_write_allowed(new.business_id,auth.uid())
-         or not private.business_sale_context_matches(new.business_id,new.request_id)
          or old.business_id is distinct from new.business_id
          or old.customer_id is distinct from new.customer_id then
         raise exception 'Business customer debt increase is not linked to this depot sale' using errcode='42501';
