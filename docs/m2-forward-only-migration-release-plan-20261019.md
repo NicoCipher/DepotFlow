@@ -80,7 +80,7 @@ The updated disposable PG17 workflow now reconstructs the 124-stage history (56 
 
 ### Consolidated review path
 
-PR #169 is the authoritative consolidated draft for the Walnik pilot release candidate. The earlier stacked drafts #162, #163 and #165 are superseded working branches and must not be merged independently.
+PR #175 is the active consolidated candidate for the Walnik pilot release. The earlier stacked drafts #162, #163 and #165, and interim consolidation drafts #169–#174, are superseded and must not be merged independently.
 
 
 The disposable bootstrap now defines the managed `public.rls_auto_enable()` stub with the hosted `SECURITY DEFINER` and `search_path=pg_catalog` metadata. This is a test-only fidelity correction; it does not modify the live Supabase function.
