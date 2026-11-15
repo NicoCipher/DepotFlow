@@ -1,3 +1,8 @@
+-- M2 business sales are staged behind business_sales_gate (default OFF).
+-- The request-scoped context below ties every sale-derived stock, debt,
+-- obligation and empty-return write to one authenticated business request.
+-- Do not enable this gate until the tenant sales UI and operational E2E pass.
+
 -- M2 tenant-scoped sales writer. Staged, default-OFF capability.
 -- The legacy sale writer and all legacy sales behaviour remain unchanged.
 begin;
