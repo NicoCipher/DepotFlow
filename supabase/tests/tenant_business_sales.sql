@@ -47,13 +47,17 @@ insert into public.business_profiles(business_id,name,address,phone) values
 -- Admin-only fixture inserts. The operational write trigger is re-enabled
 -- before any authenticated business sale is attempted.
 alter table public.crate_types disable trigger legacy_scope_business_write;
+alter table public.crate_swap_rules disable trigger legacy_scope_business_write;
 alter table public.products disable trigger legacy_scope_business_write;
 alter table public.customers disable trigger legacy_scope_business_write;
 alter table public.stock disable trigger legacy_scope_business_write;
 
 insert into public.crate_types(id,business_id,name,empty_family,pocket_count) values
  ('89e00000-0000-4000-9000-000000000031','89e00000-0000-4000-9000-000000000021','A return crate','NBL',20),
- ('89e00000-0000-4000-9000-000000000032','89e00000-0000-4000-9000-000000000022','B return crate','NBL',20);
+ ('89e00000-0000-4000-9000-000000000032','89e00000-0000-4000-9000-000000000022','B return crate','NBL',20),
+ ('89e00000-0000-4000-9000-000000000033','89e00000-0000-4000-9000-000000000021','A replacement crate','NBL',20);
+insert into public.crate_swap_rules(business_id,owed_crate_type_id,returned_crate_type_id)
+ values('89e00000-0000-4000-9000-000000000021','89e00000-0000-4000-9000-000000000031','89e00000-0000-4000-9000-000000000033');
 
 insert into public.products(
  id,business_id,name,size,bottles_per_crate,full_crate_price,half_crate_price,
@@ -65,19 +69,25 @@ insert into public.products(
   '89e00000-0000-4000-9000-000000000031',true),
  ('89e00000-0000-4000-9000-000000000042','89e00000-0000-4000-9000-000000000022',
   'B Lager','50cl',20,9000,4500,2250,550,true,'NBL','B return crate','B return bottle',
-  '89e00000-0000-4000-9000-000000000032',true);
+  '89e00000-0000-4000-9000-000000000032',true),
+ ('89e00000-0000-4000-9000-000000000043','89e00000-0000-4000-9000-000000000021',
+  'A Swap Lager','50cl',20,8000,4000,2000,500,true,'NBL','A return crate','A swap bottle',
+  '89e00000-0000-4000-9000-000000000031',true);
 
 insert into public.customers(id,name,phone,business_id,empties_deposit_required) values
  ('89e00000-0000-4000-9000-000000000051','A Customer','08000890051','89e00000-0000-4000-9000-000000000021',false),
  ('89e00000-0000-4000-9000-000000000052','B Customer','08000890052','89e00000-0000-4000-9000-000000000022',false),
  ('89e00000-0000-4000-9000-000000000053','A Returns Customer','08000890053','89e00000-0000-4000-9000-000000000021',false),
- ('89e00000-0000-4000-9000-000000000054','B Partial Returns Customer','08000890054','89e00000-0000-4000-9000-000000000022',false);
+ ('89e00000-0000-4000-9000-000000000054','B Partial Returns Customer','08000890054','89e00000-0000-4000-9000-000000000022',false),
+ ('89e00000-0000-4000-9000-000000000055','A Swap Customer','08000890055','89e00000-0000-4000-9000-000000000021',false);
 
 insert into public.stock(product_id,total_bottles,business_id) values
  ('89e00000-0000-4000-9000-000000000041',40,'89e00000-0000-4000-9000-000000000021'),
- ('89e00000-0000-4000-9000-000000000042',40,'89e00000-0000-4000-9000-000000000022');
+ ('89e00000-0000-4000-9000-000000000042',40,'89e00000-0000-4000-9000-000000000022'),
+ ('89e00000-0000-4000-9000-000000000043',20,'89e00000-0000-4000-9000-000000000021');
 
 alter table public.crate_types enable trigger legacy_scope_business_write;
+alter table public.crate_swap_rules enable trigger legacy_scope_business_write;
 alter table public.products enable trigger legacy_scope_business_write;
 alter table public.customers enable trigger legacy_scope_business_write;
 alter table public.stock enable trigger legacy_scope_business_write;
@@ -327,13 +337,48 @@ end;
 $returns$;
 reset role;
 
+-- Different-type crate returns must be linked to the exact sale by an
+-- accepted owner decision and an allowed depot swap rule.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','89e00000-0000-4000-8000-000000000002',true);
+do $configured_crate_swap$
+declare v jsonb; sale_id uuid; business_date date;
+begin
+ business_date:=(pg_catalog.now() at time zone 'Africa/Lagos')::date;
+ v:=public.save_business_sale_v2(
+   '89e00000-0000-4000-9000-000000000021',
+   '89e00000-0000-4000-9000-000000000083',
+   '89e00000-0000-4000-9000-000000000055',
+   business_date,8000,'cash',
+   '[{"productId":"89e00000-0000-4000-9000-000000000043","quantity":{"crates":1,"fraction":0,"bottles":0},"expected":{"full":8000,"half":4000,"quarter":2000,"bottle":500,"size":20,"crate":"89e00000-0000-4000-9000-000000000031","returnable":true,"bottleType":"A swap bottle","stock":20},"cratesTaken":1,"returnedCrates":1,"returnedBottles":0,"emptyDecisions":[{"kind":"crate","productId":"89e00000-0000-4000-9000-000000000043","quantity":1,"returnedType":"89e00000-0000-4000-9000-000000000033","decision":"accept"}]}]'::jsonb,
+   '[{"crateTypeId":"89e00000-0000-4000-9000-000000000033","quantity":1}]'::jsonb,
+   '[]'::jsonb
+ );
+ sale_id:=(v->>'id')::uuid;
+ if v->>'owing'<>'0'
+    or (select quantity from public.empty_crate_stock where crate_type_id='89e00000-0000-4000-9000-000000000033')<>1
+    or exists(select 1 from public.crate_obligations where customer_id='89e00000-0000-4000-9000-000000000055')
+    or (select quantity from public.bottle_obligations where customer_id='89e00000-0000-4000-9000-000000000055')<>20
+    or not exists(select 1 from public.sale_empty_crate_returns
+       where sale_id=sale_id and crate_type_id='89e00000-0000-4000-9000-000000000033' and quantity=1)
+    or not exists(select 1 from public.sale_empty_decisions
+       where sale_id=sale_id and kind='crate'
+         and returned_type='89e00000-0000-4000-9000-000000000033'
+         and decision='accept') then
+  raise exception 'Configured different-type crate return was not accepted and linked to the sale: %',v;
+ end if;
+end;
+$configured_crate_swap$;
+reset role;
+
 -- No other tenant's inventory or balances changed.
 do $final$
 begin
  if (select total_bottles from public.stock where product_id='89e00000-0000-4000-9000-000000000041')<>0
     or (select total_bottles from public.stock where product_id='89e00000-0000-4000-9000-000000000042')<>0
+    or (select total_bottles from public.stock where product_id='89e00000-0000-4000-9000-000000000043')<>0
     or (select amount from public.money_owed where customer_id='89e00000-0000-4000-9000-000000000051')<>5000
-    or (select count(*) from public.sales where business_id='89e00000-0000-4000-9000-000000000021')<>2
+    or (select count(*) from public.sales where business_id='89e00000-0000-4000-9000-000000000021')<>3
     or (select count(*) from public.sales where business_id='89e00000-0000-4000-9000-000000000022')<>2 then
   raise exception 'Final tenant sale state is inconsistent';
  end if;
