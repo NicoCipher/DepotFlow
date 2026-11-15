@@ -136,16 +136,19 @@ export type Database = {
       }
       crate_swap_rules: {
         Row: {
+          business_id: string | null
           created_at: string
           owed_crate_type_id: string
           returned_crate_type_id: string
         }
         Insert: {
+          business_id?: string | null
           created_at?: string
           owed_crate_type_id: string
           returned_crate_type_id: string
         }
         Update: {
+          business_id?: string | null
           created_at?: string
           owed_crate_type_id?: string
           returned_crate_type_id?: string
@@ -183,6 +186,7 @@ export type Database = {
       }
       crate_types: {
         Row: {
+          business_id: string | null
           created_at: string
           empty_family: string | null
           id: string
@@ -193,6 +197,7 @@ export type Database = {
           variant: string | null
         }
         Insert: {
+          business_id?: string | null
           created_at?: string
           empty_family?: string | null
           id?: string
@@ -203,6 +208,7 @@ export type Database = {
           variant?: string | null
         }
         Update: {
+          business_id?: string | null
           created_at?: string
           empty_family?: string | null
           id?: string
