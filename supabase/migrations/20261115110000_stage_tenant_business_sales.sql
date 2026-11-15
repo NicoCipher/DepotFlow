@@ -680,7 +680,8 @@ declare
   if tg_table_schema='public' and (
        (tg_table_name='money_owed' and tg_op='UPDATE')
        or (tg_table_name='customer_payments' and tg_op='INSERT')
-     ) then$replacement$;begin
+     ) then$replacement$;
+begin
   select pg_catalog.pg_get_functiondef('private.scope_legacy_operational_write()'::regprocedure)
     into v_source;
   if pg_catalog.strpos(v_source,v_anchor)=0 then
