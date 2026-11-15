@@ -121,6 +121,14 @@ begin
   end if;
 
   if exists(
+    select 1 from auth.users u
+    where pg_catalog.lower(pg_catalog.btrim(u.email))=v_email
+  ) then
+    raise exception 'An Auth account already exists for this email; do not create another invitation'
+      using errcode='23505';
+  end if;
+
+  if exists(
     select 1 from private.business_invitation_requests
     where email=v_email and status='prepared'
       and expires_at>pg_catalog.now()
