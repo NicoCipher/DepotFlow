@@ -11,6 +11,27 @@ DepotFlow is an assisted-onboarding product. An operator, not a public signup pa
 
 The existing business_auth_signup_gate remains OFF. The auth.users insert guard accepts only a request from the trusted supabase_auth_admin database session for the exact, unexpired, operator-prepared email, and consumes that request atomically. It deliberately does not depend on invited_at because GoTrue may populate that field after the initial INSERT. Ordinary public signup and unprepared Auth user creation remain denied. The database row alone cannot distinguish the Auth Invite user endpoint from another Auth-admin creation path for the same pre-authorised email, so operators must use Authentication → Users → Invite user as specified below.
 
+## Mandatory M2 activation preflight
+
+**Do this before creating the second business.** The customer, payment and sales paths deliberately require the global `legacy_write_scope_gate` as the M2 cutover prerequisite. Its activation procedure only supports the original single-business stage: exactly one legacy business, one active owner and one membership. Do not create Walnik first and then try to activate this gate.
+
+The gate is not the Walnik business identity. It remains anchored to the existing legacy business and acts as a prerequisite for the separately gated nonlegacy business paths. Keep all 14 business rollout gates, public signup, customer-payment and sales gates OFF during this preflight.
+
+Production read-only inspection on 15 November 2026 found:
+- one active legacy business, one Auth user, one owner row and one active owner membership;
+- all 31 tenant foreign keys still unvalidated (the staged validation migration must be released first);
+- the legacy write gate has no row;
+- the legacy inventory snapshot has exactly one unassigned row: the existing `public.shop_profile` singleton. The other 28 scoped tables have no rows.
+
+After the approved forward-only migration release has validated all 31 tenant foreign keys:
+
+1. Take and verify a restorable database backup. Re-run `select private.legacy_scope_snapshot();` and review the entire result. Do not assume the 15 November snapshot is still current.
+2. If the only remaining unassigned/foreign-data checks still match the reviewed inventory, pass that exact reviewed JSON snapshot to `private.backfill_legacy_shop_rows(...)` in an explicit transaction. This operation tags the existing legacy shop rows—including the one `shop_profile` row—to the existing legacy business. It must never tag them to Walnik. Re-read the snapshot after commit and confirm every scoped row is assigned to the legacy business, with zero unassigned and zero foreign rows.
+3. Review the post-backfill snapshot and pass that exact JSON to `private.enable_legacy_write_scope(...)` in a separate explicit transaction. This activation requires exactly 31 matching tenant FKs validated and the single legacy owner/business preconditions. Confirm the returned business ID is the existing legacy business ID and the gate is enabled.
+4. Only after this succeeds may the operator create the separate Walnik business. Never repurpose the legacy business or import its test records as Walnik history.
+
+If the snapshot changes, contains unexpected data, the backup cannot be verified, the owner/business counts differ, or any constraint is unvalidated, stop. Do not bypass the preflight by inserting a gate row manually. The backfill and gate activation are production data/security changes and require explicit operator approval.
+
 ## Operator procedure (after separately approved production deployment)
 
 ### 1. Prepare the invitation
