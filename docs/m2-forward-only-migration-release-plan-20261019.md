@@ -87,3 +87,6 @@ The disposable bootstrap now defines the managed `public.rls_auto_enable()` stub
 
 
 The current-schema comparison checks function owner, SECURITY DEFINER, direct ACL, role-specific EXECUTE, schema USAGE, `proconfig`, and a normalized hash for the legacy `private.record_payment` body. The disposable `public.rls_auto_enable()` stub mirrors the hosted security metadata; its managed body is not treated as application source.
+
+
+The disposable RLS event-trigger stub uses a single-quoted PL/pgSQL body (`BEGIN END;`) so the test bootstrap does not depend on dollar-quote parsing. Its `SECURITY DEFINER` and fixed `pg_catalog` search path match the hosted metadata.
