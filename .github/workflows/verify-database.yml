@@ -57,13 +57,6 @@ jobs:
       - name: Test forward-only migration rehearsal bundle and 56-version ledger gates
         run: python3 -m unittest discover -s scripts -p 'test_forward_only_bundle.py'
 
-      - name: Verify forward-only release candidate and fail-closed ledger binding
-        run: |
-          set -euo pipefail
-          python3 -m unittest discover -s supabase/tests -p 'test_forward_only_m2_release.py'
-          python3 scripts/build-forward-only-m2-release.py \
-            --remote-history supabase/tests/fixtures/production_migration_history_20261019_after_auth.json
-
       - name: Test strict six-category schema drift classifier (offline)
         run: python3 -m unittest discover -s scripts -p 'test_classify_m2_schema_drift.py'
 
@@ -810,3 +803,13 @@ jobs:
           echo "Original synthetic shop ledger unchanged (not a live data/schema certificate)." >> "$GITHUB_STEP_SUMMARY"
           dropdb -h /tmp -p 55439 depotflow_tenant_stage_replay
           dropdb -h /tmp -p 55439 "$db"
+
+      # Keep the forward-only release gate after disposable SQL, concurrency,
+      # and schema-reconstruction tests so a packaging/history NO-GO does not
+      # suppress the database evidence needed to diagnose a draft PR.
+      - name: Verify forward-only release candidate and fail-closed ledger binding
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s supabase/tests -p 'test_forward_only_m2_release.py'
+          python3 scripts/build-forward-only-m2-release.py \
+            --remote-history supabase/tests/fixtures/production_migration_history_20261019_after_auth.json
