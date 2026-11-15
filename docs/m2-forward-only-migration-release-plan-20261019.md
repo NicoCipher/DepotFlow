@@ -72,6 +72,7 @@ The current 124-stage hosted schema was also captured using SELECT-only metadata
 - `docs/release-evidence/production-schema-fingerprint-20261115.json`
 - `docs/release-evidence/hosted-schema-per-object-digests-20261115.json`
 - `docs/release-evidence/production-app-client-column-dml-acl-20261115.json`
+- `docs/release-evidence/production-function-parity-20261115.json`
 
 The updated disposable PG17 workflow now reconstructs the 124-stage history (56 historical/Auth + 65 installed M2 sources + 3 later production-applied SQL sources), compares the reconstructed schema and application-client DML/effective DELETE permissions to those current hosted snapshots, and only then applies the four staged operations migrations. It asserts all 31 tenant foreign keys are validated, the public-signup/customer-payment/sales gates remain OFF, and the rollback-only payment, invitation, sales and relationship tests pass. This new current-history rehearsal has been added to the workflow but is **not yet verified green**; it must pass before any production release is considered.
 
