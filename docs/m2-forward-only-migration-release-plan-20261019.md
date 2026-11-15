@@ -75,3 +75,8 @@ The current 124-stage hosted schema was also captured using SELECT-only metadata
 
 The updated disposable PG17 workflow now reconstructs the 124-stage history (56 historical/Auth + 65 installed M2 sources + 3 later production-applied SQL sources), compares the reconstructed schema and application-client DML/effective DELETE permissions to those current hosted snapshots, and only then applies the four staged operations migrations. It asserts all 31 tenant foreign keys are validated, the public-signup/customer-payment/sales gates remain OFF, and the rollback-only payment, invitation, sales and relationship tests pass. This new current-history rehearsal has been added to the workflow but is **not yet verified green**; it must pass before any production release is considered.
 
+
+
+### Consolidated review path
+
+PR #169 is the authoritative consolidated draft for the Walnik pilot release candidate. The earlier stacked drafts #162, #163 and #165 are superseded working branches and must not be merged independently.
