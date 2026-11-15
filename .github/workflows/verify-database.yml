@@ -54,15 +54,6 @@ jobs:
       - name: Verify sandbox-only replay materialization
         run: python3 -m unittest discover -s supabase/tests -p 'test_materialize_prod_history.py'
 
-      - name: Test forward-only migration rehearsal bundle and 56-version ledger gates
-        run: python3 -m unittest discover -s scripts -p 'test_forward_only_bundle.py'
-
-      - name: Verify forward-only release candidate and fail-closed ledger binding
-        run: |
-          set -euo pipefail
-          python3 -m unittest discover -s supabase/tests -p 'test_forward_only_m2_release.py'
-          python3 scripts/build-forward-only-m2-release.py \
-            --remote-history supabase/tests/fixtures/production_migration_history_20261019_after_auth.json
 
       - name: Test strict six-category schema drift classifier (offline)
         run: python3 -m unittest discover -s scripts -p 'test_classify_m2_schema_drift.py'
@@ -775,6 +766,86 @@ jobs:
             fi
             tenant_passed=$((tenant_passed + 1))
           done
+
+          # Reconstruct the CURRENT 124-entry production history, not only
+          # the dated 56-entry rehearsal: 56 applied history + 65 installed
+          # Phase A sources + the three later production-applied SQL sources.
+          # Then apply the four new operational candidates in timestamp order.
+          python3 scripts/validate-m2-current-operations-release.py
+          createdb -h /tmp -p 55439 -T "$db" depotflow_current_124_replay
+          current_phase_a_passed=0
+          for current_sql in "${staged[@]}"; do
+            if ! psql -h /tmp -p 55439 -d depotflow_current_124_replay \
+                -X -v ON_ERROR_STOP=1 -f "$current_sql" > "$work/current-124-last.log" 2>&1; then
+              echo "::error::Current-ledger reconstruction stopped in Phase A at $current_sql"
+              tail -n 40 "$work/current-124-last.log"
+              exit 1
+            fi
+            current_phase_a_passed=$((current_phase_a_passed + 1))
+          done
+          test "$current_phase_a_passed" -eq 65
+
+          for applied_sql in \
+            supabase/migrations/20261029170523_restore_authenticated_onboarding_rpc_grants_keep_gates_closed.sql \
+            supabase/migrations/20261029180000_scope_product_writes_to_business_owner.sql \
+            supabase/migrations/20261030100000_revoke_client_maintenance_privileges.sql; do
+            if ! psql -h /tmp -p 55439 -d depotflow_current_124_replay \
+                -X -v ON_ERROR_STOP=1 -f "$applied_sql" > "$work/current-124-last.log" 2>&1; then
+              echo "::error::Current-ledger reconstruction failed at already-applied production source $applied_sql"
+              tail -n 40 "$work/current-124-last.log"
+              exit 1
+            fi
+          done
+
+          # Compare the reconstructed 124-stage schema against fresh,
+          # read-only fingerprints captured from the actual hosted project.
+          psql -h /tmp -p 55439 -d depotflow_current_124_replay -X -v ON_ERROR_STOP=1 -At -F '|' \
+            -f supabase/tests/live_schema_fingerprint.sql > "$work/current-124-schema.tsv"
+          psql -h /tmp -p 55439 -d depotflow_current_124_replay -X -v ON_ERROR_STOP=1 -At \
+            -f supabase/tests/fixtures/reconstructed_schema_object_hashes.sql > "$work/current-124-object-digests.json"
+          psql -h /tmp -p 55439 -d depotflow_current_124_replay -X -v ON_ERROR_STOP=1 -At \
+            -f supabase/tests/fixtures/app_client_column_dml_acl.sql > "$work/current-124-app-acl.json"
+          psql -h /tmp -p 55439 -d depotflow_current_124_replay -X -v ON_ERROR_STOP=1 -At \
+            -f supabase/tests/fixtures/current_function_parity_fingerprint.sql > "$work/current-124-function-parity.json"
+          python3 scripts/compare-m2-current-schema-snapshot.py \
+            --schema-groups "$work/current-124-schema.tsv" \
+            --object-digests "$work/current-124-object-digests.json" \
+            --app-client-acl "$work/current-124-app-acl.json" \
+            --function-parity "$work/current-124-function-parity.json"
+
+          for operations_sql in \
+            supabase/migrations/20261115090000_stage_tenant_customer_payments.sql \
+            supabase/migrations/20261115100000_stage_operator_business_invitations.sql \
+            supabase/migrations/20261115110000_stage_tenant_business_sales.sql \
+            supabase/migrations/20261115120000_validate_tenant_foreign_keys.sql; do
+            if ! psql -h /tmp -p 55439 -d depotflow_current_124_replay \
+                -X -v ON_ERROR_STOP=1 -f "$operations_sql" > "$work/current-124-last.log" 2>&1; then
+              echo "::error::Current-ledger operations rehearsal failed at $operations_sql"
+              tail -n 40 "$work/current-124-last.log"
+              exit 1
+            fi
+          done
+
+          gate_state="$(psql -h /tmp -p 55439 -d depotflow_current_124_replay -X -At -v ON_ERROR_STOP=1 \
+            -c "select concat_ws('|',case when (select enabled from private.business_auth_signup_gate where singleton) then 'on' else 'off' end,case when (select enabled from private.business_customer_payment_gate where singleton) then 'on' else 'off' end,case when (select enabled from private.business_sales_gate where singleton) then 'on' else 'off' end);")"
+          test "$gate_state" = "off|off|off"
+          validated_fk_count="$(psql -h /tmp -p 55439 -d depotflow_current_124_replay -X -At -v ON_ERROR_STOP=1 \
+            -c "select count(*) from pg_constraint where contype='f' and left(conname,7)='tenant_' and convalidated;")"
+          test "$validated_fk_count" = "31"
+
+          for test_sql in \
+            supabase/tests/tenant_client_maintenance_acl.sql \
+            supabase/tests/tenant_business_customer_payments.sql \
+            supabase/tests/tenant_operator_business_invitation.sql \
+            supabase/tests/tenant_business_sales.sql \
+            supabase/tests/tenant_aware_relationships.sql; do
+            psql -h /tmp -p 55439 -d depotflow_current_124_replay \
+              -X -v ON_ERROR_STOP=1 -f "$test_sql"
+          done
+          echo "### Current 124-entry production-history reconstruction + 4 operational migrations: PASS" >> "$GITHUB_STEP_SUMMARY"
+          echo "Replayed the 3 later production-applied SQL sources, then the 4 staged operations migrations. All 31 tenant FKs validated; signup, payment and sales gates remained OFF. Rollback-only tenant tests passed." >> "$GITHUB_STEP_SUMMARY"
+          dropdb -h /tmp -p 55439 depotflow_current_124_replay
+
           # The historical replay already seeds the singleton original owner.
           # The dedicated old-client creation regression runs above on its own
           # clean disposable database; do not insert a second shop owner here.
@@ -810,3 +881,16 @@ jobs:
           echo "Original synthetic shop ledger unchanged (not a live data/schema certificate)." >> "$GITHUB_STEP_SUMMARY"
           dropdb -h /tmp -p 55439 depotflow_tenant_stage_replay
           dropdb -h /tmp -p 55439 "$db"
+
+      # Keep the forward-only release gate after disposable SQL, concurrency,
+      # and schema-reconstruction tests so a packaging/history NO-GO does not
+      # suppress the database evidence needed to diagnose a draft PR.
+      - name: Verify forward-only release candidate and fail-closed ledger binding
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s supabase/tests -p 'test_forward_only_m2_release.py'
+          python3 scripts/build-forward-only-m2-release.py \
+            --remote-history supabase/tests/fixtures/production_migration_history_20261019_after_auth.json
+
+      - name: Test forward-only migration rehearsal bundle and 56-version ledger gates
+        run: python3 -m unittest discover -s scripts -p 'test_forward_only_bundle.py'
