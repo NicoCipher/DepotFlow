@@ -518,8 +518,8 @@
     },
     {
       "filename": "20261115100000_stage_operator_business_invitations.sql",
-      "git_blob_sha1": "7d0b1a6eb81dcca42ae3042ef8641bc9c424579d",
-      "reason": "New operator-prepared one-time business invitation and provisioning migration staged on the M2 operational-writers branch; intentionally excluded from the frozen 2026-10-19 historical rehearsal. Public signup remains closed and this is not production approval."
+      "git_blob_sha1": "1015d0198b5cfe7af1ccf7e1c0f125bb02924a6d",
+      "reason": "Reviewed staged operator-controlled invitation/provisioning migration. The auth.users insert guard authorizes only supabase_auth_admin for an exact unexpired prepared email; it does not rely on invited_at being set before GoTrue's initial INSERT. This updated source remains explicitly excluded from the frozen 2026-10-19 65+1 rehearsal; public signup remains OFF and no production release is approved."
     },
     {
       "filename": "20261115110000_stage_tenant_business_sales.sql",
