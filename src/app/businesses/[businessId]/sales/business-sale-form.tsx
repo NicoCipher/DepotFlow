@@ -173,7 +173,7 @@ export function BusinessSaleForm({businessId,businessDate,catalog,initialRequest
       <button type="button" className="quiet-link" onClick={()=>setStep("empties")}>← Back to returned empties</button>
       <label className="block text-sm">Amount received (₦)<input className="mt-1 w-full" type="number" inputMode="numeric" min="0" step="1" value={paid} onChange={e=>setPaid(e.target.value)}/></label>
       <label className="block text-sm">Payment method<select className="mt-1 w-full" value={method} onChange={e=>setMethod(e.target.value as typeof method)}><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="pos">POS</option></select></label>
-      <p className="text-sm text-stone-600">Any unpaid amount becomes this customer's debt. Collect old debt separately.</p>
+      <p className="text-sm text-stone-600">Any unpaid amount becomes this customer&apos;s debt. Collect old debt separately.</p>
       <button type="button" disabled={busy||!lines.length} className="primary min-h-12 w-full disabled:opacity-50" onClick={submit}>{busy?"Recording sale…":"Record sale"}</button>
     </section>}
 

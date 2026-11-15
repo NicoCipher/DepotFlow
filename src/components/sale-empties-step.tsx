@@ -894,7 +894,7 @@ export function SaleEmptiesStep({ draft, catalog, update, onBack, businessId }: 
               ))}
               {businessId ? (
                 <p className="mt-2 text-sm text-stone-700">
-                  Deposit prices for this depot are not configurable in this checkout yet. Do not record a sale with missing empties until the depot's deposit process is set up.
+                  Deposit prices for this depot are not configurable in this checkout yet. Do not record a sale with missing empties until the depot&apos;s deposit process is set up.
                 </p>
               ) : (
                 <Link
