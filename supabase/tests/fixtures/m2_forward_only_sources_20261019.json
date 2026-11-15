@@ -512,6 +512,21 @@
       "reason": "Comment-only ledger reconciliation marker for the MCP-applied client ACL migration recorded in production as version 20261104172847; excluded from the historical 2026-10-19 M2 rehearsal bundle."
     },
     {
+      "filename": "20261115090000_stage_tenant_customer_payments.sql",
+      "git_blob_sha1": "35e601f92f37659a32ff3609e7de9c6a802e6d5f",
+      "reason": "New tenant-scoped customer payment writer staged on the M2 operational-writers branch; intentionally excluded from the frozen 2026-10-19 historical rehearsal. It remains default-OFF and is not production-approved."
+    },
+    {
+      "filename": "20261115100000_stage_operator_business_invitations.sql",
+      "git_blob_sha1": "e628e754ee66c1c3d355a1b26b44eb40a8002e42",
+      "reason": "Reviewed staged operator-controlled invitation/provisioning migration. The auth.users insert guard authorizes only supabase_auth_admin for an exact unexpired prepared email; it does not rely on invited_at being set before GoTrue's initial INSERT. The latest source change only corrects explanatory comments to match the already-tested guard behavior; this source remains explicitly excluded from the frozen 2026-10-19 65+1 rehearsal. Public signup remains OFF and no production release is approved."
+    },
+    {
+      "filename": "20261115110000_stage_tenant_business_sales.sql",
+      "git_blob_sha1": "4c04a8e128fde582de221f8f1e5ed2a063d1db5d",
+      "reason": "Tenant-scoped business sales writer staged behind a default-OFF database gate; excluded from the frozen 2026-10-19 historical M2 rehearsal bundle and not production-approved."
+    },
+    {
       "filename": "20261115120000_validate_tenant_foreign_keys.sql",
       "git_blob_sha1": "1660ccf47006bf381d8140496bfb2c47e68f0cfe",
       "reason": "Forward-only validation of the 31 existing composite tenant foreign keys. This migration is not part of the frozen 2026-10-19 historical M2 rehearsal bundle; it requires its own reviewed production rollout."
