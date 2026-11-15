@@ -1132,6 +1132,24 @@ export type Database = {
           member_kind: "owner"
         }[]
       }
+      can_record_business_sale: {
+        Args: { p_business_id: string }
+        Returns: boolean
+      }
+      save_business_sale_v2: {
+        Args: {
+          p_business_id: string
+          p_request_id: string
+          p_customer_id: string
+          p_business_date: string
+          p_paid: number
+          p_payment_method: string
+          p_lines: Json
+          p_returned_crates: Json
+          p_returned_bottles: Json
+        }
+        Returns: Json
+      }
       preview_business_opening_readiness: {
         Args: { p_business_id: string }
         Returns: Json
