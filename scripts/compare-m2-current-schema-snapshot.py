@@ -16,6 +16,11 @@ ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_SNAPSHOT = ROOT / "docs/release-evidence/production-schema-fingerprint-20261115.json"
 OBJECT_SNAPSHOT = ROOT / "docs/release-evidence/hosted-schema-per-object-digests-20261115.json"
 ACL_SNAPSHOT = ROOT / "docs/release-evidence/production-app-client-column-dml-acl-20261115.json"
+FUNCTION_SNAPSHOT = ROOT / "docs/release-evidence/production-function-parity-20261115.json"
+KNOWN_BODY_DIFFERENCES = {
+    "public.rls_auto_enable()",
+    "private.private.record_payment(uuid,uuid,numeric,date)",
+}
 EXPECTED_GROUPS = {
     "column_grants", "columns", "constraints", "functions",
     "indexes", "policies", "relations", "triggers",
@@ -35,7 +40,8 @@ def compare(args) -> dict:
     schema_expected = read_json(SCHEMA_SNAPSHOT)
     object_expected = read_json(OBJECT_SNAPSHOT)
     acl_expected = read_json(ACL_SNAPSHOT)
-    for snapshot in (schema_expected, object_expected, acl_expected):
+    function_expected = read_json(FUNCTION_SNAPSHOT)
+    for snapshot in (schema_expected, object_expected, acl_expected, function_expected):
         if snapshot.get("migration_count") != 124 or snapshot.get("migration_tip") != "20261104172847":
             raise ValueError("Live schema snapshot is not bound to the reviewed 124-entry production ledger")
         if snapshot.get("project_id", snapshot.get("project_ref")) != "coyivbklakhilpcqqrzg":
@@ -62,9 +68,14 @@ def compare(args) -> dict:
     # checked separately below; all other schema groups must match exactly.
     group_differences = {
         kind: {"expected": expected_groups[kind], "actual": actual_groups[kind]}
-        for kind in EXPECTED_GROUPS - {"column_grants"}
+        for kind in EXPECTED_GROUPS - {"column_grants", "functions"}
         if expected_groups[kind] != actual_groups[kind]
     }
+    if expected_groups["functions"]["object_count"] != actual_groups["functions"]["object_count"]:
+        group_differences["functions.object_count"] = {
+            "expected": expected_groups["functions"]["object_count"],
+            "actual": actual_groups["functions"]["object_count"],
+        }
 
     object_rows = read_json(args.object_digests)
     if isinstance(object_rows, dict) and "fingerprints" in object_rows:
@@ -83,17 +94,44 @@ def compare(args) -> dict:
         }
     expected_functions = object_expected.get("functions", {})
     actual_functions = actual_objects.get("functions", {})
-    if expected_functions != actual_functions:
-        expected_names = set(expected_functions)
-        actual_names = set(actual_functions)
+    expected_names = set(expected_functions)
+    actual_names = set(actual_functions)
+    if expected_names != actual_names:
         object_differences["functions"] = {
             "added": sorted(actual_names - expected_names),
             "removed": sorted(expected_names - actual_names),
-            "definition_hash_changed": sorted(
-                name for name in expected_names & actual_names
-                if expected_functions[name] != actual_functions[name]
-            ),
         }
+    else:
+        changed = {
+            name for name in expected_names
+            if expected_functions[name] != actual_functions[name]
+        }
+        unexpected_body_differences = changed - KNOWN_BODY_DIFFERENCES
+        if unexpected_body_differences:
+            object_differences["functions"] = {
+                "unexpected_definition_hash_changed": sorted(unexpected_body_differences)
+            }
+        if not KNOWN_BODY_DIFFERENCES.issubset(expected_names):
+            object_differences["functions_known_exceptions"] = {
+                "missing": sorted(KNOWN_BODY_DIFFERENCES - expected_names)
+            }
+
+    function_rows = read_json(args.function_parity)
+    if not isinstance(function_rows, dict):
+        raise ValueError("Malformed disposable function metadata fingerprint")
+    if "fingerprint" in function_rows:
+        actual_function_parity = json.loads(function_rows["fingerprint"])
+    else:
+        actual_function_parity = function_rows
+    function_metadata_differences = {}
+    for key in ("function_count", "function_metadata", "normalized_legacy_record_payment_hash"):
+        if function_expected.get(key) != actual_function_parity.get(key):
+            function_metadata_differences[key] = {
+                "expected": function_expected.get(key) if key != "function_metadata" else len(function_expected.get(key, {})),
+                "actual": actual_function_parity.get(key) if key != "function_metadata" else len(actual_function_parity.get(key, {})),
+            }
+    if function_metadata_differences:
+        object_differences["function_metadata_or_normalized_body"] = function_metadata_differences
 
     acl_rows = read_json(args.app_client_acl)
     if isinstance(acl_rows, dict) and "fingerprint" in acl_rows:
@@ -125,6 +163,8 @@ def compare(args) -> dict:
         "per_object_shape_and_function_hashes": "exact",
         "application_client_DML_and_effective_DELETE": "exact",
         "raw_REFERENCES_grants": "excluded as Supabase-managed; not treated as app DML",
+        "known_function_body_exceptions": sorted(KNOWN_BODY_DIFFERENCES),
+        "function_privileges_and_normalized_legacy_payment_body": "exact",
         "production_release_authorized": False,
     }
 
@@ -134,6 +174,7 @@ def main() -> int:
     parser.add_argument("--schema-groups", type=Path, required=True)
     parser.add_argument("--object-digests", type=Path, required=True)
     parser.add_argument("--app-client-acl", type=Path, required=True)
+    parser.add_argument("--function-parity", type=Path, required=True)
     args = parser.parse_args()
     try:
         print(json.dumps(compare(args), indent=2))
