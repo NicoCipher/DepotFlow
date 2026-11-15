@@ -485,7 +485,7 @@ declare
     if new.movement_type='sale'
        and new.business_id is not null
        and new.business_id is distinct from v_business then
-      if not private.business_sale_write_allowed(new.business_id,v_actor)
+      if not private.business_sale_write_allowed(new.business_id,auth.uid())
          or new.sale_id is null
          or not exists(
            select 1 from public.sales s
@@ -509,7 +509,7 @@ declare
         and s.created_at=pg_catalog.transaction_timestamp()
         and s.total_amount-s.paid_amount=new.amount-old.amount
     ) then
-      if not private.business_sale_write_allowed(new.business_id,v_actor)
+      if not private.business_sale_write_allowed(new.business_id,auth.uid())
          or old.business_id is distinct from new.business_id
          or old.customer_id is distinct from new.customer_id then
         raise exception 'Business customer debt increase is not linked to this depot sale' using errcode='42501';
@@ -521,7 +521,7 @@ declare
      and new.business_id is not null
      and new.business_id is distinct from v_business then
     if tg_table_name='sales' and tg_op='INSERT' then
-      if not private.business_sale_write_allowed(new.business_id,v_actor) then
+      if not private.business_sale_write_allowed(new.business_id,auth.uid()) then
         raise exception 'Business sale owner or rollout gate check failed' using errcode='42501';
       end if;
       if not exists(select 1 from public.customers c where c.id=new.customer_id and c.business_id=new.business_id) then
@@ -533,7 +533,7 @@ declare
       end if;
       return new;
     elsif tg_table_name='sales' and tg_op='UPDATE' then
-      if not private.business_sale_write_allowed(new.business_id,v_actor)
+      if not private.business_sale_write_allowed(new.business_id,auth.uid())
          or old.business_id is distinct from new.business_id
          or old.id is distinct from new.id
          or old.created_at is distinct from pg_catalog.transaction_timestamp()
@@ -544,7 +544,7 @@ declare
       end if;
       return new;
     elsif tg_table_name='sale_items' and tg_op='INSERT' then
-      if not private.business_sale_write_allowed(new.business_id,v_actor)
+      if not private.business_sale_write_allowed(new.business_id,auth.uid())
          or not exists(
            select 1 from public.sales s join public.products p on p.id=new.product_id
            where s.id=new.sale_id and s.business_id=new.business_id
@@ -555,7 +555,7 @@ declare
       end if;
       return new;
     elsif tg_table_name='sale_empty_decisions' and tg_op='INSERT' then
-      if not private.business_sale_write_allowed(new.business_id,v_actor)
+      if not private.business_sale_write_allowed(new.business_id,auth.uid())
          or not exists(
            select 1 from public.sales s
            join public.customers c on c.id=new.customer_id and c.business_id=new.business_id
@@ -576,7 +576,7 @@ declare
           and si.business_id=new.business_id and si.product_id=new.product_id
           and si.total_bottles=old.total_bottles-new.total_bottles
       ) then
-        if not private.business_sale_write_allowed(new.business_id,v_actor)
+        if not private.business_sale_write_allowed(new.business_id,auth.uid())
            or old.business_id is distinct from new.business_id
            or old.product_id is distinct from new.product_id
            or new.total_bottles<0 then
@@ -596,7 +596,7 @@ declare
           and (case when tg_op='INSERT' then new.quantity else new.quantity-old.quantity end)
               <= greatest(si.crates_out-si.crates_returned,0)
       ) then
-        if not private.business_sale_write_allowed(new.business_id,v_actor)
+        if not private.business_sale_write_allowed(new.business_id,auth.uid())
            or (tg_op='UPDATE' and old.business_id is distinct from new.business_id)
            or new.quantity<0 then
           raise exception 'Business crate obligation is invalid' using errcode='42501';
@@ -615,7 +615,7 @@ declare
           and (case when tg_op='INSERT' then new.quantity else new.quantity-old.quantity end)
               <= greatest(si.total_bottles-si.bottles_returned,0)
       ) then
-        if not private.business_sale_write_allowed(new.business_id,v_actor)
+        if not private.business_sale_write_allowed(new.business_id,auth.uid())
            or (tg_op='UPDATE' and old.business_id is distinct from new.business_id)
            or new.quantity<0 then
           raise exception 'Business bottle obligation is invalid' using errcode='42501';
@@ -623,7 +623,7 @@ declare
         return new;
       end if;
     elsif tg_table_name='sale_empty_crate_returns' and tg_op='INSERT' then
-      if not private.business_sale_write_allowed(new.business_id,v_actor)
+      if not private.business_sale_write_allowed(new.business_id,auth.uid())
          or new.quantity<=0
          or not exists(
            select 1 from public.sales s
@@ -643,7 +643,7 @@ declare
       end if;
       return new;
     elsif tg_table_name='sale_empty_bottle_returns' and tg_op='INSERT' then
-      if not private.business_sale_write_allowed(new.business_id,v_actor)
+      if not private.business_sale_write_allowed(new.business_id,auth.uid())
          or new.quantity<=0
          or not exists(
            select 1 from public.sales s
@@ -668,7 +668,7 @@ declare
         where r.business_id=new.business_id and r.crate_type_id=new.crate_type_id
           and s.created_at=pg_catalog.transaction_timestamp()
       ) then
-        if not private.business_sale_write_allowed(new.business_id,v_actor)
+        if not private.business_sale_write_allowed(new.business_id,auth.uid())
            or (tg_op='UPDATE' and old.business_id is distinct from new.business_id)
            or new.quantity<0 then
           raise exception 'Business empty crate stock change is invalid' using errcode='42501';
@@ -682,7 +682,7 @@ declare
         where r.business_id=new.business_id and r.bottle_type=new.bottle_type
           and s.created_at=pg_catalog.transaction_timestamp()
       ) then
-        if not private.business_sale_write_allowed(new.business_id,v_actor)
+        if not private.business_sale_write_allowed(new.business_id,auth.uid())
            or (tg_op='UPDATE' and old.business_id is distinct from new.business_id)
            or new.quantity<0 then
           raise exception 'Business empty bottle stock change is invalid' using errcode='42501';
@@ -696,7 +696,7 @@ declare
           and s.created_at=pg_catalog.transaction_timestamp()
           and s.total_amount-s.paid_amount=new.amount
       ) then
-        if not private.business_sale_write_allowed(new.business_id,v_actor) or new.amount<=0 then
+        if not private.business_sale_write_allowed(new.business_id,auth.uid()) or new.amount<=0 then
           raise exception 'Business customer debt is not linked to this depot sale' using errcode='42501';
         end if;
         return new;
