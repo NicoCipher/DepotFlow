@@ -1,0 +1,1912 @@
+{
+  "purpose": "READ-ONLY CURRENT PRODUCTION FUNCTION METADATA AND NORMALIZED LEGACY PAYMENT FUNCTION HASH; NOT RELEASE APPROVAL",
+  "captured_at_utc": "2026-11-15T15:46:37.594Z",
+  "project_id": "coyivbklakhilpcqqrzg",
+  "migration_count": 124,
+  "migration_tip": "20261104172847",
+  "query": "supabase/tests/fixtures/current_function_parity_fingerprint.sql",
+  "function_count": 100,
+  "function_metadata": {
+    "public.is_shop_owner()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "s",
+      "anon_execute": false,
+      "security_definer": false,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.rls_auto_enable()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=pg_catalog"
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.verify_receipt(uuid)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": true,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.manager_snapshot(date)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.can_register_business()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.release_held_empties(uuid)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": false,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.customer_return_record(uuid)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.immutable_crate_id()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": false,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.legacy_scope_tables()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": true,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "i",
+      "anon_execute": false,
+      "security_definer": false,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.check_split_sale_request(uuid)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.customer_recent_activity(uuid)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.delete_unused_crate_type(uuid)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": false,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.list_my_businesses_for_setup()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": true,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.audit_held_collection()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.legacy_scope_snapshot()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": false,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.owns_new_business(uuid)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "s",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.customer_account_snapshot(uuid[])": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": true,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.set_bottle_deposit_price(numeric)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": false,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.set_crate_swap_rules(uuid,uuid[])": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": false,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.capture_receipt_business()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.release_held_empties(uuid)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.link_legacy_shop_business()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": false,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.seed_owner_selling_prices()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.reject_fenced_sale_request()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "DEFAULT",
+      "provolatile": "v",
+      "anon_execute": true,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": true,
+      "authenticated_execute": true,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": true,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.verified_legacy_owner_read()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "s",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.prepare_business_opening_review(uuid)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.assert_sale_tender_complete()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "DEFAULT",
+      "provolatile": "v",
+      "anon_execute": true,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": true,
+      "authenticated_execute": true,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": true,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.can_manage_new_customer(uuid)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "s",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.check_crate_product_pockets()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.check_product_crate_pockets()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.reject_sale_tender_mutation()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "DEFAULT",
+      "provolatile": "v",
+      "anon_execute": true,
+      "security_definer": false,
+      "anon_schema_usage": false,
+      "service_role_execute": true,
+      "authenticated_execute": true,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": true,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.can_read_legacy_customer(uuid)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "s",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.delete_unused_crate_type(uuid)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.record_product_selling_price()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.preview_business_assortment_setup(uuid)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.can_read_tenant_inventory(uuid)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "s",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.discard_form_held_collections()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.preview_business_opening_readiness(uuid)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.assert_legacy_assortment_owner()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.backfill_legacy_shop_rows(jsonb)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": false,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.enable_legacy_write_scope(jsonb)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": false,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.scope_legacy_operational_write()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.register_my_business(uuid,text,text,text)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.prevent_removed_shop_drink_sale()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.set_bottle_deposit_price(numeric)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.set_crate_swap_rules(uuid,uuid[])": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.save_business_details(text,text,text,text)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": false,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.depotflow_auth_user_insert_guard()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.legacy_crate_management_business()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.record_payment(uuid,uuid,numeric,date,text)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.set_shop_drink_active(uuid,boolean,boolean)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.can_read_shared_product_catalogue()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "s",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.prevent_bottle_stock_reassignment()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.protect_business_profile_identity()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.edit_crate_type(uuid,text,text,numeric,text)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": false,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.depotflow_before_user_created(jsonb)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,supabase_auth_admin=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": true,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.guard_legacy_catalogue_image_write()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.prevent_removed_shop_drink_receive()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.preview_business_opening_count_progress(uuid)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.create_crate_type(uuid,text,text,numeric,text)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": false,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.record_payment(uuid,uuid,numeric,date)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.create_legacy_customer(uuid,text,text,text,text)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.set_catalogue_product_image(uuid,text,text,text)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": false,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.set_crate_deposit_price(numeric,numeric,numeric)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": false,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.reject_blank_registered_depot_identity()": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.save_business_details(text,text,text,text)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.store_activity(date,date,uuid,text,integer,integer)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.check_sale_empty_choices(jsonb,jsonb,jsonb)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.edit_crate_type(uuid,text,text,numeric,text)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.create_legacy_crate_type(uuid,text,text,integer,text)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.set_empty_crate_count(uuid,uuid,numeric,date,integer)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": false,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.create_crate_type(uuid,text,text,numeric,text)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.record_business_buying_cost(uuid,uuid,uuid,integer,date)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.set_crate_deposit_price(numeric,numeric,numeric)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.register_business_customer(uuid,uuid,text,text,text,text)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.record_customer_empty_return(uuid,uuid,jsonb,jsonb,uuid[])": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": false,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.save_sale_v2(uuid,uuid,date,numeric,jsonb,jsonb,jsonb,text)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.create_business_crate_type(uuid,uuid,text,text,integer,text)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.set_empty_crate_count(uuid,uuid,numeric,date,integer)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.save_sale_v2(uuid,uuid,date,numeric,jsonb,jsonb,jsonb)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.count_business_empty_crates(uuid,uuid,uuid,integer,integer,date)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.customer_records(date,date,text,text,text,integer,jsonb,boolean)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.record_opening_balances(uuid,uuid,numeric,date,text,jsonb,jsonb)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.count_business_empty_bottles(uuid,uuid,text,integer,integer,date)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.set_current_stock(uuid,uuid,numeric,numeric,date,integer,integer)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": false,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.receive_stock(uuid,uuid,numeric,integer,integer,integer,uuid,date)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": false,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.record_customer_empty_return(uuid,uuid,jsonb,jsonb,uuid[])": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.record_opening_balances(uuid,uuid,numeric,date,text,jsonb,jsonb)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.set_current_stock(uuid,uuid,numeric,numeric,date,integer,integer)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "private.private.receive_stock(uuid,uuid,numeric,integer,integer,integer,uuid,date)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": false,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": false,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.save_sale_multi_tender(uuid,uuid,date,numeric,jsonb,jsonb,jsonb,numeric,jsonb)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.save_sale_split_tender(uuid,uuid,date,numeric,jsonb,jsonb,jsonb,numeric,jsonb)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.receive_business_stock(uuid,uuid,uuid,numeric,integer,integer,integer,uuid,date)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.count_business_product_stock(uuid,uuid,uuid,numeric,numeric,integer,integer,date)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.record_business_physical_opening(uuid,uuid,text,text,integer,integer,integer,date)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.record_business_customer_opening(uuid,uuid,uuid,integer,integer,date,text,jsonb,jsonb)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.save_sale_with_old_debt_payment(uuid,uuid,date,numeric,jsonb,jsonb,jsonb,text,numeric)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.confirm_business_opening_review(uuid,uuid,text,text,boolean,boolean,boolean,boolean,boolean)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": false,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.create_legacy_product(uuid,text,text,text,uuid,integer,integer,integer,integer,integer,boolean,text,uuid)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    },
+    "public.add_business_catalogue_drink(uuid,uuid,uuid,uuid,integer,integer,integer,integer,integer,boolean,text,text)": {
+      "owner": "postgres",
+      "prokind": "f",
+      "proconfig": [
+        "search_path=\"\""
+      ],
+      "proretset": false,
+      "direct_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+      "provolatile": "v",
+      "anon_execute": false,
+      "security_definer": true,
+      "anon_schema_usage": true,
+      "service_role_execute": false,
+      "authenticated_execute": true,
+      "service_role_schema_usage": true,
+      "authenticated_schema_usage": true,
+      "supabase_auth_admin_execute": false,
+      "supabase_auth_admin_schema_usage": true
+    }
+  },
+  "normalized_legacy_record_payment_hash": "eaa9509b07d9acc69696fb4d7e1c9fae"
+}
