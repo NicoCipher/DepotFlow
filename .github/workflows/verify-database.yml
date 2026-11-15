@@ -831,6 +831,7 @@ jobs:
           test "$validated_fk_count" = "31"
 
           for test_sql in \
+            supabase/tests/tenant_client_maintenance_acl.sql \
             supabase/tests/tenant_business_customer_payments.sql \
             supabase/tests/tenant_operator_business_invitation.sql \
             supabase/tests/tenant_business_sales.sql \
