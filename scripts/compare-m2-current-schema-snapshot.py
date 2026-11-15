@@ -19,7 +19,7 @@ ACL_SNAPSHOT = ROOT / "docs/release-evidence/production-app-client-column-dml-ac
 FUNCTION_SNAPSHOT = ROOT / "docs/release-evidence/production-function-parity-20261115.json"
 KNOWN_BODY_DIFFERENCES = {
     "public.rls_auto_enable()",
-    "private.private.record_payment(uuid,uuid,numeric,date)",
+    "private.record_payment(p_request_id uuid, p_customer_id uuid, p_amount numeric, p_business_date date)",
 }
 EXPECTED_GROUPS = {
     "column_grants", "columns", "constraints", "functions",
@@ -124,12 +124,37 @@ def compare(args) -> dict:
     else:
         actual_function_parity = function_rows
     function_metadata_differences = {}
-    for key in ("function_count", "function_metadata", "normalized_legacy_record_payment_hash"):
-        if function_expected.get(key) != actual_function_parity.get(key):
-            function_metadata_differences[key] = {
-                "expected": function_expected.get(key) if key != "function_metadata" else len(function_expected.get(key, {})),
-                "actual": actual_function_parity.get(key) if key != "function_metadata" else len(actual_function_parity.get(key, {})),
+    if function_expected.get("function_count") != actual_function_parity.get("function_count"):
+        function_metadata_differences["function_count"] = {
+            "expected": function_expected.get("function_count"),
+            "actual": actual_function_parity.get("function_count"),
+        }
+    expected_meta = function_expected.get("function_metadata", {})
+    actual_meta = actual_function_parity.get("function_metadata", {})
+    if expected_meta != actual_meta:
+        expected_meta_names = set(expected_meta)
+        actual_meta_names = set(actual_meta)
+        changed_meta = {}
+        for name in sorted(expected_meta_names & actual_meta_names):
+            expected_fields = expected_meta[name]
+            actual_fields = actual_meta[name]
+            differing_fields = {
+                field: {"expected": expected_fields.get(field), "actual": actual_fields.get(field)}
+                for field in sorted(set(expected_fields) | set(actual_fields))
+                if expected_fields.get(field) != actual_fields.get(field)
             }
+            if differing_fields:
+                changed_meta[name] = differing_fields
+        function_metadata_differences["function_metadata"] = {
+            "added": sorted(actual_meta_names - expected_meta_names),
+            "removed": sorted(expected_meta_names - actual_meta_names),
+            "changed": changed_meta,
+        }
+    if function_expected.get("normalized_legacy_record_payment_hash") != actual_function_parity.get("normalized_legacy_record_payment_hash"):
+        function_metadata_differences["normalized_legacy_record_payment_hash"] = {
+            "expected": function_expected.get("normalized_legacy_record_payment_hash"),
+            "actual": actual_function_parity.get("normalized_legacy_record_payment_hash"),
+        }
     if function_metadata_differences:
         object_differences["function_metadata_or_normalized_body"] = function_metadata_differences
 
