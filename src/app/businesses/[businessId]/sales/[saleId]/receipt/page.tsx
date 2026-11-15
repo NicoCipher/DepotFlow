@@ -82,7 +82,7 @@ export default async function BusinessSaleReceiptPage({
         }}
       />
       <p className="text-xs leading-5 text-stone-500">
-        This receipt uses the depot details and customer name saved when the sale was recorded. It does not read another depot's profile.
+        This receipt uses the depot details and customer name saved when the sale was recorded. It does not read another depot&apos;s profile.
       </p>
     </div>
   );
