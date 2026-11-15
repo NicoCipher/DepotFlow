@@ -89,8 +89,40 @@ try {
   sql("update private.business_auth_signup_gate set enabled=true where singleton");
   sql("update private.business_registration_gate set enabled=true where singleton");
   sql("update private.business_selection_gate set enabled=true where singleton");
-  // Both operational gates are opened only inside this disposable loopback database.
-  sql("update private.legacy_write_scope_gate set enabled=true where singleton");
+  // Bootstrap the audited legacy write-scope anchor required by the tenant
+  // sale RPC. This is the same reviewed backfill/FK-validation sequence used
+  // by the rollback-only PostgreSQL sales test, confined to this disposable DB.
+  const legacyEmail = `legacy-${suffix}@example.org`;
+  const legacyUser = await admin.auth.admin.createUser({
+    email: legacyEmail, password, email_confirm: true,
+  });
+  if (legacyUser.error) throw legacyUser.error;
+  const legacyCustomerId = randomUUID();
+  sql(`insert into private.shop_owner(user_id) values ('${legacyUser.data.user.id}');
+    select private.link_legacy_shop_business();
+    insert into public.customers(id,name,phone)
+      values ('${legacyCustomerId}','Legacy E2E fixture','08000000003');
+    select private.backfill_legacy_shop_rows(private.legacy_scope_snapshot());
+    do $validate$
+    declare r record; n int:=0;
+    begin
+      for r in
+        select ns.nspname s,c.relname t,k.conname
+        from pg_constraint k
+        join pg_class c on c.oid=k.conrelid
+        join pg_namespace ns on ns.oid=c.relnamespace
+        join private.legacy_scope_tables() tab
+          on tab.schema_name=ns.nspname and tab.table_name=c.relname
+        where k.contype='f' and left(k.conname,7)='tenant_'
+      loop
+        execute format('alter table %I.%I validate constraint %I',r.s,r.t,r.conname);
+        n:=n+1;
+      end loop;
+      if n<>31 then raise exception 'Expected 31 validated tenant FKs, found %',n; end if;
+    end;
+    $validate$;
+    select private.enable_legacy_write_scope(private.legacy_scope_snapshot());`);
+  // The two operational gates are opened only inside this disposable loopback database.
   sql("update private.business_sales_gate set enabled=true where singleton");
 
   for (const owner of owners) {
