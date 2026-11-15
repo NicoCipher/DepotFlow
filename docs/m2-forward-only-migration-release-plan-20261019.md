@@ -48,5 +48,22 @@ Three later SQL migrations are staged on the dependent operational-writers branc
 
 Their exact Git blob identities and reasons are recorded in `reviewed_excluded_sources` in `supabase/tests/fixtures/m2_forward_only_sources_20261019.json`. This exclusion only keeps later staged work out of the historical rehearsal; it does **not** approve deployment, mark the migrations applied, or authorize production changes.
 
-The new `business_sales_gate` is created OFF by default. Public registration remains closed. No production migration, gate, grant, user or business record was changed by this work. The staged sales writer is not ready for deployment until its full test suite, application workflow, invitation path, production-schema rehearsal and separately approved release process are complete.
+The new `business_sales_gate` is created OFF by default. Public registration remains closed. No production migration, gate, grant, user or business record was changed by this work.
+
+### Current release reality — 15 November 2026
+
+The 65 Phase A M2 foundation migrations are already present in the current production ledger (versions `20261019140000` through `20261019140104`). Do not replay them. Production now has 124 migration records and the live tip is `20261104172847`; the dated 56-entry snapshot above is historical evidence only and cannot authorize another release.
+
+The current staged operational sequence has four SQL files newer than the live tip:
+
+1. `20261115090000_stage_tenant_customer_payments.sql`
+2. `20261115100000_stage_operator_business_invitations.sql`
+3. `20261115110000_stage_tenant_business_sales.sql`
+4. `20261115120000_validate_tenant_foreign_keys.sql`
+
+The first three are developed in the dependent PR stack; the FK validation migration is already staged on `main`. Their order is the repository's timestamp order. The invitation migration's exact blob hash is pinned in the exclusion inventory with an updated reason; it remains excluded from the old 65+1 rehearsal and is not production-approved.
+
+A new release candidate must be generated from a fresh read-only 124-version/name ledger, replay the actual post-56 production migrations in a disposable PostgreSQL 17 reconstruction, apply these four staged migrations in order, and verify the exact hosted schema/role differences and the Auth invitation behavior. The old 56-version builder is not a valid release builder for this candidate. No `db push`, history repair, migration application, gate activation, Auth invitation, or production deployment is authorized by a green disposable test.
+
+The new-business UI also remains disabled in production: `NEXT_PUBLIC_BUSINESS_SALES_ENABLED` is not configured, and `private.business_sales_gate` does not yet exist in the live database. The invitation, payment and sales writers are not ready for production use until the current-ledger release candidate, real hosted GoTrue invitation test, production-schema rehearsal, and separate operator approval are complete.
 
