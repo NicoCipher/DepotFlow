@@ -521,11 +521,15 @@ declare
      and new.business_id is not null
      and new.business_id is distinct from v_business then
     if tg_table_name='sales' and tg_op='INSERT' then
-      if not private.business_sale_write_allowed(new.business_id,v_actor)
-         or not exists(select 1 from public.customers c where c.id=new.customer_id and c.business_id=new.business_id)
-         or new.request_id is null or new.total_amount<0
+      if not private.business_sale_write_allowed(new.business_id,v_actor) then
+        raise exception 'Business sale owner or rollout gate check failed' using errcode='42501';
+      end if;
+      if not exists(select 1 from public.customers c where c.id=new.customer_id and c.business_id=new.business_id) then
+        raise exception 'Business sale customer does not belong to this depot' using errcode='42501';
+      end if;
+      if new.request_id is null or new.total_amount<0
          or new.paid_amount<0 or new.paid_amount>new.total_amount then
-        raise exception 'Business sale identity or amount is invalid' using errcode='42501';
+        raise exception 'Business sale amount or request ID is invalid' using errcode='42501';
       end if;
       return new;
     elsif tg_table_name='sales' and tg_op='UPDATE' then
