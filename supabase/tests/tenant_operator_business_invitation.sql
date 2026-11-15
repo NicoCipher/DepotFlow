@@ -101,6 +101,7 @@ values(
 reset session authorization;
 
 do $consumed$
+declare v jsonb;
 begin
  if not exists(
   select 1 from private.business_invitation_requests
@@ -110,6 +111,13 @@ begin
    and consumed_at is not null
  ) then
   raise exception 'Auth insert did not atomically consume the invitation';
+ end if;
+ v:=private.prepare_business_invitation(
+  '96000000-0000-4000-8000-000000000001',
+  'pilot-owner@example.test',
+  'Pilot Depot A','12 Example Road, Lagos','08000000001');
+ if v->>'status'<>'user_created' or v->>'savedReplay'<>'true' then
+  raise exception 'Consumed invitation replay was not stable: %',v;
  end if;
 end;
 $consumed$;
