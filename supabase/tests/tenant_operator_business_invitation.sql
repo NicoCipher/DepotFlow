@@ -73,30 +73,31 @@ end;
 $hook_allowlist$;
 reset role;
 
--- Simulate GoTrue's actual database login. A normal public signup has no
--- invited_at marker and must still be denied even with an email allowlist.
+-- Simulate GoTrue's actual database login. An unprepared email is denied even
+-- if an Auth admin supplies an invited_at marker; the exact request is required.
 set session authorization supabase_auth_admin;
 do $reject_non_invite$
 begin
  begin
   insert into auth.users(id,email,invited_at)
   values('96000000-0000-4000-8000-000000000099',
-         'pilot-owner@example.test',null);
-  raise exception 'Non-invited Auth user was inserted';
+         'uninvited@example.test',pg_catalog.now());
+  raise exception 'Unprepared Auth user was inserted';
  exception when insufficient_privilege then null;
  end;
 end;
 $reject_non_invite$;
 reset session authorization;
 
--- A real invite carries invited_at and consumes the exact pending email in
--- the same auth.users transaction.
+-- GoTrue can insert the prepared email before invited_at is populated. The
+-- database guard authorises only the exact one-time request and consumes it
+-- in the same auth.users transaction.
 set session authorization supabase_auth_admin;
 insert into auth.users(id,email,invited_at)
 values(
  '96000000-0000-4000-8000-000000000011',
  'pilot-owner@example.test',
- pg_catalog.now()
+ null
 );
 reset session authorization;
 
