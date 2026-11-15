@@ -342,7 +342,7 @@ reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','89e00000-0000-4000-8000-000000000002',true);
 do $configured_crate_swap$
-declare v jsonb; sale_id uuid; business_date date;
+declare v jsonb; v_sale_id uuid; business_date date;
 begin
  business_date:=(pg_catalog.now() at time zone 'Africa/Lagos')::date;
  v:=public.save_business_sale_v2(
@@ -354,15 +354,15 @@ begin
    '[{"crateTypeId":"89e00000-0000-4000-9000-000000000033","quantity":1}]'::jsonb,
    '[]'::jsonb
  );
- sale_id:=(v->>'id')::uuid;
+ v_sale_id:=(v->>'id')::uuid;
  if v->>'owing'<>'0'
     or (select quantity from public.empty_crate_stock where crate_type_id='89e00000-0000-4000-9000-000000000033')<>1
     or exists(select 1 from public.crate_obligations where customer_id='89e00000-0000-4000-9000-000000000055')
     or (select quantity from public.bottle_obligations where customer_id='89e00000-0000-4000-9000-000000000055')<>20
     or not exists(select 1 from public.sale_empty_crate_returns
-       where sale_id=sale_id and crate_type_id='89e00000-0000-4000-9000-000000000033' and quantity=1)
+       where sale_empty_crate_returns.sale_id=v_sale_id and crate_type_id='89e00000-0000-4000-9000-000000000033' and quantity=1)
     or not exists(select 1 from public.sale_empty_decisions
-       where sale_id=sale_id and kind='crate'
+       where sale_empty_decisions.sale_id=v_sale_id and kind='crate'
          and returned_type='89e00000-0000-4000-9000-000000000033'
          and decision='accept') then
   raise exception 'Configured different-type crate return was not accepted and linked to the sale: %',v;
