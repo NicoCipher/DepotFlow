@@ -474,11 +474,8 @@ end $function$;
 do $business_sale_guard$
 declare
   v_source text;
-  v_anchor constant text := $anchor$  if tg_table_schema='public'
-     and (
-       (tg_table_name='money_owed' and tg_op='UPDATE')
-       or (tg_table_name='customer_payments' and tg_op='INSERT')
-     )
+    v_anchor constant text := $anchor$  if ((tg_table_schema='public' and tg_table_name in ('empty_bottle_stock','empty_crate_stock','stock','stock_movements')) or (tg_table_schema='private' and tg_table_name='stock_receipts'))
+     and tg_op in ('INSERT','UPDATE')
      and new.business_id is not null
      and new.business_id is distinct from v_business then$anchor$;
   v_replacement constant text := $replacement$  if tg_table_schema='public' and tg_table_name='stock_movements' and tg_op='INSERT' then
@@ -517,9 +514,13 @@ declare
       return new;
     end if;
   end if;
-  if tg_table_schema='public'
-     and new.business_id is not null
-     and new.business_id is distinct from v_business then
+  if tg_table_schema='public' then
+    if tg_table_name in (
+      'sales','sale_items','sale_empty_decisions','stock','crate_obligations',
+      'bottle_obligations','sale_empty_crate_returns','sale_empty_bottle_returns',
+      'empty_crate_stock','empty_bottle_stock','money_owed'
+    ) then
+      if new.business_id is not null and new.business_id is distinct from v_business then
     if tg_table_name='sales' and tg_op='INSERT' then
       if not private.business_sale_write_allowed(new.business_id,auth.uid()) then
         raise exception
@@ -728,13 +729,11 @@ declare
         end if;
         return new;
       end if;
+      end if;
     end if;
   end if;
-  if tg_table_schema='public'
-     and (
-       (tg_table_name='money_owed' and tg_op='UPDATE')
-       or (tg_table_name='customer_payments' and tg_op='INSERT')
-     )
+  if ((tg_table_schema='public' and tg_table_name in ('empty_bottle_stock','empty_crate_stock','stock','stock_movements')) or (tg_table_schema='private' and tg_table_name='stock_receipts'))
+     and tg_op in ('INSERT','UPDATE')
      and new.business_id is not null
      and new.business_id is distinct from v_business then$replacement$;
 begin
