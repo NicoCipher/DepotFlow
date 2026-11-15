@@ -31,7 +31,7 @@ export function BusinessSaleForm({businessId,businessDate,products,customers,ini
     setMessage("");
     const p=products.find(x=>x.id===productId);
     const c=Number(crates), b=Number(bottles);
-    if(!p||!/^\\d+$/.test(crates)||!/^\\d+$/.test(bottles)||
+    if(!p||!/^\d+$/.test(crates)||!/^\d+$/.test(bottles)||
        !Number.isSafeInteger(c)||!Number.isSafeInteger(b)||c<0||b<0||c+b<1) {
       setMessage("Enter a valid whole-crate or bottle quantity."); return;
     }
@@ -55,7 +55,7 @@ export function BusinessSaleForm({businessId,businessDate,products,customers,ini
     if(customer?.empties_deposit_required) {
       setMessage("This customer requires an empties deposit. This checkout does not yet support returned-container or deposit handling."); return;
     }
-    if(!/^\\d+$/.test(paid)||!Number.isSafeInteger(Number(paid))||Number(paid)<0||Number(paid)>total) {
+    if(!/^\d+$/.test(paid)||!Number.isSafeInteger(Number(paid))||Number(paid)<0||Number(paid)>total) {
       setMessage("Enter an amount received between ₦0 and the sale total.");return;
     }
     startTransition(async()=>{
