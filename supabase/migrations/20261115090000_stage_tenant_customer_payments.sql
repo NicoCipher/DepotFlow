@@ -113,11 +113,22 @@ declare
       raise exception 'Business customer payments are not available'
         using errcode='42501';
     end if;
-    if tg_table_name='money_owed'
-       and (old.business_id is distinct from new.business_id
-         or old.customer_id is distinct from new.customer_id) then
-      raise exception 'Customer balance identity cannot be changed'
-        using errcode='42501';
+    if tg_table_name='money_owed' then
+      if old.business_id is distinct from new.business_id
+         or old.customer_id is distinct from new.customer_id then
+        raise exception 'Customer balance identity cannot be changed'
+          using errcode='42501';
+      end if;
+      if new.amount>=old.amount or not exists (
+        select 1 from public.customer_payments p
+        where p.business_id=new.business_id
+          and p.customer_id=new.customer_id
+          and p.amount=old.amount-new.amount
+          and p.owed_after=new.amount
+      ) then
+        raise exception 'Customer balance reductions require a matching saved payment'
+          using errcode='42501';
+      end if;
     end if;
     v_actor:=auth.uid();
     if v_actor is null then
@@ -177,6 +188,7 @@ declare
   v_customer public.customers%rowtype;
   v_payment public.customer_payments%rowtype;
   v_owed integer;
+  v_new_owed integer;
 begin
   -- Authorization and feature gates precede replay, so a revoked owner
   -- cannot use an old request UUID to recover another depot's receipt.
@@ -279,22 +291,27 @@ begin
       using errcode='22023';
   end if;
 
-  update public.money_owed
-  set amount=amount-p_amount::integer
-  where customer_id=p_customer_id and business_id=p_business_id
-  returning amount into v_owed;
-  if not found then
-    raise exception 'Customer balance is not available'
-      using errcode='42501';
-  end if;
+  v_new_owed:=v_owed-p_amount::integer;
 
+  -- Save the immutable payment first. The balance guard requires this exact
+  -- business/customer/amount/owed_after row before allowing the reduction.
+  -- Any later failure rolls the payment back with the same transaction.
   insert into public.customer_payments(
     business_id,customer_id,amount,owed_after,business_date,request_id,method
   ) values (
-    p_business_id,p_customer_id,p_amount::integer,v_owed,
+    p_business_id,p_customer_id,p_amount::integer,v_new_owed,
     p_business_date,p_request_id,p_method
   )
   returning * into v_payment;
+
+  update public.money_owed
+  set amount=v_new_owed
+  where customer_id=p_customer_id and business_id=p_business_id
+  returning amount into v_owed;
+  if not found or v_owed<>v_new_owed then
+    raise exception 'Customer balance is not available'
+      using errcode='42501';
+  end if;
 
   return pg_catalog.jsonb_build_object(
     'paymentId',v_payment.id,
