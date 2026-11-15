@@ -522,7 +522,19 @@ declare
      and new.business_id is distinct from v_business then
     if tg_table_name='sales' and tg_op='INSERT' then
       if not private.business_sale_write_allowed(new.business_id,auth.uid()) then
-        raise exception 'Business sale owner or rollout gate check failed' using errcode='42501';
+        raise exception
+          'Business sale owner/gate check failed (actor %, business %, legacy gate %, sales gate %, membership %)',
+          auth.uid(),new.business_id,
+          (select g.enabled from private.legacy_write_scope_gate g where g.singleton is true),
+          (select g.enabled from private.business_sales_gate g where g.singleton is true),
+          exists(
+            select 1 from private.business_memberships m
+            join private.businesses b on b.id=m.business_id
+            where m.business_id=new.business_id and m.user_id=auth.uid()
+              and m.member_kind='owner' and m.status='active'
+              and b.status='active' and b.legacy_singleton is null
+          )
+          using errcode='42501';
       end if;
       if not exists(select 1 from public.customers c where c.id=new.customer_id and c.business_id=new.business_id) then
         raise exception 'Business sale customer does not belong to this depot' using errcode='42501';
