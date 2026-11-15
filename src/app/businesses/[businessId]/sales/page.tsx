@@ -16,6 +16,8 @@ export default async function BusinessSalesPage({params}:{params:Promise<{busine
   const business=businesses?.find(item=>item.business_id===businessId&&item.member_kind==="owner"&&item.business_status==="active");
   if(listError||!business) notFound();
 
+  const salesUiEnabled = process.env.NEXT_PUBLIC_BUSINESS_SALES_ENABLED === "true";
+
   const [pr,cr]=await Promise.all([
     supabase.from("products").select("id,business_id,name,size,bottles_per_crate,full_crate_price,bottle_price,is_active,stock!stock_product_id_fkey(total_bottles)")
       .eq("business_id",businessId).eq("is_active",true).order("name").order("id"),
@@ -40,7 +42,7 @@ export default async function BusinessSalesPage({params}:{params:Promise<{busine
       <h1 className="text-2xl font-extrabold text-stone-950">Record a sale</h1>
       <p className="text-sm leading-6 text-stone-600">This sale belongs only to {business.business_name}. Prices and stock are checked again when you save.</p>
     </header>
-    {products.length===0||customers.length===0?<div className="rounded-2xl border border-stone-200 p-4">
+    {!salesUiEnabled?<div className="rounded-2xl border border-stone-200 bg-stone-50 p-4"><h2 className="font-bold">Business sales are not enabled yet</h2><p className="mt-2 text-sm text-stone-600">This screen is staged. The interface flag and the separate database sales gate must both be approved before a sale can be recorded.</p></div>:products.length===0||customers.length===0?<div className="rounded-2xl border border-stone-200 p-4">
       <h2 className="font-bold">This depot is not ready for sales</h2><p className="mt-2 text-sm text-stone-600">Add drinks, count their starting stock and register customers before recording a sale.</p>
       <Link href={`/businesses/${businessId}/drinks`} className="secondary mt-3 inline-flex min-h-11 items-center">Review drinks and stock</Link>
     </div>:<BusinessSaleForm businessId={businessId} businessDate={businessDateInLagos()} products={products} customers={customers} initialRequestId={randomUUID()}/>}
