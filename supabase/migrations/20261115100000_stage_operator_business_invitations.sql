@@ -211,8 +211,9 @@ grant execute on function private.depotflow_before_user_created(jsonb)
   to supabase_auth_admin;
 
 -- Keep the atomic INSERT fence. With the global signup gate OFF, only
--- supabase_auth_admin creating an actual invited user with invited_at set
--- can consume one prepared, unexpired email authorisation.
+-- supabase_auth_admin creating a user for the exact prepared, unexpired email
+-- can consume the one-time authorisation. GoTrue may populate invited_at after
+-- the initial INSERT, so the trigger must not depend on that later marker.
 create or replace function private.depotflow_auth_user_insert_guard()
 returns trigger
 language plpgsql
@@ -237,7 +238,6 @@ begin
   end if;
 
   if session_user='supabase_auth_admin'
-     and new.invited_at is not null
      and coalesce(new.email,'')<>'' then
     select i.request_id into v_request_id
     from private.business_invitation_requests i
