@@ -802,6 +802,7 @@ declare
       end if;
     end if;
   end if;
+  end if;
   if ((tg_table_schema='public' and tg_table_name in ('empty_bottle_stock','empty_crate_stock','stock','stock_movements')) or (tg_table_schema='private' and tg_table_name='stock_receipts'))
      and tg_op in ('INSERT','UPDATE')
      and new.business_id is not null
