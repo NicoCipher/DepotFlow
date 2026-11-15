@@ -520,6 +520,11 @@
       "filename": "20261115100000_stage_operator_business_invitations.sql",
       "git_blob_sha1": "7d0b1a6eb81dcca42ae3042ef8641bc9c424579d",
       "reason": "New operator-prepared one-time business invitation and provisioning migration staged on the M2 operational-writers branch; intentionally excluded from the frozen 2026-10-19 historical rehearsal. Public signup remains closed and this is not production approval."
+    },
+    {
+      "filename": "20261115120000_validate_tenant_foreign_keys.sql",
+      "git_blob_sha1": "1660ccf47006bf381d8140496bfb2c47e68f0cfe",
+      "reason": "Forward-only validation of the 31 existing composite tenant foreign keys. This migration is not part of the frozen 2026-10-19 historical M2 rehearsal bundle; it requires its own reviewed production rollout."
     }
   ]
 }
