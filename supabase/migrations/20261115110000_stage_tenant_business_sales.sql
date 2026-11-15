@@ -474,12 +474,216 @@ end $function$
 do $business_sale_guard$
 declare
   v_source text;
-  v_anchor constant text := "  if tg_table_schema='public' and (\n       (tg_table_name='money_owed' and tg_op='UPDATE')\n       or (tg_table_name='customer_payments' and tg_op='INSERT')\n     ) then";
-  v_replacement constant text := "  if tg_table_schema='public'\n     and new.business_id is not null\n     and new.business_id is distinct from v_business then\n    if tg_table_name='sales' and tg_op='INSERT' then\n      if not private.business_sale_write_allowed(new.business_id,v_actor)\n         or not exists(select 1 from public.customers c where c.id=new.customer_id and c.business_id=new.business_id)\n         or new.request_id is null or new.total_amount<0\n         or new.paid_amount<0 or new.paid_amount>new.total_amount then\n        raise exception 'Business sale identity or amount is invalid' using errcode='42501';\n      end if;\n      return new;\n    elsif tg_table_name='sales' and tg_op='UPDATE' then\n      if not private.business_sale_write_allowed(new.business_id,v_actor)\n         or old.business_id is distinct from new.business_id\n         or old.id is distinct from new.id\n         or (pg_catalog.to_jsonb(new)-array['payment_method','account_receipt','split_request_hash'])\n            is distinct from\n            (pg_catalog.to_jsonb(old)-array['payment_method','account_receipt','split_request_hash']) then\n        raise exception 'Business sale identity is immutable' using errcode='42501';\n      end if;\n      return new;\n    elsif tg_table_name='sale_items' and tg_op='INSERT' then\n      if not private.business_sale_write_allowed(new.business_id,v_actor)\n         or not exists(\n           select 1 from public.sales s join public.products p on p.id=new.product_id\n           where s.id=new.sale_id and s.business_id=new.business_id\n             and s.created_at=pg_catalog.transaction_timestamp()\n             and p.business_id=new.business_id\n         ) then\n        raise exception 'Business sale item is not linked to this depot sale' using errcode='42501';\n      end if;\n      return new;\n    elsif tg_table_name='sale_empty_decisions' and tg_op='INSERT' then\n      if not private.business_sale_write_allowed(new.business_id,v_actor)\n         or not exists(\n           select 1 from public.sales s\n           join public.customers c on c.id=new.customer_id and c.business_id=new.business_id\n           join public.products p on p.id=new.product_id and p.business_id=new.business_id\n           where s.id=new.sale_id and s.business_id=new.business_id\n             and s.customer_id=new.customer_id\n             and s.created_at=pg_catalog.transaction_timestamp()\n         ) then\n        raise exception 'Business empty decision is not linked to this depot sale' using errcode='42501';\n      end if;\n      return new;\n    elsif tg_table_name='stock' and tg_op='UPDATE' then\n      if exists(\n        select 1 from public.sales s\n        join public.sale_items si on si.sale_id=s.id\n        where s.business_id=new.business_id\n          and s.created_at=pg_catalog.transaction_timestamp()\n          and si.business_id=new.business_id and si.product_id=new.product_id\n          and si.total_bottles=old.total_bottles-new.total_bottles\n      ) then\n        if not private.business_sale_write_allowed(new.business_id,v_actor)\n           or old.business_id is distinct from new.business_id\n           or old.product_id is distinct from new.product_id\n           or new.total_bottles<0 then\n          raise exception 'Business sale stock reduction is invalid' using errcode='42501';\n        end if;\n        return new;\n      end if;\n    elsif tg_table_name='stock_movements' and tg_op='INSERT' and new.movement_type='sale' then\n      if not private.business_sale_write_allowed(new.business_id,v_actor)\n         or new.sale_id is null\n         or not exists(\n           select 1 from public.sales s\n           join public.sale_items si on si.sale_id=s.id\n           join public.stock st on st.product_id=new.product_id and st.business_id=new.business_id\n           where s.id=new.sale_id and s.business_id=new.business_id\n             and s.created_at=pg_catalog.transaction_timestamp()\n             and si.product_id=new.product_id and si.total_bottles=-new.quantity_change\n             and st.total_bottles=new.resulting_stock\n         ) then\n        raise exception 'Business sale stock movement is not linked to its sale' using errcode='42501';\n      end if;\n      return new;\n    elsif tg_table_name='crate_obligations' and tg_op in ('INSERT','UPDATE') then\n      if exists(\n        select 1 from public.sales s\n        join public.sale_items si on si.sale_id=s.id\n        join public.crate_types ct on ct.id=new.crate_type_id and ct.business_id=new.business_id\n        where s.business_id=new.business_id and s.customer_id=new.customer_id\n          and s.created_at=pg_catalog.transaction_timestamp()\n          and si.crate_type_id=new.crate_type_id\n          and (case when tg_op='INSERT' then new.quantity else new.quantity-old.quantity end)>0\n          and (case when tg_op='INSERT' then new.quantity else new.quantity-old.quantity end)\n              <= greatest(si.crates_out-si.crates_returned,0)\n      ) then\n        if not private.business_sale_write_allowed(new.business_id,v_actor)\n           or (tg_op='UPDATE' and old.business_id is distinct from new.business_id)\n           or new.quantity<0 then\n          raise exception 'Business crate obligation is invalid' using errcode='42501';\n        end if;\n        return new;\n      end if;\n    elsif tg_table_name='bottle_obligations' and tg_op in ('INSERT','UPDATE') then\n      if exists(\n        select 1 from public.sales s\n        join public.sale_items si on si.sale_id=s.id\n        join public.products p on p.id=si.product_id and p.business_id=new.business_id\n        where s.business_id=new.business_id and s.customer_id=new.customer_id\n          and s.created_at=pg_catalog.transaction_timestamp()\n          and si.bottle_type=new.bottle_type and si.bottles_returnable\n          and (case when tg_op='INSERT' then new.quantity else new.quantity-old.quantity end)>0\n          and (case when tg_op='INSERT' then new.quantity else new.quantity-old.quantity end)\n              <= greatest(si.total_bottles-si.bottles_returned,0)\n      ) then\n        if not private.business_sale_write_allowed(new.business_id,v_actor)\n           or (tg_op='UPDATE' and old.business_id is distinct from new.business_id)\n           or new.quantity<0 then\n          raise exception 'Business bottle obligation is invalid' using errcode='42501';\n        end if;\n        return new;\n      end if;\n    elsif tg_table_name='sale_empty_crate_returns' and tg_op='INSERT' then\n      if not private.business_sale_write_allowed(new.business_id,v_actor)\n         or new.quantity<=0\n         or not exists(\n           select 1 from public.sales s\n           join public.sale_items si on si.sale_id=s.id\n           join public.crate_types ct on ct.id=new.crate_type_id and ct.business_id=new.business_id\n           where s.id=new.sale_id and s.business_id=new.business_id\n             and s.created_at=pg_catalog.transaction_timestamp()\n             and si.crate_type_id=new.crate_type_id\n             and si.crates_returned>=new.quantity\n         ) then\n        raise exception 'Business returned crate is not linked to this depot sale' using errcode='42501';\n      end if;\n      return new;\n    elsif tg_table_name='sale_empty_bottle_returns' and tg_op='INSERT' then\n      if not private.business_sale_write_allowed(new.business_id,v_actor)\n         or new.quantity<=0\n         or not exists(\n           select 1 from public.sales s\n           join public.sale_items si on si.sale_id=s.id\n           where s.id=new.sale_id and s.business_id=new.business_id\n             and s.created_at=pg_catalog.transaction_timestamp()\n             and si.bottle_type=new.bottle_type\n             and si.bottles_returned>=new.quantity\n         ) then\n        raise exception 'Business returned bottle is not linked to this depot sale' using errcode='42501';\n      end if;\n      return new;\n    elsif tg_table_name='empty_crate_stock' and tg_op in ('INSERT','UPDATE') then\n      if exists(\n        select 1 from public.sale_empty_crate_returns r\n        join public.sales s on s.id=r.sale_id\n        where r.business_id=new.business_id and r.crate_type_id=new.crate_type_id\n          and s.created_at=pg_catalog.transaction_timestamp()\n      ) then\n        if not private.business_sale_write_allowed(new.business_id,v_actor)\n           or (tg_op='UPDATE' and old.business_id is distinct from new.business_id)\n           or new.quantity<0 then\n          raise exception 'Business empty crate stock change is invalid' using errcode='42501';\n        end if;\n        return new;\n      end if;\n    elsif tg_table_name='empty_bottle_stock' and tg_op in ('INSERT','UPDATE') then\n      if exists(\n        select 1 from public.sale_empty_bottle_returns r\n        join public.sales s on s.id=r.sale_id\n        where r.business_id=new.business_id and r.bottle_type=new.bottle_type\n          and s.created_at=pg_catalog.transaction_timestamp()\n      ) then\n        if not private.business_sale_write_allowed(new.business_id,v_actor)\n           or (tg_op='UPDATE' and old.business_id is distinct from new.business_id)\n           or new.quantity<0 then\n          raise exception 'Business empty bottle stock change is invalid' using errcode='42501';\n        end if;\n        return new;\n      end if;\n    elsif tg_table_name='money_owed' and tg_op='INSERT' then\n      if not private.business_sale_write_allowed(new.business_id,v_actor)\n         or new.amount<=0\n         or not exists(\n           select 1 from public.sales s\n           where s.business_id=new.business_id and s.customer_id=new.customer_id\n             and s.created_at=pg_catalog.transaction_timestamp()\n             and s.total_amount-s.paid_amount=new.amount\n         ) then\n        raise exception 'Business customer debt is not linked to this depot sale' using errcode='42501';\n      end if;\n      return new;\n    elsif tg_table_name='money_owed' and tg_op='UPDATE' and new.amount>old.amount then\n      if not private.business_sale_write_allowed(new.business_id,v_actor)\n         or old.business_id is distinct from new.business_id\n         or old.customer_id is distinct from new.customer_id\n         or not exists(\n           select 1 from public.sales s\n           where s.business_id=new.business_id and s.customer_id=new.customer_id\n             and s.created_at=pg_catalog.transaction_timestamp()\n             and s.total_amount-s.paid_amount=new.amount-old.amount\n         ) then\n        raise exception 'Business customer debt increase is not linked to this depot sale' using errcode='42501';\n      end if;\n      return new;\n    end if;\n  end if;\n  if tg_table_schema='public' and (\n       (tg_table_name='money_owed' and tg_op='UPDATE')\n       or (tg_table_name='customer_payments' and tg_op='INSERT')\n     ) then";
-begin
+  v_anchor constant text := $anchor$  if tg_table_schema='public' and (
+       (tg_table_name='money_owed' and tg_op='UPDATE')
+       or (tg_table_name='customer_payments' and tg_op='INSERT')
+     ) then$anchor$;
+  v_replacement constant text := $replacement$  if tg_table_schema='public'
+     and new.business_id is not null
+     and new.business_id is distinct from v_business then
+    if tg_table_name='sales' and tg_op='INSERT' then
+      if not private.business_sale_write_allowed(new.business_id,v_actor)
+         or not exists(select 1 from public.customers c where c.id=new.customer_id and c.business_id=new.business_id)
+         or new.request_id is null or new.total_amount<0
+         or new.paid_amount<0 or new.paid_amount>new.total_amount then
+        raise exception 'Business sale identity or amount is invalid' using errcode='42501';
+      end if;
+      return new;
+    elsif tg_table_name='sales' and tg_op='UPDATE' then
+      if not private.business_sale_write_allowed(new.business_id,v_actor)
+         or old.business_id is distinct from new.business_id
+         or old.id is distinct from new.id
+         or (pg_catalog.to_jsonb(new)-array['payment_method','account_receipt','split_request_hash'])
+            is distinct from
+            (pg_catalog.to_jsonb(old)-array['payment_method','account_receipt','split_request_hash']) then
+        raise exception 'Business sale identity is immutable' using errcode='42501';
+      end if;
+      return new;
+    elsif tg_table_name='sale_items' and tg_op='INSERT' then
+      if not private.business_sale_write_allowed(new.business_id,v_actor)
+         or not exists(
+           select 1 from public.sales s join public.products p on p.id=new.product_id
+           where s.id=new.sale_id and s.business_id=new.business_id
+             and s.created_at=pg_catalog.transaction_timestamp()
+             and p.business_id=new.business_id
+         ) then
+        raise exception 'Business sale item is not linked to this depot sale' using errcode='42501';
+      end if;
+      return new;
+    elsif tg_table_name='sale_empty_decisions' and tg_op='INSERT' then
+      if not private.business_sale_write_allowed(new.business_id,v_actor)
+         or not exists(
+           select 1 from public.sales s
+           join public.customers c on c.id=new.customer_id and c.business_id=new.business_id
+           join public.products p on p.id=new.product_id and p.business_id=new.business_id
+           where s.id=new.sale_id and s.business_id=new.business_id
+             and s.customer_id=new.customer_id
+             and s.created_at=pg_catalog.transaction_timestamp()
+         ) then
+        raise exception 'Business empty decision is not linked to this depot sale' using errcode='42501';
+      end if;
+      return new;
+    elsif tg_table_name='stock' and tg_op='UPDATE' then
+      if exists(
+        select 1 from public.sales s
+        join public.sale_items si on si.sale_id=s.id
+        where s.business_id=new.business_id
+          and s.created_at=pg_catalog.transaction_timestamp()
+          and si.business_id=new.business_id and si.product_id=new.product_id
+          and si.total_bottles=old.total_bottles-new.total_bottles
+      ) then
+        if not private.business_sale_write_allowed(new.business_id,v_actor)
+           or old.business_id is distinct from new.business_id
+           or old.product_id is distinct from new.product_id
+           or new.total_bottles<0 then
+          raise exception 'Business sale stock reduction is invalid' using errcode='42501';
+        end if;
+        return new;
+      end if;
+    elsif tg_table_name='stock_movements' and tg_op='INSERT' and new.movement_type='sale' then
+      if not private.business_sale_write_allowed(new.business_id,v_actor)
+         or new.sale_id is null
+         or not exists(
+           select 1 from public.sales s
+           join public.sale_items si on si.sale_id=s.id
+           join public.stock st on st.product_id=new.product_id and st.business_id=new.business_id
+           where s.id=new.sale_id and s.business_id=new.business_id
+             and s.created_at=pg_catalog.transaction_timestamp()
+             and si.product_id=new.product_id and si.total_bottles=-new.quantity_change
+             and st.total_bottles=new.resulting_stock
+         ) then
+        raise exception 'Business sale stock movement is not linked to its sale' using errcode='42501';
+      end if;
+      return new;
+    elsif tg_table_name='crate_obligations' and tg_op in ('INSERT','UPDATE') then
+      if exists(
+        select 1 from public.sales s
+        join public.sale_items si on si.sale_id=s.id
+        join public.crate_types ct on ct.id=new.crate_type_id and ct.business_id=new.business_id
+        where s.business_id=new.business_id and s.customer_id=new.customer_id
+          and s.created_at=pg_catalog.transaction_timestamp()
+          and si.crate_type_id=new.crate_type_id
+          and (case when tg_op='INSERT' then new.quantity else new.quantity-old.quantity end)>0
+          and (case when tg_op='INSERT' then new.quantity else new.quantity-old.quantity end)
+              <= greatest(si.crates_out-si.crates_returned,0)
+      ) then
+        if not private.business_sale_write_allowed(new.business_id,v_actor)
+           or (tg_op='UPDATE' and old.business_id is distinct from new.business_id)
+           or new.quantity<0 then
+          raise exception 'Business crate obligation is invalid' using errcode='42501';
+        end if;
+        return new;
+      end if;
+    elsif tg_table_name='bottle_obligations' and tg_op in ('INSERT','UPDATE') then
+      if exists(
+        select 1 from public.sales s
+        join public.sale_items si on si.sale_id=s.id
+        join public.products p on p.id=si.product_id and p.business_id=new.business_id
+        where s.business_id=new.business_id and s.customer_id=new.customer_id
+          and s.created_at=pg_catalog.transaction_timestamp()
+          and si.bottle_type=new.bottle_type and si.bottles_returnable
+          and (case when tg_op='INSERT' then new.quantity else new.quantity-old.quantity end)>0
+          and (case when tg_op='INSERT' then new.quantity else new.quantity-old.quantity end)
+              <= greatest(si.total_bottles-si.bottles_returned,0)
+      ) then
+        if not private.business_sale_write_allowed(new.business_id,v_actor)
+           or (tg_op='UPDATE' and old.business_id is distinct from new.business_id)
+           or new.quantity<0 then
+          raise exception 'Business bottle obligation is invalid' using errcode='42501';
+        end if;
+        return new;
+      end if;
+    elsif tg_table_name='sale_empty_crate_returns' and tg_op='INSERT' then
+      if not private.business_sale_write_allowed(new.business_id,v_actor)
+         or new.quantity<=0
+         or not exists(
+           select 1 from public.sales s
+           join public.sale_items si on si.sale_id=s.id
+           join public.crate_types ct on ct.id=new.crate_type_id and ct.business_id=new.business_id
+           where s.id=new.sale_id and s.business_id=new.business_id
+             and s.created_at=pg_catalog.transaction_timestamp()
+             and si.crate_type_id=new.crate_type_id
+             and si.crates_returned>=new.quantity
+         ) then
+        raise exception 'Business returned crate is not linked to this depot sale' using errcode='42501';
+      end if;
+      return new;
+    elsif tg_table_name='sale_empty_bottle_returns' and tg_op='INSERT' then
+      if not private.business_sale_write_allowed(new.business_id,v_actor)
+         or new.quantity<=0
+         or not exists(
+           select 1 from public.sales s
+           join public.sale_items si on si.sale_id=s.id
+           where s.id=new.sale_id and s.business_id=new.business_id
+             and s.created_at=pg_catalog.transaction_timestamp()
+             and si.bottle_type=new.bottle_type
+             and si.bottles_returned>=new.quantity
+         ) then
+        raise exception 'Business returned bottle is not linked to this depot sale' using errcode='42501';
+      end if;
+      return new;
+    elsif tg_table_name='empty_crate_stock' and tg_op in ('INSERT','UPDATE') then
+      if exists(
+        select 1 from public.sale_empty_crate_returns r
+        join public.sales s on s.id=r.sale_id
+        where r.business_id=new.business_id and r.crate_type_id=new.crate_type_id
+          and s.created_at=pg_catalog.transaction_timestamp()
+      ) then
+        if not private.business_sale_write_allowed(new.business_id,v_actor)
+           or (tg_op='UPDATE' and old.business_id is distinct from new.business_id)
+           or new.quantity<0 then
+          raise exception 'Business empty crate stock change is invalid' using errcode='42501';
+        end if;
+        return new;
+      end if;
+    elsif tg_table_name='empty_bottle_stock' and tg_op in ('INSERT','UPDATE') then
+      if exists(
+        select 1 from public.sale_empty_bottle_returns r
+        join public.sales s on s.id=r.sale_id
+        where r.business_id=new.business_id and r.bottle_type=new.bottle_type
+          and s.created_at=pg_catalog.transaction_timestamp()
+      ) then
+        if not private.business_sale_write_allowed(new.business_id,v_actor)
+           or (tg_op='UPDATE' and old.business_id is distinct from new.business_id)
+           or new.quantity<0 then
+          raise exception 'Business empty bottle stock change is invalid' using errcode='42501';
+        end if;
+        return new;
+      end if;
+    elsif tg_table_name='money_owed' and tg_op='INSERT' then
+      if not private.business_sale_write_allowed(new.business_id,v_actor)
+         or new.amount<=0
+         or not exists(
+           select 1 from public.sales s
+           where s.business_id=new.business_id and s.customer_id=new.customer_id
+             and s.created_at=pg_catalog.transaction_timestamp()
+             and s.total_amount-s.paid_amount=new.amount
+         ) then
+        raise exception 'Business customer debt is not linked to this depot sale' using errcode='42501';
+      end if;
+      return new;
+    elsif tg_table_name='money_owed' and tg_op='UPDATE' and new.amount>old.amount then
+      if not private.business_sale_write_allowed(new.business_id,v_actor)
+         or old.business_id is distinct from new.business_id
+         or old.customer_id is distinct from new.customer_id
+         or not exists(
+           select 1 from public.sales s
+           where s.business_id=new.business_id and s.customer_id=new.customer_id
+             and s.created_at=pg_catalog.transaction_timestamp()
+             and s.total_amount-s.paid_amount=new.amount-old.amount
+         ) then
+        raise exception 'Business customer debt increase is not linked to this depot sale' using errcode='42501';
+      end if;
+      return new;
+    end if;
+  end if;
+  if tg_table_schema='public' and (
+       (tg_table_name='money_owed' and tg_op='UPDATE')
+       or (tg_table_name='customer_payments' and tg_op='INSERT')
+     ) then$replacement$;begin
   select pg_catalog.pg_get_functiondef('private.scope_legacy_operational_write()'::regprocedure)
     into v_source;
-  if pg_catalog.position(v_anchor in v_source)=0 then
+  if pg_catalog.strpos(v_source,v_anchor)=0 then
     raise exception 'Expected payment/legacy write-guard anchor was not found; refusing to stage business sales';
   end if;
   execute pg_catalog.replace(v_source,v_anchor,v_replacement);
