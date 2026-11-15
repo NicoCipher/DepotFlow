@@ -108,6 +108,9 @@ select set_config('request.jwt.claim.sub','89e00000-0000-4000-8000-000000000002'
 do $gate_off$
 declare v jsonb;
 begin
+ if public.can_record_business_sale('89e00000-0000-4000-9000-000000000021') then
+  raise exception 'Sale capability check returned true while the gate was OFF';
+ end if;
  begin
   v:=public.save_business_sale_v2(
    '89e00000-0000-4000-9000-000000000021',
@@ -152,6 +155,9 @@ do $owner_a$
 declare v jsonb; replayed jsonb; sale_id uuid; business_date date;
 begin
  business_date:=(pg_catalog.now() at time zone 'Africa/Lagos')::date;
+ if not public.can_record_business_sale('89e00000-0000-4000-9000-000000000021') then
+  raise exception 'Owner A capability check failed after enabling the sales gate';
+ end if;
  v:=public.save_business_sale_v2(
    '89e00000-0000-4000-9000-000000000021',
    '89e00000-0000-4000-9000-000000000061',
@@ -226,6 +232,10 @@ do $owner_b$
 declare v jsonb; business_date date;
 begin
  business_date:=(pg_catalog.now() at time zone 'Africa/Lagos')::date;
+ if public.can_record_business_sale('89e00000-0000-4000-9000-000000000021')
+    or not public.can_record_business_sale('89e00000-0000-4000-9000-000000000022') then
+  raise exception 'Owner B capability check leaked or denied tenant access';
+ end if;
  begin
   perform public.save_business_sale_v2(
    '89e00000-0000-4000-9000-000000000021',
