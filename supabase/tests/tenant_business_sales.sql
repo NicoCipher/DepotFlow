@@ -1,4 +1,5 @@
 -- Rollback-only tenant business sale writer coverage.
+-- CI runs this against the merged M2 dependency stack on disposable PostgreSQL 17.
 begin;
 
 insert into auth.users(id) values
