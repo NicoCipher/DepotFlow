@@ -4,9 +4,10 @@ import { useMemo, useState, useTransition } from "react";
 import { formatNaira } from "@/domain/products";
 import { saveBusinessSale } from "./actions";
 
-type Product = { id:string; name:string; size:string|null; bottles_per_crate:number; full_crate_price:number|null; bottle_price:number|null; available:number };
+type Product = { id:string; name:string; size:string|null; bottles_per_crate:number; full_crate_price:number|null; bottle_price:number|null; available:number; crate_type_id:string; crate_type_name:string; bottles_returnable:boolean; bottle_type:string|null };
+type Line = { productId:string; crates:number; bottles:number; returnedCrates:number; returnedBottles:number };
 type Customer = { id:string; name:string; empties_deposit_required:boolean };
-type Line = { productId:string; crates:number; bottles:number };
+
 
 export function BusinessSaleForm({businessId,businessDate,products,customers,initialRequestId}:{
   businessId:string; businessDate:string; products:Product[]; customers:Customer[]; initialRequestId:string;
@@ -46,7 +47,7 @@ export function BusinessSaleForm({businessId,businessDate,products,customers,ini
     if(lines.some(x=>x.productId===p.id)) {
       setMessage("This drink is already in the sale. Remove it first to change its quantity."); return;
     }
-    setLines(old=>[...old,{productId:p.id,crates:c,bottles:b}]);
+    setLines(old=>[...old,{productId:p.id,crates:c,bottles:b,returnedCrates:0,returnedBottles:0}]);
   }
 
   function submit() {
@@ -54,7 +55,7 @@ export function BusinessSaleForm({businessId,businessDate,products,customers,ini
     if(!customerId){setMessage("Choose a customer.");return;}
     if(!lines.length){setMessage("Add at least one drink.");return;}
     if(customer?.empties_deposit_required) {
-      setMessage("This customer requires an empties deposit. This checkout does not yet support returned-container or deposit handling."); return;
+      setMessage("This customer requires all expected empty crates and bottles to be returned. Deposit handling for shortages is not enabled yet."); return;
     }
     if(!/^\d+$/.test(paid)||!Number.isSafeInteger(Number(paid))||Number(paid)<0||Number(paid)>total) {
       setMessage("Enter an amount received between ₦0 and the sale total.");return;
@@ -86,17 +87,25 @@ export function BusinessSaleForm({businessId,businessDate,products,customers,ini
         <label className="text-sm">Full crates<input className="mt-1 w-full" type="number" inputMode="numeric" min="0" step="1" value={crates} onChange={e=>setCrates(e.target.value)}/></label>
         <label className="text-sm">Loose bottles<input className="mt-1 w-full" type="number" inputMode="numeric" min="0" step="1" value={bottles} onChange={e=>setBottles(e.target.value)}/></label>
       </div>
-      <p className="text-xs text-stone-600">First version: full crates and loose bottles only. Partial crates and returned empties are not included.</p>
+      <p className="text-xs text-stone-600">First version: full crates and loose bottles only. Record exact same-type empty crates and bottles returned below; swaps are not included.</p>
       <button type="button" className="secondary min-h-11 w-full" onClick={addLine}>Add drink to sale</button>
     </section>
     {lines.length>0&&<section className="rounded-2xl bg-stone-100 p-4">
       <h2 className="font-bold">Sale summary</h2>
+      <p className="mt-2 text-xs text-stone-600">Enter the empty containers physically returned now. Any missing containers remain owed by the customer. Only the same crate and bottle types are accepted in this first version; swaps are not included.</p>
       <ul className="mt-2 divide-y divide-stone-200">
         {lines.map(line=>{
           const p=products.find(x=>x.id===line.productId)!;
           const amount=line.crates*(p.full_crate_price??0)+line.bottles*(p.bottle_price??0);
           return <li key={line.productId} className="flex items-start justify-between gap-3 py-2 text-sm">
-            <span className="min-w-0">{p.name} · {line.crates} crates + {line.bottles} bottles</span>
+            <span className="min-w-0">{p.name} · {line.crates} crates + {line.bottles} bottles
+              <span className="mt-1 block text-xs text-stone-500">Expected: {line.crates} {p.crate_type_name} crate(s)</span>
+              {p.bottles_returnable&&<span className="block text-xs text-stone-500">Expected: {line.crates*p.bottles_per_crate+line.bottles} {p.bottle_type} bottle(s)</span>}
+              <span className="mt-3 grid grid-cols-2 gap-2">
+                <label className="text-xs">Empty crates returned<input aria-label="Empty crates returned" className="mt-1 w-full" type="number" min="0" max={line.crates} step="1" value={line.returnedCrates} onChange={e=>setLines(old=>old.map(x=>x.productId===line.productId?{...x,returnedCrates:Number(e.target.value||0)}:x))}/></label>
+                {p.bottles_returnable&&<label className="text-xs">Empty bottles returned<input aria-label="Empty bottles returned" className="mt-1 w-full" type="number" min="0" max={line.crates*p.bottles_per_crate+line.bottles} step="1" value={line.returnedBottles} onChange={e=>setLines(old=>old.map(x=>x.productId===line.productId?{...x,returnedBottles:Number(e.target.value||0)}:x))}/></label>}
+              </span>
+            </span>
             <strong className="shrink-0 tabular-nums">{formatNaira(amount)}</strong>
             <button type="button" className="quiet-link" onClick={()=>setLines(old=>old.filter(x=>x.productId!==line.productId))}>Remove</button>
           </li>;

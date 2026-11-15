@@ -34,7 +34,7 @@ export default async function BusinessSalesPage({params}:{params:Promise<{busine
   }
 
   const [pr,cr]=await Promise.all([
-    supabase.from("products").select("id,business_id,name,size,bottles_per_crate,full_crate_price,bottle_price,is_active,stock!stock_product_id_fkey(total_bottles)")
+    supabase.from("products").select("id,business_id,name,size,bottles_per_crate,full_crate_price,bottle_price,is_active,crate_type_id,bottles_returnable,bottle_type,crate_type:crate_types!products_crate_type_id_fkey(name,is_legacy,pocket_count),stock!stock_product_id_fkey(total_bottles)")
       .eq("business_id",businessId).eq("is_active",true).order("name").order("id"),
     supabase.from("customers").select("id,business_id,name,empties_deposit_required")
       .eq("business_id",businessId).is("archived_at",null).order("name").order("id"),
@@ -46,7 +46,9 @@ export default async function BusinessSalesPage({params}:{params:Promise<{busine
     const available=p.stock?.total_bottles??null;
     if(available===null||!Number.isSafeInteger(available)||available<0) return [];
     return [{id:p.id,name:p.name,size:p.size,bottles_per_crate:p.bottles_per_crate,
-      full_crate_price:p.full_crate_price,bottle_price:p.bottle_price,available}];
+      full_crate_price:p.full_crate_price,bottle_price:p.bottle_price,available,
+      crate_type_id:p.crate_type_id,crate_type_name:p.crate_type?.name??"Unconfigured crate",
+      bottles_returnable:p.bottles_returnable,bottle_type:p.bottle_type}];
   });
   const customers=(cr.data??[]).map(c=>({id:c.id,name:c.name,empties_deposit_required:c.empties_deposit_required}));
 
@@ -61,6 +63,6 @@ export default async function BusinessSalesPage({params}:{params:Promise<{busine
       <h2 className="font-bold">This depot is not ready for sales</h2><p className="mt-2 text-sm text-stone-600">Add drinks, count their starting stock and register customers before recording a sale.</p>
       <Link href={`/businesses/${businessId}/drinks`} className="secondary mt-3 inline-flex min-h-11 items-center">Review drinks and stock</Link>
     </div>:<BusinessSaleForm businessId={businessId} businessDate={businessDateInLagos()} products={products} customers={customers} initialRequestId={randomUUID()}/>}
-    <p className="text-xs leading-5 text-stone-500">First version limitations: full crates and loose bottles only; no partial crates, returned-empty entry, deposit collection, mixed payment or old-debt collection in the same checkout. The sales database gate must be enabled separately before this screen can record sales.</p>
+    <p className="text-xs leading-5 text-stone-500">First version limitations: full crates and loose bottles only; no partial crates, crate/bottle swaps, deposit collection for missing empties, mixed payment or old-debt collection in the same checkout. The sales database gate must be enabled separately before this screen can record sales.</p>
   </section>;
 }
