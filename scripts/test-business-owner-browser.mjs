@@ -250,6 +250,9 @@ try {
   );
   const checkoutError = await page.getByRole("alert").textContent().catch(() => null);
   assert.equal(checkoutError, null, "Checkout rejected by the server: " + (checkoutError ?? ""));
+  console.log("Checkout confirmation body:", await page.locator("body").innerText());
+  console.log("Checkout status:", await page.locator('[role="status"]').allTextContents());
+  console.log("Receipt links:", await page.locator('a[href*="/sales/"][href$="/receipt"]').evaluateAll(nodes => nodes.map(node => ({ href: node.getAttribute("href"), text: node.textContent }))));
   const receiptLink = page.locator('a[href^="/businesses/"][href$="/receipt"]');
   await receiptLink.waitFor({ state: "visible", timeout: 10000 });
   await receiptLink.click();
