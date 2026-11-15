@@ -596,6 +596,21 @@ declare
         end if;
         return new;
       end if;
+      if exists(
+        select 1 from public.sales s
+        where s.business_id=new.business_id
+          and s.created_at=pg_catalog.transaction_timestamp()
+      ) then
+        raise exception
+          'Sale stock item match failed (business %, legacy %, product %, old %, new %, sale rows %, item rows %, matching rows %)',
+          new.business_id,v_business,new.product_id,old.total_bottles,new.total_bottles,
+          (select count(*) from public.sales s where s.business_id=new.business_id and s.created_at=pg_catalog.transaction_timestamp()),
+          (select count(*) from public.sale_items si where si.business_id=new.business_id and si.product_id=new.product_id),
+          (select count(*) from public.sales s join public.sale_items si on si.sale_id=s.id
+            where s.business_id=new.business_id and s.created_at=pg_catalog.transaction_timestamp()
+              and si.business_id=new.business_id and si.product_id=new.product_id
+              and si.total_bottles=old.total_bottles-new.total_bottles);
+      end if;
     elsif tg_table_name='crate_obligations' and tg_op in ('INSERT','UPDATE') then
       if exists(
         select 1 from public.sales s
