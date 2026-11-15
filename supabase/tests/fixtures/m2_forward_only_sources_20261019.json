@@ -524,7 +524,7 @@
     {
       "filename": "20261115110000_stage_tenant_business_sales.sql",
       "git_blob_sha1": "45b90d499f8500aa0fec1c0bc836dd8d94248874",
-      "reason": "Post-2026-10-19 staged tenant-scoped sales writer, request-context trigger guards and business-specific receipt snapshots. Blob hash refreshed after the reviewed money_owed guard correction; intentionally excluded from the dated 65+1 historical M2 rehearsal bundle. business_sales_gate defaults OFF and no production release is approved."
+      "reason": "Tenant-scoped business sales writer staged behind a default-OFF database gate; excluded from the frozen 2026-10-19 historical M2 rehearsal bundle and not production-approved."
     }
   ]
 }
