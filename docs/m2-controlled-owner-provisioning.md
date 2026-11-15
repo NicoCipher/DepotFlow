@@ -1,6 +1,6 @@
 # DepotFlow controlled owner invitation and business provisioning
 
-**Status: staged code; NOT deployed to production.** Public signup remains closed. The migration does not enable any business rollout gate.
+**Status: M2 release deployed and database cutover preflight completed (15 November 2026).** Public signup remains closed. The customer-payment and sales gates remain OFF; no Walnik Auth user or business has been provisioned.
 
 ## Purpose
 
@@ -17,13 +17,14 @@ The existing business_auth_signup_gate remains OFF. The auth.users insert guard 
 
 The gate is not the Walnik business identity. It remains anchored to the existing legacy business and acts as a prerequisite for the separately gated nonlegacy business paths. Keep all 14 business rollout gates, public signup, customer-payment and sales gates OFF during this preflight.
 
-Production read-only inspection on 15 November 2026 found:
-- one active legacy business, one Auth user, one owner row and one active owner membership;
-- all 31 tenant foreign keys still unvalidated (the staged validation migration must be released first);
-- the legacy write gate has no row;
-- the legacy inventory snapshot has exactly one unassigned row: the existing `public.shop_profile` singleton. The other 28 scoped tables have no rows.
+Production preflight and post-release verification on 15 November 2026 confirmed:
+- one active legacy business, one Auth user, one owner row and one active owner membership; the intended Walnik owner email has no Auth user;
+- all 31 tenant foreign keys are now validated;
+- the single unassigned `public.shop_profile` row was assigned to the existing legacy business; the other 28 scoped tables were empty;
+- `legacy_write_scope_gate` is enabled only for the existing legacy business;
+- public signup, customer-payment and sales gates remain OFF; all 14 existing business rollout gates remain OFF.
 
-After the approved forward-only migration release has validated all 31 tenant foreign keys:
+The four forward-only migrations are now applied and all 31 tenant foreign keys are validated. The reviewed legacy snapshot was backfilled and the legacy write gate was activated for the existing legacy business. Do not repeat these operations or manually modify the gate.
 
 1. Take and verify a restorable database backup. Re-run `select private.legacy_scope_snapshot();` and review the entire result. Do not assume the 15 November snapshot is still current.
 2. If the only remaining unassigned/foreign-data checks still match the reviewed inventory, pass that exact reviewed JSON snapshot to `private.backfill_legacy_shop_rows(...)` in an explicit transaction. This operation tags the existing legacy shop rows—including the one `shop_profile` row—to the existing legacy business. It must never tag them to Walnik. Re-read the snapshot after commit and confirm every scoped row is assigned to the legacy business, with zero unassigned and zero foreign rows.
@@ -36,7 +37,7 @@ If the snapshot changes, contains unexpected data, the backup cannot be verified
 
 The disposable two-owner browser workflow now exercises the real local Supabase GoTrue `inviteUserByEmail` endpoint while the public signup gate is OFF. It prepares one exact email, verifies the Auth insert trigger consumes that request, provisions the invited test user into a separate `setup` business with `canOperate=false`, and confirms an unprepared Auth `createUser` call is rejected. This is stronger than a PostgreSQL-only role simulation, but it is still a disposable local GoTrue stack—not a hosted production invitation.
 
-The production invitation must be the real intended Walnik owner account, not a fake test account. After the approved migration release, prepare the invitation with the final verified business name, address and phone, call Authentication → Users → Invite user, confirm the request changes to `user_created` for the exact Auth user ID, and only then call the operator provisioning function. Do not provision if the request is not consumed by the Auth insert guard.
+The production invitation must be the real intended Walnik owner account, not a fake test account. Before inviting the Walnik owner, collect the final verified business address and phone. Then prepare the invitation with the exact owner email and business details, call Authentication → Users → Invite user, confirm the request changes to `user_created` for the exact Auth user ID, and only then call the operator provisioning function. Do not provision if the request is not consumed by the Auth insert guard.
 
 ## Operator procedure (after separately approved production deployment)
 
@@ -102,8 +103,8 @@ Stop and review manually if:
 
 Do not delete Auth users or repurpose the existing legacy business to recover from a failed invitation.
 
-## Required hosted verification before production use
+## Required hosted verification before Walnik onboarding
 
-The disposable PostgreSQL 17 suite verifies the trigger and provisioning transaction with a simulated supabase_auth_admin session, including the case where invited_at is NULL at INSERT time. It does not prove the hosted GoTrue Invite user endpoint uses the same database role in this project, nor does it distinguish that endpoint from other Auth-admin creation paths. Before production deployment, verify the actual Invite user flow on an isolated staging project, confirm the database session role, confirm the invited user receives the expected email/password-setup flow, and confirm ordinary direct signup remains denied.
+The disposable PostgreSQL 17 suite verifies the trigger and provisioning transaction with a simulated supabase_auth_admin session, including the case where invited_at is NULL at INSERT time. It does not prove the hosted GoTrue Invite user endpoint uses the same database role in this project, nor does it distinguish that endpoint from other Auth-admin creation paths. Before using this flow for Walnik, verify the actual hosted Invite user flow, confirm the database session role, confirm the invited user receives the expected email/password-setup flow, and confirm ordinary direct signup remains denied. The first production invitation must be monitored against the exact prepared request and Auth user ID.
 
-No production Auth user, invitation, business row or gate has been changed by this staged implementation.
+No Walnik Auth user, invitation or business row has been created. The existing legacy business remains separate and unchanged except that its single previously unassigned shop-profile row is now correctly scoped and its legacy write-scope prerequisite is enabled. Signup, payment, sales and all 14 business rollout gates remain OFF.
