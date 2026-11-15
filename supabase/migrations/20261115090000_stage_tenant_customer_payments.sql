@@ -48,12 +48,6 @@ begin
       from public.business_profiles p
       where p.business_id=new.business_id
     );
-    if new.receipt_business is null then
-      raise exception using
-        errcode='23503',
-        message='Business receipt details are unavailable.';
-    end if;
-
     select c.name
     into v_customer_name
     from public.customers c
@@ -223,6 +217,14 @@ begin
   if not found then
     raise exception 'Business customer payments are not available'
       using errcode='42501';
+  end if;
+
+  if not exists (
+    select 1 from public.business_profiles p
+    where p.business_id=p_business_id
+  ) then
+    raise exception 'Business receipt details are unavailable'
+      using errcode='23503';
   end if;
 
   if p_request_id is null or p_customer_id is null
