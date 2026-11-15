@@ -496,6 +496,7 @@ declare
       if not private.business_sale_write_allowed(new.business_id,v_actor)
          or old.business_id is distinct from new.business_id
          or old.id is distinct from new.id
+         or old.created_at is distinct from pg_catalog.transaction_timestamp()
          or (pg_catalog.to_jsonb(new)-array['payment_method','account_receipt','split_request_hash'])
             is distinct from
             (pg_catalog.to_jsonb(old)-array['payment_method','account_receipt','split_request_hash']) then
@@ -664,30 +665,31 @@ declare
         return new;
       end if;
     elsif tg_table_name='money_owed' and tg_op='INSERT' then
-      if not private.business_sale_write_allowed(new.business_id,v_actor)
-         or new.amount<=0
-         or not exists(
-           select 1 from public.sales s
-           where s.business_id=new.business_id and s.customer_id=new.customer_id
-             and s.created_at=pg_catalog.transaction_timestamp()
-             and s.total_amount-s.paid_amount=new.amount
-         ) then
-        raise exception 'Business customer debt is not linked to this depot sale' using errcode='42501';
+      if exists(
+        select 1 from public.sales s
+        where s.business_id=new.business_id and s.customer_id=new.customer_id
+          and s.created_at=pg_catalog.transaction_timestamp()
+          and s.total_amount-s.paid_amount=new.amount
+      ) then
+        if not private.business_sale_write_allowed(new.business_id,v_actor) or new.amount<=0 then
+          raise exception 'Business customer debt is not linked to this depot sale' using errcode='42501';
+        end if;
+        return new;
       end if;
-      return new;
     elsif tg_table_name='money_owed' and tg_op='UPDATE' and new.amount>old.amount then
-      if not private.business_sale_write_allowed(new.business_id,v_actor)
-         or old.business_id is distinct from new.business_id
-         or old.customer_id is distinct from new.customer_id
-         or not exists(
-           select 1 from public.sales s
-           where s.business_id=new.business_id and s.customer_id=new.customer_id
-             and s.created_at=pg_catalog.transaction_timestamp()
-             and s.total_amount-s.paid_amount=new.amount-old.amount
-         ) then
-        raise exception 'Business customer debt increase is not linked to this depot sale' using errcode='42501';
+      if exists(
+        select 1 from public.sales s
+        where s.business_id=new.business_id and s.customer_id=new.customer_id
+          and s.created_at=pg_catalog.transaction_timestamp()
+          and s.total_amount-s.paid_amount=new.amount-old.amount
+      ) then
+        if not private.business_sale_write_allowed(new.business_id,v_actor)
+           or old.business_id is distinct from new.business_id
+           or old.customer_id is distinct from new.customer_id then
+          raise exception 'Business customer debt increase is not linked to this depot sale' using errcode='42501';
+        end if;
+        return new;
       end if;
-      return new;
     end if;
   end if;
   if tg_table_schema='public'
