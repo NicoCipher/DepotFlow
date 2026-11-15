@@ -84,3 +84,6 @@ PR #169 is the authoritative consolidated draft for the Walnik pilot release can
 
 
 The disposable bootstrap now defines the managed `public.rls_auto_enable()` stub with the hosted `SECURITY DEFINER` and `search_path=pg_catalog` metadata. This is a test-only fidelity correction; it does not modify the live Supabase function.
+
+
+The current-schema comparison checks function owner, SECURITY DEFINER, direct ACL, role-specific EXECUTE, schema USAGE, `proconfig`, and a normalized hash for the legacy `private.record_payment` body. The disposable `public.rls_auto_enable()` stub mirrors the hosted security metadata; its managed body is not treated as application source.
