@@ -82,6 +82,30 @@ end$$;
 reset role;
 
 update private.business_customer_payment_gate set enabled=true;
+
+-- The write trigger must not permit a balance reduction without a matching
+-- immutable payment row, even when an owner identity is present.
+select pg_catalog.set_config('request.jwt.claim.sub',
+ '91000000-0000-4000-8000-000000000002',true);
+do $balance_guard$
+begin
+ begin
+  update public.money_owed set amount=4000
+   where customer_id='92000000-0000-4000-8000-000000000011'
+     and business_id='91000000-0000-4000-9000-000000000011';
+  raise exception 'Unmatched balance reduction was accepted';
+ exception when insufficient_privilege then null;
+ end;
+ begin
+  update public.money_owed set amount=9000
+   where customer_id='92000000-0000-4000-8000-000000000011'
+     and business_id='91000000-0000-4000-9000-000000000011';
+  raise exception 'Balance increase was accepted by payment-only guard';
+ exception when insufficient_privilege then null;
+ end;
+end;
+$balance_guard$;
+
 set local role authenticated;
 select pg_catalog.set_config('request.jwt.claim.sub',
  '91000000-0000-4000-8000-000000000002',true);
@@ -218,5 +242,11 @@ select pg_temp.ok(
  and has_function_privilege('authenticated',
   'public.record_business_customer_payment(uuid,uuid,uuid,numeric,date,text)','EXECUTE'),
  'RPC execution grants are not restricted to authenticated owners');
+
+select pg_temp.ok(
+ not has_table_privilege('authenticated','public.customer_payments','INSERT')
+ and not has_table_privilege('authenticated','public.customer_payments','UPDATE')
+ and not has_table_privilege('authenticated','public.money_owed','UPDATE'),
+ 'Payment rollout granted direct client table writes');
 
 rollback;
