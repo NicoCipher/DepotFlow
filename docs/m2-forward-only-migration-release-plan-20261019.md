@@ -74,7 +74,7 @@ The current 124-stage hosted schema was also captured using SELECT-only metadata
 - `docs/release-evidence/production-app-client-column-dml-acl-20261115.json`
 - `docs/release-evidence/production-function-parity-20261115.json`
 
-The updated disposable PG17 workflow now reconstructs the 124-stage history (56 historical/Auth + 65 installed M2 sources + 3 later production-applied SQL sources), compares the reconstructed schema and application-client DML/effective DELETE permissions to those current hosted snapshots, and only then applies the four staged operations migrations. It asserts all 31 tenant foreign keys are validated, the public-signup/customer-payment/sales gates remain OFF, and the rollback-only payment, invitation, sales and relationship tests pass. This new current-history rehearsal has been added to the workflow but is **not yet verified green**; it must pass before any production release is considered.
+The updated disposable PG17 workflow now reconstructs the 124-stage history (56 historical/Auth + 65 installed M2 sources + 3 later production-applied SQL sources), compares the reconstructed schema and application-client DML/effective DELETE permissions to those current hosted snapshots, and only then applies the four staged operations migrations. It asserts all 31 tenant foreign keys are validated, the public-signup/customer-payment/sales gates remain OFF, and the rollback-only payment, invitation, sales and relationship tests pass. This current-history rehearsal passed on 15 November 2026 in GitHub Actions run `43732681426`: the 124-stage reconstruction matched the hosted schema and application ACL snapshots, all four staged operations migrations applied in disposable PostgreSQL 17, all 31 tenant foreign keys validated, all three gates stayed OFF, and the rollback-only maintenance, payment, invitation, sales and relationship tests passed. This is a disposable rehearsal only, not production deployment approval.
 
 
 
@@ -90,3 +90,6 @@ The current-schema comparison checks function owner, SECURITY DEFINER, direct AC
 
 
 The disposable RLS event-trigger stub uses a single-quoted PL/pgSQL body (`BEGIN END;`) so the test bootstrap does not depend on dollar-quote parsing. Its `SECURITY DEFINER` and fixed `pg_catalog` search path match the hosted metadata.
+
+
+The consolidated app verification passed in run `43732681287` (lint, domain tests, safety regressions, type-check and build). The two-owner browser acceptance passed in run `43732681340`: separate depot sessions remained isolated; a test sale recorded ₦8,000 total, ₦3,000 received and ₦5,000 owing; the receipt opened, and cross-owner direct access returned 404.
