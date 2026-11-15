@@ -243,7 +243,13 @@ try {
   await page.getByLabel("Amount received (₦)").fill("3000");
   await page.getByLabel("Payment method").selectOption("cash");
   await page.getByRole("button", { name: "Record sale" }).click();
-  await page.getByText("Sale recorded", { exact: true }).waitFor({ timeout: 15000 });
+  await page.waitForFunction(() =>
+    document.body.innerText.includes("Sale recorded") ||
+    Boolean(document.querySelector('[role="alert"]')),
+    { timeout: 15000 },
+  );
+  const checkoutError = await page.getByRole("alert").textContent().catch(() => null);
+  assert.equal(checkoutError, null, "Checkout rejected by the server: " + (checkoutError ?? ""));
   await page.getByRole("link", { name: /View and share receipt/ }).click();
   await page.getByText("Saved depot receipt", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Share receipt" }).waitFor();
