@@ -178,6 +178,7 @@ try {
       values ('${customerId}','E2E Customer','08000000009','${businessA}',false);
     insert into public.stock(product_id,total_bottles,business_id)
       values ('${productId}',40,'${businessA}');
+    update private.businesses set status='active' where id='${businessA}';
     alter table public.crate_types enable trigger legacy_scope_business_write;
     alter table public.products enable trigger legacy_scope_business_write;
     alter table public.customers enable trigger legacy_scope_business_write;
