@@ -474,10 +474,13 @@ end $function$;
 do $business_sale_guard$
 declare
   v_source text;
-  v_anchor constant text := $anchor$  if tg_table_schema='public' and (
+  v_anchor constant text := $anchor$  if tg_table_schema='public'
+     and (
        (tg_table_name='money_owed' and tg_op='UPDATE')
        or (tg_table_name='customer_payments' and tg_op='INSERT')
-     ) then$anchor$;
+     )
+     and new.business_id is not null
+     and new.business_id is distinct from v_business then$anchor$;
   v_replacement constant text := $replacement$  if tg_table_schema='public'
      and new.business_id is not null
      and new.business_id is distinct from v_business then
@@ -687,10 +690,13 @@ declare
       return new;
     end if;
   end if;
-  if tg_table_schema='public' and (
+  if tg_table_schema='public'
+     and (
        (tg_table_name='money_owed' and tg_op='UPDATE')
        or (tg_table_name='customer_payments' and tg_op='INSERT')
-     ) then$replacement$;
+     )
+     and new.business_id is not null
+     and new.business_id is distinct from v_business then$replacement$;
 begin
   select pg_catalog.pg_get_functiondef('private.scope_legacy_operational_write()'::regprocedure)
     into v_source;
