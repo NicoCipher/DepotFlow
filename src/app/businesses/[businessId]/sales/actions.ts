@@ -157,6 +157,9 @@ export async function saveBusinessSale(input: Input) {
     p_returned_bottles: actual.bottles,
   });
   if (error) {
+    if (process.env.DEPOTFLOW_BUSINESS_E2E_LOCAL_ONLY === "I_VERIFY_DISPOSABLE_LOOPBACK_ONLY") {
+      console.error("[business-sale-e2e] RPC rejected", { code: error.code, message: error.message });
+    }
     const message = /business sales are not available|business operations are not available/i.test(error.message)
       ? "Sales for this depot have not been enabled yet."
       : /price or product details changed/i.test(error.message)
