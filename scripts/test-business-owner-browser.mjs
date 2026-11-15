@@ -250,7 +250,9 @@ try {
   );
   const checkoutError = await page.getByRole("alert").textContent().catch(() => null);
   assert.equal(checkoutError, null, "Checkout rejected by the server: " + (checkoutError ?? ""));
-  await page.getByRole("link", { name: /View and share receipt/ }).click();
+  const receiptLink = page.locator('a[href^="/businesses/"][href$="/receipt"]');
+  await receiptLink.waitFor({ state: "visible", timeout: 10000 });
+  await receiptLink.click();
   await page.getByText("Saved depot receipt", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Share receipt" }).waitFor();
   const saleMatch = page.url().match(/\/businesses\/[0-9a-f-]+\/sales\/([0-9a-f-]+)\/receipt$/);
