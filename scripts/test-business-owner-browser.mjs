@@ -309,11 +309,13 @@ try {
   await page.getByRole("button", { name: "Record sale" }).click();
   await page.waitForFunction(() =>
     document.body.innerText.includes("Sale recorded") ||
-    Boolean(document.querySelector('[role="alert"]')),
+    [...document.querySelectorAll('[role="alert"]')].some(node => (node.textContent ?? "").trim().length > 0),
     { timeout: 15000 },
   );
-  const checkoutError = await page.getByRole("alert").textContent().catch(() => null);
-  assert.equal(checkoutError, null, "Checkout rejected by the server: " + (checkoutError ?? ""));
+  const checkoutError = await page.locator('[role="alert"]').evaluateAll(nodes =>
+    nodes.map(node => (node.textContent ?? "").trim()).filter(Boolean).join("\\n"),
+  );
+  assert.equal(checkoutError, "", "Checkout rejected by the server: " + checkoutError);
   console.log("Checkout confirmation body:", await page.locator("body").innerText());
   console.log("Checkout status:", await page.locator('[role="status"]').allTextContents());
   console.log("Receipt links:", await page.locator('a[href*="/sales/"][href$="/receipt"]').evaluateAll(nodes => nodes.map(node => ({ href: node.getAttribute("href"), text: node.textContent }))));
