@@ -81,7 +81,7 @@ begin
  begin
   insert into auth.users(id,email,invited_at)
   values('96000000-0000-4000-8000-000000000099',
-         'uninvited@example.test',null);
+         'pilot-owner@example.test',null);
   raise exception 'Non-invited Auth user was inserted';
  exception when insufficient_privilege then null;
  end;
@@ -148,6 +148,20 @@ begin
  end if;
 end;
 $provision$;
+
+-- Once an Auth user exists, a new invitation request for that email is refused.
+do $existing_auth_user$
+begin
+ begin
+  perform private.prepare_business_invitation(
+   '96000000-0000-4000-8000-000000000004',
+   'pilot-owner@example.test',
+   'Another Depot','99 Other Road, Lagos','08000000004');
+  raise exception 'An existing Auth account was re-invited';
+ exception when unique_violation then null;
+ end;
+end;
+$existing_auth_user$;
 
 -- Expired invitations no longer pass the Auth hook or INSERT guard.
 select private.prepare_business_invitation(
