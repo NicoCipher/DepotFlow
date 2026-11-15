@@ -115,7 +115,7 @@ begin
    '89e00000-0000-4000-9000-000000000051',
    (pg_catalog.now() at time zone 'Africa/Lagos')::date,
    3000,'cash',
-   '[{"productId":"89e00000-0000-4000-9000-000000000041","quantity":{"crates":1,"fraction":0,"bottles":0},"expected":{"full":8000,"half":4000,"quarter":2000,"bottle":500,"size":"50cl","crate":"89e00000-0000-4000-9000-000000000031","returnable":true,"bottleType":"A return bottle","stock":40},"returnedCrates":0,"returnedBottles":0}]'::jsonb,
+   '[{"productId":"89e00000-0000-4000-9000-000000000041","quantity":{"crates":1,"fraction":0,"bottles":0},"expected":{"full":8000,"half":4000,"quarter":2000,"bottle":500,"size":20,"crate":"89e00000-0000-4000-9000-000000000031","returnable":true,"bottleType":"A return bottle","stock":40},"returnedCrates":0,"returnedBottles":0}]'::jsonb,
    '[]'::jsonb,'[]'::jsonb);
   raise exception 'Business sale succeeded while its gate was OFF' using errcode='PT001';
  exception when insufficient_privilege then null;
@@ -141,7 +141,7 @@ begin
    '89e00000-0000-4000-9000-000000000061',
    '89e00000-0000-4000-9000-000000000051',
    business_date,3000,'cash',
-   '[{"productId":"89e00000-0000-4000-9000-000000000041","quantity":{"crates":1,"fraction":0,"bottles":0},"expected":{"full":8000,"half":4000,"quarter":2000,"bottle":500,"size":"50cl","crate":"89e00000-0000-4000-9000-000000000031","returnable":true,"bottleType":"A return bottle","stock":40},"returnedCrates":0,"returnedBottles":0}]'::jsonb,
+   '[{"productId":"89e00000-0000-4000-9000-000000000041","quantity":{"crates":1,"fraction":0,"bottles":0},"expected":{"full":8000,"half":4000,"quarter":2000,"bottle":500,"size":20,"crate":"89e00000-0000-4000-9000-000000000031","returnable":true,"bottleType":"A return bottle","stock":40},"returnedCrates":0,"returnedBottles":0}]'::jsonb,
    '[]'::jsonb,'[]'::jsonb);
  sale_id:=(v->>'id')::uuid;
  if v->>'businessId'<>'89e00000-0000-4000-9000-000000000021'
@@ -153,7 +153,7 @@ begin
    '89e00000-0000-4000-9000-000000000061',
    '89e00000-0000-4000-9000-000000000051',
    business_date,3000,'cash',
-   '[{"productId":"89e00000-0000-4000-9000-000000000041","quantity":{"crates":1,"fraction":0,"bottles":0},"expected":{"full":8000,"half":4000,"quarter":2000,"bottle":500,"size":"50cl","crate":"89e00000-0000-4000-9000-000000000031","returnable":true,"bottleType":"A return bottle","stock":40},"returnedCrates":0,"returnedBottles":0}]'::jsonb,
+   '[{"productId":"89e00000-0000-4000-9000-000000000041","quantity":{"crates":1,"fraction":0,"bottles":0},"expected":{"full":8000,"half":4000,"quarter":2000,"bottle":500,"size":20,"crate":"89e00000-0000-4000-9000-000000000031","returnable":true,"bottleType":"A return bottle","stock":40},"returnedCrates":0,"returnedBottles":0}]'::jsonb,
    '[]'::jsonb,'[]'::jsonb);
  if (replayed->>'id')::uuid<>sale_id then
   raise exception 'Exact retry created a second sale: %',replayed;
@@ -179,7 +179,7 @@ begin
    '89e00000-0000-4000-9000-000000000061',
    '89e00000-0000-4000-9000-000000000051',
    business_date,4000,'cash',
-   '[{"productId":"89e00000-0000-4000-9000-000000000041","quantity":{"crates":1,"fraction":0,"bottles":0},"expected":{"full":8000,"half":4000,"quarter":2000,"bottle":500,"size":"50cl","crate":"89e00000-0000-4000-9000-000000000031","returnable":true,"bottleType":"A return bottle","stock":40},"returnedCrates":0,"returnedBottles":0}]'::jsonb,
+   '[{"productId":"89e00000-0000-4000-9000-000000000041","quantity":{"crates":1,"fraction":0,"bottles":0},"expected":{"full":8000,"half":4000,"quarter":2000,"bottle":500,"size":20,"crate":"89e00000-0000-4000-9000-000000000031","returnable":true,"bottleType":"A return bottle","stock":40},"returnedCrates":0,"returnedBottles":0}]'::jsonb,
    '[]'::jsonb,'[]'::jsonb);
   raise exception 'Changed-payload retry overwrote the sale' using errcode='PT001';
  exception when invalid_parameter_value then null;
@@ -190,7 +190,7 @@ begin
    '89e00000-0000-4000-9000-000000000062',
    '89e00000-0000-4000-9000-000000000051',
    business_date,16000,'cash',
-   '[{"productId":"89e00000-0000-4000-9000-000000000041","quantity":{"crates":2,"fraction":0,"bottles":0},"expected":{"full":8000,"half":4000,"quarter":2000,"bottle":500,"size":"50cl","crate":"89e00000-0000-4000-9000-000000000031","returnable":true,"bottleType":"A return bottle","stock":20},"returnedCrates":0,"returnedBottles":0}]'::jsonb,
+   '[{"productId":"89e00000-0000-4000-9000-000000000041","quantity":{"crates":2,"fraction":0,"bottles":0},"expected":{"full":8000,"half":4000,"quarter":2000,"bottle":500,"size":20,"crate":"89e00000-0000-4000-9000-000000000031","returnable":true,"bottleType":"A return bottle","stock":20},"returnedCrates":0,"returnedBottles":0}]'::jsonb,
    '[]'::jsonb,'[]'::jsonb);
   raise exception 'Sale oversold inventory' using errcode='PT001';
  exception when invalid_parameter_value then null;
@@ -214,7 +214,7 @@ begin
    '89e00000-0000-4000-9000-000000000071',
    '89e00000-0000-4000-9000-000000000051',
    business_date,3000,'cash',
-   '[{"productId":"89e00000-0000-4000-9000-000000000041","quantity":{"crates":1,"fraction":0,"bottles":0},"expected":{"full":8000,"half":4000,"quarter":2000,"bottle":500,"size":"50cl","crate":"89e00000-0000-4000-9000-000000000031","returnable":true,"bottleType":"A return bottle","stock":20},"returnedCrates":0,"returnedBottles":0}]'::jsonb,
+   '[{"productId":"89e00000-0000-4000-9000-000000000041","quantity":{"crates":1,"fraction":0,"bottles":0},"expected":{"full":8000,"half":4000,"quarter":2000,"bottle":500,"size":20,"crate":"89e00000-0000-4000-9000-000000000031","returnable":true,"bottleType":"A return bottle","stock":20},"returnedCrates":0,"returnedBottles":0}]'::jsonb,
    '[]'::jsonb,'[]'::jsonb);
   raise exception 'B owner wrote A business sale' using errcode='PT001';
  exception when insufficient_privilege then null;
@@ -226,7 +226,7 @@ begin
    '89e00000-0000-4000-9000-000000000061',
    '89e00000-0000-4000-9000-000000000052',
    business_date,9000,'transfer',
-   '[{"productId":"89e00000-0000-4000-9000-000000000042","quantity":{"crates":1,"fraction":0,"bottles":0},"expected":{"full":9000,"half":4500,"quarter":2250,"bottle":550,"size":"50cl","crate":"89e00000-0000-4000-9000-000000000032","returnable":true,"bottleType":"B return bottle","stock":40},"returnedCrates":0,"returnedBottles":0}]'::jsonb,
+   '[{"productId":"89e00000-0000-4000-9000-000000000042","quantity":{"crates":1,"fraction":0,"bottles":0},"expected":{"full":9000,"half":4500,"quarter":2250,"bottle":550,"size":20,"crate":"89e00000-0000-4000-9000-000000000032","returnable":true,"bottleType":"B return bottle","stock":40},"returnedCrates":0,"returnedBottles":0}]'::jsonb,
    '[]'::jsonb,'[]'::jsonb);
  if v->>'businessId'<>'89e00000-0000-4000-9000-000000000022' or v->>'total'<>'9000' then
   raise exception 'B sale failed or crossed tenant: %',v;
@@ -254,7 +254,7 @@ begin
    '89e00000-0000-4000-9000-000000000081',
    '89e00000-0000-4000-9000-000000000053',
    business_date,8000,'cash',
-   '[{"productId":"89e00000-0000-4000-9000-000000000041","quantity":{"crates":1,"fraction":0,"bottles":0},"expected":{"full":8000,"half":4000,"quarter":2000,"bottle":500,"size":"50cl","crate":"89e00000-0000-4000-9000-000000000031","returnable":true,"bottleType":"A return bottle","stock":20},"returnedCrates":1,"returnedBottles":20}]'::jsonb,
+   '[{"productId":"89e00000-0000-4000-9000-000000000041","quantity":{"crates":1,"fraction":0,"bottles":0},"expected":{"full":8000,"half":4000,"quarter":2000,"bottle":500,"size":20,"crate":"89e00000-0000-4000-9000-000000000031","returnable":true,"bottleType":"A return bottle","stock":20},"returnedCrates":1,"returnedBottles":20}]'::jsonb,
    '[{"crateTypeId":"89e00000-0000-4000-9000-000000000031","quantity":1}]'::jsonb,
    '[{"bottleType":"A return bottle","quantity":20}]'::jsonb
  );
