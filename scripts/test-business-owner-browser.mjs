@@ -192,7 +192,7 @@ try {
   await page.getByText("Sale recorded", { exact: true }).waitFor({ timeout: 15000 });
   await page.getByRole("link", { name: /View and share receipt/ }).click();
   await page.getByText("Saved depot receipt", { exact: true }).waitFor();
-  await page.getByText("E2E Customer", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Share receipt" }).waitFor();
   const saleMatch = page.url().match(/\/businesses\/[0-9a-f-]+\/sales\/([0-9a-f-]+)\/receipt$/);
   assert.ok(saleMatch, "Successful checkout did not open its tenant receipt");
   const saleId = saleMatch[1];
@@ -209,6 +209,10 @@ try {
     "Unreturned empty bottles were not left owed by the customer");
   assert.equal(sql(`select count(*) from public.sales where id='${saleId}' and business_id='${businessA}'`), "1",
     "Sale was not persisted under the correct business");
+  assert.equal(sql(`select receipt_customer_name from public.sales where id='${saleId}'`), "E2E Customer",
+    "Receipt did not capture the customer name");
+  assert.equal(sql(`select receipt_business->>'name' from public.sales where id='${saleId}'`), owners[0].name,
+    "Receipt did not capture the correct depot profile");
 
   const deniedReceipt = await ownerBPage.goto(APP + `/businesses/${businessA}/sales/${saleId}/receipt`);
   assert.equal(deniedReceipt?.status(), 404, "Owner B direct access to Owner A's receipt must return 404");
