@@ -1,0 +1,55 @@
+{
+  "purpose": "READ-ONLY CURRENT PRODUCTION PUBLIC/PRIVATE SCHEMA FINGERPRINT; NOT RELEASE APPROVAL",
+  "captured_at_utc": "2026-11-15T15:28:08.463Z",
+  "project_id": "coyivbklakhilpcqqrzg",
+  "migration_count": 124,
+  "migration_tip": "20261104172847",
+  "query": "supabase/tests/live_schema_fingerprint.sql",
+  "objects": [
+    {
+      "kind": "column_grants",
+      "object_count": 506,
+      "definition_hash": "554e9d2440e5441c7d2c2b63e3aac80a"
+    },
+    {
+      "kind": "columns",
+      "object_count": 410,
+      "definition_hash": "04c4fefad22a3ebe0bf3e15e9d6ff3c7"
+    },
+    {
+      "kind": "constraints",
+      "object_count": 385,
+      "definition_hash": "b6a795baa496f0b912e7c3490ed86d04"
+    },
+    {
+      "kind": "functions",
+      "object_count": 100,
+      "definition_hash": "6fb19f39f7c966f169d681acb7ea3596"
+    },
+    {
+      "kind": "indexes",
+      "object_count": 134,
+      "definition_hash": "c21dde637f8a3e9de0d045cbe407d09c"
+    },
+    {
+      "kind": "policies",
+      "object_count": 36,
+      "definition_hash": "3af54461e3cb568c5c001359f539d68c"
+    },
+    {
+      "kind": "relations",
+      "object_count": 67,
+      "definition_hash": "0a7aa7993beeb5c79cbc0abf27e8ddef"
+    },
+    {
+      "kind": "triggers",
+      "object_count": 48,
+      "definition_hash": "dee4e73091fead250f700aa8467cbf72"
+    }
+  ],
+  "notes": [
+    "Read-only metadata capture from the live Supabase project; no business/customer rows or secrets are included.",
+    "Captured against the 124-entry production migration ledger ending at 20261104172847.",
+    "Raw Supabase-managed REFERENCES grants are not used as application DML parity evidence; the separate app-client ACL snapshot compares SELECT/INSERT/UPDATE/DELETE and effective DELETE exactly."
+  ]
+}

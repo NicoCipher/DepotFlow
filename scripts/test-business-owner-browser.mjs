@@ -5,7 +5,7 @@
  * Never accepts hosted URLs or credentials.
  */
 import assert from "node:assert/strict";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { execFileSync, spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { createClient } from "@supabase/supabase-js";
@@ -89,6 +89,105 @@ try {
   sql("update private.business_auth_signup_gate set enabled=true where singleton");
   sql("update private.business_registration_gate set enabled=true where singleton");
   sql("update private.business_selection_gate set enabled=true where singleton");
+  // Bootstrap the audited legacy write-scope anchor required by the tenant
+  // sale RPC. This is the same reviewed backfill/FK-validation sequence used
+  // by the rollback-only PostgreSQL sales test, confined to this disposable DB.
+  const legacyEmail = `legacy-${suffix}@example.org`;
+  const legacyUser = await admin.auth.admin.createUser({
+    email: legacyEmail, password, email_confirm: true,
+  });
+  if (legacyUser.error) throw legacyUser.error;
+  const legacyCustomerId = randomUUID();
+  sql(`insert into private.shop_owner(user_id) values ('${legacyUser.data.user.id}');
+    select private.link_legacy_shop_business();
+    insert into public.customers(id,name,phone)
+      values ('${legacyCustomerId}','Legacy E2E fixture','08000000003');
+    select private.backfill_legacy_shop_rows(private.legacy_scope_snapshot());
+    do $validate$
+    declare r record; n int:=0;
+    begin
+      for r in
+        select ns.nspname s,c.relname t,k.conname
+        from pg_constraint k
+        join pg_class c on c.oid=k.conrelid
+        join pg_namespace ns on ns.oid=c.relnamespace
+        join private.legacy_scope_tables() tab
+          on tab.schema_name=ns.nspname and tab.table_name=c.relname
+        where k.contype='f' and left(k.conname,7)='tenant_'
+      loop
+        execute format('alter table %I.%I validate constraint %I',r.s,r.t,r.conname);
+        n:=n+1;
+      end loop;
+      if n<>31 then raise exception 'Expected 31 validated tenant FKs, found %',n; end if;
+    end;
+    $validate$;
+    select private.enable_legacy_write_scope(private.legacy_scope_snapshot());`);
+  // The two operational gates are opened only inside this disposable loopback database.
+  sql("update private.business_sales_gate set enabled=true where singleton");
+
+  // Exercise the real local GoTrue invite path with public signup OFF. The
+  // auth.users trigger must accept only GoTrue's invited_at marker paired with
+  // the exact operator-prepared email; ordinary admin createUser must fail.
+  sql("update private.business_auth_signup_gate set enabled=false where singleton");
+  const invitationRequestId = randomUUID();
+  const invitationEmail = `invited-${suffix}@example.org`;
+  const invitationBusinessName = "Invited E2E Depot";
+  sql(`select private.prepare_business_invitation(
+    '${invitationRequestId}','${invitationEmail}','${invitationBusinessName}',
+    'Local invitation test address','08000000004'
+  )`);
+  const hookDecision = JSON.parse(sql(`select private.depotflow_before_user_created(
+    jsonb_build_object('user',jsonb_build_object('email','${invitationEmail}'))
+  )`));
+  assert.deepEqual(hookDecision, {}, "The configured before-user-created hook rejected the prepared email");
+  let invited;
+  try {
+    invited = await admin.auth.admin.inviteUserByEmail(invitationEmail);
+    if (invited.error) throw invited.error;
+  } catch (error) {
+    const containers = execFileSync("docker", ["ps", "--format", "{{.Names}}"], { encoding: "utf8" }).trim().split("\n");
+    console.error("Local Auth/Postgres diagnostic logs:");
+    for (const name of containers.filter(x => x.includes("auth") || x.includes("db"))) {
+      try {
+        console.error("CONTAINER", name);
+        console.error(execFileSync("docker", ["logs", name, "--tail", "45"], { encoding: "utf8", timeout: 10000 }));
+      } catch (logError) {
+        console.error("Could not read container log", name, String(logError));
+      }
+    }
+    throw error;
+  }
+  assert.ok(invited.data.user?.id, "GoTrue did not return an invited Auth user");
+  const invitedLookup = await admin.auth.admin.getUserById(invited.data.user.id);
+  if (invitedLookup.error) throw invitedLookup.error;
+  assert.ok(invitedLookup.data.user?.invited_at,
+    "GoTrue invitation did not set invited_at; the Auth insert guard must remain closed");
+  assert.equal(
+    sql(`select status || '|' || invited_user_id::text
+      from private.business_invitation_requests where request_id='${invitationRequestId}'`),
+    `user_created|${invited.data.user.id}`,
+    "The Auth insert guard did not consume the exact prepared invitation",
+  );
+  const provisionedInvite = JSON.parse(sql(
+    `select private.provision_invited_business('${invitationRequestId}')`,
+  ));
+  assert.equal(provisionedInvite.status, "setup");
+  assert.equal(provisionedInvite.canOperate, false);
+  assert.equal(sql(`select count(*) from private.business_memberships
+    where business_id='${provisionedInvite.businessId}'
+      and user_id='${invited.data.user.id}' and member_kind='owner' and status='active'`), "1");
+  assert.equal(sql(`select count(*) from public.business_profiles
+    where business_id='${provisionedInvite.businessId}'`), "1");
+
+  const unpreparedEmail = `unprepared-${suffix}@example.org`;
+  const rejectedSignup = await admin.auth.admin.createUser({
+    email: unpreparedEmail, password, email_confirm: true,
+  });
+  assert.ok(rejectedSignup.error,
+    "Ordinary Auth user creation was accepted while public signup was OFF");
+  assert.equal(sql(`select count(*) from auth.users where email='${unpreparedEmail}'`), "0",
+    "Rejected ordinary signup left an Auth user behind");
+  sql("update private.business_auth_signup_gate set enabled=true where singleton");
 
   for (const owner of owners) {
     const { data, error } = await admin.auth.admin.createUser({
@@ -101,7 +200,8 @@ try {
   app = spawn("npm", ["run", "dev", "--", "--hostname", "127.0.0.1"], {
     env: { ...process.env, NEXT_PUBLIC_SUPABASE_URL: API,
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: env("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"),
-      DEPOTFLOW_PUBLIC_SIGNUP_ENABLED: "false" },
+      DEPOTFLOW_PUBLIC_SIGNUP_ENABLED: "false",
+      NEXT_PUBLIC_BUSINESS_SALES_ENABLED: "true" },
     stdio: "inherit",
   });
   await waitForApp(app);
@@ -116,6 +216,51 @@ try {
   await page.getByText(owners[0].name, { exact: true }).waitFor();
   assert.equal(await page.getByText(owners[1].name, { exact: true }).count(), 0,
     "Owner A can see Owner B's depot before it exists");
+
+  // Seed one tenant-A product/customer through admin SQL for a deterministic
+  // checkout fixture. The bypassed write triggers are restored in the same
+  // transaction; this script is guarded to a disposable loopback database.
+  const crateId = randomUUID();
+  const swapCrateId = randomUUID();
+  const productId = randomUUID();
+  const customerId = randomUUID();
+  sql(`begin;
+    alter table public.crate_types disable trigger legacy_scope_business_write;
+    alter table public.crate_swap_rules disable trigger legacy_scope_business_write;
+    alter table public.products disable trigger legacy_scope_business_write;
+    alter table public.customers disable trigger legacy_scope_business_write;
+    alter table public.stock disable trigger legacy_scope_business_write;
+    insert into public.crate_types(id,business_id,name,empty_family,pocket_count)
+      values ('${crateId}','${businessA}','E2E return crate','NBL',20),
+             ('${swapCrateId}','${businessA}','E2E swap crate','NBL',20);
+    insert into public.crate_swap_rules(business_id,owed_crate_type_id,returned_crate_type_id)
+      values ('${businessA}','${crateId}','${swapCrateId}');
+    insert into public.products(
+      id,business_id,name,size,bottles_per_crate,full_crate_price,half_crate_price,
+      quarter_crate_price,bottle_price,bottles_returnable,empty_family,crate_type,
+      bottle_type,crate_type_id,is_active
+    ) values (
+      '${productId}','${businessA}','E2E Lager','50cl',20,8000,4000,2000,500,
+      true,'NBL','E2E return crate','E2E return bottle','${crateId}',true
+    );
+    insert into public.customers(id,name,phone,business_id,empties_deposit_required)
+      values ('${customerId}','E2E Customer','08000000009','${businessA}',false);
+    insert into public.stock(product_id,total_bottles,business_id)
+      values ('${productId}',40,'${businessA}');
+    update private.businesses set status='active' where id='${businessA}';
+    do $active_business$
+    begin
+      if (select status from private.businesses where id='${businessA}') is distinct from 'active' then
+        raise exception 'The disposable checkout fixture business must be active';
+      end if;
+    end;
+    $active_business$;
+    alter table public.crate_types enable trigger legacy_scope_business_write;
+    alter table public.crate_swap_rules enable trigger legacy_scope_business_write;
+    alter table public.products enable trigger legacy_scope_business_write;
+    alter table public.customers enable trigger legacy_scope_business_write;
+    alter table public.stock enable trigger legacy_scope_business_write;
+    commit;`);
 
   // A fresh browser context prevents cookies/session state from leaking between owners.
   const ownerBContext = await browser.newContext();
@@ -141,6 +286,69 @@ try {
   assert.equal(deniedB?.status(), 404, "Owner A direct access to Owner B depot must return 404");
   assert.equal(await page.getByText(owners[1].name, { exact: true }).count(), 0,
     "Owner A can read Owner B's depot name through a direct URL");
+
+  // Exercise the new tenant-specific checkout end to end as Owner A.
+  await page.goto(APP + `/businesses/${businessA}/sales`);
+  await page.getByRole("heading", { name: "Record a sale" }).waitFor();
+  await page.getByLabel("Customer").selectOption(customerId);
+  await page.getByLabel("Drink").selectOption(productId);
+  await page.getByLabel("Full crates").fill("1");
+  await page.getByRole("button", { name: "Add drink to sale" }).click();
+  await page.getByRole("button", { name: "Review returned empties" }).click();
+  await page.getByRole("button", { name: /Something is different/ }).click();
+  await page.getByRole("textbox", { name: "E2E return crate empty crates" }).fill("0");
+  await page.getByRole("textbox", { name: "Empty bottles · E2E return bottle" }).fill("10");
+  await page.locator("details").filter({ hasText: "Different type brought back? Add it here" }).locator("summary").click();
+  await page.getByLabel("Different empty crate type").selectOption(swapCrateId);
+  await page.getByRole("textbox", { name: "E2E swap crate empty crates" }).fill("1");
+  await page.getByRole("button", { name: /Accepted as replacement/ }).click();
+  await page.getByRole("button", { name: "Record what happened" }).click();
+  await page.getByRole("button", { name: "Next: Enter payment" }).click();
+  await page.getByLabel("Amount received (₦)").fill("3000");
+  await page.getByLabel("Payment method").selectOption("cash");
+  await page.getByRole("button", { name: "Record sale" }).click();
+  await page.waitForFunction(() =>
+    document.body.innerText.includes("Sale recorded") ||
+    [...document.querySelectorAll('[role="alert"]')].some(node => (node.textContent ?? "").trim().length > 0),
+    { timeout: 15000 },
+  );
+  const checkoutError = await page.locator('[role="alert"]').evaluateAll(nodes =>
+    nodes.map(node => (node.textContent ?? "").trim()).filter(Boolean).join("\\n"),
+  );
+  assert.equal(checkoutError, "", "Checkout rejected by the server: " + checkoutError);
+  console.log("Checkout confirmation body:", await page.locator("body").innerText());
+  console.log("Checkout status:", await page.locator('[role="status"]').allTextContents());
+  console.log("Receipt links:", await page.locator('a[href*="/sales/"][href$="/receipt"]').evaluateAll(nodes => nodes.map(node => ({ href: node.getAttribute("href"), text: node.textContent }))));
+  const receiptLink = page.locator('a[href^="/businesses/"][href$="/receipt"]');
+  await receiptLink.waitFor({ state: "visible", timeout: 10000 });
+  await receiptLink.click();
+  await page.getByText("Saved depot receipt", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Share receipt" }).waitFor();
+  const saleMatch = page.url().match(/\/businesses\/[0-9a-f-]+\/sales\/([0-9a-f-]+)\/receipt$/);
+  assert.ok(saleMatch, "Successful checkout did not open its tenant receipt");
+  const saleId = saleMatch[1];
+
+  assert.equal(sql(`select total_bottles from public.stock where product_id='${productId}'`), "20",
+    "Checkout did not reduce only the sold product stock");
+  assert.equal(sql(`select quantity from public.empty_crate_stock where crate_type_id='${swapCrateId}'`), "1",
+    "Accepted replacement crate was not added to this depot's empty-crate stock");
+  assert.equal(sql(`select coalesce((select quantity from public.empty_crate_stock where crate_type_id='${crateId}'),0)`), "0",
+    "The unreturned owed crate type was incorrectly added to empty-crate stock");
+  assert.equal(sql(`select quantity from public.empty_bottle_stock where business_id='${businessA}' and bottle_type='E2E return bottle'`), "10",
+    "Returned bottles were not added to this depot's empty-bottle stock");
+  assert.equal(sql(`select amount from public.money_owed where customer_id='${customerId}'`), "5000",
+    "Partial payment did not create the expected customer debt");
+  assert.equal(sql(`select quantity from public.bottle_obligations where customer_id='${customerId}'`), "10",
+    "Unreturned empty bottles were not left owed by the customer");
+  assert.equal(sql(`select count(*) from public.sales where id='${saleId}' and business_id='${businessA}'`), "1",
+    "Sale was not persisted under the correct business");
+  assert.equal(sql(`select receipt_customer_name from public.sales where id='${saleId}'`), "E2E Customer",
+    "Receipt did not capture the customer name");
+  assert.equal(sql(`select receipt_business->>'name' from public.sales where id='${saleId}'`), owners[0].name,
+    "Receipt did not capture the correct depot profile");
+
+  const deniedReceipt = await ownerBPage.goto(APP + `/businesses/${businessA}/sales/${saleId}/receipt`);
+  assert.equal(deniedReceipt?.status(), 404, "Owner B direct access to Owner A's receipt must return 404");
 
   console.log("PASS: two real browser sessions registered separate depots; picker and direct-URL checks did not leak tenant names.");
   await ownerBContext.close();
