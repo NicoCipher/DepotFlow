@@ -179,6 +179,13 @@ try {
     insert into public.stock(product_id,total_bottles,business_id)
       values ('${productId}',40,'${businessA}');
     update private.businesses set status='active' where id='${businessA}';
+    do $active_business$
+    begin
+      if (select status from private.businesses where id='${businessA}') is distinct from 'active' then
+        raise exception 'The disposable checkout fixture business must be active';
+      end if;
+    end;
+    $active_business$;
     alter table public.crate_types enable trigger legacy_scope_business_write;
     alter table public.products enable trigger legacy_scope_business_write;
     alter table public.customers enable trigger legacy_scope_business_write;
