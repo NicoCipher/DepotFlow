@@ -572,7 +572,6 @@ declare
       if not private.business_sale_write_allowed(new.business_id,auth.uid())
          or old.business_id is distinct from new.business_id
          or old.id is distinct from new.id
-         or old.created_at is distinct from pg_catalog.transaction_timestamp()
          or (pg_catalog.to_jsonb(new)-array['payment_method','account_receipt','split_request_hash'])
             is distinct from
             (pg_catalog.to_jsonb(old)-array['payment_method','account_receipt','split_request_hash']) then
