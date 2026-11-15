@@ -719,6 +719,7 @@ export type Database = {
       }
       sale_items: {
         Row: {
+          business_id: string | null
           bottle_type: string | null
           bottles_per_crate: number
           bottles_returnable: boolean
@@ -737,6 +738,7 @@ export type Database = {
           whole_crates: number
         }
         Insert: {
+          business_id?: string | null
           bottle_type?: string | null
           bottles_per_crate: number
           bottles_returnable: boolean
@@ -755,6 +757,7 @@ export type Database = {
           whole_crates?: number
         }
         Update: {
+          business_id?: string | null
           bottle_type?: string | null
           bottles_per_crate?: number
           bottles_returnable?: boolean
@@ -847,6 +850,7 @@ export type Database = {
       }
       sales: {
         Row: {
+          business_id: string | null
           business_date: string | null
           created_at: string
           customer_id: string
@@ -866,6 +870,7 @@ export type Database = {
           receipt_status: string
         }
         Insert: {
+          business_id?: string | null
           business_date?: string | null
           created_at?: string
           customer_id: string
@@ -885,6 +890,7 @@ export type Database = {
           receipt_status?: string
         }
         Update: {
+          business_id?: string | null
           business_date?: string | null
           created_at?: string
           customer_id?: string
