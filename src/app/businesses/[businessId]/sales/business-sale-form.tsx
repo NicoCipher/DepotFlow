@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { formatNaira } from "@/domain/products";
 import { saveBusinessSale } from "./actions";
@@ -111,7 +112,8 @@ export function BusinessSaleForm({businessId,businessDate,products,customers,ini
     </section>
     {message&&<p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{message}</p>}
     {saved&&<div role="status" className="rounded-xl bg-emerald-50 p-4 text-sm">
-      <p className="font-bold">Sale recorded</p><p className="mt-1">Total: {formatNaira(saved.total)} · Received: {formatNaira(saved.paid)} · Owing: {formatNaira(saved.owing)}</p><p className="mt-1 text-xs">Sale reference: {saved.id}</p>
+      <p className="font-bold">Sale recorded</p><p className="mt-1">Total: {formatNaira(saved.total)} · Received: {formatNaira(saved.paid)} · Owing: {formatNaira(saved.owing)}</p>
+      <Link className="primary mt-3 inline-flex min-h-11 items-center justify-center" href={`/businesses/${businessId}/sales/${saved.id}/receipt`}>View and share receipt →</Link>
     </div>}
     <button type="button" disabled={busy||!lines.length} className="primary min-h-12 w-full disabled:opacity-50" onClick={submit}>{busy?"Recording sale…":"Record sale"}</button>
   </div>;
