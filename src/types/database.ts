@@ -465,6 +465,7 @@ export type Database = {
       }
       products: {
         Row: {
+          business_id: string | null
           bottle_price: number | null
           bottle_type: string | null
           catalogue_product_id: string | null
@@ -484,6 +485,7 @@ export type Database = {
           size: string | null
         }
         Insert: {
+          business_id?: string | null
           bottle_price?: number | null
           bottle_type?: string | null
           catalogue_product_id?: string | null
@@ -503,6 +505,7 @@ export type Database = {
           size?: string | null
         }
         Update: {
+          business_id?: string | null
           bottle_price?: number | null
           bottle_type?: string | null
           catalogue_product_id?: string | null
