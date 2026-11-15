@@ -482,9 +482,10 @@ declare
      and new.business_id is not null
      and new.business_id is distinct from v_business then$anchor$;
   v_replacement constant text := $replacement$  if tg_table_schema='public' and tg_table_name='stock_movements' and tg_op='INSERT' then
-    if new.movement_type='sale' then
-      if new.business_id is null or new.business_id is not distinct from v_business
-         or not private.business_sale_write_allowed(new.business_id,v_actor)
+    if new.movement_type='sale'
+       and new.business_id is not null
+       and new.business_id is distinct from v_business then
+      if not private.business_sale_write_allowed(new.business_id,v_actor)
          or new.sale_id is null
          or not exists(
            select 1 from public.sales s
@@ -501,7 +502,8 @@ declare
     end if;
   end if;
   if tg_table_schema='public' and tg_table_name='money_owed' and tg_op='UPDATE' then
-    if new.amount>old.amount and exists(
+    if new.business_id is not null and new.business_id is distinct from v_business
+       and new.amount>old.amount and exists(
       select 1 from public.sales s
       where s.business_id=new.business_id and s.customer_id=new.customer_id
         and s.created_at=pg_catalog.transaction_timestamp()
