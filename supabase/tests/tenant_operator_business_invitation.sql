@@ -6,6 +6,7 @@ alter table auth.users add column if not exists email text;
 alter table auth.users add column if not exists invited_at timestamptz;
 create unique index if not exists depotflow_ci_auth_email_unique
   on auth.users(pg_catalog.lower(email)) where email is not null;
+grant usage on schema auth to supabase_auth_admin;
 grant insert on auth.users to supabase_auth_admin;
 
 -- Global public signup remains closed.
