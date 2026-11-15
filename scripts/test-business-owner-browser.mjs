@@ -226,8 +226,8 @@ try {
   await page.getByRole("button", { name: "Add drink to sale" }).click();
   await page.getByRole("button", { name: "Review returned empties" }).click();
   await page.getByRole("button", { name: /Something is different/ }).click();
-  await page.getByLabel("E2E return crate empty crates").fill("1");
-  await page.getByLabel("Empty bottles · E2E return bottle").fill("10");
+  await page.getByRole("textbox", { name: "E2E return crate empty crates" }).fill("1");
+  await page.getByRole("textbox", { name: "Empty bottles · E2E return bottle" }).fill("10");
   await page.getByRole("button", { name: "Next: Enter payment" }).click();
   await page.getByLabel("Amount received (₦)").fill("3000");
   await page.getByLabel("Payment method").selectOption("cash");
