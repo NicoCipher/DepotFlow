@@ -93,6 +93,6 @@ export default async function BusinessSalesPage({params}:{params:Promise<{busine
       <h2 className="font-bold">This depot is not ready for sales</h2><p className="mt-2 text-sm text-stone-600">Add drinks, count their starting stock and register customers before recording a sale.</p>
       <Link href={"/businesses/" + businessId + "/drinks"} className="secondary mt-3 inline-flex min-h-11 items-center">Review drinks and stock</Link>
     </div>:<BusinessSaleForm businessId={businessId} businessDate={businessDateInLagos()} catalog={catalog} initialRequestId={randomUUID()}/>}
-    <p className="text-xs leading-5 text-stone-500">First version limitations: full crates and loose bottles only; no partial crates, refundable deposit collection for shortages, mixed payment or old-debt collection in the same checkout. Crate and bottle swaps follow only the rules configured for this depot.</p>
+    <p className="text-xs leading-5 text-stone-500">First version limitations: full crates and loose bottles only; no partial crates, refundable deposit collection for shortages, mixed payment or old-debt collection in the same checkout. Crate swaps follow this depot&apos;s configured rules. Different bottle types require an explicit accept or hold decision.</p>
   </section>;
 }
