@@ -37,4 +37,4 @@ create or replace function public.rls_auto_enable() returns event_trigger
 language plpgsql
 security definer
 set search_path = pg_catalog
-as $ begin end $;
+as 'BEGIN END;';
