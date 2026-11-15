@@ -743,10 +743,7 @@ jobs:
           # Phase B is deliberately stored in a separate folder and must not
           # run until the new app has replaced the legacy create clients.
           python3 scripts/build-forward-only-m2-release.py \
-            --remote-history supabase/tests/fixtures/production_migration_history_20261019_after_auth.json
-
-      - name: Test forward-only migration rehearsal bundle and 56-version ledger gates
-        run: python3 -m unittest discover -s scripts -p 'test_forward_only_bundle.py' \
+            --remote-history supabase/tests/fixtures/production_migration_history_20261019_after_auth.json \
             --out-dir "$work/forward-only"
           mapfile -t staged < <(find "$work/forward-only/phase-a" -maxdepth 1 -name '*.sql' | sort)
           mapfile -t gated < <(find "$work/forward-only/phase-b" -maxdepth 1 -name '*.sql' | sort)
@@ -814,3 +811,6 @@ jobs:
           python3 -m unittest discover -s supabase/tests -p 'test_forward_only_m2_release.py'
           python3 scripts/build-forward-only-m2-release.py \
             --remote-history supabase/tests/fixtures/production_migration_history_20261019_after_auth.json
+
+      - name: Test forward-only migration rehearsal bundle and 56-version ledger gates
+        run: python3 -m unittest discover -s scripts -p 'test_forward_only_bundle.py'
