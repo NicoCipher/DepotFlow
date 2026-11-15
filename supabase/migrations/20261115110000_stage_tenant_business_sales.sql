@@ -36,6 +36,21 @@ $sale_allowed$;
 revoke all on function private.business_sale_write_allowed(uuid,uuid)
   from public,anon,authenticated,service_role;
 
+create function private.business_sale_context_matches(p_business_id uuid,p_request_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path=''
+as $sale_context$
+  select p_business_id is not null and p_request_id is not null
+    and coalesce(pg_catalog.current_setting('depotflow.business_sale_business_id',true)=p_business_id::text,false)
+    and coalesce(pg_catalog.current_setting('depotflow.business_sale_actor_id',true)=auth.uid()::text,false)
+    and coalesce(pg_catalog.current_setting('depotflow.business_sale_request_id',true)=p_request_id::text,false);
+$sale_context$;
+revoke all on function private.business_sale_context_matches(uuid,uuid)
+  from public,anon,authenticated,service_role;
+
 CREATE OR REPLACE FUNCTION private.check_business_sale_empty_choices(p_business_id uuid, p_lines jsonb, p_crates jsonb, p_bottles jsonb)
  RETURNS void
  LANGUAGE plpgsql
@@ -381,6 +396,9 @@ begin
   end if;
   if p_paid>v_total then raise exception using errcode='22023',message='Amount paid cannot exceed the total.'; end if;
   perform private.check_business_sale_empty_choices(p_business_id,p_lines,p_returned_crates,p_returned_bottles);
+  perform pg_catalog.set_config('depotflow.business_sale_business_id',p_business_id::text,true);
+  perform pg_catalog.set_config('depotflow.business_sale_actor_id',auth.uid()::text,true);
+  perform pg_catalog.set_config('depotflow.business_sale_request_id',p_request_id::text,true);
   insert into public.sales(business_id,customer_id,total_amount,paid_amount,business_date,request_id,request_payload,payment_method)
     values(p_business_id,p_customer_id,v_total,p_paid::integer,p_business_date,p_request_id,v_payload,p_payment_method) returning id into v_id;
   for v_line in select value from jsonb_array_elements(p_lines) loop
@@ -467,6 +485,9 @@ begin
     insert into public.money_owed(customer_id,amount,business_id) values(p_customer_id,v_total-p_paid::integer,p_business_id)
       on conflict(customer_id) do update set amount=public.money_owed.amount+excluded.amount;
   end if;
+  perform pg_catalog.set_config('depotflow.business_sale_business_id','',true);
+  perform pg_catalog.set_config('depotflow.business_sale_actor_id','',true);
+  perform pg_catalog.set_config('depotflow.business_sale_request_id','',true);
   return jsonb_build_object('id',v_id,'businessId',p_business_id,'requestId',p_request_id,'total',v_total,'paid',p_paid::integer,'owing',v_total-p_paid::integer,'customer',p_customer_id);
 end $function$;
 
@@ -489,7 +510,7 @@ declare
            join public.sale_items si on si.sale_id=s.id
            join public.stock st on st.product_id=new.product_id and st.business_id=new.business_id
            where s.id=new.sale_id and s.business_id=new.business_id
-             and s.created_at=pg_catalog.transaction_timestamp()
+             and private.business_sale_context_matches(s.business_id,s.request_id)
              and si.product_id=new.product_id and si.total_bottles=-new.quantity_change
              and st.total_bottles=new.resulting_stock
          ) then
@@ -503,10 +524,11 @@ declare
        and new.amount>old.amount and exists(
       select 1 from public.sales s
       where s.business_id=new.business_id and s.customer_id=new.customer_id
-        and s.created_at=pg_catalog.transaction_timestamp()
+        and private.business_sale_context_matches(s.business_id,s.request_id)
         and s.total_amount-s.paid_amount=new.amount-old.amount
     ) then
       if not private.business_sale_write_allowed(new.business_id,auth.uid())
+         or not private.business_sale_context_matches(new.business_id,new.request_id)
          or old.business_id is distinct from new.business_id
          or old.customer_id is distinct from new.customer_id then
         raise exception 'Business customer debt increase is not linked to this depot sale' using errcode='42501';
@@ -522,7 +544,8 @@ declare
     ) then
       if new.business_id is not null and new.business_id is distinct from v_business then
     if tg_table_name='sales' and tg_op='INSERT' then
-      if not private.business_sale_write_allowed(new.business_id,auth.uid()) then
+      if not private.business_sale_write_allowed(new.business_id,auth.uid())
+         or not private.business_sale_context_matches(new.business_id,new.request_id) then
         raise exception
           'Business sale owner/gate check failed (actor %, business %, legacy gate %, sales gate %, membership %)',
           auth.uid(),new.business_id,
@@ -561,7 +584,7 @@ declare
          or not exists(
            select 1 from public.sales s join public.products p on p.id=new.product_id
            where s.id=new.sale_id and s.business_id=new.business_id
-             and s.created_at=pg_catalog.transaction_timestamp()
+             and private.business_sale_context_matches(s.business_id,s.request_id)
              and p.business_id=new.business_id
          ) then
         raise exception 'Business sale item is not linked to this depot sale' using errcode='42501';
@@ -575,7 +598,7 @@ declare
            join public.products p on p.id=new.product_id and p.business_id=new.business_id
            where s.id=new.sale_id and s.business_id=new.business_id
              and s.customer_id=new.customer_id
-             and s.created_at=pg_catalog.transaction_timestamp()
+             and private.business_sale_context_matches(s.business_id,s.request_id)
          ) then
         raise exception 'Business empty decision is not linked to this depot sale' using errcode='42501';
       end if;
@@ -585,7 +608,7 @@ declare
         select 1 from public.sales s
         join public.sale_items si on si.sale_id=s.id
         where s.business_id=new.business_id
-          and s.created_at=pg_catalog.transaction_timestamp()
+          and private.business_sale_context_matches(s.business_id,s.request_id)
           and si.business_id=new.business_id and si.product_id=new.product_id
           and si.total_bottles=old.total_bottles-new.total_bottles
       ) then
@@ -597,28 +620,13 @@ declare
         end if;
         return new;
       end if;
-      if exists(
-        select 1 from public.sales s
-        where s.business_id=new.business_id
-          and s.created_at=pg_catalog.transaction_timestamp()
-      ) then
-        raise exception
-          'Sale stock item match failed (business %, legacy %, product %, old %, new %, sale rows %, item rows %, matching rows %)',
-          new.business_id,v_business,new.product_id,old.total_bottles,new.total_bottles,
-          (select count(*) from public.sales s where s.business_id=new.business_id and s.created_at=pg_catalog.transaction_timestamp()),
-          (select count(*) from public.sale_items si where si.business_id=new.business_id and si.product_id=new.product_id),
-          (select count(*) from public.sales s join public.sale_items si on si.sale_id=s.id
-            where s.business_id=new.business_id and s.created_at=pg_catalog.transaction_timestamp()
-              and si.business_id=new.business_id and si.product_id=new.product_id
-              and si.total_bottles=old.total_bottles-new.total_bottles);
-      end if;
     elsif tg_table_name='crate_obligations' and tg_op in ('INSERT','UPDATE') then
       if exists(
         select 1 from public.sales s
         join public.sale_items si on si.sale_id=s.id
         join public.crate_types ct on ct.id=new.crate_type_id and ct.business_id=new.business_id
         where s.business_id=new.business_id and s.customer_id=new.customer_id
-          and s.created_at=pg_catalog.transaction_timestamp()
+          and private.business_sale_context_matches(s.business_id,s.request_id)
           and si.crate_type_id=new.crate_type_id
           and (case when tg_op='INSERT' then new.quantity else new.quantity-old.quantity end)>0
           and (case when tg_op='INSERT' then new.quantity else new.quantity-old.quantity end)
@@ -637,7 +645,7 @@ declare
         join public.sale_items si on si.sale_id=s.id
         join public.products p on p.id=si.product_id and p.business_id=new.business_id
         where s.business_id=new.business_id and s.customer_id=new.customer_id
-          and s.created_at=pg_catalog.transaction_timestamp()
+          and private.business_sale_context_matches(s.business_id,s.request_id)
           and si.bottle_type=new.bottle_type and si.bottles_returnable
           and (case when tg_op='INSERT' then new.quantity else new.quantity-old.quantity end)>0
           and (case when tg_op='INSERT' then new.quantity else new.quantity-old.quantity end)
@@ -658,7 +666,7 @@ declare
            join public.sale_items si on si.sale_id=s.id
            join public.crate_types ct on ct.id=new.crate_type_id and ct.business_id=new.business_id
            where s.id=new.sale_id and s.business_id=new.business_id
-             and s.created_at=pg_catalog.transaction_timestamp()
+             and private.business_sale_context_matches(s.business_id,s.request_id)
              and si.crate_type_id=new.crate_type_id
              and (
                select coalesce(sum(si2.crates_returned),0)
@@ -677,7 +685,7 @@ declare
            select 1 from public.sales s
            join public.sale_items si on si.sale_id=s.id
            where s.id=new.sale_id and s.business_id=new.business_id
-             and s.created_at=pg_catalog.transaction_timestamp()
+             and private.business_sale_context_matches(s.business_id,s.request_id)
              and si.bottle_type=new.bottle_type
              and (
                select coalesce(sum(si2.bottles_returned),0)
@@ -694,7 +702,7 @@ declare
         select 1 from public.sale_empty_crate_returns r
         join public.sales s on s.id=r.sale_id
         where r.business_id=new.business_id and r.crate_type_id=new.crate_type_id
-          and s.created_at=pg_catalog.transaction_timestamp()
+          and private.business_sale_context_matches(s.business_id,s.request_id)
       ) then
         if not private.business_sale_write_allowed(new.business_id,auth.uid())
            or (tg_op='UPDATE' and old.business_id is distinct from new.business_id)
@@ -708,7 +716,7 @@ declare
         select 1 from public.sale_empty_bottle_returns r
         join public.sales s on s.id=r.sale_id
         where r.business_id=new.business_id and r.bottle_type=new.bottle_type
-          and s.created_at=pg_catalog.transaction_timestamp()
+          and private.business_sale_context_matches(s.business_id,s.request_id)
       ) then
         if not private.business_sale_write_allowed(new.business_id,auth.uid())
            or (tg_op='UPDATE' and old.business_id is distinct from new.business_id)
@@ -721,7 +729,7 @@ declare
       if exists(
         select 1 from public.sales s
         where s.business_id=new.business_id and s.customer_id=new.customer_id
-          and s.created_at=pg_catalog.transaction_timestamp()
+          and private.business_sale_context_matches(s.business_id,s.request_id)
           and s.total_amount-s.paid_amount=new.amount
       ) then
         if not private.business_sale_write_allowed(new.business_id,auth.uid()) or new.amount<=0 then
