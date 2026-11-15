@@ -805,10 +805,13 @@ jobs:
             -f supabase/tests/fixtures/reconstructed_schema_object_hashes.sql > "$work/current-124-object-digests.json"
           psql -h /tmp -p 55439 -d depotflow_current_124_replay -X -v ON_ERROR_STOP=1 -At \
             -f supabase/tests/fixtures/app_client_column_dml_acl.sql > "$work/current-124-app-acl.json"
+          psql -h /tmp -p 55439 -d depotflow_current_124_replay -X -v ON_ERROR_STOP=1 -At \
+            -f supabase/tests/fixtures/current_function_parity_fingerprint.sql > "$work/current-124-function-parity.json"
           python3 scripts/compare-m2-current-schema-snapshot.py \
             --schema-groups "$work/current-124-schema.tsv" \
             --object-digests "$work/current-124-object-digests.json" \
-            --app-client-acl "$work/current-124-app-acl.json"
+            --app-client-acl "$work/current-124-app-acl.json" \
+            --function-parity "$work/current-124-function-parity.json"
 
           for operations_sql in \
             supabase/migrations/20261115090000_stage_tenant_customer_payments.sql \
