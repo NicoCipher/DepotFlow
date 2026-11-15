@@ -34,4 +34,7 @@ grant usage on schema auth to anon, authenticated;
 -- auto-enable RLS on new tables; one migration only tightens its grants.
 -- Stub it so that migration applies here too.
 create or replace function public.rls_auto_enable() returns event_trigger
-language plpgsql as $$ begin end $$;
+language plpgsql
+security definer
+set search_path = pg_catalog
+as 'BEGIN END;';

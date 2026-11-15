@@ -136,16 +136,19 @@ export type Database = {
       }
       crate_swap_rules: {
         Row: {
+          business_id: string | null
           created_at: string
           owed_crate_type_id: string
           returned_crate_type_id: string
         }
         Insert: {
+          business_id?: string | null
           created_at?: string
           owed_crate_type_id: string
           returned_crate_type_id: string
         }
         Update: {
+          business_id?: string | null
           created_at?: string
           owed_crate_type_id?: string
           returned_crate_type_id?: string
@@ -183,6 +186,7 @@ export type Database = {
       }
       crate_types: {
         Row: {
+          business_id: string | null
           created_at: string
           empty_family: string | null
           id: string
@@ -193,6 +197,7 @@ export type Database = {
           variant: string | null
         }
         Insert: {
+          business_id?: string | null
           created_at?: string
           empty_family?: string | null
           id?: string
@@ -203,6 +208,7 @@ export type Database = {
           variant?: string | null
         }
         Update: {
+          business_id?: string | null
           created_at?: string
           empty_family?: string | null
           id?: string
@@ -465,6 +471,7 @@ export type Database = {
       }
       products: {
         Row: {
+          business_id: string | null
           bottle_price: number | null
           bottle_type: string | null
           catalogue_product_id: string | null
@@ -484,6 +491,7 @@ export type Database = {
           size: string | null
         }
         Insert: {
+          business_id?: string | null
           bottle_price?: number | null
           bottle_type?: string | null
           catalogue_product_id?: string | null
@@ -503,6 +511,7 @@ export type Database = {
           size?: string | null
         }
         Update: {
+          business_id?: string | null
           bottle_price?: number | null
           bottle_type?: string | null
           catalogue_product_id?: string | null
@@ -716,6 +725,7 @@ export type Database = {
       }
       sale_items: {
         Row: {
+          business_id: string | null
           bottle_type: string | null
           bottles_per_crate: number
           bottles_returnable: boolean
@@ -734,6 +744,7 @@ export type Database = {
           whole_crates: number
         }
         Insert: {
+          business_id?: string | null
           bottle_type?: string | null
           bottles_per_crate: number
           bottles_returnable: boolean
@@ -752,6 +763,7 @@ export type Database = {
           whole_crates?: number
         }
         Update: {
+          business_id?: string | null
           bottle_type?: string | null
           bottles_per_crate?: number
           bottles_returnable?: boolean
@@ -844,6 +856,7 @@ export type Database = {
       }
       sales: {
         Row: {
+          business_id: string | null
           business_date: string | null
           created_at: string
           customer_id: string
@@ -863,6 +876,7 @@ export type Database = {
           receipt_status: string
         }
         Insert: {
+          business_id?: string | null
           business_date?: string | null
           created_at?: string
           customer_id: string
@@ -882,6 +896,7 @@ export type Database = {
           receipt_status?: string
         }
         Update: {
+          business_id?: string | null
           business_date?: string | null
           created_at?: string
           customer_id?: string
@@ -1131,6 +1146,24 @@ export type Database = {
           business_status: "setup" | "active"
           member_kind: "owner"
         }[]
+      }
+      can_record_business_sale: {
+        Args: { p_business_id: string }
+        Returns: boolean
+      }
+      save_business_sale_v2: {
+        Args: {
+          p_business_id: string
+          p_request_id: string
+          p_customer_id: string
+          p_business_date: string
+          p_paid: number
+          p_payment_method: string
+          p_lines: Json
+          p_returned_crates: Json
+          p_returned_bottles: Json
+        }
+        Returns: Json
       }
       preview_business_opening_readiness: {
         Args: { p_business_id: string }
