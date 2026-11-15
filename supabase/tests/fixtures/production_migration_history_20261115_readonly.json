@@ -1,6 +1,6 @@
 {
   "purpose": "READ-ONLY PRODUCTION MIGRATION LEDGER SNAPSHOT; NOT RELEASE APPROVAL",
-  "captured_at_utc": "2026-11-15T15:21:47.030Z",
+  "captured_at_utc": "2026-11-15T15:21:33.996Z",
   "project_id": "coyivbklakhilpcqqrzg",
   "source": "Supabase read-only list_migrations",
   "count": 124,
