@@ -58,8 +58,12 @@ jobs:
           # client-read baseline in this disposable database only, immediately
           # before the ACL-hardening migration under test.
           cat > "$RUNNER_TEMP/depotflow-business-e2e/supabase/migrations/20261029102900_test_platform_client_acl_baseline.sql" <<'SQL'
-          revoke select on table public.sale_empty_decisions, public.shop_profile from anon;
-          grant select on table public.sale_empty_decisions, public.shop_profile to authenticated;
+          -- Match the hosted app-role ACL exactly, not Supabase local defaults:
+          -- no client DML/SELECT for anon; authenticated gets SELECT only.
+          revoke all on table public.sale_empty_decisions, public.shop_profile
+            from anon, authenticated;
+          grant select on table public.sale_empty_decisions, public.shop_profile
+            to authenticated;
           SQL
       - name: Start disposable PostgreSQL 17 and Supabase services
         working-directory: ${{ runner.temp }}/depotflow-business-e2e
