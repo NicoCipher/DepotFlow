@@ -45,8 +45,8 @@ begin
     end if;
     if v_tenant.conkey <> array[v_business_child,r.conkey[1]]::smallint[]
        or v_tenant.confkey <> array[v_business_parent,r.confkey[1]]::smallint[]
-       or v_tenant.convalidated is true then
-      raise exception 'Incorrect M2c FK columns or validation gate: %',r.conname;
+       or v_tenant.convalidated is not true then
+      raise exception 'Incorrect M2c FK columns or validation state: %',r.conname;
     end if;
     v_total := v_total+1;
   end loop;

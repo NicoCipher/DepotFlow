@@ -129,6 +129,15 @@ select private.backfill_legacy_shop_rows(private.legacy_scope_snapshot());
 -- A validated FK in an unrelated table must not substitute for an
 -- unvalidated real M2c FK. The earlier name-only count would mistakenly
 -- see 31 validated constraints and allow activation.
+-- Recreate the deliberately unvalidated M2c state inside this rollback-only
+-- test even when the full migration chain now validates all 31 constraints.
+-- New writes remain checked; the transaction is rolled back at the end.
+alter table public.sales drop constraint tenant_sales_customer_id_fkey;
+alter table public.sales
+  add constraint tenant_sales_customer_id_fkey
+  foreign key (business_id, customer_id)
+  references public.customers (business_id, id)
+  not valid;
 create table private.tenant_fk_decoy (
   business_id uuid,
   constraint tenant_unrelated_valid_fk
