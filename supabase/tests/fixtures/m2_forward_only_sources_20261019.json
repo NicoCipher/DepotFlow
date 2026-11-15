@@ -510,6 +510,16 @@
       "filename": "20261104172847_mcp_client_acl_ledger_marker.sql",
       "git_blob_sha1": "774c26f30de306f0e4e80a4211ad02dfead7e44c",
       "reason": "Comment-only ledger reconciliation marker for the MCP-applied client ACL migration recorded in production as version 20261104172847; excluded from the historical 2026-10-19 M2 rehearsal bundle."
+    },
+    {
+      "filename": "20261115090000_stage_tenant_customer_payments.sql",
+      "git_blob_sha1": "35e601f92f37659a32ff3609e7de9c6a802e6d5f",
+      "reason": "New tenant-scoped customer payment writer staged on the M2 operational-writers branch; intentionally excluded from the frozen 2026-10-19 historical rehearsal. It remains default-OFF and is not production-approved."
+    },
+    {
+      "filename": "20261115100000_stage_operator_business_invitations.sql",
+      "git_blob_sha1": "7d0b1a6eb81dcca42ae3042ef8641bc9c424579d",
+      "reason": "New operator-prepared one-time business invitation and provisioning migration staged on the M2 operational-writers branch; intentionally excluded from the frozen 2026-10-19 historical rehearsal. Public signup remains closed and this is not production approval."
     }
   ]
 }
