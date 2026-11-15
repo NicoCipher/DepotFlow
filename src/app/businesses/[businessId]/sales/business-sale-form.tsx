@@ -54,6 +54,13 @@ export function BusinessSaleForm({businessId,businessDate,products,customers,ini
     setMessage(""); setSaved(null);
     if(!customerId){setMessage("Choose a customer.");return;}
     if(!lines.length){setMessage("Add at least one drink.");return;}
+    const invalidReturnedEmpties = lines.some(line=>{
+      const p=products.find(item=>item.id===line.productId);
+      const maxBottles=p?.bottles_returnable?(line.crates*(p.bottles_per_crate)+line.bottles):0;
+      return !p||!Number.isSafeInteger(line.returnedCrates)||line.returnedCrates<0||line.returnedCrates>line.crates||
+        !Number.isSafeInteger(line.returnedBottles)||line.returnedBottles<0||line.returnedBottles>maxBottles;
+    });
+    if(invalidReturnedEmpties){setMessage("Returned empties must be whole numbers and cannot exceed the containers expected from this sale.");return;}
     const hasEmptyShortage = lines.some(line=>{
       const p=products.find(item=>item.id===line.productId);
       if(!p) return true;
@@ -108,7 +115,7 @@ export function BusinessSaleForm({businessId,businessDate,products,customers,ini
               <span className="mt-1 block text-xs text-stone-500">Expected: {line.crates} {p.crate_type_name} crate(s)</span>
               {p.bottles_returnable&&<span className="block text-xs text-stone-500">Expected: {line.crates*p.bottles_per_crate+line.bottles} {p.bottle_type} bottle(s)</span>}
               <span className="mt-3 grid grid-cols-2 gap-2">
-                <label className="text-xs">{p.crate_type_name} crates returned<input aria-label="Matching empty crates returned" className="mt-1 w-full" type="number" min="0" max={line.crates} step="1" value={line.returnedCrates} onChange={e=>setLines(old=>old.map(x=>x.productId===line.productId?{...x,returnedCrates:Number(e.target.value||0)}:x))}/></label>
+                {line.crates>0&&<label className="text-xs">{p.crate_type_name} crates returned<input aria-label="Matching empty crates returned" className="mt-1 w-full" type="number" min="0" max={line.crates} step="1" value={line.returnedCrates} onChange={e=>setLines(old=>old.map(x=>x.productId===line.productId?{...x,returnedCrates:Number(e.target.value||0)}:x))}/></label>}
                 {p.bottles_returnable&&<label className="text-xs">{p.bottle_type} bottles returned<input aria-label="Matching empty bottles returned" className="mt-1 w-full" type="number" min="0" max={line.crates*p.bottles_per_crate+line.bottles} step="1" value={line.returnedBottles} onChange={e=>setLines(old=>old.map(x=>x.productId===line.productId?{...x,returnedBottles:Number(e.target.value||0)}:x))}/></label>}
               </span>
             </span>
