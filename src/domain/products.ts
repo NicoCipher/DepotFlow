@@ -156,3 +156,11 @@ export function productSearchFilter(query: string) {
   const pattern = JSON.stringify(`%${term.replace(/[\\%_*]/g, "\\$&")}%`);
   return `name.ilike.${pattern},size.ilike.${pattern}`;
 }
+
+/** Round a valid selling amount up to the next ₦50 step. */
+export function roundUpToSellingPriceStep(amount: number): number {
+  if (!Number.isSafeInteger(amount) || amount < 0 || amount > 2_147_483_600) {
+    throw new RangeError("Selling price must be a whole naira amount within PostgreSQL integer limits.");
+  }
+  return Math.ceil(amount / 50) * 50;
+}

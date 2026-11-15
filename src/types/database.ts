@@ -465,6 +465,7 @@ export type Database = {
       }
       products: {
         Row: {
+          business_id: string | null
           bottle_price: number | null
           bottle_type: string | null
           catalogue_product_id: string | null
@@ -484,6 +485,7 @@ export type Database = {
           size: string | null
         }
         Insert: {
+          business_id?: string | null
           bottle_price?: number | null
           bottle_type?: string | null
           catalogue_product_id?: string | null
@@ -503,6 +505,7 @@ export type Database = {
           size?: string | null
         }
         Update: {
+          business_id?: string | null
           bottle_price?: number | null
           bottle_type?: string | null
           catalogue_product_id?: string | null
@@ -571,6 +574,7 @@ export type Database = {
       }
       product_cost_history: {
         Row: {
+          business_id: string | null
           id: string
           owner_user_id: string
           catalogue_product_id: string
@@ -579,6 +583,7 @@ export type Database = {
           recorded_at: string
         }
         Insert: {
+          business_id?: string | null
           id?: string
           owner_user_id: string
           catalogue_product_id: string
@@ -587,6 +592,7 @@ export type Database = {
           recorded_at?: string
         }
         Update: {
+          business_id?: string | null
           id?: string
           owner_user_id?: string
           catalogue_product_id?: string
@@ -1201,6 +1207,11 @@ export type Database = {
         }
         Returns: string
       }
+      update_legacy_product_prices: {
+        Args: { p_request_id: string; p_changes: Json }
+        Returns: Json
+      }
+      get_legacy_price_editor_business_id: { Args: Record<string, never>; Returns: string }
       create_crate_type: {
         Args: {
           p_empty_family: string

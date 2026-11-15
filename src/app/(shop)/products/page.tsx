@@ -41,6 +41,7 @@ export default async function ProductsPage({
         <h1>Drinks</h1>
         <Link className="primary shrink-0" href="/products/catalogue">Add drink</Link>
       </div>
+      <Link href="/products/prices" className="secondary mt-4 w-full">Update prices</Link>
       <nav aria-label="Shop drinks" className="mt-5 flex gap-3">
         <Link href="/products" className={removed ? "secondary" : "primary"}>In my shop</Link>
         <Link href="/products?show=removed" className={removed ? "primary" : "secondary"}>Removed drinks</Link>

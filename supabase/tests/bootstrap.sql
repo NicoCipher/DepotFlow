@@ -30,8 +30,43 @@ do $$ begin
 end $$;
 grant usage on schema auth to anon, authenticated;
 
--- Supabase's own platform creates this trigger function in every project to
--- auto-enable RLS on new tables; one migration only tightens its grants.
--- Stub it so that migration applies here too.
-create or replace function public.rls_auto_enable() returns event_trigger
-language plpgsql as $$ begin end $$;
+-- Faithfully emulate Supabase's managed RLS event trigger in disposable CI.
+-- Production has SECURITY DEFINER and a fixed pg_catalog search_path. Keeping
+-- the real behavior here means a missing explicit ENABLE ROW LEVEL SECURITY
+-- in a migration cannot silently pass the reconstruction.
+create or replace function public.rls_auto_enable()
+ returns event_trigger
+ language plpgsql
+ security definer
+ set search_path to 'pg_catalog'
+as $function$
+DECLARE
+  cmd record;
+BEGIN
+  FOR cmd IN
+    SELECT *
+    FROM pg_event_trigger_ddl_commands()
+    WHERE command_tag IN ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
+      AND object_type IN ('table','partitioned table')
+  LOOP
+     IF cmd.schema_name IS NOT NULL AND cmd.schema_name IN ('public') AND cmd.schema_name NOT IN ('pg_catalog','information_schema') AND cmd.schema_name NOT LIKE 'pg_toast%' AND cmd.schema_name NOT LIKE 'pg_temp%' THEN
+      BEGIN
+        EXECUTE format('alter table if exists %s enable row level security', cmd.object_identity);
+        RAISE LOG 'rls_auto_enable: enabled RLS on %', cmd.object_identity;
+      EXCEPTION
+        WHEN OTHERS THEN
+          RAISE LOG 'rls_auto_enable: failed to enable RLS on %', cmd.object_identity;
+      END;
+     ELSE
+        RAISE LOG 'rls_auto_enable: skip % (either system schema or not in enforced list: %.)', cmd.object_identity, cmd.schema_name;
+     END IF;
+  END LOOP;
+END;
+$function$;
+drop event trigger if exists ensure_rls;
+create event trigger ensure_rls
+  on ddl_command_end
+  when tag in ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
+  execute function public.rls_auto_enable();
+
+revoke execute on function public.rls_auto_enable() from public, anon, authenticated;

@@ -34,6 +34,8 @@ begin
  and not (n.nspname='private' and (
       (p.proname='record_product_selling_price'
        and p.prorettype='trigger'::regtype)
+   or (p.proname in ('record_product_bottle_selling_price','record_product_pack_selling_price')
+       and p.prorettype='trigger'::regtype)
    or (p.proname='scope_legacy_operational_write'
        and p.prorettype='trigger'::regtype
        and pg_get_functiondef(p.oid) like '%private.business_memberships%')
@@ -52,11 +54,16 @@ begin
      and pg_get_functiondef(p.oid) not like '%private.verified_legacy_owner_read()%'
      and not (n.nspname='private' and (
        (p.proname='record_product_selling_price' and p.prorettype='trigger'::regtype)
+       or (p.proname in ('record_product_bottle_selling_price','record_product_pack_selling_price')
+           and p.prorettype='trigger'::regtype)
        or (p.proname='scope_legacy_operational_write'
            and p.prorettype='trigger'::regtype
            and pg_get_functiondef(p.oid) like '%private.business_memberships%')
        or (p.proname='verified_legacy_owner_read'
            and p.prorettype='boolean'::regtype
+           and pg_get_functiondef(p.oid) like '%private.business_memberships%')
+       or (p.proname='guard_legacy_catalogue_image_write'
+           and p.prorettype='trigger'::regtype
            and pg_get_functiondef(p.oid) like '%private.business_memberships%')
      ));
    raise exception 'Unprotected privileged singleton API count: %; routines: %',

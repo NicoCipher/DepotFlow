@@ -1,0 +1,45 @@
+{
+  "captured_on": "2026-10-29",
+  "project": "DepotFlow",
+  "project_id": "coyivbklakhilpcqqrzg",
+  "source_run_url": "https://github.com/NicoCipher/DepotFlow/actions/runs/40877395371",
+  "production_fingerprint": "docs/release-evidence/production-schema-parity-fingerprint-20261029.json",
+  "query_file": "supabase/tests/fixtures/current_schema_parity_fingerprint.sql",
+  "reconstruction": "Disposable PostgreSQL 17. Exact schema stage: 55 historical migrations + hosted Auth guard + 65 forward-only Phase A migrations = current 121-stage production tip. The reconstruction now emulates the SECURITY DEFINER/configured Supabase rls_auto_enable function and the captured managed-role ACLs. A separate disposable-only fixture recreates the pre-fix client maintenance grants for exact current-state comparison; after fingerprinting, the candidate hardening migration is rehearsed against the clone.",
+  "result": "PENDING EXTENDED PARITY CHECK — the production fingerprint has been recaptured read-only and now includes effective SELECT/INSERT/UPDATE/DELETE/REFERENCES/TRIGGER/TRUNCATE/MAINTAIN privileges for anon, authenticated, and service_role. The earlier nine-category match did not include TRUNCATE or MAINTAIN and must not be treated as complete privilege parity. CI must verify the expanded fingerprint against the disposable PostgreSQL 17 reconstruction before this evidence can claim a match. This is not production release authorization.",
+  "production_inventory": {
+    "postgres": "17.6",
+    "relations": 67,
+    "columns": 410,
+    "constraints": 385,
+    "indexes": 134,
+    "functions": 100,
+    "policies": 36,
+    "triggers": 48,
+    "column_grant_tables": 30,
+    "schemas": 2
+  },
+  "matching_categories": {
+    "relations": 67,
+    "columns": 410,
+    "constraints": 385,
+    "indexes": 134,
+    "functions": 100,
+    "policies": 36,
+    "triggers": 48,
+    "column_grant_tables": 30,
+    "schemas": 2
+  },
+  "differences": {},
+  "classification": {
+    "managed_rls_function": "The disposable bootstrap now matches the production public.rls_auto_enable() SECURITY DEFINER/search_path configuration and function definition fingerprint.",
+    "managed_role_acl": "The refreshed read-only production snapshot includes effective privileges for anon, authenticated, and service_role, including TRUNCATE and MAINTAIN. The disposable reconstruction must match these expanded privilege fields before parity can be claimed; the known unsafe client maintenance grants remain captured only as current-state evidence, not as endorsement.",
+    "empty_access_model": "public.known_empty_crates is a security-invoker view; its underlying public.crate_types and public.empty_crate_stock tables retain RLS and owner_read policies. private.customer_empty_returns and private.held_empty_collections have no direct table privileges for anon/authenticated/service_role; exposed SECURITY DEFINER routines are checked for verified legacy-owner and business-scoped customer guards."
+  },
+  "security_followups": [
+    "Production still grants TRUNCATE, REFERENCES, TRIGGER, and MAINTAIN to anon and authenticated on public.sale_empty_decisions and public.shop_profile. Candidate migration 20261029103000_revoke_client_maintenance_privileges.sql revokes these privileges while preserving authenticated SELECT and anonymous SELECT denial. It passed disposable PostgreSQL 17 tests but has not been applied to production.",
+    "Historical SQL provenance remains limited to the reviewed parser audit: 17 direct AST matches, 4 wrapper-only differences, 1 comment-only PL/pgSQL-body difference, and zero unresolved AST differences. This is not a full runtime-semantic certification.",
+    "The comparison does not include customer rows or fully reproduce every Supabase Auth/Storage managed object, every possible managed role, or every external service configuration."
+  ],
+  "safety": "All production queries were read-only. No production data, schema, grants, migration ledger, gates, or deployment were changed. Both candidate migrations remain staged and unmerged."
+}
