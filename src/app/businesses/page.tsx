@@ -99,8 +99,9 @@ export default async function ChooseBusinessPage() {
         </ul>
       )}
       <p className="text-xs leading-5 text-stone-600">
-        Selecting a depot does not switch the legacy shop or authorize sales.
-        New-business operation and staff access remain disabled.
+        Each active depot opens its own tenant sales screen. Sales and staff
+        operations remain locked until their separate release gates are approved.
+        The legacy shop and its records are not changed.
       </p>
     </section>
   );
