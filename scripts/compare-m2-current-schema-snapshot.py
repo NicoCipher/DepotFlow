@@ -74,12 +74,26 @@ def compare(args) -> dict:
     else:
         raise ValueError("Malformed disposable per-object fingerprint output")
     object_differences = {}
-    for key in ("shape_by_kind", "functions"):
-        if object_expected.get(key) != actual_objects.get(key):
-            object_differences[key] = {
-                "expected_keys": len(object_expected.get(key, {})),
-                "actual_keys": len(actual_objects.get(key, {})),
-            }
+    if object_expected.get("shape_by_kind") != actual_objects.get("shape_by_kind"):
+        expected_shape = object_expected.get("shape_by_kind", {})
+        actual_shape = actual_objects.get("shape_by_kind", {})
+        object_differences["shape_by_kind"] = {
+            "expected_keys": len(expected_shape),
+            "actual_keys": len(actual_shape),
+        }
+    expected_functions = object_expected.get("functions", {})
+    actual_functions = actual_objects.get("functions", {})
+    if expected_functions != actual_functions:
+        expected_names = set(expected_functions)
+        actual_names = set(actual_functions)
+        object_differences["functions"] = {
+            "added": sorted(actual_names - expected_names),
+            "removed": sorted(expected_names - actual_names),
+            "definition_hash_changed": sorted(
+                name for name in expected_names & actual_names
+                if expected_functions[name] != actual_functions[name]
+            ),
+        }
 
     acl_rows = read_json(args.app_client_acl)
     if isinstance(acl_rows, dict) and "fingerprint" in acl_rows:
