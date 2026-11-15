@@ -510,6 +510,21 @@
       "filename": "20261104172847_mcp_client_acl_ledger_marker.sql",
       "git_blob_sha1": "774c26f30de306f0e4e80a4211ad02dfead7e44c",
       "reason": "Comment-only ledger reconciliation marker for the MCP-applied client ACL migration recorded in production as version 20261104172847; excluded from the historical 2026-10-19 M2 rehearsal bundle."
+    },
+    {
+      "filename": "20261115090000_stage_tenant_customer_payments.sql",
+      "git_blob_sha1": "35e601f92f37659a32ff3609e7de9c6a802e6d5f",
+      "reason": "Post-2026-10-19 staged tenant customer-payment writer from the dependent operational-writers PR. Intentionally excluded from the dated 65+1 historical M2 rehearsal bundle; no production release approval and its payment gate remains OFF."
+    },
+    {
+      "filename": "20261115100000_stage_operator_business_invitations.sql",
+      "git_blob_sha1": "7d0b1a6eb81dcca42ae3042ef8641bc9c424579d",
+      "reason": "Post-2026-10-19 staged operator-controlled invitation/provisioning path from the dependent operational-writers PR. Intentionally excluded from the dated 65+1 historical M2 rehearsal bundle; public signup remains closed and no production release is approved."
+    },
+    {
+      "filename": "20261115110000_stage_tenant_business_sales.sql",
+      "git_blob_sha1": "aefa1c3497ce43b09d874cf6f065eb478be0e0ae",
+      "reason": "Post-2026-10-19 staged tenant-scoped sales writer, request-context trigger guards and business-specific receipt snapshots. Intentionally excluded from the dated 65+1 historical M2 rehearsal bundle; business_sales_gate defaults OFF and no production release is approved."
     }
   ]
 }
