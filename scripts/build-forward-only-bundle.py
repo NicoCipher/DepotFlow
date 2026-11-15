@@ -114,35 +114,10 @@ def validate_sources(root: Path, inventory: dict, live_tip: str, compare_ref=Non
         expected = set(all_sources + [inventory["already_applied_auth_source"]])
         allowed = expected | set(exclusion_paths)
         if not found.issubset(allowed):
-        if unsafe:
-            raise ValueError(
-                "RELEASE INVENTORY DRIFT: existing migration source files were modified, deleted, "
-                "renamed, copied, or type-changed: " + repr(unsafe)
-            )
-        found = {line[1] for line in changes}
-        locked_exclusions = locked.get("reviewed_excluded_sources", [])
-        exclusion_paths = {
-            "supabase/migrations/" + item["filename"]: item["git_blob_sha1"]
-            for item in locked_exclusions
-        }
-        expected = set(all_sources + [inventory["already_applied_auth_source"]])
-        allowed = expected | set(exclusion_paths)
-        if not found.issubset(allowed):
             raise ValueError(
                 "RELEASE INVENTORY DRIFT: newly added SQL migrations are not in the reviewed inventory: "
                 + repr(sorted(found-allowed))
             )
-        for path in found & set(exclusion_paths):
-            worktree_bytes = (root / path).read_bytes()
-            blob = b"blob " + str(len(worktree_bytes)).encode("ascii") + b"\0" + worktree_bytes
-            if hashlib.sha1(blob).hexdigest() != exclusion_paths[path]:
-                raise ValueError("RELEASE INVENTORY DRIFT: excluded migration content changed: " + path)
-            committed = subprocess.run(
-                ["git", "-C", str(root), "rev-parse", "HEAD:" + path],
-                check=True, capture_output=True, text=True,
-            ).stdout.strip()
-            if committed != exclusion_paths[path]:
-                raise ValueError("RELEASE INVENTORY DRIFT: excluded migration content changed in HEAD: " + path)
         for path in found & set(exclusion_paths):
             worktree_bytes = (root / path).read_bytes()
             blob = b"blob " + str(len(worktree_bytes)).encode("ascii") + b"\0" + worktree_bytes
