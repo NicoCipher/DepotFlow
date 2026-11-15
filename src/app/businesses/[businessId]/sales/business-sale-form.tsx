@@ -54,7 +54,13 @@ export function BusinessSaleForm({businessId,businessDate,products,customers,ini
     setMessage(""); setSaved(null);
     if(!customerId){setMessage("Choose a customer.");return;}
     if(!lines.length){setMessage("Add at least one drink.");return;}
-    if(customer?.empties_deposit_required) {
+    const hasEmptyShortage = lines.some(line=>{
+      const p=products.find(item=>item.id===line.productId);
+      if(!p) return true;
+      const expectedBottles=p.bottles_returnable?line.crates*p.bottles_per_crate+line.bottles:0;
+      return line.returnedCrates<line.crates||line.returnedBottles<expectedBottles;
+    });
+    if(customer?.empties_deposit_required&&hasEmptyShortage) {
       setMessage("This customer requires all expected empty crates and bottles to be returned. Deposit handling for shortages is not enabled yet."); return;
     }
     if(!/^\d+$/.test(paid)||!Number.isSafeInteger(Number(paid))||Number(paid)<0||Number(paid)>total) {
@@ -92,7 +98,7 @@ export function BusinessSaleForm({businessId,businessDate,products,customers,ini
     </section>
     {lines.length>0&&<section className="rounded-2xl bg-stone-100 p-4">
       <h2 className="font-bold">Sale summary</h2>
-      <p className="mt-2 text-xs text-stone-600">Enter the empty containers physically returned now. Any missing containers remain owed by the customer. Only the same crate and bottle types are accepted in this first version; swaps are not included.</p>
+      <p className="mt-2 text-xs text-stone-600">Enter the empty containers physically returned now. Any missing containers remain owed by the customer. Count only the exact crate and bottle types named under each drink. Different brands or types need a swap workflow, which is not included yet.</p>
       <ul className="mt-2 divide-y divide-stone-200">
         {lines.map(line=>{
           const p=products.find(x=>x.id===line.productId)!;
@@ -102,8 +108,8 @@ export function BusinessSaleForm({businessId,businessDate,products,customers,ini
               <span className="mt-1 block text-xs text-stone-500">Expected: {line.crates} {p.crate_type_name} crate(s)</span>
               {p.bottles_returnable&&<span className="block text-xs text-stone-500">Expected: {line.crates*p.bottles_per_crate+line.bottles} {p.bottle_type} bottle(s)</span>}
               <span className="mt-3 grid grid-cols-2 gap-2">
-                <label className="text-xs">Empty crates returned<input aria-label="Empty crates returned" className="mt-1 w-full" type="number" min="0" max={line.crates} step="1" value={line.returnedCrates} onChange={e=>setLines(old=>old.map(x=>x.productId===line.productId?{...x,returnedCrates:Number(e.target.value||0)}:x))}/></label>
-                {p.bottles_returnable&&<label className="text-xs">Empty bottles returned<input aria-label="Empty bottles returned" className="mt-1 w-full" type="number" min="0" max={line.crates*p.bottles_per_crate+line.bottles} step="1" value={line.returnedBottles} onChange={e=>setLines(old=>old.map(x=>x.productId===line.productId?{...x,returnedBottles:Number(e.target.value||0)}:x))}/></label>}
+                <label className="text-xs">{p.crate_type_name} crates returned<input aria-label="Matching empty crates returned" className="mt-1 w-full" type="number" min="0" max={line.crates} step="1" value={line.returnedCrates} onChange={e=>setLines(old=>old.map(x=>x.productId===line.productId?{...x,returnedCrates:Number(e.target.value||0)}:x))}/></label>
+                {p.bottles_returnable&&<label className="text-xs">{p.bottle_type} bottles returned<input aria-label="Matching empty bottles returned" className="mt-1 w-full" type="number" min="0" max={line.crates*p.bottles_per_crate+line.bottles} step="1" value={line.returnedBottles} onChange={e=>setLines(old=>old.map(x=>x.productId===line.productId?{...x,returnedBottles:Number(e.target.value||0)}:x))}/></label>}
               </span>
             </span>
             <strong className="shrink-0 tabular-nums">{formatNaira(amount)}</strong>
