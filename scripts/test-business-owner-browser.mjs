@@ -254,8 +254,35 @@ try {
   const invitedOwnerPage = await invitedOwnerContext.newPage();
   await login(invitedOwnerPage, passwordSetupEmail, invitePassword);
   await invitedOwnerPage.getByText(passwordSetupBusinessName, { exact: true }).waitFor();
-  console.log("PASS: disposable invitation token verified, first password saved, and owner signed in from a clean browser context.");
   await invitedOwnerContext.close();
+
+  // Exercise the recovery-token path separately for an already-confirmed owner.
+  const generatedRecovery = await admin.auth.admin.generateLink({
+    type: "recovery",
+    email: passwordSetupEmail,
+    options: { redirectTo: `${APP}/auth/confirm?next=%2Fset-password` },
+  });
+  if (generatedRecovery.error) throw generatedRecovery.error;
+  const recoveryTokenHash = generatedRecovery.data.properties?.hashed_token;
+  assert.ok(recoveryTokenHash, "GoTrue did not return a disposable recovery token hash");
+  const recoveryPassword = "Df!" + randomBytes(24).toString("base64url");
+  const recoveryContext = await browser.newContext();
+  const recoveryPage = await recoveryContext.newPage();
+  await recoveryPage.goto(`${APP}/auth/confirm?token_hash=${encodeURIComponent(recoveryTokenHash)}&type=recovery&next=%2Fset-password`);
+  await recoveryPage.waitForURL("**/set-password", { timeout: 15000 });
+  await recoveryPage.getByLabel("New password").fill(recoveryPassword);
+  await recoveryPage.getByLabel("Confirm password").fill(recoveryPassword);
+  await recoveryPage.getByRole("button", { name: "Save password" }).click();
+  await recoveryPage.waitForURL("**/businesses", { timeout: 15000 });
+  await recoveryPage.getByRole("heading", { name: "Choose your depot" }).waitFor();
+  await recoveryContext.close();
+
+  const recoveredOwnerContext = await browser.newContext();
+  const recoveredOwnerPage = await recoveredOwnerContext.newPage();
+  await login(recoveredOwnerPage, passwordSetupEmail, recoveryPassword);
+  await recoveredOwnerPage.getByText(passwordSetupBusinessName, { exact: true }).waitFor();
+  await recoveredOwnerContext.close();
+  console.log("PASS: invitation and recovery tokens verified; first password setup and password recovery both succeeded, followed by clean-browser sign-ins.");
 
   const context = await browser.newContext();
   const page = await context.newPage();
