@@ -20,7 +20,7 @@ export default async function SignInPage({
   // A returning tenant owner may already have a valid session. Resolve the
   // default entry the same way as a fresh sign-in instead of showing a form
   // or sending them through the legacy owner check.
-  if (session.user && returnTo === "/") {
+  if (session.user && (returnTo === "/" || returnTo === "/businesses")) {
     const destination = await resolveSignInDestination(
       session.supabase,
       session.user.id,
