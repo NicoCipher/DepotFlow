@@ -96,6 +96,9 @@ function loginScenario(mode: "error" | "throw" | "ok", cleanup: boolean) {
     "@/domain/auth-navigation": {
       safeSignInReturnPath: (x: unknown) => x === "/businesses" ? "/businesses" : "/",
     },
+    "@/lib/auth/sign-in-destination": {
+      resolveSignInDestination: async () => null,
+    },
     "@/lib/auth/rejected-signin-cleanup": {
       clearRejectedSignInCookies: async () => {
         cleanupCalls++;
