@@ -10,13 +10,9 @@ function safeNext(value: string | null): string {
 }
 
 function appOrigin(request: NextRequest): string {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL;
-  if (configured && /^https:\/\//.test(configured)) return new URL(configured).origin;
-  if (
-    process.env.NODE_ENV !== "production" &&
-    configured &&
-    /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(configured)
-  ) return new URL(configured).origin;
+  // Keep the callback on the exact host that received the one-time link.
+  // Supabase session cookies are scoped to that host; redirecting to a
+  // separately configured origin would strand the verified session.
   return request.nextUrl.origin;
 }
 
