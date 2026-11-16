@@ -206,6 +206,37 @@ try {
   });
   await waitForApp(app);
   browser = await chromium.launch({ headless: true });
+
+  // Verify the new invitation callback and first-password setup end to end
+  // using a disposable GoTrue invite token (never a hosted account).
+  const generatedInvite = await admin.auth.admin.generateLink({
+    type: "invite",
+    email: invitationEmail,
+    options: { redirectTo: `${APP}/auth/confirm?next=%2Fset-password` },
+  });
+  if (generatedInvite.error) throw generatedInvite.error;
+  const inviteTokenHash = generatedInvite.data.properties?.hashed_token;
+  assert.ok(inviteTokenHash, "GoTrue did not return a disposable invitation token hash");
+  const inviteContext = await browser.newContext();
+  const invitePage = await inviteContext.newPage();
+  const invitePassword = "Df!" + randomBytes(24).toString("base64url");
+  await invitePage.goto(`${APP}/auth/confirm?token_hash=${encodeURIComponent(inviteTokenHash)}&type=invite&next=%2Fset-password`);
+  await invitePage.waitForURL("**/set-password", { timeout: 15000 });
+  await invitePage.getByLabel("New password").fill(invitePassword);
+  await invitePage.getByLabel("Confirm password").fill(invitePassword);
+  await invitePage.getByRole("button", { name: "Save password" }).click();
+  await invitePage.waitForURL("**/businesses", { timeout: 15000 });
+  await invitePage.getByRole("heading", { name: "Choose your depot" }).waitFor();
+  await inviteContext.close();
+
+  // Confirm that the newly set password works in a clean browser session.
+  const invitedOwnerContext = await browser.newContext();
+  const invitedOwnerPage = await invitedOwnerContext.newPage();
+  await login(invitedOwnerPage, invitationEmail, invitePassword);
+  await invitedOwnerPage.getByText(invitationBusinessName, { exact: true }).waitFor();
+  console.log("PASS: disposable invitation token verified, first password saved, and owner signed in from a clean browser context.");
+  await invitedOwnerContext.close();
+
   const context = await browser.newContext();
   const page = await context.newPage();
 
