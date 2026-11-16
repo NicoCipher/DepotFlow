@@ -44,7 +44,7 @@ export async function signIn(
   const password = String(formData.get("password") ?? "");
   const returnTo = safeSignInReturnPath(formData.get("return_to"));
   if (
-    !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
     !password ||
     password.length > 1024
   ) {
