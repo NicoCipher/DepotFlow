@@ -24,7 +24,7 @@ export default async function SignInPage({
           : "Use the shop owner’s email and password."}
       </p>
       <SignInForm returnTo={returnTo} />
-      {returnTo === "/businesses" && (
+      {(returnTo === "/businesses" || params.auth_error === "link" || params.auth_error === "expired") && (
         <p className="mt-3 text-sm text-stone-600">
           <Link href="/forgot-password" className="quiet-link">Forgot or need to create your password?</Link>
         </p>
