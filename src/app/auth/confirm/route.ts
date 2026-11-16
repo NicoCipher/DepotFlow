@@ -19,7 +19,7 @@ function appOrigin(request: NextRequest): string {
   const protocol = forwardedProtocol === "http" || forwardedProtocol === "https"
     ? forwardedProtocol
     : request.nextUrl.protocol.replace(":", "");
-  if (host && /^[a-z0-9.-]+(?::\\d+)?$/i.test(host)) {
+  if (host && /^[a-z0-9.-]+(?::\d+)?$/i.test(host)) {
     return new URL(`${protocol}://${host}`).origin;
   }
   return request.nextUrl.origin;
