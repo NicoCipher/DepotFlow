@@ -61,9 +61,9 @@ async function waitForRecoveryEmailLink(email) {
         if (!messageResponse.ok) continue;
         const message = await messageResponse.json();
         const text = JSON.stringify(message);
-        const links = text.match(/https?:\\?\\?\/\\?\/[^"\\s<>]+/g) ?? [];
+        const links = text.match(/https?:\/\/[^"\s<>]+/g) ?? [];
         const recoveryLink = links
-          .map((link) => link.replaceAll("\\\\/", "/").replaceAll("&amp;", "&"))
+          .map((link) => link.replaceAll("\\/", "/").replaceAll("&amp;", "&"))
           .find((link) => link.includes("/auth/v1/verify") && /[?&]type=recovery(?:&|%26)/.test(link));
         if (recoveryLink) return recoveryLink;
       }
