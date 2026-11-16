@@ -198,7 +198,7 @@ try {
   }
 
   app = spawn("npm", ["run", "dev", "--", "--hostname", "127.0.0.1"], {
-    env: { ...process.env, NEXT_PUBLIC_SUPABASE_URL: API,
+    env: { ...process.env, NEXT_PUBLIC_SITE_URL: APP, NEXT_PUBLIC_SUPABASE_URL: API,
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: env("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"),
       DEPOTFLOW_PUBLIC_SIGNUP_ENABLED: "false",
       NEXT_PUBLIC_BUSINESS_SALES_ENABLED: "true" },
