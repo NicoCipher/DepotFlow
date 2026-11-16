@@ -49,7 +49,9 @@ async function waitForApp(child) {
   fail("Next.js app did not become ready");
 }
 async function waitForRecoveryEmailLink(email) {
-  const mailbox = `http://127.0.0.1:54324/api/v1/mailbox/${encodeURIComponent(email)}`;
+  // Stock Inbucket maps email addresses to mailbox names by local part.
+  const mailboxName = email.split("@")[0];
+  const mailbox = `http://127.0.0.1:54324/api/v1/mailbox/${encodeURIComponent(mailboxName)}`;
   const deadline = Date.now() + 30000;
   while (Date.now() < deadline) {
     const inboxResponse = await fetch(mailbox);
