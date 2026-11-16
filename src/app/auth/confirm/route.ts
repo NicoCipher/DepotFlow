@@ -10,9 +10,18 @@ function safeNext(value: string | null): string {
 }
 
 function appOrigin(request: NextRequest): string {
-  // Keep the callback on the exact host that received the one-time link.
-  // Supabase session cookies are scoped to that host; redirecting to a
-  // separately configured origin would strand the verified session.
+  // Next's parsed URL can be normalized to localhost in local development.
+  // Prefer the original forwarded host so the redirect matches the host that
+  // received the link and the host on which Supabase set its session cookies.
+  const host = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim()
+    || request.headers.get("host");
+  const forwardedProtocol = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const protocol = forwardedProtocol === "http" || forwardedProtocol === "https"
+    ? forwardedProtocol
+    : request.nextUrl.protocol.replace(":", "");
+  if (host && /^[a-z0-9.-]+(?::\\d+)?$/i.test(host)) {
+    return new URL(`${protocol}://${host}`).origin;
+  }
   return request.nextUrl.origin;
 }
 
