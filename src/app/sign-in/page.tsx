@@ -8,7 +8,7 @@ import { safeSignInReturnPath } from "@/domain/auth-navigation";
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; auth_error?: string }>;
 }) {
   const params = await searchParams;
   const returnTo = safeSignInReturnPath(params.next);
