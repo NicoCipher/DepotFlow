@@ -73,7 +73,7 @@ export async function signIn(
         return rejectAuthenticatedLogin(
           supabase,
           email,
-          "This account does not currently have access to a depot. Contact the depot owner for access.",
+          "Depot access is not available for this account. Contact the depot owner for access.",
         );
       }
       destination = resolved;
