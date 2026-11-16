@@ -8,7 +8,7 @@
 4. The owner creates a password at `/set-password`; the server verifies the session and calls `auth.updateUser({ password })`.
 5. The owner lands on `/businesses`. Business setup and operational gates remain independently controlled.
 
-The callback also accepts a PKCE `code` for projects configured to use PKCE confirmation links.
+The callback also accepts a PKCE `code` for projects configured to use PKCE confirmation links. It redirects on the same origin that received the one-time link so the browser keeps the session cookies established by the callback.
 
 ## Supabase Auth email templates
 
@@ -48,7 +48,7 @@ Do not delete/reinvite the user. Open `/forgot-password`, request a recovery ema
 
 - Confirm both Supabase email templates use the correct `TokenHash` and type.
 - Confirm production Site URL and allowed callback URL.
-- Run the local disposable GoTrue invitation and recovery browser tests.
+- Run the local disposable GoTrue invitation and recovery browser tests, including submitting the public recovery form and reading the resulting message from local Inbucket.
 - Verify an invalid/expired token cannot open the password form with a session.
 - Verify a password update requires a valid authenticated session.
 - Review CI and deploy only after all checks pass.
