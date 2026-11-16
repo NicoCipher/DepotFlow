@@ -8,7 +8,7 @@ import { safeSignInReturnPath } from "@/domain/auth-navigation";
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; auth_error?: string }>;
 }) {
   const params = await searchParams;
   const returnTo = safeSignInReturnPath(params.next);
@@ -24,6 +24,21 @@ export default async function SignInPage({
           : "Use the shop owner’s email and password."}
       </p>
       <SignInForm returnTo={returnTo} />
+      {(returnTo === "/businesses" || params.auth_error === "link" || params.auth_error === "expired") && (
+        <p className="mt-3 text-sm text-stone-600">
+          <Link href="/forgot-password" className="quiet-link">Forgot or need to create your password?</Link>
+        </p>
+      )}
+      {params.auth_error === "link" && (
+        <p role="alert" className="mt-3 text-sm text-red-800">
+          This sign-in link is invalid or has expired. Request a fresh password link and try again.
+        </p>
+      )}
+      {params.auth_error === "expired" && (
+        <p role="alert" className="mt-3 text-sm text-red-800">
+          Your password setup session has expired. Request a fresh password link and try again.
+        </p>
+      )}
       {returnTo === "/businesses" && signupAvailable && (
         <p className="mt-4 text-sm text-stone-600">
           New to DepotFlow?{" "}

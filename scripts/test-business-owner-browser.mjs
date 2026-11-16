@@ -48,6 +48,35 @@ async function waitForApp(child) {
   }
   fail("Next.js app did not become ready");
 }
+async function waitForRecoveryEmailLink(email) {
+  // Supabase CLI currently bundles Mailpit, whose REST API searches messages
+  // by recipient and fetches full message bodies by their uppercase ID.
+  const mailpit = "http://127.0.0.1:54324/api/v1";
+  const searchUrl = `${mailpit}/search?query=${encodeURIComponent(`to:${email}`)}`;
+  const deadline = Date.now() + 30000;
+  while (Date.now() < deadline) {
+    const inboxResponse = await fetch(searchUrl);
+    if (inboxResponse.ok) {
+      const inbox = await inboxResponse.json();
+      for (const item of inbox.messages ?? []) {
+        const messageResponse = await fetch(
+          `${mailpit}/message/${encodeURIComponent(item.ID)}`,
+        );
+        if (!messageResponse.ok) continue;
+        const message = await messageResponse.json();
+        const body = `${message.Text ?? ""}\n${message.HTML ?? ""}`;
+        const links = body.match(/https?:\/\/[^"\s<>]+/g) ?? [];
+        const recoveryLink = links
+          .map((link) => link.replaceAll("&amp;", "&").replaceAll("&#x3D;", "="))
+          .find((link) => link.includes("/auth/v1/verify") && /[?&]type=recovery(?:&|%26)/.test(link));
+        if (recoveryLink) return recoveryLink;
+      }
+    }
+    await delay(500);
+  }
+  fail("Timed out waiting for the local Supabase recovery email in Mailpit");
+}
+
 async function login(page, email, password) {
   await page.goto(APP + "/sign-in?next=%2Fbusinesses");
   await page.getByLabel("Email").fill(email);
@@ -198,7 +227,7 @@ try {
   }
 
   app = spawn("npm", ["run", "dev", "--", "--hostname", "127.0.0.1"], {
-    env: { ...process.env, NEXT_PUBLIC_SUPABASE_URL: API,
+    env: { ...process.env, NEXT_PUBLIC_SITE_URL: APP, NEXT_PUBLIC_SUPABASE_URL: API,
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: env("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"),
       DEPOTFLOW_PUBLIC_SIGNUP_ENABLED: "false",
       NEXT_PUBLIC_BUSINESS_SALES_ENABLED: "true" },
@@ -206,6 +235,109 @@ try {
   });
   await waitForApp(app);
   browser = await chromium.launch({ headless: true });
+
+  // Verify the new invitation callback and first-password setup end to end
+  // using a disposable GoTrue invite token (never a hosted account).
+  sql("update private.business_auth_signup_gate set enabled=false where singleton");
+  const passwordSetupRequestId = randomUUID();
+  const passwordSetupEmail = `password-setup-${suffix}@example.org`;
+  const passwordSetupBusinessName = "Password Setup E2E Depot";
+  sql(`select private.prepare_business_invitation(
+    '${passwordSetupRequestId}','${passwordSetupEmail}','${passwordSetupBusinessName}',
+    'Local password setup test address','08000000005'
+  )`);
+  const generatedInvite = await admin.auth.admin.generateLink({
+    type: "invite",
+    email: passwordSetupEmail,
+    options: { redirectTo: `${APP}/auth/confirm?next=%2Fset-password` },
+  });
+  if (generatedInvite.error) throw generatedInvite.error;
+  const inviteTokenHash = generatedInvite.data.properties?.hashed_token;
+  const passwordSetupUserId = generatedInvite.data.user?.id;
+  assert.ok(passwordSetupUserId, "GoTrue did not create the disposable invited owner");
+  assert.ok(inviteTokenHash, "GoTrue did not return a disposable invitation token hash");
+  assert.equal(sql(`select status || '|' || invited_user_id::text
+    from private.business_invitation_requests where request_id='${passwordSetupRequestId}'`),
+    `user_created|${passwordSetupUserId}`,
+    "Generated invite did not consume the prepared invitation request");
+  const passwordSetupBusiness = JSON.parse(sql(
+    `select private.provision_invited_business('${passwordSetupRequestId}')`,
+  ));
+  assert.equal(passwordSetupBusiness.status, "setup");
+  assert.equal(passwordSetupBusiness.canOperate, false);
+  sql("update private.business_auth_signup_gate set enabled=true where singleton");
+  const inviteContext = await browser.newContext();
+  const invitePage = await inviteContext.newPage();
+  const invitePassword = "Df!" + randomBytes(24).toString("base64url");
+  await invitePage.goto(`${APP}/auth/confirm?token_hash=${encodeURIComponent(inviteTokenHash)}&type=invite&next=%2Fset-password`);
+  await invitePage.waitForURL("**/set-password", { timeout: 15000 });
+  await invitePage.getByLabel("New password").fill(invitePassword);
+  await invitePage.getByLabel("Confirm password").fill(invitePassword);
+  await invitePage.getByRole("button", { name: "Save password" }).click();
+  await invitePage.waitForURL("**/businesses", { timeout: 15000 });
+  await invitePage.getByRole("heading", { name: "Choose your depot" }).waitFor();
+  await inviteContext.close();
+
+  // Confirm that the newly set password works in a clean browser session.
+  const invitedOwnerContext = await browser.newContext();
+  const invitedOwnerPage = await invitedOwnerContext.newPage();
+  await login(invitedOwnerPage, passwordSetupEmail, invitePassword);
+  await invitedOwnerPage.getByText(passwordSetupBusinessName, { exact: true }).waitFor();
+  await invitedOwnerContext.close();
+
+  // Exercise the public recovery form and actual Supabase email delivery.
+  // Supabase CLI's disposable Inbucket captures the message; no real email is sent.
+  const emailRecoveryContext = await browser.newContext();
+  const emailRecoveryPage = await emailRecoveryContext.newPage();
+  await emailRecoveryPage.goto(`${APP}/forgot-password`);
+  await emailRecoveryPage.getByLabel("Account email").fill(passwordSetupEmail);
+  await emailRecoveryPage.getByRole("button", { name: "Send password link" }).click();
+  await emailRecoveryPage.getByRole("status").getByText(/If this email belongs/).waitFor();
+  const deliveredRecoveryLink = await waitForRecoveryEmailLink(passwordSetupEmail);
+  const deliveredRecoveryPassword = "Df!" + randomBytes(24).toString("base64url");
+  await emailRecoveryPage.goto(deliveredRecoveryLink);
+  await emailRecoveryPage.waitForURL("**/set-password", { timeout: 15000 });
+  await emailRecoveryPage.getByLabel("New password").fill(deliveredRecoveryPassword);
+  await emailRecoveryPage.getByLabel("Confirm password").fill(deliveredRecoveryPassword);
+  await emailRecoveryPage.getByRole("button", { name: "Save password" }).click();
+  await emailRecoveryPage.waitForURL("**/businesses", { timeout: 15000 });
+  await emailRecoveryPage.getByRole("heading", { name: "Choose your depot" }).waitFor();
+  await emailRecoveryContext.close();
+
+  const emailRecoveredContext = await browser.newContext();
+  const emailRecoveredPage = await emailRecoveredContext.newPage();
+  await login(emailRecoveredPage, passwordSetupEmail, deliveredRecoveryPassword);
+  await emailRecoveredPage.getByText(passwordSetupBusinessName, { exact: true }).waitFor();
+  await emailRecoveredContext.close();
+
+  // Exercise the recovery-token path separately for callback-level coverage.
+  const generatedRecovery = await admin.auth.admin.generateLink({
+    type: "recovery",
+    email: passwordSetupEmail,
+    options: { redirectTo: `${APP}/auth/confirm?next=%2Fset-password` },
+  });
+  if (generatedRecovery.error) throw generatedRecovery.error;
+  const recoveryTokenHash = generatedRecovery.data.properties?.hashed_token;
+  assert.ok(recoveryTokenHash, "GoTrue did not return a disposable recovery token hash");
+  const recoveryPassword = "Df!" + randomBytes(24).toString("base64url");
+  const recoveryContext = await browser.newContext();
+  const recoveryPage = await recoveryContext.newPage();
+  await recoveryPage.goto(`${APP}/auth/confirm?token_hash=${encodeURIComponent(recoveryTokenHash)}&type=recovery&next=%2Fset-password`);
+  await recoveryPage.waitForURL("**/set-password", { timeout: 15000 });
+  await recoveryPage.getByLabel("New password").fill(recoveryPassword);
+  await recoveryPage.getByLabel("Confirm password").fill(recoveryPassword);
+  await recoveryPage.getByRole("button", { name: "Save password" }).click();
+  await recoveryPage.waitForURL("**/businesses", { timeout: 15000 });
+  await recoveryPage.getByRole("heading", { name: "Choose your depot" }).waitFor();
+  await recoveryContext.close();
+
+  const recoveredOwnerContext = await browser.newContext();
+  const recoveredOwnerPage = await recoveredOwnerContext.newPage();
+  await login(recoveredOwnerPage, passwordSetupEmail, recoveryPassword);
+  await recoveredOwnerPage.getByText(passwordSetupBusinessName, { exact: true }).waitFor();
+  await recoveredOwnerContext.close();
+  console.log("PASS: invitation, public recovery email delivery, callback token verification, password setup, and clean-browser sign-ins.");
+
   const context = await browser.newContext();
   const page = await context.newPage();
 
