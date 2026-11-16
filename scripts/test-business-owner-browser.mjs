@@ -209,14 +209,32 @@ try {
 
   // Verify the new invitation callback and first-password setup end to end
   // using a disposable GoTrue invite token (never a hosted account).
+  const passwordSetupRequestId = randomUUID();
+  const passwordSetupEmail = `password-setup-${suffix}@example.org`;
+  const passwordSetupBusinessName = "Password Setup E2E Depot";
+  sql(`select private.prepare_business_invitation(
+    '${passwordSetupRequestId}','${passwordSetupEmail}','${passwordSetupBusinessName}',
+    'Local password setup test address','08000000005'
+  )`);
   const generatedInvite = await admin.auth.admin.generateLink({
     type: "invite",
-    email: invitationEmail,
+    email: passwordSetupEmail,
     options: { redirectTo: `${APP}/auth/confirm?next=%2Fset-password` },
   });
   if (generatedInvite.error) throw generatedInvite.error;
   const inviteTokenHash = generatedInvite.data.properties?.hashed_token;
+  const passwordSetupUserId = generatedInvite.data.user?.id;
+  assert.ok(passwordSetupUserId, "GoTrue did not create the disposable invited owner");
   assert.ok(inviteTokenHash, "GoTrue did not return a disposable invitation token hash");
+  assert.equal(sql(`select status || '|' || invited_user_id::text
+    from private.business_invitation_requests where request_id='${passwordSetupRequestId}'`),
+    `user_created|${passwordSetupUserId}`,
+    "Generated invite did not consume the prepared invitation request");
+  const passwordSetupBusiness = JSON.parse(sql(
+    `select private.provision_invited_business('${passwordSetupRequestId}')`,
+  ));
+  assert.equal(passwordSetupBusiness.status, "setup");
+  assert.equal(passwordSetupBusiness.canOperate, false);
   const inviteContext = await browser.newContext();
   const invitePage = await inviteContext.newPage();
   const invitePassword = "Df!" + randomBytes(24).toString("base64url");
@@ -232,8 +250,8 @@ try {
   // Confirm that the newly set password works in a clean browser session.
   const invitedOwnerContext = await browser.newContext();
   const invitedOwnerPage = await invitedOwnerContext.newPage();
-  await login(invitedOwnerPage, invitationEmail, invitePassword);
-  await invitedOwnerPage.getByText(invitationBusinessName, { exact: true }).waitFor();
+  await login(invitedOwnerPage, passwordSetupEmail, invitePassword);
+  await invitedOwnerPage.getByText(passwordSetupBusinessName, { exact: true }).waitFor();
   console.log("PASS: disposable invitation token verified, first password saved, and owner signed in from a clean browser context.");
   await invitedOwnerContext.close();
 
