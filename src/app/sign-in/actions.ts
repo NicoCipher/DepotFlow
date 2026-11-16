@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ownerAuthorized } from "@/domain/authorization";
 import { safeSignInReturnPath } from "@/domain/auth-navigation";
 import { clearRejectedSignInCookies } from "@/lib/auth/rejected-signin-cleanup";
+import { resolveSignInDestination } from "@/lib/auth/sign-in-destination";
 
 export type SignInState = { email: string; message: string };
 
@@ -32,6 +33,7 @@ async function rejectAuthenticatedLogin(
     message: "Sign-in was rejected but session cleanup could not be confirmed. Close this browser before sharing this device and try again.",
   };
 }
+
 export async function signIn(
   _previous: SignInState,
   formData: FormData,
@@ -42,30 +44,43 @@ export async function signIn(
   const password = String(formData.get("password") ?? "");
   const returnTo = safeSignInReturnPath(formData.get("return_to"));
   if (
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+    !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) ||
     !password ||
     password.length > 1024
   ) {
     return { email, message: "Enter your email and password." };
   }
+
+  let destination = returnTo;
   try {
     const supabase = await createClient();
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    if (error || !data.user)
+    if (error || !data.user) {
       return {
         email,
         message: "Could not sign in. Check your details and try again.",
       };
-    // New-depot owners enter through a separate verified membership path.
-    // NEVER relax the legacy is_shop_owner() check for existing shop URLs.
-    if (returnTo === "/businesses") {
+    }
+
+    if (returnTo === "/") {
+      // One sign-in path: verified tenant membership takes the user to
+      // their only depot or to the picker; legacy owners retain the shop.
+      const resolved = await resolveSignInDestination(supabase, data.user.id);
+      if (!resolved) {
+        return rejectAuthenticatedLogin(
+          supabase,
+          email,
+          "This account does not currently have access to a depot. Contact the depot owner for access.",
+        );
+      }
+      destination = resolved;
+    } else if (returnTo === "/businesses") {
+      // Preserve the independently gated business onboarding route for
+      // password-setup and registration links.
       const depots = await supabase.rpc("list_my_businesses_for_setup");
-      // A confirmed owner with ZERO depots must still be able to sign in
-      // to REGISTER their first one. Registration has its OWN disabled gate.
-      // If listing is unavailable, never bypass that prerequisite.
       const registration = !depots.error && !depots.data?.length
         ? await supabase.rpc("can_register_business")
         : null;
@@ -79,6 +94,7 @@ export async function signIn(
         );
       }
     } else {
+      // Existing shop URLs keep their original owner-only authorization.
       const owner = await supabase.rpc("is_shop_owner");
       if (!ownerAuthorized(data.user.id, owner.data, owner.error)) {
         return rejectAuthenticatedLogin(
@@ -89,7 +105,7 @@ export async function signIn(
   } catch {
     return { email, message: "Could not connect. Please try again." };
   }
-  redirect(returnTo);
+  redirect(destination);
 }
 
 export async function signOut() {
