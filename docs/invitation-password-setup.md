@@ -12,7 +12,9 @@ The callback also accepts a PKCE `code` for projects configured to use PKCE conf
 
 ## Supabase Auth email templates
 
-In **Authentication → Email Templates**, update both the **Invite user** and **Reset password** templates so their action link uses the app callback and the correct token type.
+The default Supabase email templates can be used without custom SMTP. Keep the default **Invite user** and **Reset password** action links (which use `{{ .ConfirmationURL }}`). The application supplies `/auth/confirm` as the redirect target when it requests an invitation or password-recovery email, and the callback supports Supabase's PKCE authorization-code links.
+
+Custom SMTP is only needed if you want to edit the email subject or body in the Supabase dashboard. If custom SMTP is configured later and you choose to customize the templates, use these token-hash links:
 
 Invite template link:
 
@@ -26,7 +28,7 @@ Reset-password template link:
 <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=%2Fset-password">Reset password</a>
 ```
 
-Keep the token hash URL-encoded by the email provider's normal HTML handling. Do not expose service-role keys or manually edit `auth.users`.
+Do not expose service-role keys or manually edit `auth.users`.
 
 ## URL configuration
 
@@ -46,7 +48,7 @@ Do not delete/reinvite the user. Open `/forgot-password`, request a recovery ema
 
 ## Release checklist
 
-- Confirm both Supabase email templates use the correct `TokenHash` and type.
+- Confirm the default Supabase action links remain enabled, or verify customized templates use the correct `TokenHash` and type.
 - Confirm production Site URL and allowed callback URL.
 - Run the local disposable GoTrue invitation and recovery browser tests, including submitting the public recovery form and reading the resulting message from local Inbucket.
 - Verify an invalid/expired token cannot open the password form with a session.
