@@ -48,6 +48,31 @@ async function waitForApp(child) {
   }
   fail("Next.js app did not become ready");
 }
+async function waitForRecoveryEmailLink(email) {
+  const mailbox = `http://127.0.0.1:54324/api/v1/mailbox/${encodeURIComponent(email)}`;
+  const deadline = Date.now() + 30000;
+  while (Date.now() < deadline) {
+    const inboxResponse = await fetch(mailbox);
+    if (inboxResponse.ok) {
+      const inbox = await inboxResponse.json();
+      const messages = Array.isArray(inbox) ? inbox : (inbox.messages ?? []);
+      for (const item of messages) {
+        const messageResponse = await fetch(`${mailbox}/${encodeURIComponent(item.id)}`);
+        if (!messageResponse.ok) continue;
+        const message = await messageResponse.json();
+        const text = JSON.stringify(message);
+        const links = text.match(/https?:\\?\\?\/\\?\/[^"\\s<>]+/g) ?? [];
+        const recoveryLink = links
+          .map((link) => link.replaceAll("\\\\/", "/").replaceAll("&amp;", "&"))
+          .find((link) => link.includes("/auth/v1/verify") && /[?&]type=recovery(?:&|%26)/.test(link));
+        if (recoveryLink) return recoveryLink;
+      }
+    }
+    await delay(500);
+  }
+  fail("Timed out waiting for the local Supabase recovery email in Inbucket");
+}
+
 async function login(page, email, password) {
   await page.goto(APP + "/sign-in?next=%2Fbusinesses");
   await page.getByLabel("Email").fill(email);
@@ -256,7 +281,32 @@ try {
   await invitedOwnerPage.getByText(passwordSetupBusinessName, { exact: true }).waitFor();
   await invitedOwnerContext.close();
 
-  // Exercise the recovery-token path separately for an already-confirmed owner.
+  // Exercise the public recovery form and actual Supabase email delivery.
+  // Supabase CLI's disposable Inbucket captures the message; no real email is sent.
+  const emailRecoveryContext = await browser.newContext();
+  const emailRecoveryPage = await emailRecoveryContext.newPage();
+  await emailRecoveryPage.goto(`${APP}/forgot-password`);
+  await emailRecoveryPage.getByLabel("Account email").fill(passwordSetupEmail);
+  await emailRecoveryPage.getByRole("button", { name: "Send password link" }).click();
+  await emailRecoveryPage.getByRole("status").getByText(/If this email belongs/).waitFor();
+  const deliveredRecoveryLink = await waitForRecoveryEmailLink(passwordSetupEmail);
+  const deliveredRecoveryPassword = "Df!" + randomBytes(24).toString("base64url");
+  await emailRecoveryPage.goto(deliveredRecoveryLink);
+  await emailRecoveryPage.waitForURL("**/set-password", { timeout: 15000 });
+  await emailRecoveryPage.getByLabel("New password").fill(deliveredRecoveryPassword);
+  await emailRecoveryPage.getByLabel("Confirm password").fill(deliveredRecoveryPassword);
+  await emailRecoveryPage.getByRole("button", { name: "Save password" }).click();
+  await emailRecoveryPage.waitForURL("**/businesses", { timeout: 15000 });
+  await emailRecoveryPage.getByRole("heading", { name: "Choose your depot" }).waitFor();
+  await emailRecoveryContext.close();
+
+  const emailRecoveredContext = await browser.newContext();
+  const emailRecoveredPage = await emailRecoveredContext.newPage();
+  await login(emailRecoveredPage, passwordSetupEmail, deliveredRecoveryPassword);
+  await emailRecoveredPage.getByText(passwordSetupBusinessName, { exact: true }).waitFor();
+  await emailRecoveredContext.close();
+
+  // Exercise the recovery-token path separately for callback-level coverage.
   const generatedRecovery = await admin.auth.admin.generateLink({
     type: "recovery",
     email: passwordSetupEmail,
@@ -282,7 +332,7 @@ try {
   await login(recoveredOwnerPage, passwordSetupEmail, recoveryPassword);
   await recoveredOwnerPage.getByText(passwordSetupBusinessName, { exact: true }).waitFor();
   await recoveredOwnerContext.close();
-  console.log("PASS: invitation and recovery tokens verified; first password setup and password recovery both succeeded, followed by clean-browser sign-ins.");
+  console.log("PASS: invitation, public recovery email delivery, callback token verification, password setup, and clean-browser sign-ins.");
 
   const context = await browser.newContext();
   const page = await context.newPage();
