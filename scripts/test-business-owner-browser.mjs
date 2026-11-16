@@ -209,6 +209,7 @@ try {
 
   // Verify the new invitation callback and first-password setup end to end
   // using a disposable GoTrue invite token (never a hosted account).
+  sql("update private.business_auth_signup_gate set enabled=false where singleton");
   const passwordSetupRequestId = randomUUID();
   const passwordSetupEmail = `password-setup-${suffix}@example.org`;
   const passwordSetupBusinessName = "Password Setup E2E Depot";
@@ -235,6 +236,7 @@ try {
   ));
   assert.equal(passwordSetupBusiness.status, "setup");
   assert.equal(passwordSetupBusiness.canOperate, false);
+  sql("update private.business_auth_signup_gate set enabled=true where singleton");
   const inviteContext = await browser.newContext();
   const invitePage = await inviteContext.newPage();
   const invitePassword = "Df!" + randomBytes(24).toString("base64url");
