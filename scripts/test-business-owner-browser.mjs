@@ -49,30 +49,32 @@ async function waitForApp(child) {
   fail("Next.js app did not become ready");
 }
 async function waitForRecoveryEmailLink(email) {
-  // Stock Inbucket maps email addresses to mailbox names by local part.
-  const mailboxName = email.split("@")[0];
-  const mailbox = `http://127.0.0.1:54324/api/v1/mailbox/${encodeURIComponent(mailboxName)}`;
+  // Supabase CLI currently bundles Mailpit, whose REST API searches messages
+  // by recipient and fetches full message bodies by their uppercase ID.
+  const mailpit = "http://127.0.0.1:54324/api/v1";
+  const searchUrl = `${mailpit}/search?query=${encodeURIComponent(`to:${email}`)}`;
   const deadline = Date.now() + 30000;
   while (Date.now() < deadline) {
-    const inboxResponse = await fetch(mailbox);
+    const inboxResponse = await fetch(searchUrl);
     if (inboxResponse.ok) {
       const inbox = await inboxResponse.json();
-      const messages = Array.isArray(inbox) ? inbox : (inbox.messages ?? []);
-      for (const item of messages) {
-        const messageResponse = await fetch(`${mailbox}/${encodeURIComponent(item.id)}`);
+      for (const item of inbox.messages ?? []) {
+        const messageResponse = await fetch(
+          `${mailpit}/message/${encodeURIComponent(item.ID)}`,
+        );
         if (!messageResponse.ok) continue;
         const message = await messageResponse.json();
-        const text = JSON.stringify(message);
-        const links = text.match(/https?:\/\/[^"\s<>]+/g) ?? [];
+        const body = `${message.Text ?? ""}\\n${message.HTML ?? ""}`;
+        const links = body.match(/https?:\\/\\/[^"\\s<>]+/g) ?? [];
         const recoveryLink = links
-          .map((link) => link.replaceAll("\\/", "/").replaceAll("&amp;", "&"))
+          .map((link) => link.replaceAll("&amp;", "&").replaceAll("&#x3D;", "="))
           .find((link) => link.includes("/auth/v1/verify") && /[?&]type=recovery(?:&|%26)/.test(link));
         if (recoveryLink) return recoveryLink;
       }
     }
     await delay(500);
   }
-  fail("Timed out waiting for the local Supabase recovery email in Inbucket");
+  fail("Timed out waiting for the local Supabase recovery email in Mailpit");
 }
 
 async function login(page, email, password) {
