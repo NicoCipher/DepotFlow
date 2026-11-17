@@ -30,9 +30,6 @@ grant execute on function public.preview_business_opening_readiness(uuid) to aut
 revoke all on function public.receive_business_stock(uuid,uuid,uuid,numeric,integer,integer,integer,uuid,date) from public,anon;
 grant execute on function public.receive_business_stock(uuid,uuid,uuid,numeric,integer,integer,integer,uuid,date) to authenticated;
 
-revoke all on function public.record_business_buying_cost(uuid,uuid,uuid,integer,date) from public,anon;
-grant execute on function public.record_business_buying_cost(uuid,uuid,uuid,integer,date) to authenticated;
-
 revoke all on function public.record_business_customer_opening(uuid,uuid,uuid,integer,integer,date,text,jsonb,jsonb) from public,anon;
 grant execute on function public.record_business_customer_opening(uuid,uuid,uuid,integer,integer,date,text,jsonb,jsonb) to authenticated;
 

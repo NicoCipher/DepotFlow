@@ -13,7 +13,6 @@ declare
     'public.preview_business_opening_count_progress(uuid)'::regprocedure,
     'public.preview_business_opening_readiness(uuid)'::regprocedure,
     'public.receive_business_stock(uuid,uuid,uuid,numeric,integer,integer,integer,uuid,date)'::regprocedure,
-    'public.record_business_buying_cost(uuid,uuid,uuid,integer,date)'::regprocedure,
     'public.record_business_customer_opening(uuid,uuid,uuid,integer,integer,date,text,jsonb,jsonb)'::regprocedure,
     'public.record_business_physical_opening(uuid,uuid,text,text,integer,integer,integer,date)'::regprocedure,
     'public.register_business_customer(uuid,uuid,text,text,text,text)'::regprocedure
