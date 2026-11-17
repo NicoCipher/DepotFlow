@@ -324,17 +324,17 @@ export type Database = {
       deposits: {
         Row: {
           amount: number
-          business_id: string
+          business_id: string | null
           customer_id: string
         }
         Insert: {
           amount?: number
-          business_id: string
+          business_id?: string | null
           customer_id: string
         }
         Update: {
           amount?: number
-          business_id?: string
+          business_id?: string | null
           customer_id?: string
         }
         Relationships: [
