@@ -324,17 +324,14 @@ export type Database = {
       deposits: {
         Row: {
           amount: number
-          business_id: string | null
           customer_id: string
         }
         Insert: {
           amount?: number
-          business_id?: string | null
           customer_id: string
         }
         Update: {
           amount?: number
-          business_id?: string | null
           customer_id?: string
         }
         Relationships: [
@@ -418,16 +415,19 @@ export type Database = {
       }
       empty_crate_stock: {
         Row: {
+          business_id: string | null
           crate_type: string | null
           crate_type_id: string
           quantity: number
         }
         Insert: {
+          business_id?: string | null
           crate_type?: string | null
           crate_type_id: string
           quantity?: number
         }
         Update: {
+          business_id?: string | null
           crate_type?: string | null
           crate_type_id?: string
           quantity?: number
@@ -452,14 +452,17 @@ export type Database = {
       money_owed: {
         Row: {
           amount: number
+          business_id: string | null
           customer_id: string
         }
         Insert: {
           amount?: number
+          business_id?: string | null
           customer_id: string
         }
         Update: {
           amount?: number
+          business_id?: string | null
           customer_id?: string
         }
         Relationships: [
