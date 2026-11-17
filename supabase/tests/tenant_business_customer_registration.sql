@@ -41,20 +41,18 @@ insert into private.business_memberships(business_id,user_id,member_kind,status)
 do $safe_defaults$
 begin
  if (select enabled from private.business_customer_registration_gate)
-   or has_function_privilege('authenticated',
+   or not has_function_privilege('authenticated',
     'public.register_business_customer(uuid,uuid,text,text,text,text)','EXECUTE')
    or has_function_privilege('anon',
     'public.register_business_customer(uuid,uuid,text,text,text,text)','EXECUTE')
    or has_table_privilege('authenticated',
     'private.business_customer_registration_requests','SELECT, INSERT, UPDATE, DELETE')
  then
-   raise exception 'Tenant customer creation has unreviewed permission';
+   raise exception 'Tenant customer creation gate or authenticated-only owner grant is incorrect';
  end if;
 end;
 $safe_defaults$;
 
-grant execute on function public.register_business_customer(
- uuid,uuid,text,text,text,text) to authenticated;
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
  '89d00000-0000-4000-8000-000000000002',true);

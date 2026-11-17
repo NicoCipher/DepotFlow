@@ -71,7 +71,7 @@ alter table public.products enable trigger legacy_scope_business_write;
 do $default_off$
 begin
  if (select enabled from private.business_bottle_count_gate)
-    or has_function_privilege('authenticated',
+    or not has_function_privilege('authenticated',
       'public.count_business_empty_bottles(uuid,uuid,text,integer,integer,date)',
       'EXECUTE')
     or has_function_privilege('anon',
@@ -82,10 +82,6 @@ begin
 end;
 $default_off$;
 
--- Simulated release permission/activation, only inside this rollback.
-grant execute on function public.count_business_empty_bottles(
- uuid,uuid,text,integer,integer,date
-) to authenticated;
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
  '89a00000-0000-4000-8000-000000000002',true);

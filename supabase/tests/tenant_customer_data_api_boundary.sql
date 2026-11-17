@@ -38,7 +38,7 @@ do $no_direct_business_insert$
 begin
  if has_any_column_privilege('authenticated','public.customers','INSERT')
  or has_table_privilege('anon','public.customers','INSERT')
- or has_function_privilege('authenticated',
+ or not has_function_privilege('authenticated',
    'public.register_business_customer(uuid,uuid,text,text,text,text)',
    'EXECUTE')
  or not has_function_privilege('authenticated',
@@ -204,9 +204,6 @@ insert into private.business_memberships(
 
 update private.business_selection_gate set enabled=true where singleton;
 update private.business_customer_registration_gate set enabled=true where singleton;
-grant execute on function public.register_business_customer(
- uuid,uuid,text,text,text,text) to authenticated;
-
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
  '89c00000-0000-4000-8000-000000000003',true);
