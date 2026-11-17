@@ -38,6 +38,13 @@ begin
     raise exception 'Owner activation status functions must be volatile because they take row locks';
   end if;
 
+  if position('reviewedByCurrentOwner' in pg_catalog.pg_get_functiondef(
+      'public.business_opening_review_status(uuid)'::regprocedure))=0
+     or position('actor_id is distinct from v_actor' in lower(pg_catalog.pg_get_functiondef(
+      'public.business_opening_review_status(uuid)'::regprocedure)))=0 then
+    raise exception 'Review status must not expose the activation token to a different owner';
+  end if;
+
   v_def:=pg_catalog.pg_get_functiondef(
     'public.activate_business_after_opening_review(uuid,uuid,text)'::regprocedure
   );

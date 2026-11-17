@@ -538,7 +538,7 @@
     },
     {
       "filename": "20261117020000_stage_business_opening_activation.sql",
-      "git_blob_sha1": "66e9c4e876a00764d291f9e65dd578fbde91de06",
+      "git_blob_sha1": "fb325fcd295b06fb326e5c858d0c2d561083b7bb",
       "reason": "New Walnik first-tenant workflow migration staging a default-OFF, owner-reviewed activation RPC and immutable activation audit. It is not part of the frozen 2026-10-19 M2 historical rehearsal and remains staged pending separate production-ledger reconciliation and release approval."
     },
     {
