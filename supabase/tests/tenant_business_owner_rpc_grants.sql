@@ -8,7 +8,7 @@ declare
     'public.confirm_business_opening_review(uuid,uuid,text,text,boolean,boolean,boolean,boolean,boolean)'::regprocedure,
     'public.count_business_empty_bottles(uuid,uuid,text,integer,integer,date)'::regprocedure,
     'public.count_business_empty_crates(uuid,uuid,uuid,integer,integer,date)'::regprocedure,
-    'public.count_business_product_stock(uuid,uuid,uuid,numeric,integer,integer,integer,date)'::regprocedure,
+    'public.count_business_product_stock(uuid,uuid,uuid,numeric,numeric,integer,integer,date)'::regprocedure,
     'public.prepare_business_opening_review(uuid)'::regprocedure,
     'public.preview_business_opening_count_progress(uuid)'::regprocedure,
     'public.preview_business_opening_readiness(uuid)'::regprocedure,
