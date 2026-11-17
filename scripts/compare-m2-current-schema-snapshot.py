@@ -42,8 +42,8 @@ def compare(args) -> dict:
     acl_expected = read_json(ACL_SNAPSHOT)
     function_expected = read_json(FUNCTION_SNAPSHOT)
     for snapshot in (schema_expected, object_expected, acl_expected, function_expected):
-        if snapshot.get("migration_count") != 132 or snapshot.get("migration_tip") != "20261117095151":
-            raise ValueError("Live schema snapshot is not bound to the reviewed 132-entry production ledger")
+        if snapshot.get("migration_count") != 133 or snapshot.get("migration_tip") != "20261117100429":
+            raise ValueError("Live schema snapshot is not bound to the reviewed 133-entry production ledger")
         if snapshot.get("project_id", snapshot.get("project_ref")) != "coyivbklakhilpcqqrzg":
             raise ValueError("Live schema snapshot belongs to an unexpected Supabase project")
 
@@ -183,7 +183,7 @@ def compare(args) -> dict:
 
     return {
         "result": "PASS",
-        "live_baseline": "132 migrations ending 20261117095151",
+        "live_baseline": "133 migrations ending 20261117100429 (last migration changes gate state only)",
         "schema_groups_exact": sorted(EXPECTED_GROUPS - {"column_grants"}),
         "per_object_shape_and_function_hashes": "exact",
         "application_client_DML_and_effective_DELETE": "exact",

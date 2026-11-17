@@ -17,8 +17,8 @@ SNAPSHOT = ROOT / "supabase/tests/fixtures/production_migration_history_20261117
 SOURCE_LOCK = ROOT / "supabase/tests/fixtures/m2_forward_only_sources_20261019.json"
 MIGRATIONS = ROOT / "supabase/migrations"
 
-LIVE_COUNT = 132
-LIVE_TIP = "20261117095151"
+LIVE_COUNT = 133
+LIVE_TIP = "20261117100429"
 APPLIED_AFTER_PHASE_A = [
     ("20261029170523", "restore_authenticated_onboarding_rpc_grants_keep_gates_closed",
      "20261029170523_restore_authenticated_onboarding_rpc_grants_keep_gates_closed.sql"),
@@ -42,6 +42,8 @@ APPLIED_AFTER_PHASE_A = [
      "20261117030000_stage_tenant_stock_receiving_ui.sql"),
     ("20261117095151", "grant_authenticated_tenant_owner_rpcs",
      "20261117040000_grant_authenticated_tenant_owner_rpcs.sql"),
+    ("20261117100429", "enable_walnik_onboarding_gates",
+     "docs/release-evidence/walnik-onboarding-gate-release-20261117.sql"),
 ]
 STAGED_OPERATIONS: list[str] = []
 STAMP = re.compile(r"^(\d{14})_[a-z][a-z0-9_]*\.sql$")
@@ -100,13 +102,15 @@ def validate() -> dict:
     replay_sources = [source for _version, _name, source in APPLIED_AFTER_PHASE_A]
     expected_files = replay_sources + STAGED_OPERATIONS
     for filename in expected_files:
-        path = MIGRATIONS / filename
+        is_documented_release = filename.startswith("docs/")
+        path = ROOT / filename if is_documented_release else MIGRATIONS / filename
         if not path.is_file():
-            raise ValueError("Missing current-schema or staged migration source: " + filename)
-        if filename not in pinned:
+            raise ValueError("Missing current-schema or applied migration source: " + filename)
+        pin_key = filename if is_documented_release else Path(filename).name
+        if pin_key not in pinned:
             raise ValueError("Migration source is not explicitly pinned as reviewed/excluded: " + filename)
         actual_blob = git_blob_sha1(path)
-        expected_blob, _reason = pinned[filename]
+        expected_blob, _reason = pinned[pin_key]
         if actual_blob != expected_blob:
             raise ValueError("Pinned migration source changed: " + filename)
 

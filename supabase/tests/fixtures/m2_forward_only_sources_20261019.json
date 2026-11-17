@@ -550,6 +550,11 @@
       "filename": "20261117040000_grant_authenticated_tenant_owner_rpcs.sql",
       "git_blob_sha1": "f12becc9db6ca341a4e4687e8a13db36a4be424b",
       "reason": "Applied to production as migration 20261117095151 after review; grants authenticated-only execution while all operational gates remain disabled."
+    },
+    {
+      "filename": "docs/release-evidence/walnik-onboarding-gate-release-20261117.sql",
+      "git_blob_sha1": "37daca9ee8fb35fc7f64c45fe31376d893460003",
+      "reason": "Applied to production as migration 20261117100429; opens only owner-verified Walnik onboarding gates and leaves sales, customer payments, receiving, signup, business registration and cost-history gates OFF."
     }
   ]
 }

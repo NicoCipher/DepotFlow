@@ -1,9 +1,9 @@
 {
   "purpose": "READ-ONLY CURRENT PRODUCTION PUBLIC/PRIVATE SCHEMA FINGERPRINT; NOT RELEASE APPROVAL",
-  "captured_at_utc": "2026-11-17T09:54:31.956Z",
+  "captured_at_utc": "2026-11-17T10:06:12.516Z",
   "project_id": "coyivbklakhilpcqqrzg",
-  "migration_count": 132,
-  "migration_tip": "20261117095151",
+  "migration_count": 133,
+  "migration_tip": "20261117100429",
   "query": "supabase/tests/live_schema_fingerprint.sql",
   "objects": [
     {
