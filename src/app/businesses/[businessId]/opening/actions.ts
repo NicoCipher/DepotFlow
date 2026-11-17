@@ -104,19 +104,24 @@ export async function confirmOpeningReview(
 /** Final cutover is separate from owner review. The database rechecks the
  * exact saved review and the live opening ledger before changing status.
  */
-export async function activateBusiness(formData: FormData): Promise<never> {
+export type BusinessActivationState = { message: string; activated: boolean };
+
+export async function activateBusiness(
+  _previous: BusinessActivationState,
+  formData: FormData,
+): Promise<BusinessActivationState> {
   const businessId = String(formData.get("business_id") ?? "");
   const requestId = String(formData.get("request_id") ?? "");
   const reviewToken = String(formData.get("review_token") ?? "");
   if (!isUuid(businessId) || !isUuid(requestId) ||
       !/^[0-9a-f]{32}$/.test(reviewToken)) {
-    throw new Error("The activation request is invalid. Reload the opening review.");
+    return { message: "The activation request is invalid. Reload the opening review.", activated: false };
   }
 
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (!user || authError) {
-    throw new Error("Sign in again as this depot's owner.");
+    return { message: "Sign in again as this depot's owner.", activated: false };
   }
   const { data: businesses, error: listError } =
     await supabase.rpc("list_my_businesses_for_setup");
@@ -125,7 +130,7 @@ export async function activateBusiness(formData: FormData): Promise<never> {
     business.member_kind === "owner" &&
     business.business_status === "setup"
   )) {
-    throw new Error("This depot is not available for owner activation.");
+    return { message: "This depot is not available for owner activation.", activated: false };
   }
 
   const { data, error } = await supabase.rpc(
@@ -139,7 +144,10 @@ export async function activateBusiness(formData: FormData): Promise<never> {
   if (error || !data || typeof data !== "object" || Array.isArray(data) ||
       data.businessId !== businessId || data.status !== "active" ||
       data.activated !== true) {
-    throw new Error("Activation was not confirmed. Reload and check the depot status before retrying.");
+    return {
+      message: "Activation was not confirmed. Reload and check the depot status before retrying.",
+      activated: false,
+    };
   }
-  redirect("/businesses");
+  return { message: "Depot activated.", activated: true };
 }

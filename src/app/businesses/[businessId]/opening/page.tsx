@@ -79,7 +79,6 @@ export default async function BusinessOpeningReviewPage({
   let snapshot = rawSnapshot as unknown as OpeningReadinessSnapshot;
   let signoffToken: string | null = null;
   let savedReviewToken: string | null = null;
-  let savedReviewRequestId: string | null = null;
   let reviewRecorded = false;
   let activationReady = false;
 
@@ -101,7 +100,6 @@ export default async function BusinessOpeningReviewPage({
         typeof reviewStatus.reviewRequestId === "string" &&
         isUuid(reviewStatus.reviewRequestId)) {
       savedReviewToken = reviewStatus.reviewToken;
-      savedReviewRequestId = reviewStatus.reviewRequestId;
       activationReady = reviewStatus.canActivate === true;
     } else {
       reviewRecorded = false;
