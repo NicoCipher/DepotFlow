@@ -17,8 +17,13 @@ export default async function BusinessSalesPage({params}:{params:Promise<{busine
   const business=businesses?.find(item=>item.business_id===businessId&&item.member_kind==="owner"&&item.business_status==="active");
   if(listError||!business) notFound();
 
-  const salesUiEnabled = process.env.NEXT_PUBLIC_BUSINESS_SALES_ENABLED === "true";
-  if (!salesUiEnabled) {
+  // The database is the release authority. Do not depend on a public
+  // Vercel environment flag that can drift from the tenant write gate.
+  const { data: salesUiEnabled, error: salesGateError } = await supabase.rpc(
+    "can_record_business_sale",
+    { p_business_id: businessId },
+  );
+  if (salesGateError || salesUiEnabled !== true) {
     return (
       <section className="mx-auto w-full max-w-2xl space-y-5 pb-8">
         <Link href="/businesses" className="quiet-link">← Your depots</Link>
