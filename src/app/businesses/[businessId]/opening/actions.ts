@@ -99,3 +99,47 @@ export async function confirmOpeningReview(
     recorded: false,
   };
 }
+
+
+/** Final cutover is separate from owner review. The database rechecks the
+ * exact saved review and the live opening ledger before changing status.
+ */
+export async function activateBusiness(formData: FormData): Promise<never> {
+  const businessId = String(formData.get("business_id") ?? "");
+  const requestId = String(formData.get("request_id") ?? "");
+  const reviewToken = String(formData.get("review_token") ?? "");
+  if (!isUuid(businessId) || !isUuid(requestId) ||
+      !/^[0-9a-f]{32}$/.test(reviewToken)) {
+    throw new Error("The activation request is invalid. Reload the opening review.");
+  }
+
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (!user || authError) {
+    throw new Error("Sign in again as this depot's owner.");
+  }
+  const { data: businesses, error: listError } =
+    await supabase.rpc("list_my_businesses_for_setup");
+  if (listError || !businesses?.some((business) =>
+    business.business_id === businessId &&
+    business.member_kind === "owner" &&
+    business.business_status === "setup"
+  )) {
+    throw new Error("This depot is not available for owner activation.");
+  }
+
+  const { data, error } = await supabase.rpc(
+    "activate_business_after_opening_review",
+    {
+      p_business_id: businessId,
+      p_request_id: requestId,
+      p_review_token: reviewToken,
+    },
+  );
+  if (error || !data || typeof data !== "object" || Array.isArray(data) ||
+      data.businessId !== businessId || data.status !== "active" ||
+      data.activated !== true) {
+    throw new Error("Activation was not confirmed. Reload and check the depot status before retrying.");
+  }
+  redirect("/businesses");
+}

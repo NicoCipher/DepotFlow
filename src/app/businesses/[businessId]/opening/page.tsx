@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { OnboardingOpeningReview } from "@/components/onboarding-opening-review";
 import { OnboardingOwnerSignoffForm } from "@/components/onboarding-owner-signoff-form";
+import { OnboardingActivationForm } from "@/components/onboarding-activation-form";
 import { canPresentOwnerSignoff, type OpeningReadinessSnapshot } from "@/domain/opening-readiness";
 import { isUuid } from "@/domain/ids";
 import { createClient } from "@/lib/supabase/server";
@@ -77,12 +78,39 @@ export default async function BusinessOpeningReviewPage({
   }
   let snapshot = rawSnapshot as unknown as OpeningReadinessSnapshot;
   let signoffToken: string | null = null;
+  let savedReviewToken: string | null = null;
+  let savedReviewRequestId: string | null = null;
+  let reviewRecorded = false;
+  let activationReady = false;
 
-  // A separate and currently DISABLED gate controls whether an owner can
-  // sign anything. Only show the form if that gate returns a server token.
-  // Display the EXACT prepared snapshot paired with the token, never a
-  // separate potentially outdated preview from an earlier database read.
-  if (canPresentOwnerSignoff(snapshot)) {
+  // A recorded review is immutable. Read its server-side status so a page
+  // refresh does not present a new request UUID and accidentally attempt a
+  // second owner sign-off.
+  const { data: reviewStatus, error: reviewStatusError } = await supabase.rpc(
+    "business_opening_review_status",
+    { p_business_id: matched.business_id },
+  );
+  if (!reviewStatusError && reviewStatus &&
+      typeof reviewStatus === "object" && !Array.isArray(reviewStatus) &&
+      reviewStatus.businessId === matched.business_id &&
+      reviewStatus.businessStatus === "setup") {
+    reviewRecorded = reviewStatus.reviewRecorded === true;
+    if (reviewRecorded &&
+        typeof reviewStatus.reviewToken === "string" &&
+        /^[0-9a-f]{32}$/.test(reviewStatus.reviewToken) &&
+        typeof reviewStatus.reviewRequestId === "string" &&
+        isUuid(reviewStatus.reviewRequestId)) {
+      savedReviewToken = reviewStatus.reviewToken;
+      savedReviewRequestId = reviewStatus.reviewRequestId;
+      activationReady = reviewStatus.canActivate === true;
+    } else {
+      reviewRecorded = false;
+    }
+  }
+
+  // Only an unreviewed, complete snapshot may be presented for owner sign-off.
+  // The DB prepares the exact snapshot and token together.
+  if (!reviewRecorded && canPresentOwnerSignoff(snapshot)) {
     const { data: prepared, error: prepareError } = await supabase.rpc(
       "prepare_business_opening_review",
       { p_business_id: matched.business_id },
@@ -121,13 +149,24 @@ export default async function BusinessOpeningReviewPage({
         </Link>
       </div>
       <OnboardingOpeningReview snapshot={snapshot} />
-      {signoffToken && snapshot.profile?.name ? (
+      {!reviewRecorded && signoffToken && snapshot.profile?.name ? (
         <OnboardingOwnerSignoffForm
           businessId={matched.business_id}
           businessName={snapshot.profile.name}
           reviewToken={signoffToken}
           requestId={crypto.randomUUID()}
         />
+      ) : reviewRecorded && activationReady && savedReviewToken ? (
+        <OnboardingActivationForm
+          businessId={matched.business_id}
+          reviewToken={savedReviewToken}
+          requestId={crypto.randomUUID()}
+        />
+      ) : reviewRecorded ? (
+        <p className="mt-4 max-w-2xl rounded-xl border border-stone-200 p-3 text-sm text-stone-600">
+          Owner review recorded. Final activation remains locked until its
+          independent release gate is enabled and the live opening records still match.
+        </p>
       ) : (
         <p className="mt-4 max-w-2xl rounded-xl border border-stone-200 p-3 text-sm text-stone-600">
           Owner confirmation is not enabled for this depot yet. No business
