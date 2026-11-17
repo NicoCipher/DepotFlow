@@ -1,0 +1,55 @@
+{
+  "purpose": "READ-ONLY CURRENT PRODUCTION PUBLIC/PRIVATE SCHEMA FINGERPRINT; NOT RELEASE APPROVAL",
+  "captured_at_utc": "2026-11-17T01:36:00.886Z",
+  "project_id": "coyivbklakhilpcqqrzg",
+  "migration_count": 128,
+  "migration_tip": "20261115200035",
+  "query": "supabase/tests/live_schema_fingerprint.sql",
+  "objects": [
+    {
+      "kind": "column_grants",
+      "object_count": 506,
+      "definition_hash": "554e9d2440e5441c7d2c2b63e3aac80a"
+    },
+    {
+      "kind": "columns",
+      "object_count": 428,
+      "definition_hash": "cdb708f65f4b0ab6fec76df00e47717e"
+    },
+    {
+      "kind": "constraints",
+      "object_count": 397,
+      "definition_hash": "2d7b376ed9c3c4b4144e5b15fc66eda8"
+    },
+    {
+      "kind": "functions",
+      "object_count": 109,
+      "definition_hash": "ed97464f3291304c8a669e3d052301c3"
+    },
+    {
+      "kind": "indexes",
+      "object_count": 139,
+      "definition_hash": "d09d520eb5d459401ad21a68d1d43dd2"
+    },
+    {
+      "kind": "policies",
+      "object_count": 36,
+      "definition_hash": "c6cbce317ee60cb46ddfcf6b0d842c60"
+    },
+    {
+      "kind": "relations",
+      "object_count": 70,
+      "definition_hash": "0311b87f503813b34aa0ab6dcb4ab3d4"
+    },
+    {
+      "kind": "triggers",
+      "object_count": 48,
+      "definition_hash": "dee4e73091fead250f700aa8467cbf72"
+    }
+  ],
+  "notes": [
+    "Read-only metadata capture from hosted Supabase; no business/customer rows or secrets included.",
+    "Captured against the 128-entry production migration ledger ending at 20261115200035.",
+    "This is a schema fingerprint, not a complete schema/grant parity or production release certificate."
+  ]
+}
