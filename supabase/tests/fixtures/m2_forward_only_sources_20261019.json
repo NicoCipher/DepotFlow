@@ -530,6 +530,16 @@
       "filename": "20261115120000_validate_tenant_foreign_keys.sql",
       "git_blob_sha1": "1660ccf47006bf381d8140496bfb2c47e68f0cfe",
       "reason": "Forward-only validation of the 31 existing composite tenant foreign keys. This migration is not part of the frozen 2026-10-19 historical M2 rehearsal bundle; it requires its own reviewed production rollout."
+    },
+    {
+      "filename": "20261117010000_allow_active_tenant_customer_registration.sql",
+      "git_blob_sha1": "3277c4b94176549598386648759a5899f999e6a1",
+      "reason": "New Walnik first-tenant workflow migration allowing an active tenant owner to register customers. It is not part of the frozen 2026-10-19 M2 historical rehearsal and remains staged pending separate production-ledger reconciliation and release approval."
+    },
+    {
+      "filename": "20261117020000_stage_business_opening_activation.sql",
+      "git_blob_sha1": "c004551f237777a4ecfaec8fd93ee78746f6907d",
+      "reason": "New Walnik first-tenant workflow migration staging a default-OFF, owner-reviewed activation RPC and immutable activation audit. It is not part of the frozen 2026-10-19 M2 historical rehearsal and remains staged pending separate production-ledger reconciliation and release approval."
     }
   ]
 }
