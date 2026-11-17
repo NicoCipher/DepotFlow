@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the current 128-entry production ledger and staged Walnik sources.
+"""Validate the current 132-entry production ledger and applied Walnik sources.
 
 This is an offline provenance check only. It does not connect to production,
 apply migrations, repair history, enable gates, or authorize a release.
@@ -17,8 +17,8 @@ SNAPSHOT = ROOT / "supabase/tests/fixtures/production_migration_history_20261117
 SOURCE_LOCK = ROOT / "supabase/tests/fixtures/m2_forward_only_sources_20261019.json"
 MIGRATIONS = ROOT / "supabase/migrations"
 
-LIVE_COUNT = 128
-LIVE_TIP = "20261115200035"
+LIVE_COUNT = 132
+LIVE_TIP = "20261117095151"
 APPLIED_AFTER_PHASE_A = [
     ("20261029170523", "restore_authenticated_onboarding_rpc_grants_keep_gates_closed",
      "20261029170523_restore_authenticated_onboarding_rpc_grants_keep_gates_closed.sql"),
@@ -34,13 +34,16 @@ APPLIED_AFTER_PHASE_A = [
      "20261115200028_stage_tenant_business_sales.sql"),
     ("20261115200035", "validate_tenant_foreign_keys",
      "20261115200035_validate_tenant_foreign_keys.sql"),
+    ("20261117095142", "allow_active_tenant_customer_registration",
+     "20261117010000_allow_active_tenant_customer_registration.sql"),
+    ("20261117095147", "stage_business_opening_activation",
+     "20261117020000_stage_business_opening_activation.sql"),
+    ("20261117095149", "stage_tenant_stock_receiving_ui",
+     "20261117030000_stage_tenant_stock_receiving_ui.sql"),
+    ("20261117095151", "grant_authenticated_tenant_owner_rpcs",
+     "20261117040000_grant_authenticated_tenant_owner_rpcs.sql"),
 ]
-STAGED_OPERATIONS = [
-    "20261117010000_allow_active_tenant_customer_registration.sql",
-    "20261117020000_stage_business_opening_activation.sql",
-    "20261117030000_stage_tenant_stock_receiving_ui.sql",
-    "20261117040000_grant_authenticated_tenant_owner_rpcs.sql",
-]
+STAGED_OPERATIONS: list[str] = []
 STAMP = re.compile(r"^(\d{14})_[a-z][a-z0-9_]*\.sql$")
 
 

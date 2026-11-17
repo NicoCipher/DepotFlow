@@ -1,10 +1,10 @@
 {
   "purpose": "READ-ONLY PRODUCTION MIGRATION LEDGER SNAPSHOT; NOT RELEASE APPROVAL",
-  "captured_at_utc": "2026-11-17T01:35:13.627Z",
+  "captured_at_utc": "2026-11-17T09:53:55.296Z",
   "project_id": "coyivbklakhilpcqqrzg",
   "source": "Supabase read-only list_migrations",
-  "count": 128,
-  "live_tip": "20261115200035",
+  "count": 132,
+  "live_tip": "20261117095151",
   "versions": [
     "20260912230917",
     "20260912235108",
@@ -133,7 +133,11 @@
     "20261115200016",
     "20261115200023",
     "20261115200028",
-    "20261115200035"
+    "20261115200035",
+    "20261117095142",
+    "20261117095147",
+    "20261117095149",
+    "20261117095151"
   ],
   "names": {
     "20260912230917": "initial_foundation",
@@ -263,7 +267,11 @@
     "20261115200016": "stage_tenant_customer_payments",
     "20261115200023": "stage_operator_business_invitations",
     "20261115200028": "stage_tenant_business_sales",
-    "20261115200035": "validate_tenant_foreign_keys"
+    "20261115200035": "validate_tenant_foreign_keys",
+    "20261117095142": "allow_active_tenant_customer_registration",
+    "20261117095147": "stage_business_opening_activation",
+    "20261117095149": "stage_tenant_stock_receiving_ui",
+    "20261117095151": "grant_authenticated_tenant_owner_rpcs"
   },
   "release_authorized": false,
   "notes": [
