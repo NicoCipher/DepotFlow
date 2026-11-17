@@ -548,7 +548,7 @@
     },
     {
       "filename": "20261117040000_grant_authenticated_tenant_owner_rpcs.sql",
-      "git_blob_sha1": "6bd39e9e61245d38924803d3f2e986ee70fcdb96",
+      "git_blob_sha1": "f12becc9db6ca341a4e4687e8a13db36a4be424b",
       "reason": "New Walnik tenant release migration granting authenticated-only execution to existing owner-verified, gate-protected SECURITY DEFINER RPCs. It does not open feature gates and is staged pending separate production-ledger reconciliation and explicit release approval."
     }
   ]

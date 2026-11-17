@@ -33,7 +33,7 @@ export default async function BusinessSalesPage({params}:{params:Promise<{busine
         </header>
         <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
           <h2 className="font-bold">Business sales are not enabled yet</h2>
-          <p className="mt-2 text-sm text-stone-600">This screen is staged. The interface flag and the separate database sales gate must both be approved before a sale can be recorded.</p>
+          <p className="mt-2 text-sm text-stone-600">This screen is staged. The separate database sales gate must be enabled before a sale can be recorded.</p>
         </div>
       </section>
     );

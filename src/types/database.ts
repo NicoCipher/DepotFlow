@@ -1073,6 +1073,10 @@ export type Database = {
         Args: { p_business_id: string }
         Returns: boolean
       }
+      can_record_business_customer_payment: {
+        Args: { p_business_id: string }
+        Returns: boolean
+      }
       can_receive_business_stock: {
         Args: { p_business_id: string }
         Returns: boolean

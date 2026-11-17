@@ -9,6 +9,7 @@ declare
     'public.count_business_empty_bottles(uuid,uuid,text,integer,integer,date)'::regprocedure,
     'public.count_business_empty_crates(uuid,uuid,uuid,integer,integer,date)'::regprocedure,
     'public.count_business_product_stock(uuid,uuid,uuid,numeric,numeric,integer,integer,date)'::regprocedure,
+    'public.can_record_business_customer_payment(uuid)'::regprocedure,
     'public.prepare_business_opening_review(uuid)'::regprocedure,
     'public.preview_business_opening_count_progress(uuid)'::regprocedure,
     'public.preview_business_opening_readiness(uuid)'::regprocedure,

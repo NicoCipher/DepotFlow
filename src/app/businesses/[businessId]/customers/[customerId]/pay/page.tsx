@@ -32,6 +32,22 @@ export default async function BusinessCustomerPaymentPage({
   );
   if (listError || !business) notFound();
 
+  const { data: canRecordPayment, error: paymentGateError } = await supabase.rpc(
+    "can_record_business_customer_payment",
+    { p_business_id: businessId },
+  );
+  if (paymentGateError || canRecordPayment !== true) {
+    return (
+      <section className="mx-auto w-full max-w-xl space-y-4">
+        <Link href={`/businesses/${businessId}/customers`} className="quiet-link">← Customers</Link>
+        <h1 className="text-2xl font-extrabold">Debt payments are not enabled</h1>
+        <p className="text-sm leading-6 text-stone-600">
+          This depot can view customer accounts, but the separate debt-payment gate is still OFF. No payment can be recorded from this screen.
+        </p>
+      </section>
+    );
+  }
+
   const [customerResult, balanceResult] = await Promise.all([
     supabase.from("customers")
       .select("id,business_id,name,phone")
