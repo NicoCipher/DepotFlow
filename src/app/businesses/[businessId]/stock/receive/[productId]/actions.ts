@@ -14,8 +14,6 @@ export type BusinessReceivingSaveState = {
   emptiesAfter?: number;
 };
 
-const failure = (message: string): ReceivingState => ({ crates: "", businessDate: "", message });
-
 async function activeOwnerCanReceive(supabase: Awaited<ReturnType<typeof createClient>>, businessId: string) {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (!user || authError) return false;

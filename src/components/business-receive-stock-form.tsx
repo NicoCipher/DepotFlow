@@ -42,7 +42,7 @@ export function BusinessReceiveStockForm({
     );
   }
   return (
-    <form action={reviewAction} className="space-y-4 rounded-2xl border border-stone-200 p-4">
+    <form action={reviewAction} onSubmit={() => setEditing(false)} className="space-y-4 rounded-2xl border border-stone-200 p-4">
       <div className="rounded-xl bg-stone-50 p-3 text-sm">
         <p>Stock now: <strong>{formatQuantity(stock, bottlesPerCrate)}</strong></p>
         <p>Matching empty crates: <strong>{empties.toLocaleString("en-NG")}</strong></p>
