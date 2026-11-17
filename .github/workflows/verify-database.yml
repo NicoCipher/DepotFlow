@@ -780,10 +780,10 @@ jobs:
           createdb -h /tmp -p 55439 -T "$db" depotflow_current_132_replay
           current_phase_a_passed=0
           for current_sql in "${staged[@]}"; do
-            if ! psql -h /tmp -p 55439 -d depotflow_current_128_replay \
-                -X -v ON_ERROR_STOP=1 -f "$current_sql" > "$work/current-128-last.log" 2>&1; then
+            if ! psql -h /tmp -p 55439 -d depotflow_current_132_replay \
+                -X -v ON_ERROR_STOP=1 -f "$current_sql" > "$work/current-132-last.log" 2>&1; then
               echo "::error::Current-ledger reconstruction stopped in Phase A at $current_sql"
-              tail -n 40 "$work/current-128-last.log"
+              tail -n 40 "$work/current-132-last.log"
               exit 1
             fi
             current_phase_a_passed=$((current_phase_a_passed + 1))
@@ -798,10 +798,10 @@ jobs:
             supabase/migrations/20261115200023_stage_operator_business_invitations.sql \
             supabase/migrations/20261115200028_stage_tenant_business_sales.sql \
             supabase/migrations/20261115200035_validate_tenant_foreign_keys.sql; do
-            if ! psql -h /tmp -p 55439 -d depotflow_current_128_replay \
-                -X -v ON_ERROR_STOP=1 -f "$applied_sql" > "$work/current-128-last.log" 2>&1; then
+            if ! psql -h /tmp -p 55439 -d depotflow_current_132_replay \
+                -X -v ON_ERROR_STOP=1 -f "$applied_sql" > "$work/current-132-last.log" 2>&1; then
               echo "::error::Current-ledger reconstruction failed at already-applied production source $applied_sql"
-              tail -n 40 "$work/current-128-last.log"
+              tail -n 40 "$work/current-132-last.log"
               exit 1
             fi
           done
@@ -811,23 +811,23 @@ jobs:
             supabase/migrations/20261117020000_stage_business_opening_activation.sql \
             supabase/migrations/20261117030000_stage_tenant_stock_receiving_ui.sql \
             supabase/migrations/20261117040000_grant_authenticated_tenant_owner_rpcs.sql; do
-            if ! psql -h /tmp -p 55439 -d depotflow_current_128_replay \
-                -X -v ON_ERROR_STOP=1 -f "$operations_sql" > "$work/current-128-last.log" 2>&1; then
+            if ! psql -h /tmp -p 55439 -d depotflow_current_132_replay \
+                -X -v ON_ERROR_STOP=1 -f "$operations_sql" > "$work/current-132-last.log" 2>&1; then
               echo "::error::Current-ledger operations rehearsal failed at $operations_sql"
-              tail -n 40 "$work/current-128-last.log"
+              tail -n 40 "$work/current-132-last.log"
               exit 1
             fi
           done
 
           # Compare the reconstructed 132-stage schema against fresh,
           # read-only fingerprints captured from the actual hosted project.
-          psql -h /tmp -p 55439 -d depotflow_current_128_replay -X -v ON_ERROR_STOP=1 -At -F '|' \
+          psql -h /tmp -p 55439 -d depotflow_current_132_replay -X -v ON_ERROR_STOP=1 -At -F '|' \
             -f supabase/tests/live_schema_fingerprint.sql > "$work/current-132-schema.tsv"
-          psql -h /tmp -p 55439 -d depotflow_current_128_replay -X -v ON_ERROR_STOP=1 -At \
+          psql -h /tmp -p 55439 -d depotflow_current_132_replay -X -v ON_ERROR_STOP=1 -At \
             -f supabase/tests/fixtures/reconstructed_schema_object_hashes.sql > "$work/current-132-object-digests.json"
-          psql -h /tmp -p 55439 -d depotflow_current_128_replay -X -v ON_ERROR_STOP=1 -At \
+          psql -h /tmp -p 55439 -d depotflow_current_132_replay -X -v ON_ERROR_STOP=1 -At \
             -f supabase/tests/fixtures/app_client_column_dml_acl.sql > "$work/current-132-app-acl.json"
-          psql -h /tmp -p 55439 -d depotflow_current_128_replay -X -v ON_ERROR_STOP=1 -At \
+          psql -h /tmp -p 55439 -d depotflow_current_132_replay -X -v ON_ERROR_STOP=1 -At \
             -f supabase/tests/fixtures/current_function_parity_fingerprint.sql > "$work/current-132-function-parity.json"
           python3 scripts/compare-m2-current-schema-snapshot.py \
             --schema-groups "$work/current-132-schema.tsv" \
@@ -835,10 +835,10 @@ jobs:
             --app-client-acl "$work/current-132-app-acl.json" \
             --function-parity "$work/current-132-function-parity.json"
 
-          gate_state="$(psql -h /tmp -p 55439 -d depotflow_current_128_replay -X -At -v ON_ERROR_STOP=1 \
+          gate_state="$(psql -h /tmp -p 55439 -d depotflow_current_132_replay -X -At -v ON_ERROR_STOP=1 \
             -c "select concat_ws('|',case when (select enabled from private.business_auth_signup_gate where singleton) then 'on' else 'off' end,case when (select enabled from private.business_selection_gate where singleton) then 'on' else 'off' end,case when (select enabled from private.business_registration_gate where singleton) then 'on' else 'off' end,case when (select enabled from private.business_assortment_setup_gate where singleton) then 'on' else 'off' end,case when (select enabled from private.business_customer_registration_gate where singleton) then 'on' else 'off' end,case when (select enabled from private.business_customer_opening_gate where singleton) then 'on' else 'off' end,case when (select enabled from private.business_physical_opening_gate where singleton) then 'on' else 'off' end,case when (select enabled from private.business_opening_readiness_gate where singleton) then 'on' else 'off' end,case when (select enabled from private.business_opening_review_gate where singleton) then 'on' else 'off' end,case when (select enabled from private.business_bottle_count_gate where singleton) then 'on' else 'off' end,case when (select enabled from private.business_crate_count_gate where singleton) then 'on' else 'off' end,case when (select enabled from private.business_product_stock_count_gate where singleton) then 'on' else 'off' end,case when (select enabled from private.business_cost_history_gate where singleton) then 'on' else 'off' end,case when (select enabled from private.business_customer_payment_gate where singleton) then 'on' else 'off' end,case when (select enabled from private.business_sales_gate where singleton) then 'on' else 'off' end,case when (select enabled from private.business_receiving_gate where singleton) then 'on' else 'off' end,case when (select enabled from private.business_activation_gate where singleton) then 'on' else 'off' end);")"
           test "$gate_state" = "off|off|off|off|off|off|off|off|off|off|off|off|off|off|off|off|off"
-          validated_fk_count="$(psql -h /tmp -p 55439 -d depotflow_current_128_replay -X -At -v ON_ERROR_STOP=1 \
+          validated_fk_count="$(psql -h /tmp -p 55439 -d depotflow_current_132_replay -X -At -v ON_ERROR_STOP=1 \
             -c "select count(*) from pg_constraint where contype='f' and left(conname,7)='tenant_' and convalidated;")"
           test "$validated_fk_count" = "31"
 
@@ -852,12 +852,12 @@ jobs:
             supabase/tests/tenant_business_receiving_ui.sql \
             supabase/tests/tenant_business_owner_rpc_grants.sql \
             supabase/tests/tenant_aware_relationships.sql; do
-            psql -h /tmp -p 55439 -d depotflow_current_128_replay \
+            psql -h /tmp -p 55439 -d depotflow_current_132_replay \
               -X -v ON_ERROR_STOP=1 -f "$test_sql"
           done
           echo "### Current 132-entry production-history reconstruction + 4 Walnik workflow migrations: PASS" >> "$GITHUB_STEP_SUMMARY"
           echo "Replayed the seven later production-applied SQL sources, then the three new Walnik workflow migrations. All 31 tenant FKs validated; all business feature gates remained OFF. Rollback-only tenant tests passed. Production release remains unauthorized." >> "$GITHUB_STEP_SUMMARY"
-          dropdb -h /tmp -p 55439 depotflow_current_128_replay
+          dropdb -h /tmp -p 55439 depotflow_current_132_replay
 
           # The historical replay already seeds the singleton original owner.
           # The dedicated old-client creation regression runs above on its own
