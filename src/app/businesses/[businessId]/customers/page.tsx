@@ -1,16 +1,13 @@
 import { randomUUID } from "node:crypto";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { SetupNewCustomerForm } from "@/components/setup-new-customer-form";
 import { isUuid } from "@/domain/ids";
 import { customerSearchFilter } from "@/domain/customers";
 import { loadOwnerAssortment } from "@/lib/businesses/setup";
 import { createClient } from "@/lib/supabase/server";
 
-/** Tenant-isolated onboarding customers; never reuse the old shop's
- * customer list which is deliberately restricted to the legacy owner.
- */
-export default async function NewDepotCustomersPage({
+export default async function BusinessCustomersPage({
   params, searchParams,
 }: {
   params: Promise<{ businessId: string }>;
@@ -19,18 +16,32 @@ export default async function NewDepotCustomersPage({
   const { businessId } = await params;
   if (!isUuid(businessId)) notFound();
 
-  const owner = await loadOwnerAssortment(businessId);
-  if (owner.state !== "ready") {
-    return (
-      <section className="mx-auto max-w-2xl space-y-3">
-        <Link href="/businesses" className="quiet-link">← Your depots</Link>
-        <h1 className="text-2xl font-bold">Customer setup is not available</h1>
-        <p className="text-sm text-stone-600">
-          Customer registration is locked until the verified multi-business
-          release. No customers or balances were changed.
-        </p>
-      </section>
-    );
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) redirect("/sign-in?next=%2Fbusinesses");
+  const { data: businesses, error: listError } =
+    await supabase.rpc("list_my_businesses_for_setup");
+  const business = businesses?.find((item) =>
+    item.business_id === businessId &&
+    item.member_kind === "owner" &&
+    ["setup", "active"].includes(item.business_status)
+  );
+  if (listError || !business) notFound();
+
+  const isSetup = business.business_status === "setup";
+  if (isSetup) {
+    const owner = await loadOwnerAssortment(businessId);
+    if (owner.state !== "ready") {
+      return (
+        <section className="mx-auto max-w-2xl space-y-3">
+          <Link href="/businesses" className="quiet-link">← Your depots</Link>
+          <h1 className="text-2xl font-bold">Customer setup is not available</h1>
+          <p className="text-sm text-stone-600">
+            Customer registration is locked until the verified setup release. No customers or balances were changed.
+          </p>
+        </section>
+      );
+    }
   }
 
   const query = await searchParams;
@@ -41,14 +52,13 @@ export default async function NewDepotCustomersPage({
   const pageSize = 50;
   const offset = (page - 1) * pageSize;
   const customerListUrl = (nextPage: number) => {
-    const searchParams = new URLSearchParams();
-    if (search) searchParams.set("q", search);
-    if (nextPage > 1) searchParams.set("page", String(nextPage));
-    const suffix = searchParams.toString();
+    const params = new URLSearchParams();
+    if (search) params.set("q", search);
+    if (nextPage > 1) params.set("page", String(nextPage));
+    const suffix = params.toString();
     return `/businesses/${businessId}/customers${suffix ? `?${suffix}` : ""}`;
   };
 
-  const supabase = await createClient();
   let request = supabase.from("customers")
     .select("id,name,phone,business_id", { count: "exact" })
     .eq("business_id", businessId)
@@ -59,11 +69,10 @@ export default async function NewDepotCustomersPage({
     .order("id", { ascending: true })
     .range(offset, offset + pageSize - 1);
   if (result.error || !result.data || result.count === null ||
-      result.data.some((c) => c.business_id !== businessId)) {
+      result.data.some((customer) => customer.business_id !== businessId)) {
     throw new Error("Could not verify the selected depot's customers.");
   }
-  // The newly added customer must remain reachable even when the first
-  // alphabetic page does not contain them.
+
   const addedId = query.added === "1" && typeof query.customer === "string" && isUuid(query.customer)
     ? query.customer : null;
   const created = addedId
@@ -74,43 +83,41 @@ export default async function NewDepotCustomersPage({
   if (created?.error || (created?.data && created.data.business_id !== businessId)) {
     throw new Error("Could not verify the recently saved customer.");
   }
+
   const total = result.count;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   return (
     <section className="mx-auto w-full max-w-2xl space-y-5 pb-8">
-      <Link href={`/businesses/${businessId}/stock`} className="quiet-link">
-        ← Starting stock
-      </Link>
+      <Link href="/businesses" className="quiet-link">← Your depots</Link>
       <header>
         <p className="text-xs font-bold uppercase tracking-widest text-emerald-800">
-          {owner.name} · Setup
+          {business.business_name} · {isSetup ? "Setup" : "Customers"}
         </p>
         <h1 className="mt-1 text-2xl font-extrabold text-stone-950">
-          Register your customers
+          {isSetup ? "Register your customers" : "Customers"}
         </h1>
         <p className="mt-2 text-sm leading-6 text-stone-600">
-          Enter the people or businesses you already sell to. Old money owed
-          and returned-empty obligations are separate from customer identity.
+          {isSetup
+            ? "Add the people or businesses you already sell to. Record previous debts, refundable deposits and unreturned empties separately."
+            : "Manage this depot's customer accounts and collect outstanding customer debt. Deposits and empty-container balances remain separate."}
         </p>
       </header>
       {query.added === "1" && (
         <div className="rounded-xl bg-stone-100 p-3 text-sm font-semibold" role="status">
-          <p>Customer saved in this depot. Record previous debts, refundable deposits and unreturned empties separately.</p>
-          {created?.data && (
+          <p>Customer saved in this depot.</p>
+          {isSetup && created?.data && (
             <Link className="quiet-link mt-2 inline-flex min-h-11 items-center"
               href={`/businesses/${businessId}/customers/${created.data.id}/opening`}>
-              Old balances for {created.data.name} →
+              Record old balances for {created.data.name} →
             </Link>
           )}
         </div>
       )}
       <section className="rounded-2xl bg-stone-100 p-4">
-        <h2 className="text-sm font-bold text-stone-950">
-          Registered customers · {total}
-        </h2>
+        <h2 className="text-sm font-bold text-stone-950">Customers · {total}</h2>
         <form className="mt-3 flex flex-wrap gap-2" action={`/businesses/${businessId}/customers`} method="get">
-          <label className="sr-only" htmlFor="setup-customer-search">Find a customer</label>
-          <input className="min-w-0 flex-1" id="setup-customer-search"
+          <label className="sr-only" htmlFor="business-customer-search">Find a customer</label>
+          <input className="min-w-0 flex-1" id="business-customer-search"
             name="q" type="search" maxLength={120} defaultValue={search}
             placeholder="Search name or phone" />
           <button className="secondary min-h-11" type="submit">Search</button>
@@ -124,12 +131,13 @@ export default async function NewDepotCustomersPage({
                   <strong className="block break-words text-sm">{customer.name}</strong>
                   <span className="text-xs tabular-nums text-stone-600">{customer.phone}</span>
                 </span>
-                <div className="flex shrink-0 flex-wrap gap-2">
+                {isSetup ? (
                   <Link href={`/businesses/${businessId}/customers/${customer.id}/opening`}
-                    className="secondary text-xs">Old balances</Link>
+                    className="secondary shrink-0 text-xs">Old balances</Link>
+                ) : (
                   <Link href={`/businesses/${businessId}/customers/${customer.id}/pay`}
-                    className="secondary text-xs">Account / payment</Link>
-                </div>
+                    className="secondary shrink-0 text-xs">Account / payment</Link>
+                )}
               </li>
             ))}
           </ul>
@@ -142,32 +150,26 @@ export default async function NewDepotCustomersPage({
         )}
         <nav className="mt-3 flex items-center justify-between gap-2 border-t border-stone-200 pt-3"
           aria-label="Customer pages">
-          {page > 1
-            ? <Link className="secondary min-h-11" href={customerListUrl(page - 1)}>← Previous</Link>
-            : <span />}
-          <span className="text-xs tabular-nums text-stone-600">
-            Page {page} of {totalPages}
-          </span>
-          {page < totalPages &&
-            <Link className="secondary min-h-11" href={customerListUrl(page + 1)}>Next →</Link>}
+          {page > 1 ? <Link className="secondary min-h-11" href={customerListUrl(page - 1)}>← Previous</Link> : <span />}
+          <span className="text-xs tabular-nums text-stone-600">Page {page} of {totalPages}</span>
+          {page < totalPages && <Link className="secondary min-h-11" href={customerListUrl(page + 1)}>Next →</Link>}
         </nav>
       </section>
       <SetupNewCustomerForm businessId={businessId} requestId={randomUUID()} />
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <Link href={`/businesses/${businessId}/stock`}
-          className="secondary inline-flex min-h-12 items-center justify-center">
-          Back to starting stock
+      {isSetup ? (
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Link href={`/businesses/${businessId}/stock`} className="secondary inline-flex min-h-12 items-center justify-center">
+            Back to starting stock
+          </Link>
+          <Link href={`/businesses/${businessId}/opening`} className="secondary inline-flex min-h-12 items-center justify-center">
+            Review opening balances →
+          </Link>
+        </div>
+      ) : (
+        <Link href={`/businesses/${businessId}/sales`} className="primary inline-flex min-h-12 items-center justify-center">
+          Record a sale →
         </Link>
-        <Link href={`/businesses/${businessId}/opening`}
-          className="secondary inline-flex min-h-12 items-center justify-center">
-          Review opening balances →
-        </Link>
-      </div>
-      <p className="text-xs leading-5 text-stone-600">
-        The new customer record does not create a sale, receipt, deposit,
-        debt or stock movement. Existing financial balances must be checked
-        and confirmed separately.
-      </p>
+      )}
     </section>
   );
 }
