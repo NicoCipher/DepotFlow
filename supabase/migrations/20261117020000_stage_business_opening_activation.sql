@@ -133,10 +133,21 @@ begin
     );
   end if;
 
+  if v_review.actor_id is distinct from v_actor then
+    return pg_catalog.jsonb_build_object(
+      'businessId',p_business_id,'businessStatus','setup',
+      'reviewRecorded',true,'activated',false,
+      'reviewedByCurrentOwner',false,
+      'reviewedAt',v_review.signed_at,
+      'canActivate',false
+    );
+  end if;
+
   v_can_activate:=public.can_activate_business(p_business_id);
   return pg_catalog.jsonb_build_object(
     'businessId',p_business_id,'businessStatus','setup',
     'reviewRecorded',true,'activated',false,
+    'reviewedByCurrentOwner',true,
     'reviewRequestId',v_review.request_id,
     'reviewToken',v_review.review_token,
     'reviewedAt',v_review.signed_at,

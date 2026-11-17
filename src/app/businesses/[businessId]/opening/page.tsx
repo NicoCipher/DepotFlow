@@ -80,6 +80,8 @@ export default async function BusinessOpeningReviewPage({
   let signoffToken: string | null = null;
   let savedReviewToken: string | null = null;
   let reviewRecorded = false;
+  let reviewStatusAvailable = false;
+  let reviewedByCurrentOwner = false;
   let activationReady = false;
 
   // A recorded review is immutable. Read its server-side status so a page
@@ -93,22 +95,22 @@ export default async function BusinessOpeningReviewPage({
       typeof reviewStatus === "object" && !Array.isArray(reviewStatus) &&
       reviewStatus.businessId === matched.business_id &&
       reviewStatus.businessStatus === "setup") {
+    reviewStatusAvailable = true;
     reviewRecorded = reviewStatus.reviewRecorded === true;
-    if (reviewRecorded &&
+    reviewedByCurrentOwner = reviewStatus.reviewedByCurrentOwner === true;
+    if (reviewRecorded && reviewedByCurrentOwner &&
         typeof reviewStatus.reviewToken === "string" &&
         /^[0-9a-f]{32}$/.test(reviewStatus.reviewToken) &&
         typeof reviewStatus.reviewRequestId === "string" &&
         isUuid(reviewStatus.reviewRequestId)) {
       savedReviewToken = reviewStatus.reviewToken;
       activationReady = reviewStatus.canActivate === true;
-    } else {
-      reviewRecorded = false;
     }
   }
 
   // Only an unreviewed, complete snapshot may be presented for owner sign-off.
   // The DB prepares the exact snapshot and token together.
-  if (!reviewRecorded && canPresentOwnerSignoff(snapshot)) {
+  if (reviewStatusAvailable && !reviewRecorded && canPresentOwnerSignoff(snapshot)) {
     const { data: prepared, error: prepareError } = await supabase.rpc(
       "prepare_business_opening_review",
       { p_business_id: matched.business_id },
@@ -147,19 +149,27 @@ export default async function BusinessOpeningReviewPage({
         </Link>
       </div>
       <OnboardingOpeningReview snapshot={snapshot} />
-      {!reviewRecorded && signoffToken && snapshot.profile?.name ? (
+      {!reviewStatusAvailable ? (
+        <p className="mt-4 max-w-2xl rounded-xl border border-stone-200 p-3 text-sm text-stone-600">
+          Owner review status cannot be verified right now. Sign-off and activation are paused to prevent a duplicate or stale review.
+        </p>
+      ) : !reviewRecorded && signoffToken && snapshot.profile?.name ? (
         <OnboardingOwnerSignoffForm
           businessId={matched.business_id}
           businessName={snapshot.profile.name}
           reviewToken={signoffToken}
           requestId={crypto.randomUUID()}
         />
-      ) : reviewRecorded && activationReady && savedReviewToken ? (
+      ) : reviewRecorded && reviewedByCurrentOwner && activationReady && savedReviewToken ? (
         <OnboardingActivationForm
           businessId={matched.business_id}
           reviewToken={savedReviewToken}
           requestId={crypto.randomUUID()}
         />
+      ) : reviewRecorded && !reviewedByCurrentOwner ? (
+        <p className="mt-4 max-w-2xl rounded-xl border border-stone-200 p-3 text-sm text-stone-600">
+          The owner review was recorded by another owner. Only the owner who confirmed it can complete this depot's activation.
+        </p>
       ) : reviewRecorded ? (
         <p className="mt-4 max-w-2xl rounded-xl border border-stone-200 p-3 text-sm text-stone-600">
           Owner review recorded. Final activation remains locked until its
