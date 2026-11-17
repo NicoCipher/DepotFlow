@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare a disposable 124-stage reconstruction with read-only live snapshots.
+"""Compare a disposable 128-stage reconstruction with read-only live snapshots.
 
 Raw REFERENCES grants are deliberately excluded from app-client parity because
 Supabase manages those separately. All application DML and effective DELETE
@@ -13,10 +13,10 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMA_SNAPSHOT = ROOT / "docs/release-evidence/production-schema-fingerprint-20261115.json"
-OBJECT_SNAPSHOT = ROOT / "docs/release-evidence/hosted-schema-per-object-digests-20261115.json"
-ACL_SNAPSHOT = ROOT / "docs/release-evidence/production-app-client-column-dml-acl-20261115.json"
-FUNCTION_SNAPSHOT = ROOT / "docs/release-evidence/production-function-parity-20261115.json"
+SCHEMA_SNAPSHOT = ROOT / "docs/release-evidence/production-schema-fingerprint-20261117.json"
+OBJECT_SNAPSHOT = ROOT / "docs/release-evidence/hosted-schema-per-object-digests-20261117.json"
+ACL_SNAPSHOT = ROOT / "docs/release-evidence/production-app-client-column-dml-acl-20261117.json"
+FUNCTION_SNAPSHOT = ROOT / "docs/release-evidence/production-function-parity-20261117.json"
 KNOWN_BODY_DIFFERENCES = {
     "public.rls_auto_enable()",
     "private.record_payment(p_request_id uuid, p_customer_id uuid, p_amount numeric, p_business_date date)",
@@ -42,8 +42,8 @@ def compare(args) -> dict:
     acl_expected = read_json(ACL_SNAPSHOT)
     function_expected = read_json(FUNCTION_SNAPSHOT)
     for snapshot in (schema_expected, object_expected, acl_expected, function_expected):
-        if snapshot.get("migration_count") != 124 or snapshot.get("migration_tip") != "20261104172847":
-            raise ValueError("Live schema snapshot is not bound to the reviewed 124-entry production ledger")
+        if snapshot.get("migration_count") != 128 or snapshot.get("migration_tip") != "20261115200035":
+            raise ValueError("Live schema snapshot is not bound to the reviewed 128-entry production ledger")
         if snapshot.get("project_id", snapshot.get("project_ref")) != "coyivbklakhilpcqqrzg":
             raise ValueError("Live schema snapshot belongs to an unexpected Supabase project")
 
@@ -183,7 +183,7 @@ def compare(args) -> dict:
 
     return {
         "result": "PASS",
-        "live_baseline": "124 migrations ending 20261104172847",
+        "live_baseline": "128 migrations ending 20261115200035",
         "schema_groups_exact": sorted(EXPECTED_GROUPS - {"column_grants"}),
         "per_object_shape_and_function_hashes": "exact",
         "application_client_DML_and_effective_DELETE": "exact",
@@ -204,7 +204,7 @@ def main() -> int:
     try:
         print(json.dumps(compare(args), indent=2))
     except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
-        print("CURRENT 124-STAGE SCHEMA PARITY BLOCKED: " + str(exc), file=sys.stderr)
+        print("CURRENT 128-STAGE SCHEMA PARITY BLOCKED: " + str(exc), file=sys.stderr)
         return 2
     return 0
 

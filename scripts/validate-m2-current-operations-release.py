@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the current 124-entry production ledger and staged M2 operations sources.
+"""Validate the current 128-entry production ledger and staged Walnik sources.
 
 This is an offline provenance check only. It does not connect to production,
 apply migrations, repair history, enable gates, or authorize a release.
@@ -13,12 +13,12 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-SNAPSHOT = ROOT / "supabase/tests/fixtures/production_migration_history_20261115_readonly.json"
+SNAPSHOT = ROOT / "supabase/tests/fixtures/production_migration_history_20261117_readonly.json"
 SOURCE_LOCK = ROOT / "supabase/tests/fixtures/m2_forward_only_sources_20261019.json"
 MIGRATIONS = ROOT / "supabase/migrations"
 
-LIVE_COUNT = 124
-LIVE_TIP = "20261104172847"
+LIVE_COUNT = 128
+LIVE_TIP = "20261115200035"
 APPLIED_AFTER_PHASE_A = [
     ("20261029170523", "restore_authenticated_onboarding_rpc_grants_keep_gates_closed",
      "20261029170523_restore_authenticated_onboarding_rpc_grants_keep_gates_closed.sql"),
@@ -26,12 +26,19 @@ APPLIED_AFTER_PHASE_A = [
      "20261029180000_scope_product_writes_to_business_owner.sql"),
     ("20261104172847", "20261030100000_revoke_client_maintenance_privileges",
      "20261030100000_revoke_client_maintenance_privileges.sql"),
+    ("20261115200016", "stage_tenant_customer_payments",
+     "20261115200016_stage_tenant_customer_payments.sql"),
+    ("20261115200023", "stage_operator_business_invitations",
+     "20261115200023_stage_operator_business_invitations.sql"),
+    ("20261115200028", "stage_tenant_business_sales",
+     "20261115200028_stage_tenant_business_sales.sql"),
+    ("20261115200035", "validate_tenant_foreign_keys",
+     "20261115200035_validate_tenant_foreign_keys.sql"),
 ]
 STAGED_OPERATIONS = [
-    "20261115090000_stage_tenant_customer_payments.sql",
-    "20261115100000_stage_operator_business_invitations.sql",
-    "20261115110000_stage_tenant_business_sales.sql",
-    "20261115120000_validate_tenant_foreign_keys.sql",
+    "20261117010000_allow_active_tenant_customer_registration.sql",
+    "20261117020000_stage_business_opening_activation.sql",
+    "20261117030000_stage_tenant_stock_receiving_ui.sql",
 ]
 STAMP = re.compile(r"^(\d{14})_[a-z][a-z0-9_]*\.sql$")
 
@@ -51,6 +58,8 @@ def validate() -> dict:
         raise ValueError("Current ledger snapshot purpose is missing or unsafe")
     if snapshot.get("project_id") != "coyivbklakhilpcqqrzg":
         raise ValueError("Current ledger snapshot belongs to an unexpected project")
+    if snapshot.get("release_authorized") is not False:
+        raise ValueError("Read-only current ledger snapshot must not authorize production release")
     versions = snapshot.get("versions")
     names = snapshot.get("names")
     if not isinstance(versions, list) or not isinstance(names, dict):
@@ -58,7 +67,7 @@ def validate() -> dict:
     if snapshot.get("count") != LIVE_COUNT or len(versions) != LIVE_COUNT:
         raise ValueError(f"Expected exactly {LIVE_COUNT} production migration records")
     if snapshot.get("live_tip") != LIVE_TIP or versions[-1] != LIVE_TIP:
-        raise ValueError("Current production migration tip differs from the reviewed 124-entry snapshot")
+        raise ValueError("Current production migration tip differs from the reviewed 128-entry snapshot")
     if len(set(versions)) != LIVE_COUNT or versions != sorted(versions):
         raise ValueError("Production migration versions are duplicated or out of order")
     if set(names) != set(versions) or any(not isinstance(names[v], str) or not names[v] for v in versions):
@@ -134,7 +143,7 @@ def main() -> int:
         print("CURRENT OPERATIONS RELEASE BLOCKED: " + str(exc), file=sys.stderr)
         return 2
     print(json.dumps(result, indent=2))
-    print("REHEARSAL ONLY: obtain a fresh live ledger and explicit approval before any production change.")
+    print("REHEARSAL ONLY: obtain explicit release approval before any production change.")
     return 0
 
 
