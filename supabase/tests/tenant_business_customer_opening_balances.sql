@@ -98,20 +98,16 @@ create trigger disposable_reject_opening
 do $default_off$
 begin
  if (select enabled from private.business_customer_opening_gate)
- or has_function_privilege('authenticated',
+ or not has_function_privilege('authenticated',
   'public.record_business_customer_opening(uuid,uuid,uuid,integer,integer,date,text,jsonb,jsonb)',
   'EXECUTE')
  or has_function_privilege('anon',
   'public.record_business_customer_opening(uuid,uuid,uuid,integer,integer,date,text,jsonb,jsonb)',
   'EXECUTE') then
-  raise exception 'Opening balances gate/grant unexpectedly enabled';
+  raise exception 'Opening balances gate or authenticated-only owner grant is incorrect';
  end if;
 end;
 $default_off$;
-grant execute on function public.record_business_customer_opening(
- uuid,uuid,uuid,integer,integer,date,text,jsonb,jsonb
-) to authenticated;
-
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
  '89d00000-0000-4000-8000-000000000002',true);
