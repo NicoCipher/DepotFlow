@@ -16,7 +16,7 @@ revoke all on function public.count_business_empty_crates(uuid,uuid,uuid,integer
 grant execute on function public.count_business_empty_crates(uuid,uuid,uuid,integer,integer,date) to authenticated;
 
 revoke all on function public.count_business_product_stock(uuid,uuid,uuid,numeric,numeric,integer,integer,date) from public,anon;
-grant execute on function public.count_business_product_stock(uuid,uuid,uuid,numeric,integer,integer,integer,date) to authenticated;
+grant execute on function public.count_business_product_stock(uuid,uuid,uuid,numeric,numeric,integer,integer,date) to authenticated;
 
 revoke all on function public.prepare_business_opening_review(uuid) from public,anon;
 grant execute on function public.prepare_business_opening_review(uuid) to authenticated;
