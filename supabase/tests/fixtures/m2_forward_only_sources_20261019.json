@@ -534,22 +534,22 @@
     {
       "filename": "20261117010000_allow_active_tenant_customer_registration.sql",
       "git_blob_sha1": "3277c4b94176549598386648759a5899f999e6a1",
-      "reason": "New Walnik first-tenant workflow migration allowing an active tenant owner to register customers. It is not part of the frozen 2026-10-19 M2 historical rehearsal and remains staged pending separate production-ledger reconciliation and release approval."
+      "reason": "Applied to production as migration 20261117095142 after review; source retained and hash-pinned for provenance."
     },
     {
       "filename": "20261117020000_stage_business_opening_activation.sql",
       "git_blob_sha1": "fb325fcd295b06fb326e5c858d0c2d561083b7bb",
-      "reason": "New Walnik first-tenant workflow migration staging a default-OFF, owner-reviewed activation RPC and immutable activation audit. It is not part of the frozen 2026-10-19 M2 historical rehearsal and remains staged pending separate production-ledger reconciliation and release approval."
+      "reason": "Applied to production as migration 20261117095147 after review; activation gate created disabled and source retained for provenance."
     },
     {
       "filename": "20261117030000_stage_tenant_stock_receiving_ui.sql",
       "git_blob_sha1": "69e2b2da7ad360dd6c9199cf2832f03dc2a0f2b6",
-      "reason": "New Walnik first-tenant workflow migration exposing a read-only owner-scoped availability check for the existing default-OFF tenant stock-receiving RPC. It is not part of the frozen 2026-10-19 M2 historical rehearsal and remains staged pending separate production-ledger reconciliation and release approval."
+      "reason": "Applied to production as migration 20261117095149 after review; receiving gate remains disabled and source retained for provenance."
     },
     {
       "filename": "20261117040000_grant_authenticated_tenant_owner_rpcs.sql",
       "git_blob_sha1": "f12becc9db6ca341a4e4687e8a13db36a4be424b",
-      "reason": "New Walnik tenant release migration granting authenticated-only execution to existing owner-verified, gate-protected SECURITY DEFINER RPCs. It does not open feature gates and is staged pending separate production-ledger reconciliation and explicit release approval."
+      "reason": "Applied to production as migration 20261117095151 after review; grants authenticated-only execution while all operational gates remain disabled."
     }
   ]
 }
