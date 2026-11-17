@@ -545,6 +545,11 @@
       "filename": "20261117030000_stage_tenant_stock_receiving_ui.sql",
       "git_blob_sha1": "69e2b2da7ad360dd6c9199cf2832f03dc2a0f2b6",
       "reason": "New Walnik first-tenant workflow migration exposing a read-only owner-scoped availability check for the existing default-OFF tenant stock-receiving RPC. It is not part of the frozen 2026-10-19 M2 historical rehearsal and remains staged pending separate production-ledger reconciliation and release approval."
+    },
+    {
+      "filename": "20261117040000_grant_authenticated_tenant_owner_rpcs.sql",
+      "git_blob_sha1": "1cca8e56dd085acb1f7a5bede526cdc808e468a9",
+      "reason": "New Walnik tenant release migration granting authenticated-only execution to existing owner-verified, gate-protected SECURITY DEFINER RPCs. It does not open feature gates and is staged pending separate production-ledger reconciliation and explicit release approval."
     }
   ]
 }

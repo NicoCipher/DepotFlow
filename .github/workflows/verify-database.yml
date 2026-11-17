@@ -825,7 +825,8 @@ jobs:
           for operations_sql in \
             supabase/migrations/20261117010000_allow_active_tenant_customer_registration.sql \
             supabase/migrations/20261117020000_stage_business_opening_activation.sql \
-            supabase/migrations/20261117030000_stage_tenant_stock_receiving_ui.sql; do
+            supabase/migrations/20261117030000_stage_tenant_stock_receiving_ui.sql \
+            supabase/migrations/20261117040000_grant_authenticated_tenant_owner_rpcs.sql; do
             if ! psql -h /tmp -p 55439 -d depotflow_current_128_replay \
                 -X -v ON_ERROR_STOP=1 -f "$operations_sql" > "$work/current-128-last.log" 2>&1; then
               echo "::error::Current-ledger operations rehearsal failed at $operations_sql"
@@ -849,6 +850,7 @@ jobs:
             supabase/tests/tenant_business_customer_registration_active.sql \
             supabase/tests/tenant_business_activation.sql \
             supabase/tests/tenant_business_receiving_ui.sql \
+            supabase/tests/tenant_business_owner_rpc_grants.sql \
             supabase/tests/tenant_aware_relationships.sql; do
             psql -h /tmp -p 55439 -d depotflow_current_128_replay \
               -X -v ON_ERROR_STOP=1 -f "$test_sql"

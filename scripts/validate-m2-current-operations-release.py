@@ -39,6 +39,7 @@ STAGED_OPERATIONS = [
     "20261117010000_allow_active_tenant_customer_registration.sql",
     "20261117020000_stage_business_opening_activation.sql",
     "20261117030000_stage_tenant_stock_receiving_ui.sql",
+    "20261117040000_grant_authenticated_tenant_owner_rpcs.sql",
 ]
 STAMP = re.compile(r"^(\d{14})_[a-z][a-z0-9_]*\.sql$")
 
