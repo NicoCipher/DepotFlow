@@ -30,7 +30,7 @@ export function BusinessCustomerPaymentForm({
       <div>
         <h2 className="text-lg font-bold">Record a debt payment</h2>
         <p className="mt-1 text-sm text-stone-600">
-          This reduces {customerName}'s existing money debt. It does not change sales, deposits or empty-container balances.
+          This reduces {customerName}&apos;s existing money debt. It does not change sales, deposits or empty-container balances.
         </p>
       </div>
       <label className="block text-sm font-semibold" htmlFor="tenant-customer-payment-amount">
