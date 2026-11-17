@@ -31,6 +31,13 @@ begin
     raise exception 'Authenticated owner activation RPC grant is missing';
   end if;
 
+  if (select p.provolatile from pg_proc p
+      where p.oid='public.can_activate_business(uuid)'::regprocedure) <> 'v'
+     or (select p.provolatile from pg_proc p
+      where p.oid='public.business_opening_review_status(uuid)'::regprocedure) <> 'v' then
+    raise exception 'Owner activation status functions must be volatile because they take row locks';
+  end if;
+
   v_def:=pg_catalog.pg_get_functiondef(
     'public.activate_business_after_opening_review(uuid,uuid,text)'::regprocedure
   );

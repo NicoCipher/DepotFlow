@@ -32,7 +32,7 @@ revoke all on private.business_opening_activations
 create function public.can_activate_business(p_business_id uuid)
 returns boolean
 language plpgsql
-stable
+volatile
 security definer
 set search_path=''
 as $can_activate$
@@ -82,7 +82,7 @@ grant execute on function public.can_activate_business(uuid) to authenticated;
 create function public.business_opening_review_status(p_business_id uuid)
 returns jsonb
 language plpgsql
-stable
+volatile
 security definer
 set search_path=''
 as $review_status$
