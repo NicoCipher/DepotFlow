@@ -6,19 +6,12 @@ import { validateCustomer } from "@/domain/customers";
 import { loadOwnerAssortment } from "@/lib/businesses/setup";
 import { createClient } from "@/lib/supabase/server";
 
-export type NewBusinessCustomerState = {
-  message: string;
-  saved: boolean;
-};
+export type NewBusinessCustomerState = { message: string; saved: boolean };
+const notSaved = (message: string): NewBusinessCustomerState => ({ message, saved: false });
 
-const notSaved = (message: string): NewBusinessCustomerState => ({
-  message,
-  saved: false,
-});
-
-/** Setup-only customer identity. DB generates the actual ID and atomically
- * remembers the tenant-qualified request UUID for safe retries.
- * No old debt, deposit, empties, receipt or sale is written here.
+/** Add a customer to this tenant. Setup businesses are checked against the
+ * guided assortment; active businesses are checked against live membership.
+ * The database RPC independently enforces the status, gates and tenant scope.
  */
 export async function addBusinessCustomer(
   _previous: NewBusinessCustomerState,
@@ -30,11 +23,24 @@ export async function addBusinessCustomer(
     return notSaved("The customer request is invalid. Reload this depot's page.");
   }
 
-  // Verify the active owner's selected SETUP depot on every POST, rather
-  // than treating a submitted business ID as ownership evidence.
-  const owner = await loadOwnerAssortment(businessId);
-  if (owner.state !== "ready") {
-    return notSaved("This depot's customer setup is not available yet.");
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) return notSaved("Sign in again as this depot's owner.");
+  const { data: businesses, error: listError } =
+    await supabase.rpc("list_my_businesses_for_setup");
+  const business = businesses?.find((item) =>
+    item.business_id === businessId &&
+    item.member_kind === "owner" &&
+    ["setup", "active"].includes(item.business_status)
+  );
+  if (listError || !business) {
+    return notSaved("This depot is not available to your owner account.");
+  }
+  if (business.business_status === "setup") {
+    const owner = await loadOwnerAssortment(businessId);
+    if (owner.state !== "ready") {
+      return notSaved("This depot's customer setup is not available yet.");
+    }
   }
 
   const checked = validateCustomer({
@@ -47,9 +53,6 @@ export async function addBusinessCustomer(
     return notSaved(Object.values(checked.errors)[0] ?? "Check the customer details.");
   }
 
-  const supabase = await createClient();
-  // The browser cannot choose customer_id. The independently gated DB
-  // function generates one, checks owner membership and serializes replay.
   const { data, error } = await supabase.rpc("register_business_customer", {
     p_business_id: businessId,
     p_request_id: requestId,
@@ -58,17 +61,11 @@ export async function addBusinessCustomer(
     p_customer_business_name: checked.data.business_name,
     p_address: checked.data.address,
   });
-
-  if (
-    error || !data || typeof data !== "object" || Array.isArray(data) ||
-    data.businessId !== businessId || data.requestId !== requestId ||
-    typeof data.customerId !== "string" || !isUuid(data.customerId) ||
-    data.canOperate !== false
-  ) {
-    return notSaved(
-      "Could not confirm this customer. Check your depot's customer list before trying again.",
-    );
+  if (error || !data || typeof data !== "object" || Array.isArray(data) ||
+      data.businessId !== businessId || data.requestId !== requestId ||
+      typeof data.customerId !== "string" || !isUuid(data.customerId) ||
+      data.canOperate !== false) {
+    return notSaved("Could not confirm this customer. Check your depot's customer list before trying again.");
   }
-
   redirect(`/businesses/${businessId}/customers?added=1&customer=${data.customerId}`);
 }

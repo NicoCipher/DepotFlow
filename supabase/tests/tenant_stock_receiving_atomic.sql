@@ -153,20 +153,16 @@ reset role;
 do $default_off$
 begin
  if (select enabled from private.business_receiving_gate)
-  or has_function_privilege('authenticated',
+  or not has_function_privilege('authenticated',
    'public.receive_business_stock(uuid,uuid,uuid,numeric,integer,integer,integer,uuid,date)',
    'EXECUTE')
   or has_function_privilege('anon',
    'public.receive_business_stock(uuid,uuid,uuid,numeric,integer,integer,integer,uuid,date)',
    'EXECUTE') then
-  raise exception 'Receiving unexpectedly enabled for customer accounts';
+  raise exception 'Receiving gate or authenticated-only owner grant is incorrect';
  end if;
 end;
 $default_off$;
-grant execute on function public.receive_business_stock(
- uuid,uuid,uuid,numeric,integer,integer,integer,uuid,date
-) to authenticated;
-
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
  '89f00000-0000-4000-8000-000000000002',true);
@@ -246,9 +242,6 @@ reset role;
 -- receiving already committed in this disposable transaction (request 101).
 -- Enable the independently gated count RPC only inside this savepoint.
 savepoint two_operation_request_namespace;
-grant execute on function public.count_business_product_stock(
- uuid,uuid,uuid,numeric,numeric,integer,integer,date
-) to authenticated;
 update private.business_product_stock_count_gate
  set enabled=true where singleton;
 set local role authenticated;

@@ -107,20 +107,17 @@ alter table public.crate_types enable trigger legacy_scope_business_write;
 do $count_gate_default$
 begin
  if (select enabled from private.business_product_stock_count_gate)
- or has_function_privilege('authenticated',
+ or not has_function_privilege('authenticated',
   'public.count_business_product_stock(uuid,uuid,uuid,numeric,numeric,integer,integer,date)',
   'EXECUTE')
  or has_function_privilege('anon',
   'public.count_business_product_stock(uuid,uuid,uuid,numeric,numeric,integer,integer,date)',
   'EXECUTE') then
-  raise exception 'New business drink stock count was publicly activated';
+  raise exception 'New business drink stock count gate or authenticated-only owner grant is incorrect';
  end if;
 end;
 $count_gate_default$;
 
-grant execute on function public.count_business_product_stock(
- uuid,uuid,uuid,numeric,numeric,integer,integer,date
-) to authenticated;
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
  '89e00000-0000-4000-8000-000000000002',true);

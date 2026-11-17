@@ -8,7 +8,7 @@ import {
 
 const initial: NewBusinessCustomerState = { message: "", saved: false };
 
-/** Owner-only customer record for opening setup. No payment/debt fields;
+/** Owner-only tenant customer record. No payment/debt fields;
  * those are separate audited steps after the identity is created.
  */
 export function SetupNewCustomerForm({
@@ -22,10 +22,10 @@ export function SetupNewCustomerForm({
     <form action={action} className="space-y-4 rounded-2xl border border-stone-200 bg-white p-4">
       <input type="hidden" name="business_id" value={businessId} />
       <input type="hidden" name="request_id" value={requestId} />
-      <h2 className="text-base font-bold text-stone-950">Add an existing customer</h2>
+      <h2 className="text-base font-bold text-stone-950">Add a customer</h2>
       <p className="text-sm leading-6 text-stone-600">
-        Just record who the customer is. Add any old debt, held deposit or
-        unreturned empties separately, after saving their details.
+        Record who this customer is. During setup, add any opening debt, deposit or
+        unreturned empties separately. New credit sales update their account later.
       </p>
       <div>
         <label className="block text-sm font-semibold" htmlFor="setup-customer-name">

@@ -1,0 +1,1103 @@
+{
+  "purpose": "READ-ONLY PRODUCTION APP-CLIENT COLUMN DML ACL; NOT RELEASE APPROVAL",
+  "captured_at_utc": "2026-11-17T09:54:31.956Z",
+  "project_id": "coyivbklakhilpcqqrzg",
+  "migration_count": 132,
+  "migration_tip": "20261117095151",
+  "query": "supabase/tests/fixtures/app_client_column_dml_acl.sql",
+  "per_table": {
+    "public.sales": {
+      "hash": "a5cb630890eca777b882f303da902c4c",
+      "count": 18
+    },
+    "public.stock": {
+      "hash": "1346cec5ca8af2e52711e7e197a6fff5",
+      "count": 3
+    },
+    "public.deposits": {
+      "hash": "78251c0b7de957f7b0c46531f6e0d77e",
+      "count": 3
+    },
+    "public.products": {
+      "hash": "e7db7c968d089382fe22a5e735339fab",
+      "count": 43
+    },
+    "public.customers": {
+      "hash": "3c9fbcda15d0ead5e479ee19ff36ec74",
+      "count": 20
+    },
+    "public.money_owed": {
+      "hash": "78251c0b7de957f7b0c46531f6e0d77e",
+      "count": 3
+    },
+    "public.sale_items": {
+      "hash": "58c3f480f970e3f29d18dd4fc1352073",
+      "count": 17
+    },
+    "private.shop_owner": {
+      "hash": "eb199c59430fc283fbfa2ba3f1b7eb67",
+      "count": 2
+    },
+    "public.crate_types": {
+      "hash": "1a3356da206e7710fa0dc6cd72583b84",
+      "count": 9
+    },
+    "public.shop_profile": {
+      "hash": "6110e4e2f4eae31728a0b148d7063f37",
+      "count": 6
+    },
+    "public.stock_movements": {
+      "hash": "814d2efd3f7afa40ca17931a8df752fa",
+      "count": 15
+    },
+    "public.crate_swap_rules": {
+      "hash": "9cd22c5b9544d56e223421727d1d2712",
+      "count": 4
+    },
+    "public.sale_tender_legs": {
+      "hash": "1406995e8c5c1023bdf4ab6e60f6f463",
+      "count": 6
+    },
+    "public.business_profiles": {
+      "hash": "3833703def686df2b0489f9e622638d0",
+      "count": 13
+    },
+    "public.crate_obligations": {
+      "hash": "1c3af32f01b1aae5294aa31ef3d50eee",
+      "count": 5
+    },
+    "public.customer_payments": {
+      "hash": "589b826265a15fcd9dcf3bf6158c3bdb",
+      "count": 15
+    },
+    "public.empty_crate_stock": {
+      "hash": "03d055d632212c5c09e0139aa24cd78e",
+      "count": 4
+    },
+    "public.product_catalogue": {
+      "hash": "072045c4652280f09bfce9fcbd5f3b20",
+      "count": 6
+    },
+    "public.bottle_obligations": {
+      "hash": "4488e498135aab67bafd0a821d6237b5",
+      "count": 4
+    },
+    "public.empty_bottle_stock": {
+      "hash": "b6fc0f0eea8072ac34b6f6859a878527",
+      "count": 4
+    },
+    "public.known_empty_crates": {
+      "hash": "994b26a50dde23d49c9c1c6df5bcd009",
+      "count": 7
+    },
+    "public.bottle_deposit_price": {
+      "hash": "1eec170cecc34c7e4d19a3acfe7673cb",
+      "count": 4
+    },
+    "public.crate_deposit_prices": {
+      "hash": "cec171b5100b8225f457e642ec6bb8eb",
+      "count": 6
+    },
+    "public.product_cost_history": {
+      "hash": "ab5559403f4fccfc5e1bf25acc967639",
+      "count": 7
+    },
+    "public.sale_empty_decisions": {
+      "hash": "9bba0e04ccef19186598d753f2121ec2",
+      "count": 14
+    },
+    "public.empty_crate_movements": {
+      "hash": "ebdd1488272cfa6d2206b2bfca95fd2d",
+      "count": 11
+    },
+    "public.sale_empty_crate_returns": {
+      "hash": "cc34b6adf2cb40ea146651e5a7167abd",
+      "count": 5
+    },
+    "public.customer_opening_balances": {
+      "hash": "7627e76a04a86e18004b516cd3f58934",
+      "count": 12
+    },
+    "public.sale_empty_bottle_returns": {
+      "hash": "9aaa7600fface0e8dd159ea8dcfbe278",
+      "count": 4
+    },
+    "public.product_selling_price_history": {
+      "hash": "4d3b4092630ff208008950ea1fdd2740",
+      "count": 9
+    }
+  },
+  "effective_delete_by_table": {
+    "public.sales": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.stock": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.deposits": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.products": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.customers": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.money_owed": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.sale_items": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.businesses": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.shop_owner": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.crate_types": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.shop_profile": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.stock_receipts": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.stock_movements": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.crate_swap_rules": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.sale_tender_legs": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.business_profiles": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.crate_obligations": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.customer_payments": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.empty_crate_stock": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.product_catalogue": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.bottle_obligations": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.empty_bottle_stock": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.known_empty_crates": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_sales_gate": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.bottle_deposit_price": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.crate_deposit_prices": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.product_cost_history": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.sale_empty_decisions": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_memberships": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.empty_crate_movements": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.customer_empty_returns": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.held_empty_collections": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_receiving_gate": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_selection_gate": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.legacy_write_scope_gate": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.sale_empty_crate_returns": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_activation_gate": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.confirmed_selling_prices": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.customer_opening_balances": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.sale_empty_bottle_returns": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_crate_count_gate": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.split_sale_request_fences": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_bottle_count_gate": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_cost_history_gate": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_registration_gate": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_empty_crate_counts": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_receiving_requests": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_empty_bottle_counts": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_invitation_requests": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_opening_activations": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_opening_review_gate": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.legacy_creation_cutover_gate": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "public.product_selling_price_history": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_product_stock_counts": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_assortment_setup_gate": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_cost_history_requests": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_customer_opening_gate": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_customer_payment_gate": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_opening_owner_reviews": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_physical_opening_gate": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_registration_requests": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_opening_readiness_gate": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_physical_opening_lines": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_product_stock_count_gate": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.legacy_customer_creation_requests": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_assortment_setup_requests": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_customer_registration_gate": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.legacy_assortment_creation_requests": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    },
+    "private.business_customer_registration_requests": {
+      "anon": {
+        "delete": false,
+        "grant_option": false
+      },
+      "service_role": {
+        "delete": false,
+        "grant_option": false
+      },
+      "authenticated": {
+        "delete": false,
+        "grant_option": false
+      }
+    }
+  },
+  "counts_by_role_and_privilege": {
+    "authenticated:INSERT": 22,
+    "authenticated:SELECT": 235,
+    "authenticated:UPDATE": 22
+  }
+}

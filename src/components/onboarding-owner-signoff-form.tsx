@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   confirmOpeningReview,
   type OpeningReviewState,
@@ -43,6 +44,10 @@ export function OnboardingOwnerSignoffForm({
   requestId: string;
 }) {
   const [state, action, pending] = useActionState(confirmOpeningReview, initial);
+  const router = useRouter();
+  useEffect(() => {
+    if (state.recorded) router.refresh();
+  }, [state.recorded, router]);
   return (
     <section className="rounded-2xl border border-stone-300 bg-white p-4 sm:p-5" aria-labelledby="owner-signoff-title">
       <h2 id="owner-signoff-title" className="text-lg font-extrabold text-stone-950">

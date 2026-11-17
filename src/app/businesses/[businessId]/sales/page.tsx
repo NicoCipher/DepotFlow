@@ -17,8 +17,13 @@ export default async function BusinessSalesPage({params}:{params:Promise<{busine
   const business=businesses?.find(item=>item.business_id===businessId&&item.member_kind==="owner"&&item.business_status==="active");
   if(listError||!business) notFound();
 
-  const salesUiEnabled = process.env.NEXT_PUBLIC_BUSINESS_SALES_ENABLED === "true";
-  if (!salesUiEnabled) {
+  // The database is the release authority. Do not depend on a public
+  // Vercel environment flag that can drift from the tenant write gate.
+  const { data: salesUiEnabled, error: salesGateError } = await supabase.rpc(
+    "can_record_business_sale",
+    { p_business_id: businessId },
+  );
+  if (salesGateError || salesUiEnabled !== true) {
     return (
       <section className="mx-auto w-full max-w-2xl space-y-5 pb-8">
         <Link href="/businesses" className="quiet-link">← Your depots</Link>
@@ -28,7 +33,7 @@ export default async function BusinessSalesPage({params}:{params:Promise<{busine
         </header>
         <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
           <h2 className="font-bold">Business sales are not enabled yet</h2>
-          <p className="mt-2 text-sm text-stone-600">This screen is staged. The interface flag and the separate database sales gate must both be approved before a sale can be recorded.</p>
+          <p className="mt-2 text-sm text-stone-600">This screen is staged. The separate database sales gate must be enabled before a sale can be recorded.</p>
         </div>
       </section>
     );
@@ -89,6 +94,10 @@ export default async function BusinessSalesPage({params}:{params:Promise<{busine
       <h1 className="text-2xl font-extrabold text-stone-950">Record a sale</h1>
       <p className="text-sm leading-6 text-stone-600">This sale belongs only to {business.business_name}. Prices and stock are checked again when you save.</p>
     </header>
+    <div className="flex flex-wrap gap-2">
+      <Link href={`/businesses/${businessId}/stock`} className="secondary min-h-11 inline-flex items-center px-4">Current stock / receive</Link>
+      <Link href={`/businesses/${businessId}/customers`} className="secondary min-h-11 inline-flex items-center px-4">Customers</Link>
+    </div>
     {catalog.products.length===0||catalog.customers.length===0?<div className="rounded-2xl border border-stone-200 p-4">
       <h2 className="font-bold">This depot is not ready for sales</h2><p className="mt-2 text-sm text-stone-600">Add drinks, count their starting stock and register customers before recording a sale.</p>
       <Link href={"/businesses/" + businessId + "/drinks"} className="secondary mt-3 inline-flex min-h-11 items-center">Review drinks and stock</Link>

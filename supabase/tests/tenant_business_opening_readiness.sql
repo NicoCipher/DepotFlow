@@ -68,17 +68,15 @@ alter table public.customers enable trigger legacy_scope_business_write;
 do $default_off$
 begin
  if (select enabled from private.business_opening_readiness_gate)
- or has_function_privilege('authenticated',
+ or not has_function_privilege('authenticated',
   'public.preview_business_opening_readiness(uuid)','EXECUTE')
  or has_function_privilege('anon',
   'public.preview_business_opening_readiness(uuid)','EXECUTE') then
-  raise exception 'Readiness preview not disabled by default';
+  raise exception 'Readiness preview gate or authenticated-only owner grant is incorrect';
  end if;
 end;
 $default_off$;
 
-grant execute on function public.preview_business_opening_readiness(uuid)
- to authenticated;
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
  '89b00000-0000-4000-8000-000000000002',true);
@@ -172,10 +170,6 @@ update private.business_product_stock_count_gate set enabled=true where singleto
 update private.business_crate_count_gate set enabled=true where singleton;
 update private.business_bottle_count_gate set enabled=true where singleton;
 update private.business_customer_opening_gate set enabled=true where singleton;
-grant execute on function public.record_business_physical_opening(
- uuid,uuid,text,text,integer,integer,integer,date) to authenticated;
-grant execute on function public.record_business_customer_opening(
- uuid,uuid,uuid,integer,integer,date,text,jsonb,jsonb) to authenticated;
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
  '89b00000-0000-4000-8000-000000000002',true);
@@ -230,22 +224,17 @@ reset role;
 do $signoff_defaults$
 begin
  if (select enabled from private.business_opening_review_gate)
-    or has_function_privilege('authenticated',
+    or not has_function_privilege('authenticated',
       'public.prepare_business_opening_review(uuid)','EXECUTE')
-    or has_function_privilege('authenticated',
+    or not has_function_privilege('authenticated',
       'public.confirm_business_opening_review(uuid,uuid,text,text,boolean,boolean,boolean,boolean,boolean)','EXECUTE')
     or has_function_privilege('anon',
       'public.confirm_business_opening_review(uuid,uuid,text,text,boolean,boolean,boolean,boolean,boolean)','EXECUTE')
  then
-  raise exception 'Owner review RPCs were exposed before release approval';
+  raise exception 'Owner review gate or authenticated-only owner grants are incorrect';
  end if;
 end;
 $signoff_defaults$;
-grant execute on function public.prepare_business_opening_review(uuid)
- to authenticated;
-grant execute on function public.confirm_business_opening_review(
- uuid,uuid,text,text,boolean,boolean,boolean,boolean,boolean
-) to authenticated;
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
  '89b00000-0000-4000-8000-000000000002',true);
@@ -264,8 +253,6 @@ reset role;
 update private.business_opening_review_gate set enabled=true where singleton;
 -- Direct bottle count permission is given ONLY in this rollback test,
 -- to prove a same-quantity count makes the stored review token stale.
-grant execute on function public.count_business_empty_bottles(
- uuid,uuid,text,integer,integer,date) to authenticated;
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
  '89b00000-0000-4000-8000-000000000002',true);
@@ -422,13 +409,6 @@ release savepoint archived_opening_population;
 -- The previous opening counts were: 24 full drink bottles,
 -- zero physical crates, zero empty bottles. An ordinary recount that
 -- leaves EXACTLY the same totals still invalidates the opening snapshot.
-grant execute on function public.count_business_product_stock(
- uuid,uuid,uuid,numeric,numeric,integer,integer,date) to authenticated;
-grant execute on function public.count_business_empty_crates(
- uuid,uuid,uuid,integer,integer,date) to authenticated;
-grant execute on function public.count_business_empty_bottles(
- uuid,uuid,text,integer,integer,date) to authenticated;
-
 savepoint same_quantity_drink_recount;
 set local role authenticated;
 select set_config('request.jwt.claim.sub',

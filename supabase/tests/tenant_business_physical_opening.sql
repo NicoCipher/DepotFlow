@@ -67,25 +67,20 @@ alter table public.products enable trigger legacy_scope_business_write;
 do $default_off$
 begin
  if (select enabled from private.business_physical_opening_gate)
- or has_function_privilege('authenticated',
+ or not has_function_privilege('authenticated',
   'public.record_business_physical_opening(uuid,uuid,text,text,integer,integer,integer,date)',
   'EXECUTE')
  or has_function_privilege('anon',
   'public.record_business_physical_opening(uuid,uuid,text,text,integer,integer,integer,date)',
   'EXECUTE')
- or has_function_privilege('authenticated',
+ or not has_function_privilege('authenticated',
   'public.preview_business_opening_count_progress(uuid)','EXECUTE')
  or has_function_privilege('anon',
   'public.preview_business_opening_count_progress(uuid)','EXECUTE') then
-  raise exception 'Physical opening unexpectedly granted or active';
+  raise exception 'Physical opening gate or authenticated-only owner grant is incorrect';
  end if;
 end;
 $default_off$;
-grant execute on function public.record_business_physical_opening(
- uuid,uuid,text,text,integer,integer,integer,date
-) to authenticated;
-grant execute on function public.preview_business_opening_count_progress(uuid) to authenticated;
-
 set local role authenticated;
 select set_config('request.jwt.claim.sub',
  '89a00000-0000-4000-8000-000000000002',true);

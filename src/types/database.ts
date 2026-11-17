@@ -415,16 +415,19 @@ export type Database = {
       }
       empty_crate_stock: {
         Row: {
+          business_id: string | null
           crate_type: string | null
           crate_type_id: string
           quantity: number
         }
         Insert: {
+          business_id?: string | null
           crate_type?: string | null
           crate_type_id: string
           quantity?: number
         }
         Update: {
+          business_id?: string | null
           crate_type?: string | null
           crate_type_id?: string
           quantity?: number
@@ -449,14 +452,17 @@ export type Database = {
       money_owed: {
         Row: {
           amount: number
+          business_id: string | null
           customer_id: string
         }
         Insert: {
           amount?: number
+          business_id?: string | null
           customer_id: string
         }
         Update: {
           amount?: number
+          business_id?: string | null
           customer_id?: string
         }
         Relationships: [
@@ -1044,6 +1050,51 @@ export type Database = {
       }
     }
     Functions: {
+      record_business_customer_payment: {
+        Args: {
+          p_business_id: string
+          p_request_id: string
+          p_customer_id: string
+          p_amount: number
+          p_business_date: string
+          p_method: string
+        }
+        Returns: Json
+      }
+      activate_business_after_opening_review: {
+        Args: { p_business_id: string; p_request_id: string; p_review_token: string }
+        Returns: Json
+      }
+      business_opening_review_status: {
+        Args: { p_business_id: string }
+        Returns: Json
+      }
+      can_activate_business: {
+        Args: { p_business_id: string }
+        Returns: boolean
+      }
+      can_record_business_customer_payment: {
+        Args: { p_business_id: string }
+        Returns: boolean
+      }
+      can_receive_business_stock: {
+        Args: { p_business_id: string }
+        Returns: boolean
+      }
+      receive_business_stock: {
+        Args: {
+          p_business_id: string
+          p_request_id: string
+          p_product_id: string
+          p_crates: number
+          p_expected_stock: number
+          p_expected_empties: number
+          p_expected_bottles_per_crate: number
+          p_expected_crate_type_id: string
+          p_business_date: string
+        }
+        Returns: Json
+      }
       preview_business_opening_count_progress: {
         Args: { p_business_id: string }
         Returns: Json
