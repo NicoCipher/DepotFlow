@@ -102,6 +102,8 @@ export async function confirmBusinessReceiving(
   _previous: BusinessReceivingSaveState,
   _form: FormData,
 ): Promise<BusinessReceivingSaveState> {
+  void _previous;
+  void _form;
   if (!isUuid(businessId) || !isUuid(productId) || !isUuid(requestId)) {
     return { message: "Reopen the receiving form and review the stock again.", saved: false };
   }

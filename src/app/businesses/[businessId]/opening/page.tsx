@@ -168,7 +168,7 @@ export default async function BusinessOpeningReviewPage({
         />
       ) : reviewRecorded && !reviewedByCurrentOwner ? (
         <p className="mt-4 max-w-2xl rounded-xl border border-stone-200 p-3 text-sm text-stone-600">
-          The owner review was recorded by another owner. Only the owner who confirmed it can complete this depot's activation.
+          The owner review was recorded by another owner. Only the owner who confirmed it can complete this depot&apos;s activation.
         </p>
       ) : reviewRecorded ? (
         <p className="mt-4 max-w-2xl rounded-xl border border-stone-200 p-3 text-sm text-stone-600">
