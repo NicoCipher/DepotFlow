@@ -124,10 +124,16 @@ export default async function NewDepotCustomersPage({
                   <strong className="block break-words text-sm">{customer.name}</strong>
                   <span className="text-xs tabular-nums text-stone-600">{customer.phone}</span>
                 </span>
-                <Link href={`/businesses/${businessId}/customers/${customer.id}/opening`}
-                  className="secondary shrink-0 text-xs">
-                  Old balances
-                </Link>
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  <Link href={`/businesses/${businessId}/customers/${customer.id}/opening`}
+                    className="secondary text-xs">
+                    Old balances
+                  </Link>
+                  <Link href={`/businesses/${businessId}/customers/${customer.id}/pay`}
+                    className="secondary text-xs">
+                    Account / payment
+                  </Link>
+                </div>
               </li>
             ))}
           </ul>
